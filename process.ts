@@ -34,13 +34,12 @@ function applyChromaKey(data: Buffer): void {
   for (let i = 0; i < data.length; i += 4) {
     const r = data[i], g = data[i + 1], b = data[i + 2];
     const isPureGreen = chromaDist(r, g, b) <= CHROMA_THRESHOLD;
-    const isWhite = r > 240 && g > 240 && b > 240;
     
     // Catch dark green grid lines: G is dominant, and R/B are low. 
     // Added g > 80 lower bound to avoid mis-identifying dark character parts as grid.
     const isDarkGreen = g > 80 && g > r * 1.4 && g > b * 1.4 && r < 100 && b < 100;
     
-    if (isPureGreen || isWhite || isDarkGreen) data[i + 3] = 0;
+    if (isPureGreen || isDarkGreen) data[i + 3] = 0;
   }
 }
 
