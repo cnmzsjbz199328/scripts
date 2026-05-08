@@ -1,12 +1,12 @@
 ---
 name: hatch-pet-gemini
-description: 完整复刻 OpenAI hatch-pet 的 8x9 精灵图集生成方案，包含自动化处理工具。
+description: 完整复刻 OpenAI hatch-pet 的 9x4 精灵图集生成方案，包含自动化处理工具。
 ---
 
 # Hatch-Pet Gemini Skill
 
 ## 目标
-生成符合 Hatch-Pet 标准的 1536x832 像素（8列 x 4行）动画图集，并自动完成抠图、对齐和拼合。
+生成符合 Hatch-Pet 标准的 1728x832 像素（9列 x 4行）动画图集，并自动完成抠图、对齐和拼合。
 
 ## 自动化工具 (Local Tools)
 - **Prepare**: `npx tsx scripts/prepare.ts <pet_name>`
@@ -14,7 +14,8 @@ description: 完整复刻 OpenAI hatch-pet 的 8x9 精灵图集生成方案，�
 - **Assemble**: `npx tsx scripts/assemble.ts <pet_name>`
 
 ## 技术规格
-- **单帧**: 192x208px | **图集**: 1536x832px (8x4)
+- **单帧**: 192x208px | **图集**: 1728x832px (9x4)
+- **序列帧输入**: 3x3 网格图（9帧，每帧 192x208px，输入图尺寸约 576x624px）
 - **风格**: Codex Digital Pet Style (Pixel-ish, Chibi, Thick Outlines)
 - **背景**: 必须使用纯绿色 `#00FF00` 或纯白色，方便自动化工具抠图。
 
@@ -42,20 +43,8 @@ npx tsx scripts/process.ts MyPet reference path/to/reference.png
 
 ---
 
-### 3. 生成 Base 行 (Row 0)
-**必须附带参考图** `pet_runs/MyPet/reference/frame_0.png` 作为图像输入。
-
-**Prompt**:
-> "Using this reference, generate a 1x8 horizontal sprite strip of this pet in a base/idle breathing pose, side view, 8 frames. Codex style, #00FF00 background."
-
-```
-npx tsx scripts/process.ts MyPet base path/to/base_strip.png
-```
-
----
-
-### 4. 循环生成其它行 (Rows 1-8)
-**每次生成必须同时附带参考图和 Base 行图片**，确保外观一致性。
+### 3. 循环生成动画行
+**每次生成必须附带参考图** `pet_runs/MyPet/reference/frame_0.png` 作为图像输入，确保外观一致性。
 
 依次生成以下动画行：
 
@@ -66,28 +55,31 @@ npx tsx scripts/process.ts MyPet base path/to/base_strip.png
 | `swift-to-girl` | 变换成人形 |
 | `sleeping` | 逐渐休眠 |
 
+**Prompt 模板**：
+> "Using this reference, generate a 3x3 grid of sprite frames showing [description] animation, 9 frames total arranged in 3 columns and 3 rows. Each frame must be fully contained within its own equally-sized cell. Character centered in each cell with consistent scale. No element crosses cell boundaries. Codex style, #00FF00 background."
+
 每次生成后运行：
 ```
-npx tsx scripts/process.ts MyPet <row_name> path/to/strip.png
+npx tsx scripts/process.ts MyPet <row_name> path/to/grid.png
 ```
 
 ---
 
-### 5. 拼合阶段
+### 4. 拼合阶段
 所有行处理完成后：
 ```
 npx tsx scripts/assemble.ts MyPet
 ```
 最终产物：
-- `pet_runs/MyPet/output/spritesheet.webp` — 1536x1872 透明背景图集
+- `pet_runs/MyPet/output/spritesheet.webp` — 1728x832 透明背景图集
 - `pet_runs/MyPet/output/pet.json` — 含动画定义的元数据
 
 ---
 
 ## 核心 Prompt 约束
 - 参考图：单帧，正面，全身居中。
-- 动画行：**必须**是 1x8 水平长条。
+- 动画行：**必须**是 3x3 网格（9帧），**禁止**使用水平长条格式。
+- **每格内角色必须完整，不得超出格子边界**。
 - **必须**使用 #00FF00 或纯白背景。
-- **必须**保持角色在帧中心。
-- **禁止**动态模糊或半透明特效。
+- **禁止**动态模糊、半透明特效、速度线、阴影。
 - **每一行生成时必须携带参考图**，确保外观一致性。

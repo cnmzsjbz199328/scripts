@@ -9,7 +9,7 @@ import path from 'path';
 
 const FRAME_WIDTH = 192;
 const FRAME_HEIGHT = 208;
-const STRIP_COLUMNS = 8;
+const STRIP_COLUMNS = 9;
 // Euclidean RGB distance threshold for chroma key removal (matches OpenAI default: 96)
 const CHROMA_THRESHOLD = 96;
 const CELL_PADDING = 5;
@@ -82,11 +82,16 @@ function groupIntoFrames(components: Component[], frameCount: number): Component
     seeds = [...components].sort((a, b) => b.area - a.area).slice(0, frameCount);
   if (seeds.length < frameCount) return null;
 
-  // Pick top-N by area, then sort left-to-right by X center
+  // Pick top-N by area, then sort into grid (top-to-bottom rows, left-to-right within rows)
   seeds = [...seeds]
     .sort((a, b) => b.area - a.area)
-    .slice(0, frameCount)
-    .sort((a, b) => a.centerX - b.centerX);
+    .slice(0, frameCount);
+
+  seeds.sort((a, b) => {
+    const yDist = Math.abs(a.minY - b.minY);
+    if (yDist > 50) return a.minY - b.minY; // Different rows
+    return a.centerX - b.centerX; // Same row
+  });
 
   const seedSet = new Set(seeds);
   const groups: Component[][] = seeds.map(s => [s]);
@@ -135,22 +140,34 @@ async function renderSlotAsFrame(
   data: Buffer, imgWidth: number, imgHeight: number,
   slotIdx: number, frameCount: number
 ): Promise<Buffer> {
-  const slotW = imgWidth / frameCount;
-  const left  = Math.round(slotIdx * slotW);
-  const right = Math.round((slotIdx + 1) * slotW);
-  const w = right - left;
+  const isGrid = frameCount === 9;
+  const gridCols = isGrid ? 3 : frameCount;
+  const gridRows = isGrid ? 3 : 1;
+  
+  const slotW = imgWidth / gridCols;
+  const slotH = imgHeight / gridRows;
+  
+  const col = slotIdx % gridCols;
+  const row = Math.floor(slotIdx / gridCols);
+  
+  const left = Math.round(col * slotW);
+  const top = Math.round(row * slotH);
+  const w = Math.round((col + 1) * slotW) - left;
+  const h = Math.round((row + 1) * slotH) - top;
 
-  const slotBuf = Buffer.alloc(w * imgHeight * 4, 0);
-  for (let y = 0; y < imgHeight; y++) {
+  const slotBuf = Buffer.alloc(w * h * 4, 0);
+  for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {
-      const src = ((y * imgWidth) + left + x) * 4;
+      const src = (((top + y) * imgWidth) + left + x) * 4;
       const dst = (y * w + x) * 4;
-      slotBuf[dst]   = data[src];   slotBuf[dst+1] = data[src+1];
-      slotBuf[dst+2] = data[src+2]; slotBuf[dst+3] = data[src+3];
+      if (src >= 0 && src < data.length - 3) {
+        slotBuf[dst]   = data[src];   slotBuf[dst+1] = data[src+1];
+        slotBuf[dst+2] = data[src+2]; slotBuf[dst+3] = data[src+3];
+      }
     }
   }
 
-  return fitCropToCell(slotBuf, w, imgHeight);
+  return fitCropToCell(slotBuf, w, h);
 }
 
 // Scale crop to fit within (FRAME_WIDTH - 2*pad) × (FRAME_HEIGHT - 2*pad), center in cell
@@ -164,6 +181,7 @@ async function fitCropToCell(cropBuf: Buffer, cropW: number, cropH: number): Pro
   const resized = await sharp(cropBuf, { raw: { width: cropW, height: cropH, channels: 4 } })
     .trim()
     .resize(sw, sh, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
+    .png()
     .toBuffer();
 
   const left = Math.floor((FRAME_WIDTH  - sw) / 2);

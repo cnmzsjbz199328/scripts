@@ -9,7 +9,7 @@ import path from 'path';
 
 const FRAME_WIDTH = 192;
 const FRAME_HEIGHT = 208;
-const COLUMNS = 8;
+const COLUMNS = 9;
 const ROW_ORDER = [
   'jumping', 'running-left', 'swift-to-girl', 'sleeping'
 ];
