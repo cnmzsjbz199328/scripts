@@ -29,6 +29,7 @@ async function prepare(petName: string) {
       hatching: { status: 'pending' },
       jumping: { status: 'pending' },
       'running-left': { status: 'pending' },
+      attacking: { status: 'pending' },
       'swift-to-people': { status: 'pending' },
       sleeping: { status: 'pending' }
     }

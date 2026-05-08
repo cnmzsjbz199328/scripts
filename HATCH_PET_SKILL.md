@@ -32,7 +32,7 @@ description: 完整复刻 OpenAI hatch-pet 的 9x5 精灵图集生成方案，�
 - **Assemble**: `npx tsx scripts/assemble.ts <pet_name>`
 
 ## 技术规格
-- **单帧**: 192x208px | **图集**: 1728x1040px (9x5)
+- **单帧**: 192x208px | **图集**: 1728x1248px (9x6)
 - **网格标准**: **必须**是 3x3 网格（9帧），使用 **细实线深绿色 (#006600)** 分隔。
 - **构图标准**: 角色必须在每个格子内居中，并留出 **宽阔的绿色边距 (Wide Margin)**，严禁触碰或跨越网格线。
 - **背景**: 必须使用纯绿色 `#00FF00`。禁止阴影、草地、地板纹理或光效外溢。
@@ -44,6 +44,7 @@ description: 完整复刻 OpenAI hatch-pet 的 9x5 精灵图集生成方案，�
 | `hatching` | 从蛋中孵化诞生 | 否 |
 | `jumping` | 跳跃起落 | 否 |
 | `running-left` | 向左奔跑 | 是 |
+| `attacking` | 发动攻击 | 否 |
 | `swift-to-people` | 变换成人形 | 否 |
 | `sleeping` | 逐渐休眠 | 是 |
 
@@ -74,6 +75,9 @@ npx tsx scripts/process.ts MyPet reference path/to/reference.png
 
 **标准动作 (hatching, jumping, running-left)**:
 > "Using this reference, generate a 3x3 grid of 9 sequential frames showing this pet [ACTION]. {STYLE}. Separate frames with thin solid DARK GREEN grid lines (#006600). IMPORTANT: Character must be centered and stay away from lines with a wide margin. #00FF00 background. No shadows."
+
+**攻击动作 (attacking)**:
+> "Using this reference, generate a 3x3 grid of 9 sequential frames showing this pet performing a swift attack: wind-up (Frames 1-3), strike (Frames 4-6), and recovery (Frames 7-9). {STYLE}. Separate frames with thin solid DARK GREEN grid lines (#006600). IMPORTANT: Character must be centered and stay away from lines with a wide margin. #00FF00 background. No shadows."
 
 **幻化动作 (swift-to-people)**:
 > "Using this reference, generate a 3x3 grid of 9 sequential frames showing two stages: 1. Transformation (Frames 1-4): pet turns into magic light and becomes a {STYLE} human. 2. Walking (Frames 5-9): the human walking to the left. {STYLE}. Separate frames with DARK GREEN grid lines (#006600). #00FF00 background. No shadows."
