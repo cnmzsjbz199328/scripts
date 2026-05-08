@@ -11,21 +11,21 @@ const FRAME_WIDTH = 192;
 const FRAME_HEIGHT = 208;
 const COLUMNS = 8;
 const ROW_ORDER = [
-  'base', 'idle', 'running-right', 'running-left',
+  'base', 'idle', 'swift-to-girl', 'running-left',
   'waving', 'jumping', 'failed', 'review', 'sleeping'
 ];
 
 // Fix 4b: Animation definitions for game engine consumption
 const ANIMATION_DEFS: Record<string, { fps: number; loop: boolean }> = {
-  'base':          { fps: 4,  loop: true  },
-  'idle':          { fps: 6,  loop: true  },
-  'running-right': { fps: 12, loop: true  },
-  'running-left':  { fps: 12, loop: true  },
-  'waving':        { fps: 8,  loop: true  },
-  'jumping':       { fps: 10, loop: false },
-  'failed':        { fps: 6,  loop: false },
-  'review':        { fps: 6,  loop: true  },
-  'sleeping':      { fps: 4,  loop: true  },
+  'base':         { fps: 4,  loop: true  },
+  'idle':         { fps: 6,  loop: true  },
+  'swift-to-girl':{ fps: 10, loop: false },
+  'running-left': { fps: 12, loop: true  },
+  'waving':       { fps: 8,  loop: true  },
+  'jumping':      { fps: 10, loop: false },
+  'failed':       { fps: 6,  loop: false },
+  'review':       { fps: 6,  loop: true  },
+  'sleeping':     { fps: 4,  loop: true  },
 };
 
 async function assembleAtlas(petName: string) {

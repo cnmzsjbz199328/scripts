@@ -28,7 +28,7 @@ async function prepare(petName: string) {
     rows: {
       base: { status: 'pending' },
       idle: { status: 'pending' },
-      'running-right': { status: 'pending' },
+      'swift-to-girl': { status: 'pending' },
       'running-left': { status: 'pending' },
       waving: { status: 'pending' },
       jumping: { status: 'pending' },

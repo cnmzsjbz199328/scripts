@@ -79,20 +79,6 @@ async function processRow(petName: string, rowName: string, inputPath: string, c
   } else {
     manifest.rows[rowName] = { status: 'completed', updated_at: new Date().toISOString(), path: outputDir };
 
-    // Auto-generate running-left by flipping running-right
-    if (rowName === 'running-right' && manifest.rows['running-left']?.status !== 'completed') {
-      const leftDir = path.join(runDir, 'rows', 'running-left');
-      if (!fs.existsSync(leftDir)) fs.mkdirSync(leftDir, { recursive: true });
-      console.log('Auto-generating running-left from running-right (flop)...');
-      const totalFrames = columns * rows;
-      for (let i = 0; i < totalFrames; i++) {
-        await sharp(path.join(outputDir, `frame_${i}.png`))
-          .flop()
-          .toFile(path.join(leftDir, `frame_${i}.png`));
-      }
-      manifest.rows['running-left'] = { status: 'completed', updated_at: new Date().toISOString(), path: leftDir };
-      console.log('running-left auto-generated.');
-    }
   }
 
   fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2));

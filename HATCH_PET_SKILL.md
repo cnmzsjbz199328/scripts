@@ -62,7 +62,8 @@ npx tsx scripts/process.ts MyPet base path/to/base_strip.png
 | 行名 | 动作描述 |
 |------|----------|
 | `idle` | 原地轻微摇摆 |
-| `running-right` | 向右奔跑（`running-left` 由工具自动镜像生成） |
+| `swift-to-girl` | 快速冲向女孩 |
+| `running-left` | 向左奔跑 |
 | `waving` | 挥手 |
 | `jumping` | 跳跃起落 |
 | `failed` | 失败/沮丧 |
