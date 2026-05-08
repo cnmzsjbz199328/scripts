@@ -6,7 +6,7 @@ description: 完整复刻 OpenAI hatch-pet 的 8x9 精灵图集生成方案，�
 # Hatch-Pet Gemini Skill
 
 ## 目标
-生成符合 Hatch-Pet 标准的 1536x1872 像素（8列 x 9行）动画图集，并自动完成抠图、对齐和拼合。
+生成符合 Hatch-Pet 标准的 1536x832 像素（8列 x 4行）动画图集，并自动完成抠图、对齐和拼合。
 
 ## 自动化工具 (Local Tools)
 - **Prepare**: `npx tsx scripts/prepare.ts <pet_name>`
@@ -14,7 +14,7 @@ description: 完整复刻 OpenAI hatch-pet 的 8x9 精灵图集生成方案，�
 - **Assemble**: `npx tsx scripts/assemble.ts <pet_name>`
 
 ## 技术规格
-- **单帧**: 192x208px | **图集**: 1536x1872px (8x9)
+- **单帧**: 192x208px | **图集**: 1536x832px (8x4)
 - **风格**: Codex Digital Pet Style (Pixel-ish, Chibi, Thick Outlines)
 - **背景**: 必须使用纯绿色 `#00FF00` 或纯白色，方便自动化工具抠图。
 
@@ -61,14 +61,10 @@ npx tsx scripts/process.ts MyPet base path/to/base_strip.png
 
 | 行名 | 动作描述 |
 |------|----------|
-| `idle` | 原地轻微摇摆 |
-| `swift-to-girl` | 快速冲向女孩 |
-| `running-left` | 向左奔跑 |
-| `waving` | 挥手 |
 | `jumping` | 跳跃起落 |
-| `failed` | 失败/沮丧 |
-| `review` | 思考/审阅 |
-| `sleeping` | 睡眠 |
+| `running-left` | 向左奔跑 |
+| `swift-to-girl` | 变换成人形 |
+| `sleeping` | 逐渐休眠 |
 
 每次生成后运行：
 ```

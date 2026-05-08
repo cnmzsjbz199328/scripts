@@ -26,14 +26,9 @@ async function prepare(petName: string) {
     created_at: new Date().toISOString(),
     reference: { status: 'pending' },
     rows: {
-      base: { status: 'pending' },
-      idle: { status: 'pending' },
-      'swift-to-girl': { status: 'pending' },
-      'running-left': { status: 'pending' },
-      waving: { status: 'pending' },
       jumping: { status: 'pending' },
-      failed: { status: 'pending' },
-      review: { status: 'pending' },
+      'running-left': { status: 'pending' },
+      'swift-to-girl': { status: 'pending' },
       sleeping: { status: 'pending' }
     }
   };
