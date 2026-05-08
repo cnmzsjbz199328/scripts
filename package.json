@@ -1,0 +1,19 @@
+{
+  "name": "hatch-pet-scripts",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "pet:prepare": "tsx prepare.ts",
+    "pet:process": "tsx process.ts",
+    "pet:assemble": "tsx assemble.ts"
+  },
+  "dependencies": {
+    "sharp": "^0.33.5"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.0"
+  }
+}

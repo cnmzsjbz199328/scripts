@@ -1,0 +1,5 @@
+node_modules/
+dist/
+
+# Generated experiment runs (images, atlases, manifests)
+pet_runs/
