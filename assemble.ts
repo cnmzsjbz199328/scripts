@@ -11,10 +11,11 @@ const FRAME_WIDTH = 192;
 const FRAME_HEIGHT = 208;
 const COLUMNS = 9;
 const ROW_ORDER = [
-  'jumping', 'running-left', 'swift-to-girl', 'sleeping'
+  'hatching', 'jumping', 'running-left', 'swift-to-girl', 'sleeping'
 ];
 
 const ANIMATION_DEFS: Record<string, { fps: number; loop: boolean }> = {
+  'hatching':      { fps: 8, loop: false },
   'jumping':      { fps: 8, loop: false },
   'running-left': { fps: 8, loop: true  },
   'swift-to-girl':{ fps: 8, loop: false },
