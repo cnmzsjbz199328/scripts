@@ -10,7 +10,7 @@ description: 完整复刻 OpenAI hatch-pet 的 8x9 精灵图集生成方案，�
 
 ## 自动化工具 (Local Tools)
 - **Prepare**: `npx tsx scripts/prepare.ts <pet_name>`
-- **Process**: `npx tsx scripts/process.ts <pet_name> <row_name> <image_path> [columns] [rows]`
+- **Process**: `npx tsx scripts/process.ts <pet_name> <row_name> <image_path>`
 - **Assemble**: `npx tsx scripts/assemble.ts <pet_name>`
 
 ## 技术规格
@@ -34,7 +34,7 @@ npx tsx scripts/prepare.ts MyPet
 **Prompt**:
 > "Generate a single sprite of a [description] pet, front-facing pose, full body, centered. Codex Digital Pet Style, pixel-ish, chibi, thick outlines. #00FF00 background."
 
-生成后处理（1×1 单帧，工具自动默认）：
+生成后处理：
 ```
 npx tsx scripts/process.ts MyPet reference path/to/reference.png
 ```

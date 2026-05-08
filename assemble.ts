@@ -15,10 +15,10 @@ const ROW_ORDER = [
 ];
 
 const ANIMATION_DEFS: Record<string, { fps: number; loop: boolean }> = {
-  'jumping':      { fps: 10, loop: false },
-  'running-left': { fps: 12, loop: true  },
-  'swift-to-girl':{ fps: 8,  loop: false },
-  'sleeping':     { fps: 4,  loop: true  },
+  'jumping':      { fps: 8, loop: false },
+  'running-left': { fps: 8, loop: true  },
+  'swift-to-girl':{ fps: 8, loop: false },
+  'sleeping':     { fps: 8, loop: true  },
 };
 
 async function assembleAtlas(petName: string) {
