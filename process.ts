@@ -9,41 +9,196 @@ import path from 'path';
 
 const FRAME_WIDTH = 192;
 const FRAME_HEIGHT = 208;
-const STRIP_COLUMNS = 8; // All animation strips are always 8×1
+const STRIP_COLUMNS = 8;
+// Euclidean RGB distance threshold for chroma key removal (matches OpenAI default: 96)
+const CHROMA_THRESHOLD = 96;
+const CELL_PADDING = 5;
+
+interface Component {
+  pixels: number[];
+  area: number;
+  minX: number; minY: number; maxX: number; maxY: number;
+  centerX: number;
+}
+
+// Euclidean distance from #00FF00
+function chromaDist(r: number, g: number, b: number): number {
+  return Math.sqrt(r * r + (g - 255) ** 2 + b * b);
+}
+
+function applyChromaKey(data: Buffer): void {
+  for (let i = 0; i < data.length; i += 4) {
+    const r = data[i], g = data[i + 1], b = data[i + 2];
+    const isGreen = chromaDist(r, g, b) <= CHROMA_THRESHOLD;
+    const isWhite = r > 240 && g > 240 && b > 240;
+    if (isGreen || isWhite) data[i + 3] = 0;
+  }
+}
+
+// BFS connected components on the alpha channel
+function findComponents(data: Buffer, width: number, height: number): Component[] {
+  const visited = new Uint8Array(width * height);
+  const components: Component[] = [];
+
+  for (let start = 0; start < width * height; start++) {
+    if (data[start * 4 + 3] <= 16 || visited[start]) continue;
+
+    const stack = [start];
+    visited[start] = 1;
+    const pixels: number[] = [];
+    let minX = width, minY = height, maxX = 0, maxY = 0;
+
+    while (stack.length) {
+      const curr = stack.pop()!;
+      pixels.push(curr);
+      const x = curr % width;
+      const y = Math.floor(curr / width);
+      if (x < minX) minX = x; if (x > maxX) maxX = x;
+      if (y < minY) minY = y; if (y > maxY) maxY = y;
+
+      if (x > 0)          { const n = curr - 1;     if (!visited[n] && data[n*4+3] > 16) { visited[n] = 1; stack.push(n); } }
+      if (x < width - 1)  { const n = curr + 1;     if (!visited[n] && data[n*4+3] > 16) { visited[n] = 1; stack.push(n); } }
+      if (y > 0)          { const n = curr - width;  if (!visited[n] && data[n*4+3] > 16) { visited[n] = 1; stack.push(n); } }
+      if (y < height - 1) { const n = curr + width;  if (!visited[n] && data[n*4+3] > 16) { visited[n] = 1; stack.push(n); } }
+    }
+
+    components.push({
+      pixels, area: pixels.length,
+      minX, minY, maxX: maxX + 1, maxY: maxY + 1,
+      centerX: (minX + maxX + 1) / 2,
+    });
+  }
+  return components;
+}
+
+// Group components into N frames: find N seed components, attach noise to nearest seed
+function groupIntoFrames(components: Component[], frameCount: number): Component[][] | null {
+  if (!components.length) return null;
+
+  const largest = Math.max(...components.map(c => c.area));
+  const seedMin = Math.max(120, largest * 0.2);
+  let seeds = components.filter(c => c.area >= seedMin);
+  if (seeds.length < frameCount)
+    seeds = [...components].sort((a, b) => b.area - a.area).slice(0, frameCount);
+  if (seeds.length < frameCount) return null;
+
+  // Pick top-N by area, then sort left-to-right by X center
+  seeds = [...seeds]
+    .sort((a, b) => b.area - a.area)
+    .slice(0, frameCount)
+    .sort((a, b) => a.centerX - b.centerX);
+
+  const seedSet = new Set(seeds);
+  const groups: Component[][] = seeds.map(s => [s]);
+  const noiseMin = Math.max(12, largest * 0.002);
+
+  for (const c of components) {
+    if (seedSet.has(c) || c.area < noiseMin) continue;
+    let best = 0;
+    for (let i = 1; i < seeds.length; i++) {
+      if (Math.abs(seeds[i].centerX - c.centerX) < Math.abs(seeds[best].centerX - c.centerX))
+        best = i;
+    }
+    groups[best].push(c);
+  }
+  return groups;
+}
+
+// Build a 192×208 PNG from a group of components
+async function renderGroupAsFrame(
+  data: Buffer, imgWidth: number, _imgHeight: number,
+  group: Component[]
+): Promise<Buffer> {
+  const minX = Math.min(...group.map(c => c.minX));
+  const minY = Math.min(...group.map(c => c.minY));
+  const maxX = Math.max(...group.map(c => c.maxX));
+  const maxY = Math.max(...group.map(c => c.maxY));
+  const cropW = maxX - minX;
+  const cropH = maxY - minY;
+
+  const cropBuf = Buffer.alloc(cropW * cropH * 4, 0);
+  for (const comp of group) {
+    for (const idx of comp.pixels) {
+      const x = idx % imgWidth - minX;
+      const y = Math.floor(idx / imgWidth) - minY;
+      const src = idx * 4, dst = (y * cropW + x) * 4;
+      cropBuf[dst]   = data[src];   cropBuf[dst+1] = data[src+1];
+      cropBuf[dst+2] = data[src+2]; cropBuf[dst+3] = data[src+3];
+    }
+  }
+
+  return fitCropToCell(cropBuf, cropW, cropH);
+}
+
+// Build a 192×208 PNG from a fixed-width slot (fallback)
+async function renderSlotAsFrame(
+  data: Buffer, imgWidth: number, imgHeight: number,
+  slotIdx: number, frameCount: number
+): Promise<Buffer> {
+  const slotW = imgWidth / frameCount;
+  const left  = Math.round(slotIdx * slotW);
+  const right = Math.round((slotIdx + 1) * slotW);
+  const w = right - left;
+
+  const slotBuf = Buffer.alloc(w * imgHeight * 4, 0);
+  for (let y = 0; y < imgHeight; y++) {
+    for (let x = 0; x < w; x++) {
+      const src = ((y * imgWidth) + left + x) * 4;
+      const dst = (y * w + x) * 4;
+      slotBuf[dst]   = data[src];   slotBuf[dst+1] = data[src+1];
+      slotBuf[dst+2] = data[src+2]; slotBuf[dst+3] = data[src+3];
+    }
+  }
+
+  return fitCropToCell(slotBuf, w, imgHeight);
+}
+
+// Scale crop to fit within (FRAME_WIDTH - 2*pad) × (FRAME_HEIGHT - 2*pad), center in cell
+async function fitCropToCell(cropBuf: Buffer, cropW: number, cropH: number): Promise<Buffer> {
+  const maxW = FRAME_WIDTH  - CELL_PADDING * 2;
+  const maxH = FRAME_HEIGHT - CELL_PADDING * 2;
+  const scale = Math.min(maxW / cropW, maxH / cropH, 1.0);
+  const sw = Math.max(1, Math.round(cropW * scale));
+  const sh = Math.max(1, Math.round(cropH * scale));
+
+  const resized = await sharp(cropBuf, { raw: { width: cropW, height: cropH, channels: 4 } })
+    .trim()
+    .resize(sw, sh, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
+    .toBuffer();
+
+  const left = Math.floor((FRAME_WIDTH  - sw) / 2);
+  const top  = Math.floor((FRAME_HEIGHT - sh) / 2);
+
+  return sharp({
+    create: { width: FRAME_WIDTH, height: FRAME_HEIGHT, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } }
+  })
+    .composite([{ input: resized, left, top }])
+    .png()
+    .toBuffer();
+}
 
 async function extractFrames(inputPath: string, outputDir: string, columns: number): Promise<void> {
   if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir, { recursive: true });
 
-  const image = sharp(inputPath);
-  const metadata = await image.metadata();
-  if (!metadata.width || !metadata.height) throw new Error("Invalid image");
+  const { data, info } = await sharp(inputPath)
+    .ensureAlpha()
+    .raw()
+    .toBuffer({ resolveWithObject: true });
 
-  const frameWidth = metadata.width / columns;
+  applyChromaKey(data);
+
+  // Try component-based extraction first; fall back to equal slots
+  const components = findComponents(data, info.width, info.height);
+  const groups = groupIntoFrames(components, columns);
+  const method = groups ? 'components' : 'slots';
+  console.log(`  extraction method: ${method}`);
 
   for (let i = 0; i < columns; i++) {
-    const { data, info } = await image.clone()
-      .extract({
-        left: Math.round(i * frameWidth),
-        top: 0,
-        width: Math.round(frameWidth),
-        height: metadata.height
-      })
-      .ensureAlpha()
-      .raw()
-      .toBuffer({ resolveWithObject: true });
+    const frameBuf = groups
+      ? await renderGroupAsFrame(data, info.width, info.height, groups[i])
+      : await renderSlotAsFrame(data, info.width, info.height, i, columns);
 
-    for (let j = 0; j < data.length; j += 4) {
-      const r = data[j], g = data[j + 1], b = data[j + 2];
-      if ((g > 150 && (g - Math.max(r, b)) > 40) || (r > 240 && g > 240 && b > 240)) {
-        data[j + 3] = 0;
-      }
-    }
-
-    await sharp(data, { raw: { width: info.width, height: info.height, channels: 4 } })
-      .trim()
-      .resize(FRAME_WIDTH, FRAME_HEIGHT, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
-      .png()
-      .toFile(path.join(outputDir, `frame_${i}.png`));
+    fs.writeFileSync(path.join(outputDir, `frame_${i}.png`), frameBuf);
   }
 }
 
@@ -51,7 +206,6 @@ async function processRow(petName: string, rowName: string, inputPath: string) {
   const runDir = path.join('./pet_runs', petName);
   const manifestPath = path.join(runDir, 'manifest.json');
 
-  // Reference is a single frame; all animation rows are 8-frame strips
   const isReference = rowName === 'reference';
   const columns = isReference ? 1 : STRIP_COLUMNS;
   const outputDir = isReference
@@ -71,7 +225,7 @@ async function processRow(petName: string, rowName: string, inputPath: string) {
   }
 
   fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2));
-  console.log(`${rowName} processed and saved to ${outputDir}`);
+  console.log(`${rowName} saved to ${outputDir}`);
 }
 
 const args = process.argv.slice(2);
