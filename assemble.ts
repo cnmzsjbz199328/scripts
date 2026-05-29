@@ -10,17 +10,15 @@ import path from 'path';
 const FRAME_WIDTH = 192;
 const FRAME_HEIGHT = 208;
 const COLUMNS = 9;
-const ROW_ORDER = [
-  'hatching', 'jumping', 'running-left', 'attacking', 'swift-to-people', 'sleeping'
-];
+const ROW_ORDER = ['hatching', 'jumping', 'running-left', 'attacking', 'swift-to-people', 'sleeping'];
 
 const ANIMATION_DEFS: Record<string, { fps: number; loop: boolean }> = {
-  'hatching':       { fps: 8,  loop: false },
-  'jumping':        { fps: 8,  loop: false },
-  'running-left':   { fps: 8,  loop: true  },
-  'attacking':      { fps: 12, loop: false },
-  'swift-to-people':{ fps: 8,  loop: false },
-  'sleeping':       { fps: 8,  loop: true  },
+  'hatching':        { fps: 8,  loop: false },
+  'jumping':         { fps: 8,  loop: false },
+  'running-left':    { fps: 8,  loop: true  },
+  'attacking':       { fps: 10, loop: false },
+  'swift-to-people': { fps: 8,  loop: true  },
+  'sleeping':        { fps: 6,  loop: true  },
 };
 
 async function assembleAtlas(petName: string) {
