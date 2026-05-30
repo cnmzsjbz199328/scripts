@@ -1,5 +1,8 @@
 node_modules/
 dist/
 
-# Generated experiment runs (images, atlases, manifests)
-pet_runs/
+# Generated experiment runs — track only registry and preview
+pet_runs/**/*.png
+pet_runs/**/*.webp
+pet_runs/**/*.json
+pet_runs/*/
