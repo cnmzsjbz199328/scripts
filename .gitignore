@@ -6,3 +6,9 @@ pet_runs/**/*.png
 pet_runs/**/*.webp
 pet_runs/**/*.json
 pet_runs/*/
+
+# Generated texture runs — track only preview
+texture_runs/**/*.png
+texture_runs/**/*.webp
+texture_runs/**/*.json
+texture_runs/*/
