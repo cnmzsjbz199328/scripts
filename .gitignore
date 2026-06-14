@@ -12,3 +12,15 @@ texture_runs/**/*.png
 texture_runs/**/*.webp
 texture_runs/**/*.json
 texture_runs/*/
+
+# Generated animated object runs
+object_runs/**/*.png
+object_runs/**/*.webp
+object_runs/**/*.json
+object_runs/*/
+
+# Generated game project runs
+game_runs/**/*.png
+game_runs/**/*.webp
+game_runs/**/*.json
+game_runs/*/

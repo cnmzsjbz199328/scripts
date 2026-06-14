@@ -6,7 +6,14 @@
   "scripts": {
     "pet:prepare": "tsx prepare.ts",
     "pet:process": "tsx process.ts",
-    "pet:assemble": "tsx assemble.ts"
+    "pet:assemble": "tsx assemble.ts",
+    "texture:prepare": "tsx texture-prepare.ts",
+    "texture:process": "tsx texture-process.ts",
+    "texture:assemble": "tsx texture-assemble.ts",
+    "object:prepare": "tsx object-prepare.ts",
+    "object:process": "tsx object-process.ts",
+    "object:assemble": "tsx object-assemble.ts",
+    "game:prepare": "tsx game-prepare.ts"
   },
   "dependencies": {
     "sharp": "^0.33.5"
