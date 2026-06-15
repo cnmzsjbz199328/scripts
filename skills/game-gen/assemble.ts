@@ -177,27 +177,31 @@ async function assembleGame(gameName: string) {
       margin-top: 15px;
       font-size: 14px;
       color: #94a3b8;
+      text-align: center;
+      line-height: 1.6;
     }
   </style>
 </head>
 <body>
   <h1>${gameName}</h1>
   <div id="game-container"></div>
-  <div id="controls-tip">Controls: Arrow keys to move, Z to attack</div>
+  <div id="controls-tip">
+    Controls: WASD / Arrow Keys to move<br>
+    Z: Hoe Grass | X: Sleep/Wake | E: Open Chest
+  </div>
 
   <script>
-    const GAME_CONFIG = ${gameConfig.trim()};
-    const TILEMAP_DATA = ${tilemap.trim()};
-    const ENTITIES_DATA = ${entities.trim()};
-
-    ${gameLogicSection}
+    window.GAME_CONFIG = ${gameConfig.trim()};
+    window.TILEMAP_DATA = ${tilemap.trim()};
+    window.ENTITIES_DATA = ${entities.trim()};
   </script>
+  <script src="game/game-logic.js"></script>
 </body>
 </html>
 `;
 
   fs.writeFileSync(path.join(runDir, 'index.html'), htmlContent);
-  console.log(`Game HTML assembled successfully: \${path.join(runDir, 'index.html')}`);
+  console.log(`Game HTML assembled successfully: ${path.join(runDir, 'index.html')}`);
 
   manifest.status = 'assembled';
   manifest.updated_at = new Date().toISOString();
