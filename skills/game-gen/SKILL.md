@@ -1,6 +1,6 @@
 ---
 name: game-gen
-description: 从自然语言描述出发，由 Google Nano Banana 模型全程生成概念图、单体素材和动画帧，并行生成 Phaser.js 游戏逻辑，最终组装为可在浏览器中运行的可交互游戏。Claude 仅在后期承担审阅与优化职责。
+description: 从自然语言描述出发，由 Google Nano Banana 模型全程生成概念图、单体素材和动画帧，并行生成 Phaser.js 游戏逻辑，最终组装为可在浏览器中运行的可交互游戏。Gemini 仅在后期承担审阅与优化职责。
 ---
 
 # Game Gen Skill
@@ -14,7 +14,7 @@ description: 从自然语言描述出发，由 Google Nano Banana 模型全程�
 | 游戏逻辑生成 | Google（并行） | Phase 3 |
 | 脚本处理（chroma-key / 帧提取 / 拼图） | 本地 TypeScript 脚本 | Phase 3 |
 | 游戏组装 | 本地脚本 `game-assemble.ts` | Phase 4 |
-| 审阅 / 优化 | Claude | Phase 5（后期） |
+| 审阅 / 优化 | Gemini | Phase 5（后期） |
 
 ---
 
@@ -42,7 +42,7 @@ Phase 3  素材生成（图像）+ 游戏逻辑生成（代码）← 并行
               ↓
 Phase 4  游戏组装 → 可运行的 Phaser.js index.html
               ↓
-Phase 5  Claude 审阅 + 优化（后期）
+Phase 5  Gemini 审阅 + 优化（后期）
 ```
 
 ---
@@ -214,9 +214,9 @@ game_runs/<GameName>/
 
 ---
 
-## Phase 5 — Claude 审阅与优化（后期）
+## Phase 5 — Gemini 审阅与优化（后期）
 
-**Claude 在 Phase 4 完成后才介入。** 审阅内容：
+**Gemini 在 Phase 4 完成后才介入。** 审阅内容：
 
 | 检查项 | 方法 |
 |--------|------|

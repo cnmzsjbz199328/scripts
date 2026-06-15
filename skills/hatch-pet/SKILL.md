@@ -1,6 +1,6 @@
 ---
-name: hatch-pet-gemini
-description: 完整复刻 OpenAI hatch-pet 的 9x5 精灵图集生成方案，包含自动化处理工具。
+name: hatch-pet
+description: 完整复刻 OpenAI hatch-pet 的 9x6 精灵图集生成方案，包含自动化处理工具。
 ---
 
 # Hatch-Pet Gemini Skill

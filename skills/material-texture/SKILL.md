@@ -1,5 +1,5 @@
 ---
-name: game-material-texture
+name: material-texture
 description: 生成无缝平铺的纯反照率（Albedo）游戏材质贴图，支持 512x512/256x256 规格与本地平铺预览。
 ---
 

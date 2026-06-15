@@ -16,7 +16,8 @@
     "object:prepare": "tsx skills/object-anim/prepare.ts",
     "object:process": "tsx skills/object-anim/process.ts",
     "object:assemble": "tsx skills/object-anim/assemble.ts",
-    "game:prepare": "tsx skills/game-gen/prepare.ts"
+    "game:prepare": "tsx skills/game-gen/prepare.ts",
+    "game:assemble": "tsx skills/game-gen/assemble.ts"
   },
   "dependencies": {
     "sharp": "^0.33.5"
