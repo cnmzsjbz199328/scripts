@@ -263,22 +263,143 @@ npx tsx skills/object-anim/assemble.ts <ObjectName>
 **生成目标**：
 ```
 game_runs/<GameName>/game/
-  game-config.json    ← 地图尺寸、出生点、碰撞层定义
-  tilemap.json        ← Tiled 兼容格式，引用 tile 名称
+  game-config.json    ← 地图尺寸、出生点、图层声明
+  tilemap.json        ← 多图层瓦片数据
   entities.json       ← 角色 / 物体的初始位置和参数
   game-logic.js       ← Phaser.js 场景：加载、初始化、输入、更新循环
 ```
 
 **生成目标同时需读取 GDD**（`game_runs/<GameName>/gdd.json`），将胜负条件、核心循环、区域主题融入逻辑中。
 
+---
+
+#### game-config.json 结构
+
+```json
+{
+  "map": { "width": 1280, "height": 960, "tileWidth": 64, "tileHeight": 64 },
+  "player": { "spawn": { "x": 128, "y": 448 }, "speed": 160 },
+  "layers": [
+    { "name": "ground",      "collision": false, "ysort": false },
+    { "name": "decor_floor", "collision": false, "ysort": false },
+    { "name": "objects",     "collision": true,  "ysort": true  },
+    { "name": "decor_top",   "collision": false, "ysort": false }
+  ]
+}
+```
+
+- `collision: true` → 该层非零格子生成静态物理碰撞体
+- `ysort: true` → 该层精灵每帧按 Y 轴动态排序深度（与 entities 层共享排序池）
+
+#### tilemap.json 结构
+
+```json
+{
+  "width": 20, "height": 15,
+  "tileWidth": 64, "tileHeight": 64,
+  "tileIndex": {
+    "1": "grass_base",
+    "2": "dirt_tilled",
+    "3": "water_base",
+    "4": "fence_base",
+    "5": "grass_dry",
+    "6": "tree_trunk",
+    "7": "tree_canopy"
+  },
+  "layers": {
+    "ground":      [ /* 20×15 数字，0=空 */ ],
+    "decor_floor": [ /* 地面装饰：草丛、花、裂缝 */ ],
+    "objects":     [ /* 树干、石块、建筑（含碰撞）*/ ],
+    "decor_top":   [ /* 树冠、屋顶（遮住角色）*/ ]
+  }
+}
+```
+
+`tileIndex` 将整数映射到 `assets/tiles/<name>.png`，0 始终表示空格（不渲染）。
+
+---
+
 **game-logic.js 必须包含**：
-- 瓦片地图渲染（使用 `game-config.json` 中的碰撞层）
-- 角色加载（使用 `pet.json` 中的动画定义）
+- 按 `game-config.json layers[]` 顺序渲染各瓦片层，碰撞层自动生成静态物理体
+- **图层深度与 Y-sort**（见下方《图层与深度规范》，违反导致角色穿模）
+- 角色加载（使用 `char.json` 中的动画定义）
 - 键盘控制（← → / WASD 移动，Z 工具，X 睡眠，E 交互）
 - 动态物体循环播放（使用 `object.json` 中的 fps/loop 参数）
 - 摄像机跟随玩家
 - **胜利/失败检测**（基于 GDD `winCondition.trigger` / `loseCondition.trigger`）
 - **HUD 通信**（通过 `window.GameHUD` API 更新界面，见下）
+
+---
+
+#### 图层与深度规范（必须遵守，违反导致角色穿模或遮挡错误）
+
+**深度常量（在 create() 顶部声明）**：
+
+```javascript
+const DEPTH = {
+  GROUND:      0,
+  DECOR_FLOOR: 100,
+  YSORT:       1000,   // objects + entities 共享同一排序池，均用 1000 + sprite.y
+  DECOR_TOP:   9000,
+  EFFECTS:     9500,
+};
+```
+
+**渲染顺序**：
+
+```javascript
+// create() 中按顺序渲染各层
+this.renderTileLayer('ground',      DEPTH.GROUND);
+this.renderTileLayer('decor_floor', DEPTH.DECOR_FLOOR);
+this.ysortObjects = this.renderTileLayer('objects', DEPTH.YSORT, true); // 返回精灵数组
+this.renderTileLayer('decor_top',   DEPTH.DECOR_TOP);
+
+// 玩家初始深度
+this.player.setDepth(DEPTH.YSORT + this.player.y);
+```
+
+**`renderTileLayer` 参考实现**：
+
+```javascript
+renderTileLayer(layerName, baseDepth, returnSprites = false) {
+  const cfg  = GAME_CONFIG.layers.find(l => l.name === layerName);
+  const data = TILEMAP_DATA.layers[layerName];
+  if (!data) return [];
+
+  const sprites = [];
+  const W = TILEMAP_DATA.width, TW = TILEMAP_DATA.tileWidth, TH = TILEMAP_DATA.tileHeight;
+
+  data.forEach((id, i) => {
+    if (id === 0) return;
+    const x = (i % W) * TW + TW / 2;
+    const y = Math.floor(i / W) * TH + TH / 2;
+    const sp = this.add.image(x, y, `tile_${id}`).setDisplaySize(TW, TH);
+    sp.setDepth(returnSprites ? DEPTH.YSORT + y : baseDepth);
+    if (cfg?.collision) {
+      this.physics.add.existing(sp, true);   // static body
+      this.collidables.add(sp);
+    }
+    if (returnSprites) sprites.push(sp);
+  });
+  return sprites;
+}
+```
+
+**Y-sort 每帧刷新（update() 中）**：
+
+```javascript
+// 玩家
+this.player.setDepth(DEPTH.YSORT + this.player.y);
+
+// 所有需要 ysort 的实体（NPC、敌人、可互动物体）
+this.ysortGroup.getChildren().forEach(s => s.setDepth(DEPTH.YSORT + s.y));
+```
+
+**规则摘要**：
+- `decor_top` 层的 `setDepth(DEPTH.DECOR_TOP)` 固定不变，始终遮住所有 entities
+- 所有可移动实体（玩家、NPC、敌人）必须加入同一 `ysortGroup`
+- `objects` 层中 `ysort: true` 的精灵使用 `DEPTH.YSORT + sprite.y`，与实体共用排序池
+- `effects`（粒子、法术）固定使用 `DEPTH.EFFECTS`，不参与 Y-sort
 
 **window.GameHUD API（game-logic.js 与 HUD 通信的唯一接口）**：
 
