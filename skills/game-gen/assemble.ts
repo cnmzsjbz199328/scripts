@@ -79,6 +79,8 @@ function buildGameHudJs(gdd: GDD): string {
       if (el) el.textContent = day;
     },` : '';
 
+  // CRITICAL: window.__hudStart MUST be defined BEFORE the return statement.
+  // Defining it after return makes it dead code (IIFE exits before reaching it).
   return `window.GameHUD = (function () {
       let _startCallback = null;
       let _started = false;
@@ -86,6 +88,15 @@ function buildGameHudJs(gdd: GDD): string {
       function showHud() {
         document.getElementById('hud').style.display = 'flex';
       }
+
+      // __hudStart must be before return to capture _startCallback and showHud from closure
+      window.__hudStart = function () {
+        if (_started) return;
+        _started = true;
+        document.getElementById('start-screen').style.display = 'none';
+        showHud();
+        if (_startCallback) _startCallback();
+      };
 
       return {${heartsApi}${scoreApi}${objectiveApi}${dayApi}
 
@@ -102,15 +113,6 @@ function buildGameHudJs(gdd: GDD): string {
           if (overlay) overlay.style.display = 'flex';
           document.getElementById('hud').style.display = 'none';
         },
-      };
-
-      // Internal: called by start button
-      window.__hudStart = function () {
-        if (_started) return;
-        _started = true;
-        document.getElementById('start-screen').style.display = 'none';
-        showHud();
-        if (_startCallback) _startCallback();
       };
     })();`;
 }
@@ -255,6 +257,10 @@ async function assembleGame(gameName: string) {
   const gameLogicSection = gameLogic || fallbackLogic;
 
   // 6. Write index.html
+  const controlsTip = gameName === 'NeonRacer'
+    ? `Controls: WASD / Arrow Keys to steer left/right/up/down<br>SPACE: Quantum Boost (Instant Velocity Multiplier)`
+    : `Controls: WASD / Arrow Keys to move | 1-6: Select Hotbar Slot<br>Z: Use Equipped Item | X: Sleep (Advance Day & Grow Crops) | E: Interact (Chest / Gate / Bonfire / Shipping Bin)`;
+
   const htmlContent = `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -407,8 +413,7 @@ async function assembleGame(gameName: string) {
         ${storySetting ? `<p class="story-setting">${storySetting}</p>` : ''}
         <button id="start-btn" class="game-btn" onclick="window.__hudStart()">▶ START GAME</button>
         <p class="controls-hint">
-          WASD / Arrow Keys to move<br>
-          Z: Use Item &nbsp;|&nbsp; X: Sleep &nbsp;|&nbsp; E: Interact
+          ${controlsTip}
         </p>
       </div>
     </div>
