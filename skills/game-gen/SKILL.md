@@ -182,10 +182,7 @@ Google 多模态能力分析全景图，自动推导素材清单，输出结构�
 
 **用户确认素材清单后，Phase 3 方可启动。**
 
-初始化游戏项目：
-```bash
-npx tsx skills/game-gen/prepare.ts <GameName> --style=<style>
-```
+> 注：项目目录已在 Phase 0 由 `design.ts` 创建，此处无需再次初始化。直接进入 Phase 3 即可。
 
 ---
 
