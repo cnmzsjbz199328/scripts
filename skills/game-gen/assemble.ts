@@ -186,8 +186,8 @@ async function assembleGame(gameName: string) {
   <h1>${gameName}</h1>
   <div id="game-container"></div>
   <div id="controls-tip">
-    Controls: WASD / Arrow Keys to move<br>
-    Z: Hoe Grass | X: Sleep/Wake | E: Open Chest
+    Controls: WASD / Arrow Keys to move | 1-6: Select Hotbar Slot<br>
+    Z: Use Equipped Item | X: Sleep (Advance Day & Grow Crops) | E: Interact (Chest / Gate / Bonfire / Shipping Bin)
   </div>
 
   <script>
