@@ -167,7 +167,7 @@ async function redrawSleepingFarmer() {
   const frameWidth = 192;
   const frameHeight = 208;
   const frameCount = 9;
-  console.log('Generating sleeping farmer rotation + Zzz animation...');
+  console.log('Generating sleeping farmer crouching + Zzz animation...');
 
   for (let f = 0; f < frameCount; f++) {
     let frameBuf: Buffer;
@@ -176,88 +176,67 @@ async function redrawSleepingFarmer() {
       // Frame 0: Standing normal
       frameBuf = await sharp(refPath).raw().toBuffer();
     } else if (f === 1) {
-      // Frame 1: Squeezed / crouched slightly
+      // Frame 1: Squeezed / crouched slightly (Height 90%)
+      const squeezedHeight = Math.round(frameHeight * 0.9);
       const squeezed = await sharp(refPath)
-        .resize(frameWidth, Math.round(frameHeight * 0.9))
+        .resize(frameWidth, squeezedHeight)
         .toBuffer();
       
       frameBuf = await sharp({
         create: { width: frameWidth, height: frameHeight, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } }
       })
-        .composite([{ input: squeezed, top: 20, left: 0 }])
+        .composite([{ input: squeezed, top: frameHeight - squeezedHeight, left: 0 }])
         .raw()
         .toBuffer();
     } else if (f === 2) {
-      // Frame 2: Kneeling lower
+      // Frame 2: Kneeling lower (Height 80%)
+      const squeezedHeight = Math.round(frameHeight * 0.8);
       const squeezed = await sharp(refPath)
-        .resize(frameWidth, Math.round(frameHeight * 0.8))
+        .resize(frameWidth, squeezedHeight)
         .toBuffer();
       
       frameBuf = await sharp({
         create: { width: frameWidth, height: frameHeight, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } }
       })
-        .composite([{ input: squeezed, top: 40, left: 0 }])
-        .raw()
-        .toBuffer();
-    } else if (f === 3) {
-      // Frame 3: Rotating down (30 deg)
-      const rotated = await sharp(refPath)
-        .rotate(30, { background: { r: 0, g: 0, b: 0, alpha: 0 } })
-        .resize(frameWidth, frameHeight, { fit: 'inside' })
-        .toBuffer();
-      
-      frameBuf = await sharp({
-        create: { width: frameWidth, height: frameHeight, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } }
-      })
-        .composite([{ input: rotated, gravity: 'center' }])
-        .raw()
-        .toBuffer();
-    } else if (f === 4) {
-      // Frame 4: Rotating down more (60 deg)
-      const rotated = await sharp(refPath)
-        .rotate(60, { background: { r: 0, g: 0, b: 0, alpha: 0 } })
-        .resize(frameWidth, frameHeight, { fit: 'inside' })
-        .toBuffer();
-      
-      frameBuf = await sharp({
-        create: { width: frameWidth, height: frameHeight, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } }
-      })
-        .composite([{ input: rotated, gravity: 'center' }])
+        .composite([{ input: squeezed, top: frameHeight - squeezedHeight, left: 0 }])
         .raw()
         .toBuffer();
     } else {
-      // Frame 5-8: Lying completely flat (90 deg rotated)
-      const rotated = await sharp(refPath)
-        .rotate(90, { background: { r: 0, g: 0, b: 0, alpha: 0 } })
-        .resize(frameWidth, frameHeight, { fit: 'inside' })
+      // Frame 3-8: Crouched fully (Height 72%) and sleeping
+      const squeezedHeight = Math.round(frameHeight * 0.72);
+      const squeezed = await sharp(refPath)
+        .resize(frameWidth, squeezedHeight)
         .toBuffer();
       
-      // Composite rotated sprite slightly lower
-      const flatBase = await sharp({
+      const crouchedBase = await sharp({
         create: { width: frameWidth, height: frameHeight, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } }
       })
-        .composite([{ input: rotated, top: 45, left: 0 }])
+        .composite([{ input: squeezed, top: frameHeight - squeezedHeight, left: 0 }])
         .raw()
         .toBuffer({ resolveWithObject: true });
 
-      const buf = flatBase.data;
+      const buf = crouchedBase.data;
 
-      // Draw floating Zzz indicators (light blue/white wiggling up)
+      // Draw floating Zzz indicators wiggling up
       const zColor = { r: 147, g: 197, b: 253 }; // Light blue
 
-      if (f === 5) {
-        drawZ(buf, frameWidth, frameHeight, 115, 95, 1, zColor);
+      if (f === 3 || f === 4) {
+        drawZ(buf, frameWidth, frameHeight, 115, 60, 1, zColor);
+      } else if (f === 5) {
+        drawZ(buf, frameWidth, frameHeight, 110, 60, 1, zColor);
+        drawZ(buf, frameWidth, frameHeight, 122, 35, 2, zColor);
       } else if (f === 6) {
-        drawZ(buf, frameWidth, frameHeight, 110, 95, 1, zColor);
-        drawZ(buf, frameWidth, frameHeight, 122, 70, 2, zColor);
+        drawZ(buf, frameWidth, frameHeight, 112, 60, 1, zColor);
+        drawZ(buf, frameWidth, frameHeight, 120, 37, 2, zColor);
+        drawZ(buf, frameWidth, frameHeight, 135, 12, 3, zColor);
       } else if (f === 7) {
-        drawZ(buf, frameWidth, frameHeight, 112, 95, 1, zColor);
-        drawZ(buf, frameWidth, frameHeight, 120, 72, 2, zColor);
-        drawZ(buf, frameWidth, frameHeight, 135, 45, 3, zColor);
+        drawZ(buf, frameWidth, frameHeight, 115, 55, 1, zColor);
+        drawZ(buf, frameWidth, frameHeight, 123, 32, 2, zColor);
+        drawZ(buf, frameWidth, frameHeight, 137, 10, 3, zColor);
       } else if (f === 8) {
-        drawZ(buf, frameWidth, frameHeight, 115, 90, 1, zColor);
-        drawZ(buf, frameWidth, frameHeight, 123, 67, 2, zColor);
-        drawZ(buf, frameWidth, frameHeight, 137, 40, 3, zColor);
+        drawZ(buf, frameWidth, frameHeight, 110, 57, 1, zColor);
+        drawZ(buf, frameWidth, frameHeight, 125, 30, 2, zColor);
+        drawZ(buf, frameWidth, frameHeight, 132, 8, 3, zColor);
       }
 
       frameBuf = buf;
@@ -271,8 +250,65 @@ async function redrawSleepingFarmer() {
   }
 }
 
-// 3. Main runner to execute and re-assemble
+// 3. Generate Fence tile programmatically
+async function generateFence() {
+  const outputPath = './texture_runs/PixelFarm/output/fence_base.png';
+  const size = 512;
+  const buf = Buffer.alloc(size * size * 4, 0); // Transparent background
+
+  // Draw 2 thick vertical posts (dark brown and light brown inner)
+  for (let xOffset of [128, 384]) {
+    for (let y = 0; y < size; y++) {
+      for (let x = xOffset - 24; x <= xOffset + 24; x++) {
+        const isOutline = x === xOffset - 24 || x === xOffset + 24;
+        if (isOutline) {
+          drawPixel(buf, size, size, x, y, 0, 0, 0, 255); // black outline
+        } else {
+          drawPixel(buf, size, size, x, y, 92, 64, 51, 255); // dark brown
+        }
+      }
+      for (let x = xOffset - 16; x <= xOffset + 16; x++) {
+        drawPixel(buf, size, size, x, y, 139, 90, 43, 255); // light brown inner
+      }
+    }
+  }
+
+  // Draw 2 horizontal bars (planks) connecting them
+  for (let yOffset of [150, 350]) {
+    for (let x = 0; x < size; x++) {
+      for (let y = yOffset - 16; y <= yOffset + 16; y++) {
+        const isOutline = y === yOffset - 16 || y === yOffset + 16;
+        if (isOutline) {
+          drawPixel(buf, size, size, x, y, 0, 0, 0, 255); // black outline
+        } else {
+          drawPixel(buf, size, size, x, y, 70, 48, 38, 255); // dark brown
+        }
+      }
+      for (let y = yOffset - 10; y <= yOffset + 10; y++) {
+        drawPixel(buf, size, size, x, y, 115, 75, 35, 255); // light wood inner
+      }
+    }
+  }
+
+  // Draw wood grain details on posts
+  for (let xOffset of [128, 384]) {
+    for (let y = 50; y < size; y += 100) {
+      for (let dy = 0; dy < 30; dy++) {
+        drawPixel(buf, size, size, xOffset - 6, y + dy, 60, 40, 30, 255);
+      }
+    }
+  }
+
+  fs.mkdirSync(path.dirname(outputPath), { recursive: true });
+  await sharp(buf, { raw: { width: size, height: size, channels: 4 } })
+    .png()
+    .toFile(outputPath);
+  console.log('Generated fence tile at:', outputPath);
+}
+
+// 4. Main runner to execute and re-assemble
 async function main() {
+  await generateFence();
   await redrawBonfire();
   await redrawSleepingFarmer();
 
