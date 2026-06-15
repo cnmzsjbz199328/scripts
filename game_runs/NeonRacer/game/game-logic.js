@@ -38,6 +38,16 @@ class MainScene extends Phaser.Scene {
 
     // 5. Load Background Image
     this.load.image('neon_city_bg', 'assets/scene/neon_city_bg.jpg');
+
+    // 6. Load Sky building textures
+    this.load.image('building_a', 'assets/tiles/building_a.png');
+    this.load.image('building_b', 'assets/tiles/building_b.png');
+
+    // 7. Load Billboard Spritesheet
+    this.load.spritesheet('billboard', 'assets/objects/billboard.webp', {
+      frameWidth: 128,
+      frameHeight: 64
+    });
   }
 
   create() {
@@ -63,6 +73,32 @@ class MainScene extends Phaser.Scene {
 
     // Map 2D array to track tile sprites on screen (ground/decor)
     this.tileSprites = [];
+
+    // Billboard animation
+    this.anims.create({
+      key: 'billboard_blink',
+      frames: this.anims.generateFrameNumbers('billboard', { start: 0, end: 1 }),
+      frameRate: 2,
+      repeat: -1
+    });
+
+    // Spawn parallax skyscrapers along side gutters
+    this.skyscrapers = this.add.group();
+    for (let y = 6000; y >= 400; y -= 600) {
+      const bLeftType = Phaser.Math.Between(0, 1) === 0 ? 'building_a' : 'building_b';
+      const bLeft = this.add.sprite(70, y + Phaser.Math.Between(-80, 80), bLeftType);
+      bLeft.setOrigin(0.5, 1);
+      bLeft.setScrollFactor(0.4, 0.4);
+      bLeft.setDepth(-80);
+      this.skyscrapers.add(bLeft);
+
+      const bRightType = Phaser.Math.Between(0, 1) === 0 ? 'building_a' : 'building_b';
+      const bRight = this.add.sprite(890, y + Phaser.Math.Between(-80, 80), bRightType);
+      bRight.setOrigin(0.5, 1);
+      bRight.setScrollFactor(0.4, 0.4);
+      bRight.setDepth(-80);
+      this.skyscrapers.add(bRight);
+    }
 
     // Render layers dynamically
     GAME_CONFIG.layers.forEach(layerConfig => {
@@ -340,26 +376,45 @@ class MainScene extends Phaser.Scene {
       battery.play('battery_sparkle');
       battery.setDepth(DEPTH.YSORT + battery.y);
       this.ysortGroup.add(battery);
+
+      // Pulsating scale tween to represent neon pulsating glow
+      this.tweens.add({
+        targets: battery,
+        scaleX: battery.scaleX * 1.3,
+        scaleY: battery.scaleY * 1.3,
+        duration: 450,
+        yoyo: true,
+        repeat: -1
+      });
     }
 
     // Spawn floating neon signs/hologram billboards in the side gutters
     if (Phaser.Math.Between(1, 10) <= 6) {
       const isLeft = Phaser.Math.Between(0, 1) === 0;
       const x = isLeft ? Phaser.Math.Between(40, 160) : Phaser.Math.Between(800, 920);
-      const signs = ['NEON', 'SPEED', '2099', 'TOKYO', 'PHANTOM', '⚡', '🤖', '🍒', '🔋', 'BOOST'];
-      const word = Phaser.Utils.Array.GetRandom(signs);
-      const colors = ['#f43f5e', '#06b6d4', '#eab308', '#a855f7', '#10b981'];
-      const color = Phaser.Utils.Array.GetRandom(colors);
-      const txt = this.add.text(x, spawnY, word, {
-        font: 'bold 20px Courier',
-        fill: color,
-        stroke: '#ffffff',
-        strokeThickness: 2
-      }).setOrigin(0.5);
-      // Give text a subtle glow shadow
-      txt.setShadow(0, 0, color, 12, true, true);
-      txt.setDepth(DEPTH.DECOR_FLOOR + txt.y);
-      this.decors.add(txt);
+      const isBillboard = Phaser.Math.Between(1, 2) === 1;
+
+      if (isBillboard) {
+        const billboard = this.decors.create(x, spawnY, 'billboard');
+        billboard.setDisplaySize(110, 55);
+        billboard.play('billboard_blink');
+        billboard.setDepth(DEPTH.DECOR_FLOOR + billboard.y);
+      } else {
+        const signs = ['NEON', 'SPEED', '2099', 'TOKYO', 'PHANTOM', '⚡', '🤖', '🍒', '🔋', 'BOOST'];
+        const word = Phaser.Utils.Array.GetRandom(signs);
+        const colors = ['#f43f5e', '#06b6d4', '#eab308', '#a855f7', '#10b981'];
+        const color = Phaser.Utils.Array.GetRandom(colors);
+        const txt = this.add.text(x, spawnY, word, {
+          font: 'bold 20px Courier',
+          fill: color,
+          stroke: '#ffffff',
+          strokeThickness: 2
+        }).setOrigin(0.5);
+        // Give text a subtle glow shadow
+        txt.setShadow(0, 0, color, 12, true, true);
+        txt.setDepth(DEPTH.DECOR_FLOOR + txt.y);
+        this.decors.add(txt);
+      }
     }
   }
 
