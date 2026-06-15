@@ -38,12 +38,26 @@ npx tsx skills/char-sprite/assemble.ts <CharName>
 
 | 游戏类型 | 推荐动画行 |
 |----------|-----------|
-| 俯视 RPG（农场/冒险） | `walk-down, walk-up, walk-left, walk-right, tool-use, sleeping` |
+| 俯视 RPG（农场/冒险） | `walk-down, walk-up, walk-left, tool-use, sleeping` |
 | 横版平台 | `idle, run, jump, attack, hurt, death` |
 | 俯视 Action | `idle, walk, dash, attack, block, death` |
 | 格斗 | `idle, walk-forward, walk-back, attack-light, attack-heavy, block, knockback, victory` |
 
 fps / loop 在生成的 `manifest.json` 中可逐行调整（默认 fps=8, loop=true）。
+
+### 引擎翻转优化：省略对称方向行
+
+对于左右对称的动作（walk / run / dash），只需生成 `walk-left`，在 Phaser.js 中用 `setFlipX(true)` 动态呈现向右行走，可节省一行 AI 生成成本和图集体积。
+
+```js
+// game-logic.js 示例
+if (cursors.left.isDown)  { player.setFlipX(false); player.play('walk-left', true); }
+if (cursors.right.isDown) { player.setFlipX(true);  player.play('walk-left', true); }
+```
+
+**适合翻转复用的行**：`walk-left/right`、`run-left/right`、`dash-left/right`、`attack-left/right`
+
+**不适合翻转复用的行**：`walk-down/up`（俯视方向不对称）、`tool-use`（动作有方向性）、格斗游戏的 `walk-forward/back`（左右含义不同）
 
 ---
 
@@ -60,21 +74,20 @@ fps / loop 在生成的 `manifest.json` 中可逐行调整（默认 fps=8, loop=
 ## 完整工作流示例（俯视 RPG 农夫）
 
 ```bash
-# 1. 初始化
+# 1. 初始化（walk-right 由引擎翻转 walk-left 实现，无需单独生成）
 npx tsx skills/char-sprite/prepare.ts Farmer \
-  --anims="walk-down,walk-up,walk-left,walk-right,tool-use,sleeping" \
+  --anims="walk-down,walk-up,walk-left,tool-use,sleeping" \
   --fps=8
 
 # 2. 处理参考图
 npx tsx skills/char-sprite/process.ts Farmer reference path/to/farmer_ref.png
 
 # 3. 逐行处理（每行对应一张 3×3 网格图）
-npx tsx skills/char-sprite/process.ts Farmer walk-down   path/to/walk_down.png
-npx tsx skills/char-sprite/process.ts Farmer walk-up     path/to/walk_up.png
-npx tsx skills/char-sprite/process.ts Farmer walk-left   path/to/walk_left.png
-npx tsx skills/char-sprite/process.ts Farmer walk-right  path/to/walk_right.png
-npx tsx skills/char-sprite/process.ts Farmer tool-use    path/to/tool_use.png
-npx tsx skills/char-sprite/process.ts Farmer sleeping    path/to/sleeping.png
+npx tsx skills/char-sprite/process.ts Farmer walk-down  path/to/walk_down.png
+npx tsx skills/char-sprite/process.ts Farmer walk-up    path/to/walk_up.png
+npx tsx skills/char-sprite/process.ts Farmer walk-left  path/to/walk_left.png
+npx tsx skills/char-sprite/process.ts Farmer tool-use   path/to/tool_use.png
+npx tsx skills/char-sprite/process.ts Farmer sleeping   path/to/sleeping.png
 
 # 4. 组装图集
 npx tsx skills/char-sprite/assemble.ts Farmer
@@ -84,7 +97,7 @@ npx tsx skills/char-sprite/assemble.ts Farmer
 ```
 char_runs/Farmer/
   output/
-    spritesheet.webp   ← 9×192 宽 × 6×208 高
+    spritesheet.webp   ← 9×192 宽 × 5×208 高
     char.json          ← 包含各动画行的 row/frameCount/fps/loop
 ```
 
