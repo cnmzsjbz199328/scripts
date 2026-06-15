@@ -127,11 +127,13 @@ async function assembleGame(gameName: string) {
   const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf-8'));
   console.log(`Assembling game project: ${gameName}...`);
 
-  // Load GDD if available
   const gddPath = path.join(runDir, 'gdd.json');
-  const gdd: GDD = fs.existsSync(gddPath)
-    ? JSON.parse(fs.readFileSync(gddPath, 'utf-8'))
-    : {};
+  if (!fs.existsSync(gddPath)) {
+    console.error(`gdd.json not found at: ${gddPath}`);
+    console.error(`Run Phase 0 first: npx tsx skills/game-gen/design.ts ${gameName}`);
+    process.exit(1);
+  }
+  const gdd: GDD = JSON.parse(fs.readFileSync(gddPath, 'utf-8'));
 
   const assetsDir = path.join(runDir, 'assets');
   const tilesDest = path.join(assetsDir, 'tiles');
@@ -162,18 +164,12 @@ async function assembleGame(gameName: string) {
   // 2. Copy characters
   const characters = manifest.assets?.characters || [];
   for (const char of characters) {
-    const proj = char.petProject || char.charProject || char.name;
-
-    let srcDir = path.join('./char_runs', proj, 'output');
-    let jsonName = 'char.json';
-    if (!fs.existsSync(srcDir)) {
-      srcDir = path.join('./pet_runs', proj, 'output');
-      jsonName = 'pet.json';
-    }
+    const proj = char.charProject || char.name;
+    const srcDir = path.join('./char_runs', proj, 'output');
 
     if (fs.existsSync(srcDir)) {
       const webpSrc = path.join(srcDir, 'spritesheet.webp');
-      const jsonSrc = path.join(srcDir, jsonName);
+      const jsonSrc = path.join(srcDir, 'char.json');
       if (fs.existsSync(webpSrc)) {
         fs.copyFileSync(webpSrc, path.join(spritesDest, `${char.name}.webp`));
         console.log(`Copied character spritesheet: ${char.name}.webp`);
