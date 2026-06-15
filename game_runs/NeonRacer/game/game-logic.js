@@ -35,6 +35,9 @@ class MainScene extends Phaser.Scene {
       frameWidth: 64,
       frameHeight: 64
     });
+
+    // 5. Load Background Image
+    this.load.image('neon_city_bg', 'assets/scene/neon_city_bg.jpg');
   }
 
   create() {
@@ -44,6 +47,11 @@ class MainScene extends Phaser.Scene {
     this.tileW = TILEMAP_DATA.tileWidth;
     this.tileH = TILEMAP_DATA.tileHeight;
 
+    // 0. Background Parallax City Skyline
+    this.backgroundBg = this.add.tileSprite(480, 300, 960, 600, 'neon_city_bg');
+    this.backgroundBg.setScrollFactor(0);
+    this.backgroundBg.setDepth(-100);
+
     // Groups
     this.ysortGroup = this.add.group();
     this.obstaclesGroup = this.physics.add.staticGroup();
@@ -51,6 +59,7 @@ class MainScene extends Phaser.Scene {
     // Dynamic obstacles and battery groups
     this.batteries = this.physics.add.group();
     this.roadblocks = this.physics.add.group();
+    this.decors = this.add.group();
 
     // Map 2D array to track tile sprites on screen (ground/decor)
     this.tileSprites = [];
@@ -212,6 +221,11 @@ class MainScene extends Phaser.Scene {
   update(time, delta) {
     if (!this.gameStarted) return;
 
+    // Scroll Background Parallax
+    if (this.backgroundBg) {
+      this.backgroundBg.tilePositionY = this.player.y * 0.25;
+    }
+
     if (this.isCrashed || this.victoryShown || this.defeatShown) {
       this.player.setVelocity(0, 0);
       return;
@@ -273,6 +287,7 @@ class MainScene extends Phaser.Scene {
       this.player.play('steer_left', true); // flip steer_left for right steering
       this.player.setFlipX(true);
     } else {
+      this.player.setFlipX(false);
       if (isBoosting) {
         this.player.play('boost', true);
       } else {
@@ -299,8 +314,8 @@ class MainScene extends Phaser.Scene {
   }
 
   spawnWave(spawnY) {
-    // Road lanes: x coordinates between 100 and 860
-    const lanes = [180, 300, 420, 540, 660, 780];
+    // Road lanes: x coordinates centered around road columns 4-10
+    const lanes = [288, 352, 416, 480, 544, 608, 672];
     Phaser.Utils.Array.Shuffle(lanes);
 
     // Spawn 1-2 roadblock obstacles
@@ -325,6 +340,26 @@ class MainScene extends Phaser.Scene {
       battery.play('battery_sparkle');
       battery.setDepth(DEPTH.YSORT + battery.y);
       this.ysortGroup.add(battery);
+    }
+
+    // Spawn floating neon signs/hologram billboards in the side gutters
+    if (Phaser.Math.Between(1, 10) <= 6) {
+      const isLeft = Phaser.Math.Between(0, 1) === 0;
+      const x = isLeft ? Phaser.Math.Between(40, 160) : Phaser.Math.Between(800, 920);
+      const signs = ['NEON', 'SPEED', '2099', 'TOKYO', 'PHANTOM', '⚡', '🤖', '🍒', '🔋', 'BOOST'];
+      const word = Phaser.Utils.Array.GetRandom(signs);
+      const colors = ['#f43f5e', '#06b6d4', '#eab308', '#a855f7', '#10b981'];
+      const color = Phaser.Utils.Array.GetRandom(colors);
+      const txt = this.add.text(x, spawnY, word, {
+        font: 'bold 20px Courier',
+        fill: color,
+        stroke: '#ffffff',
+        strokeThickness: 2
+      }).setOrigin(0.5);
+      // Give text a subtle glow shadow
+      txt.setShadow(0, 0, color, 12, true, true);
+      txt.setDepth(DEPTH.DECOR_FLOOR + txt.y);
+      this.decors.add(txt);
     }
   }
 
@@ -360,13 +395,16 @@ class MainScene extends Phaser.Scene {
   }
 
   cleanupOffscreenObjects() {
-    // Destroy obstacles/batteries that the player has completely passed
+    // Destroy obstacles/batteries/decors that the player has completely passed
     const limitY = this.player.y + 400;
     this.batteries.getChildren().forEach(b => {
       if (b.y > limitY) b.destroy();
     });
     this.roadblocks.getChildren().forEach(r => {
       if (r.y > limitY) r.destroy();
+    });
+    this.decors.getChildren().forEach(d => {
+      if (d.y > limitY) d.destroy();
     });
   }
 

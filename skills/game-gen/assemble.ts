@@ -446,6 +446,15 @@ async function assembleGame(gameName: string) {
         if (!win) title.textContent = 'GAME OVER';
       }
     };
+
+    // Headless autostart trigger for gameplay screenshot capture
+    if (window.location.search.includes('autostart')) {
+      window.addEventListener('load', () => {
+        setTimeout(() => {
+          if (window.__hudStart) window.__hudStart();
+        }, 200);
+      });
+    }
   </script>
   <script src="game/game-logic.js"></script>
 </body>
