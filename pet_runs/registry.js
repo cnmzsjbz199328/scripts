@@ -530,5 +530,64 @@ window.PET_REGISTRY = {
       }
     },
     "spritesheet": "Stickman_Grid/output/spritesheet.webp"
+  },
+  "Farmer": {
+    "name": "Farmer",
+    "type": "hatch-pet-v1",
+    "dimensions": {
+      "width": 1728,
+      "height": 1248
+    },
+    "frameSize": {
+      "width": 192,
+      "height": 208
+    },
+    "rows": [
+      "hatching",
+      "jumping",
+      "running-left",
+      "attacking",
+      "swift-to-people",
+      "sleeping"
+    ],
+    "animations": {
+      "hatching": {
+        "row": 0,
+        "frameCount": 9,
+        "fps": 8,
+        "loop": false
+      },
+      "jumping": {
+        "row": 1,
+        "frameCount": 9,
+        "fps": 8,
+        "loop": false
+      },
+      "running-left": {
+        "row": 2,
+        "frameCount": 9,
+        "fps": 8,
+        "loop": true
+      },
+      "attacking": {
+        "row": 3,
+        "frameCount": 9,
+        "fps": 10,
+        "loop": false
+      },
+      "swift-to-people": {
+        "row": 4,
+        "frameCount": 9,
+        "fps": 8,
+        "loop": true
+      },
+      "sleeping": {
+        "row": 5,
+        "frameCount": 9,
+        "fps": 6,
+        "loop": true
+      }
+    },
+    "spritesheet": "Farmer/output/spritesheet.webp"
   }
 };
