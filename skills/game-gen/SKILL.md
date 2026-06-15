@@ -1,6 +1,6 @@
 ---
 name: game-gen
-description: 从自然语言描述出发，由 Google Nano Banana 模型全程生成概念图、单体素材和动画帧，并行生成 Phaser.js 游戏逻辑，最终组装为可在浏览器中运行的可交互游戏。Gemini 仅在后期承担审阅与优化职责。
+description: 从自然语言描述出发，由游戏策划师（Phase 0）生成 GDD，Google Nano Banana 模型全程生成概念图、单体素材和动画帧，并行生成含 UI/HUD 的 Phaser.js 游戏逻辑，最终组装为可在浏览器中运行的可交互游戏。
 ---
 
 # Game Gen Skill
@@ -9,6 +9,7 @@ description: 从自然语言描述出发，由 Google Nano Banana 模型全程�
 
 | 角色 | 执行者 | 介入时机 |
 |------|--------|---------|
+| 游戏策划（GDD 生成） | Claude（游戏策划师角色） | Phase 0 |
 | 图像生成 | Google Nano Banana（图像生成模型） | Phase 1–3 |
 | 图像理解 / 素材推导 | Google 多模态能力 | Phase 2 |
 | 游戏逻辑生成 | Google（并行） | Phase 3 |
@@ -31,30 +32,109 @@ description: 从自然语言描述出发，由 Google Nano Banana 模型全程�
 ## 全流程架构
 
 ```
-Phase 1  需求收集 + 全景图生成
+Phase 0  游戏策划师 → GDD（游戏设计文档）
+              ↓
+Phase 1  全景图生成（基于 GDD 世界观）
               ↓
 Phase 2  多模态识图 → 素材清单（用户确认）
               ↓
 Phase 3  素材生成（图像）+ 游戏逻辑生成（代码）← 并行
          ├─ 瓦片贴图   → material-texture pipeline
-         ├─ 角色精灵   → hatch-pet pipeline
+         ├─ 角色精灵   → char-sprite pipeline
          └─ 动态物体   → object-anim pipeline
               ↓
-Phase 4  游戏组装 → 可运行的 Phaser.js index.html
+Phase 4  游戏组装 → 含 UI/HUD 的 Phaser.js index.html
               ↓
 Phase 5  Gemini 审阅 + 优化（后期）
 ```
 
 ---
 
-## Phase 1 — 需求收集与全景图生成
+## Phase 0 — 游戏策划（Game Designer）
 
-### 1.1 收集信息
+Phase 0 由 Claude 扮演游戏策划师角色，将用户的一句简述扩展为完整的游戏设计文档（GDD）。**GDD 是整个管线的叙事锚点**，驱动后续所有阶段。
 
-向用户确认：
-- **游戏类型**：横版平台 / 俯视 RPG / 俯视 Action
-- **世界观描述**：一句话概括（例："中世纪奇幻村庄，有城墙、篝火和石板路"）
-- **视觉风格**：ghibli / pixel / cartoon（未指定默认 ghibli）
+### 0.1 听取用户简述
+
+用户只需提供一句话，例如：
+> "一个农场游戏，主角是一只小兔子，需要种植庄稼并击退入侵的害虫"
+
+如用户未指定视觉风格，默认使用 **ghibli**。
+
+### 0.2 生成 GDD
+
+Claude 基于用户描述，填写如下 JSON 结构，输出完整 GDD：
+
+```json
+{
+  "title": "游戏中文标题",
+  "tagline": "一句话游戏标语（在开始界面显示）",
+  "style": "ghibli",
+  "story": {
+    "setting": "世界背景（2-3句，描述地点、时代、氛围）",
+    "protagonist": "主角描述（名字、外貌特征、性格、动机）",
+    "conflict": "核心冲突（谁/什么威胁了主角的世界）",
+    "resolution": "胜利后发生什么（故事的美好结局）"
+  },
+  "gameType": "side-scroller | top-down-rpg | top-down-action",
+  "coreLoop": "玩家每分钟在做什么（1-2句，描述核心玩法循环）",
+  "winCondition": {
+    "description": "胜利条件（玩家能读懂的自然语言）",
+    "trigger": "代码可用的触发条件，如 score >= 100 || bossDefeated === true"
+  },
+  "loseCondition": {
+    "description": "失败条件（玩家能读懂的自然语言）",
+    "trigger": "如 playerHp <= 0"
+  },
+  "uiElements": ["hearts", "score", "objective"],
+  "hud": {
+    "hearts": { "max": 3 },
+    "score": { "label": "得分", "goal": 100 },
+    "objective": { "initial": "收集100金币！" }
+  },
+  "zones": [
+    { "name": "区域名", "description": "区域功能描述", "theme": "视觉主题" }
+  ]
+}
+```
+
+**`uiElements` 可选值**：`hearts`（血量心形）、`score`（得分计数）、`objective`（目标提示）、`dayCounter`（日期计数器）。根据游戏类型按需选取，通常 2-3 个即可。
+
+### 0.3 初始化游戏项目
+
+```bash
+npx tsx skills/game-gen/design.ts <GameName> --style=<style>
+```
+
+脚本创建：
+```
+game_runs/<GameName>/
+  manifest.json   ← 项目元数据（含 GDD 引用）
+  gdd.json        ← 游戏设计文档（待填入）
+  scene/          ← 全景图存放目录
+```
+
+将 GDD 内容写入 `game_runs/<GameName>/gdd.json`。
+
+### 0.4 GDD 驱动后续阶段
+
+| 阶段 | 使用 GDD 字段 |
+|------|-------------|
+| Phase 1 全景图 | `story.setting`、`gameType`、`style` |
+| Phase 2 素材清单 | `story.protagonist`、`zones`、`story.conflict` |
+| Phase 3B 游戏逻辑 | `winCondition`、`loseCondition`、`coreLoop`、`zones` |
+| Phase 4 UI/HUD | `title`、`tagline`、`story`、`uiElements`、`hud` |
+
+---
+
+## Phase 1 — 全景图生成
+
+### 1.1 从 GDD 提取信息
+
+Phase 0 完成后，Phase 1 直接使用 GDD 中的字段，无需再次询问用户：
+- **游戏类型**：`gdd.gameType`
+- **世界观描述**：`gdd.story.setting`
+- **视觉风格**：`gdd.style`
 
 ### 1.2 生成全景图（Google Nano Banana）
 
@@ -192,12 +272,47 @@ game_runs/<GameName>/game/
   game-logic.js       ← Phaser.js 场景：加载、初始化、输入、更新循环
 ```
 
+**生成目标同时需读取 GDD**（`game_runs/<GameName>/gdd.json`），将胜负条件、核心循环、区域主题融入逻辑中。
+
 **game-logic.js 必须包含**：
 - 瓦片地图渲染（使用 `game-config.json` 中的碰撞层）
 - 角色加载（使用 `pet.json` 中的动画定义）
 - 键盘控制（← → / WASD 移动，Z 工具，X 睡眠，E 交互）
 - 动态物体循环播放（使用 `object.json` 中的 fps/loop 参数）
 - 摄像机跟随玩家
+- **胜利/失败检测**（基于 GDD `winCondition.trigger` / `loseCondition.trigger`）
+- **HUD 通信**（通过 `window.GameHUD` API 更新界面，见下）
+
+**window.GameHUD API（game-logic.js 与 HUD 通信的唯一接口）**：
+
+```javascript
+// 在 create() 中等待游戏开始信号
+this.gameStarted = false;
+if (window.GameHUD) {
+  window.GameHUD.onStart(() => { this.gameStarted = true; });
+}
+
+// 在 update() 开头守卫：游戏未开始时不处理输入
+if (!this.gameStarted) return;
+
+// 血量变化时（受伤、回血）
+window.GameHUD?.setHearts(currentHp, maxHp);
+
+// 得分变化时（拾取物品、击败敌人）
+window.GameHUD?.setScore(score);
+
+// 目标状态变化时
+window.GameHUD?.setObjective('找到宝箱！');
+
+// 游戏结束时（胜利或失败）
+window.GameHUD?.showGameOver(true,  '你击败了Boss！魔法森林重获和平。');  // win
+window.GameHUD?.showGameOver(false, '勇者倒下了……');                       // lose
+```
+
+**调用规则**：
+- 所有 `window.GameHUD.*` 调用必须用可选链（`?.`）保护，避免无 GDD 时报错
+- 仅在状态真正变化时调用（不在 `update()` 每帧调用），避免 DOM 抖动
+- `showGameOver()` 调用后立即停止游戏逻辑（`this.gameStarted = false`）
 
 **game-logic.js Phaser 动画规范（必须遵守，违反会导致运行时 bug）**：
 
@@ -227,7 +342,7 @@ game_runs/<GameName>/game/
 
 ---
 
-## Phase 4 — 游戏组装
+## Phase 4 — 游戏组装（含 UI/HUD）
 
 所有素材就绪 + 游戏逻辑生成完成后，执行最终组装：
 
@@ -235,17 +350,27 @@ game_runs/<GameName>/game/
 npx tsx skills/game-gen/assemble.ts <GameName>
 ```
 
+`assemble.ts` 自动读取 `gdd.json`，将以下 UI 层注入 `index.html`：
+
+| UI 层 | 内容 | 数据来源 |
+|-------|------|---------|
+| **开始界面** | 游戏标题、tagline、故事背景摘要、START 按钮、操控说明 | `gdd.title`、`gdd.tagline`、`gdd.story.setting` |
+| **HUD 覆盖层** | 血量心形、得分、目标提示（按 `uiElements` 字段选择性渲染） | `gdd.hud`、`gdd.uiElements` |
+| **游戏结束界面** | 胜利/失败标题、结局消息、RESTART 按钮 | `gdd.story.resolution` |
+
+**UI 架构**：所有 UI 层为纯 DOM 元素，叠加在 Phaser canvas 之上（CSS `position: absolute`）。`window.GameHUD` 对象暴露 API，由 `game-logic.js` 调用以更新 HUD 状态。
+
 产物：
 ```
 game_runs/<GameName>/
-  index.html      ← 引入 Phaser.js CDN + 内联游戏配置，浏览器直接打开即可运行
+  index.html      ← 含完整 UI/HUD 的可运行游戏页面
   assets/
     tiles/        ← 从 texture_runs/ 复制的贴图
-    sprites/      ← 从 pet_runs/ 复制的图集
+    sprites/      ← 从 char_runs/ / pet_runs/ 复制的图集
     objects/      ← 从 object_runs/ 复制的条带
 ```
 
-验证：直接在浏览器打开 `index.html`，用方向键控制角色。
+验证：直接在浏览器打开 `index.html`，先看到开始界面，点击 START 后进入游戏。
 
 ---
 
