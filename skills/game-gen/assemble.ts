@@ -51,23 +51,32 @@ async function assembleGame(gameName: string) {
   // 2. Copy characters
   const characters = manifest.assets?.characters || [];
   for (const char of characters) {
-    const proj = char.petProject || char.name;
-    const srcDir = path.join('./pet_runs', proj, 'output');
+    const proj = char.petProject || char.charProject || char.name;
+    
+    // Check char_runs first, then pet_runs
+    let srcDir = path.join('./char_runs', proj, 'output');
+    let jsonName = 'char.json';
+    
+    if (!fs.existsSync(srcDir)) {
+      srcDir = path.join('./pet_runs', proj, 'output');
+      jsonName = 'pet.json';
+    }
+
     if (fs.existsSync(srcDir)) {
       const webpSrc = path.join(srcDir, 'spritesheet.webp');
-      const jsonSrc = path.join(srcDir, 'pet.json');
+      const jsonSrc = path.join(srcDir, jsonName);
       if (fs.existsSync(webpSrc)) {
         fs.copyFileSync(webpSrc, path.join(spritesDest, `${char.name}.webp`));
-        console.log(`Copied character spritesheet: ${char.name}.webp`);
+        console.log(`Copied character spritesheet: ${char.name}.webp from ${srcDir}`);
       }
       if (fs.existsSync(jsonSrc)) {
         const meta = JSON.parse(fs.readFileSync(jsonSrc, 'utf-8'));
         meta.spritesheet = `${char.name}.webp`;
         fs.writeFileSync(path.join(spritesDest, `${char.name}.json`), JSON.stringify(meta, null, 2));
-        console.log(`Copied character metadata: ${char.name}.json`);
+        console.log(`Copied character metadata: ${char.name}.json from ${srcDir}`);
       }
     } else {
-      console.warn(`Warning: Pet output directory not found for project: ${proj}`);
+      console.warn(`Warning: Character output directory not found for project: ${proj}`);
     }
   }
 
