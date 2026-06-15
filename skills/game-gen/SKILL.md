@@ -133,25 +133,34 @@ npx tsx skills/material-texture/process.ts <GameName> <material> <image_path> [-
 npx tsx skills/material-texture/assemble.ts <GameName>
 ```
 
-#### A2 — 角色精灵（hatch-pet pipeline）
+#### A2 — 角色精灵
+
+根据角色类型选择 pipeline：
+
+| 情况 | Pipeline |
+|------|----------|
+| 简单生物 / 宠物，固定 6 行生命周期动画 | `hatch-pet` |
+| 游戏可控角色，动画行由游戏设计决定 | **`char-sprite`**（推荐） |
+
+**使用 char-sprite（推荐）——动画行由 Phase 2 素材清单的 `animations` 字段驱动：**
 
 ```bash
-npx tsx skills/hatch-pet/prepare.ts <CharName>
+npx tsx skills/char-sprite/prepare.ts <CharName> --anims="<anim1,anim2,...>"
 ```
 
 **角色参考图**（外观锚点，附带全景图）：
 > "Using this panorama as style reference, generate a single sprite of [角色描述], front-facing pose, full body, centered. {STYLE}. #00FF00 background. No shadows. Wide margin."
 
 ```bash
-npx tsx skills/hatch-pet/process.ts <CharName> reference <image_path>
+npx tsx skills/char-sprite/process.ts <CharName> reference <image_path>
 ```
 
 **逐行动画**（同时附带全景图 + 角色参考图）：
 > "Using the panorama and character reference, generate a 3×3 grid of 9 sequential frames showing [动作描述]. {STYLE}. Separate frames with thin solid DARK GREEN lines (#006600). Character centered in each cell, wide margin. #00FF00 background. No shadows."
 
 ```bash
-npx tsx skills/hatch-pet/process.ts <CharName> <row_name> <image_path>
-npx tsx skills/hatch-pet/assemble.ts <CharName>
+npx tsx skills/char-sprite/process.ts <CharName> <row_name> <image_path>
+npx tsx skills/char-sprite/assemble.ts <CharName>
 ```
 
 #### A3 — 动态环境物体（object-anim pipeline）

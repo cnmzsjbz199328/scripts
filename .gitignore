@@ -13,6 +13,12 @@ texture_runs/**/*.webp
 texture_runs/**/*.json
 texture_runs/*/
 
+# Generated character sprite runs
+char_runs/**/*.png
+char_runs/**/*.webp
+char_runs/**/*.json
+char_runs/*/
+
 # Generated animated object runs
 object_runs/**/*.png
 object_runs/**/*.webp

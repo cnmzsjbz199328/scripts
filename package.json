@@ -16,6 +16,9 @@
     "object:prepare": "tsx skills/object-anim/prepare.ts",
     "object:process": "tsx skills/object-anim/process.ts",
     "object:assemble": "tsx skills/object-anim/assemble.ts",
+    "char:prepare": "tsx skills/char-sprite/prepare.ts",
+    "char:process": "tsx skills/char-sprite/process.ts",
+    "char:assemble": "tsx skills/char-sprite/assemble.ts",
     "game:prepare": "tsx skills/game-gen/prepare.ts",
     "game:assemble": "tsx skills/game-gen/assemble.ts"
   },
