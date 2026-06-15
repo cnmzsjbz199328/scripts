@@ -195,9 +195,35 @@ game_runs/<GameName>/game/
 **game-logic.js 必须包含**：
 - 瓦片地图渲染（使用 `game-config.json` 中的碰撞层）
 - 角色加载（使用 `pet.json` 中的动画定义）
-- 键盘控制（← → 移动，↑ 跳跃，Z 攻击）
+- 键盘控制（← → / WASD 移动，Z 工具，X 睡眠，E 交互）
 - 动态物体循环播放（使用 `object.json` 中的 fps/loop 参数）
 - 摄像机跟随玩家
+
+**game-logic.js Phaser 动画规范（必须遵守，违反会导致运行时 bug）**：
+
+1. **左右翻转方向**：`char-sprite` 生成的 `walk-left` 行在视觉上朝右，因此：
+   - 向左走：`setFlipX(true)`（镜像，变为朝左）
+   - 向右走：`setFlipX(false)`（原始帧，本就朝右）
+
+2. **`setFlipX` 必须在 `play()` 之后调用**：在 Phaser 3.60 中，`setFlipX()` 会触发内部 `updateFrame()` 刷新，若在 `play()` 之前调用会导致动画静默失败（角色平移但不播放动画）。正确顺序：
+   ```javascript
+   // ✅ 正确：先 play，再 setFlipX
+   if (!this.player.anims.isPlaying || this.player.anims.currentAnim?.key !== 'walk_left') {
+     this.player.play('walk_left');
+   }
+   this.player.setFlipX(true);
+
+   // ❌ 错误：setFlipX 在 play 之前
+   this.player.setFlipX(true);
+   this.player.play('walk_left');
+   ```
+
+3. **动画守卫条件须同时检查 `isPlaying`**：仅检查 `currentAnim?.key` 不够，因为 `anims.stop()` 后 `currentAnim` 引用在部分 Phaser 版本中不会清空。应使用：
+   ```javascript
+   if (!this.player.anims.isPlaying || this.player.anims.currentAnim?.key !== targetKey) {
+     this.player.play(targetKey);
+   }
+   ```
 
 ---
 
