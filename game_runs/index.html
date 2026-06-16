@@ -478,7 +478,7 @@
       const cy = h1.offsetHeight / 2;
       const targets = spans.map(sp => ({
         tx:  cx - (sp.offsetLeft + sp.offsetWidth  / 2) + (Math.random() - 0.5) * 22,
-        ty:  cy - (sp.offsetTop  + sp.offsetHeight / 2) + (Math.random() - 0.5) * 16,
+        ty:  cy - (sp.offsetTop  + sp.offsetHeight / 2),   // same Y for all — one horizontal line
         rot: Math.random() * 540 - 270,
       }));
 
