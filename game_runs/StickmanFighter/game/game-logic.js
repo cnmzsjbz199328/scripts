@@ -608,9 +608,14 @@ class MainScene extends Phaser.Scene {
       this.playerWasDodging = false;
     }
 
-    // Grab Detection: 80ms window — both J and K must be held within 80ms of each other
-    if (Phaser.Input.Keyboard.JustDown(this.keyJ)) this.keyJLastDown = this.time.now;
-    if (Phaser.Input.Keyboard.JustDown(this.keyK)) this.keyKLastDown = this.time.now;
+    // Grab Detection: 80ms window — both J and K must be held within 80ms of each other.
+    // NOTE: JustDown() is a consuming read (it resets the key's _justDown flag), so we
+    // capture it once here and reuse the result for the attack input below. Calling
+    // JustDown again in the same frame would always return false and break punch/kick.
+    const jJustDown = Phaser.Input.Keyboard.JustDown(this.keyJ);
+    const kJustDown = Phaser.Input.Keyboard.JustDown(this.keyK);
+    if (jJustDown) this.keyJLastDown = this.time.now;
+    if (kJustDown) this.keyKLastDown = this.time.now;
     const isGrabP1 = this.keyJ.isDown && this.keyK.isDown &&
       (this.time.now - this.keyJLastDown) < 80 &&
       (this.time.now - this.keyKLastDown) < 80;
@@ -656,9 +661,9 @@ class MainScene extends Phaser.Scene {
     const time = this.time.now;
     let attackInput = null;
 
-    if (Phaser.Input.Keyboard.JustDown(this.keyJ)) {
+    if (jJustDown) {
       attackInput = 'J';
-    } else if (Phaser.Input.Keyboard.JustDown(this.keyK)) {
+    } else if (kJustDown) {
       attackInput = 'K';
     } else if (Phaser.Input.Keyboard.JustDown(this.keySpace)) {
       // Try Ultimate Skill
@@ -762,9 +767,13 @@ class MainScene extends Phaser.Scene {
       this.p2WasDodging = false;
     }
 
-    // Grab Detection: 80ms window — both I and O must be held within 80ms of each other
-    if (Phaser.Input.Keyboard.JustDown(this.p2KeyI)) this.p2KeyILastDown = this.time.now;
-    if (Phaser.Input.Keyboard.JustDown(this.p2KeyO)) this.p2KeyOLastDown = this.time.now;
+    // Grab Detection: 80ms window — both I and O must be held within 80ms of each other.
+    // JustDown() is consuming, so capture once and reuse for the attack input below
+    // (see handlePlayerActions for the same fix).
+    const iJustDown = Phaser.Input.Keyboard.JustDown(this.p2KeyI);
+    const oJustDown = Phaser.Input.Keyboard.JustDown(this.p2KeyO);
+    if (iJustDown) this.p2KeyILastDown = this.time.now;
+    if (oJustDown) this.p2KeyOLastDown = this.time.now;
     const isGrabP2 = this.p2KeyI.isDown && this.p2KeyO.isDown &&
       (this.time.now - this.p2KeyILastDown) < 80 &&
       (this.time.now - this.p2KeyOLastDown) < 80;
@@ -810,9 +819,9 @@ class MainScene extends Phaser.Scene {
     const time = this.time.now;
     let attackInput = null;
 
-    if (Phaser.Input.Keyboard.JustDown(this.p2KeyI)) {
+    if (iJustDown) {
       attackInput = 'I';
-    } else if (Phaser.Input.Keyboard.JustDown(this.p2KeyO)) {
+    } else if (oJustDown) {
       attackInput = 'O';
     } else if (Phaser.Input.Keyboard.JustDown(this.p2KeyP)) {
       // Try Ultimate Skill for P2
