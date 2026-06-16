@@ -47,8 +47,18 @@
     "accent": "#4ade80",
     "previewBg": "#041008",
     "icon": "🌾",
-    "thumbnail": "PixelFarm/screenshot.png",
-    "path": "PixelFarm/index.html",
-    "createdAt": "2026-06-15T06:55:34.349Z"
+  },
+  {
+    "id": "PokePixel",
+    "title": "怪兽收集：像素物语",
+    "tagline": "探索神秘的像素世界，收集与培养你的最强怪兽队伍，挑战道馆馆主！",
+    "gameType": "top-down-rpg",
+    "genre": "RPG",
+    "accent": "#a855f7",
+    "previewBg": "#080c18",
+    "icon": "🔴",
+    "thumbnail": null,
+    "path": "PokePixel/index.html",
+    "createdAt": "2026-06-16T23:54:00.000Z"
   }
 ]
