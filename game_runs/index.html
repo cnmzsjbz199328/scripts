@@ -7,7 +7,7 @@
   <meta name="theme-color" content="#080c18">
   <link rel="icon" href="./favicon.svg" type="image/svg+xml">
   <meta property="og:title" content="像素游戏工坊 · PIXELWORKS">
-  <meta property="og:description" content="AI × 像素 × 独立游戏">
+  <meta property="og:description" content="作者是纯懒，游戏逻辑不想写，贴图不想找，全靠AI生图、脚本切分动画帧和抠图，最后结合逻辑生成器拼成的合集，欢迎游玩！">
   <title>像素游戏工坊 · PIXELWORKS</title>
   <style>
     /* ── Reset ──────────────────────────────────────────────── */
@@ -484,7 +484,7 @@
           <span class="card-engine">Phaser 3 · Pixel</span>
           <div style="display:flex;gap:8px;align-items:center">
             <a class="play-btn"
-               href="./${esc(game.path)}"
+               href="./play.html?game=${esc(game.id)}"
                aria-label="开始游玩 ${esc(game.title)}">
               <svg viewBox="0 0 10 12" aria-hidden="true"><path d="M0 0l10 6-10 6z"/></svg>
               PLAY
@@ -493,7 +493,7 @@
                href="./${esc(game.path)}"
                target="_blank" rel="noopener"
                aria-label="在新标签页中打开 ${esc(game.title)}"
-               title="在新标签页中打开">↗</a>
+               title="在新标签页中打开（无虚拟手柄）">↗</a>
           </div>
         </div>
       </div>`;

@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <meta name="theme-color" content="#000">
+  <title>Loading…</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root { --pad-h: 164px; }
+
+    html, body {
+      width: 100%; height: 100%; background: #000;
+      overflow: hidden; touch-action: none;
+    }
+
+    /* ── Back button ── */
+    #back-btn {
+      position: fixed; top: 12px; left: 12px; z-index: 200;
+      background: rgba(8,12,24,.82); border: 1px solid #1a2540;
+      color: #94a3b8; font-size: .76rem; font-family: 'Segoe UI', system-ui, sans-serif;
+      padding: 6px 14px; border-radius: 6px; cursor: pointer;
+      text-decoration: none; display: flex; align-items: center; gap: 6px;
+      backdrop-filter: blur(10px); transition: color .15s, border-color .15s;
+    }
+    #back-btn:hover { color: #e2e8f0; border-color: #2a3d5e; }
+
+    /* ── Frame wrap ── */
+    #frame-wrap {
+      position: fixed; inset: 0;
+      display: flex; align-items: center; justify-content: center;
+      overflow: hidden; background: #000;
+    }
+    .touch-device #frame-wrap { bottom: var(--pad-h); }
+
+    #game-frame {
+      border: none; width: 960px; height: 576px;
+      transform-origin: center center;
+    }
+
+    /* ── Virtual gamepad ── */
+    #gamepad {
+      display: none;
+      position: fixed; bottom: 0; left: 0; right: 0;
+      height: var(--pad-h);
+      background: rgba(4,8,20,.94);
+      border-top: 1px solid #1a2540;
+      backdrop-filter: blur(16px);
+      align-items: center; justify-content: space-between;
+      padding: 14px 28px;
+      touch-action: none; user-select: none; z-index: 100;
+    }
+    .touch-device #gamepad { display: flex; }
+
+    /* D-pad */
+    #dpad {
+      display: grid;
+      grid-template-columns: repeat(3, 46px);
+      grid-template-rows: repeat(3, 46px);
+      gap: 5px;
+    }
+    .dp {
+      display: flex; align-items: center; justify-content: center;
+      background: rgba(255,255,255,.07);
+      border: 1px solid rgba(255,255,255,.12);
+      border-radius: 9px; color: #94a3b8;
+      font-size: 1.05rem; cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+      transition: background .08s;
+    }
+    .dp.active {
+      background: rgba(96,165,250,.22);
+      border-color: rgba(96,165,250,.45);
+      color: #60a5fa;
+    }
+    .dp-center {
+      background: rgba(255,255,255,.03) !important;
+      border-color: rgba(255,255,255,.06) !important;
+      border-radius: 50% !important;
+      pointer-events: none;
+    }
+
+    /* Action buttons */
+    #action-btns {
+      display: flex; flex-wrap: wrap;
+      gap: 10px; justify-content: flex-end;
+      max-width: 220px;
+    }
+    .ab {
+      width: 58px; height: 58px; border-radius: 50%;
+      border: 2px solid; background: rgba(0,0,0,.35);
+      font-size: .67rem; font-weight: 700; letter-spacing: .03em;
+      text-align: center; line-height: 1.25;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; -webkit-tap-highlight-color: transparent;
+      transition: opacity .08s;
+    }
+    .ab.active { opacity: .5; }
+  </style>
+</head>
+<body>
+
+<a id="back-btn" href="./">← 返回</a>
+
+<div id="frame-wrap">
+  <iframe id="game-frame"
+    allow="autoplay"
+    sandbox="allow-scripts allow-same-origin allow-forms"
+    allowfullscreen
+  ></iframe>
+</div>
+
+<div id="gamepad">
+  <div id="dpad"></div>
+  <div id="action-btns"></div>
+</div>
+
+<script>
+(() => {
+  'use strict';
+
+  // ── Per-game action button config ─────────────────────────────
+  // D-pad always maps to arrow keys + WASD simultaneously.
+  // Only define the extra action buttons here.
+  const GAME_BUTTONS = {
+    StickmanFighter: [
+      { label: '跳',   key: 'w', code: 'KeyW',  keyCode: 87, color: '#60a5fa' },
+      { label: '拳 J', key: 'j', code: 'KeyJ',  keyCode: 74, color: '#f97316' },
+      { label: '踢 K', key: 'k', code: 'KeyK',  keyCode: 75, color: '#ef4444' },
+      { label: '防',   key: 's', code: 'KeyS',  keyCode: 83, color: '#94a3b8' },
+    ],
+    NeonRacer: [
+      { label: 'BOOST', key: ' ', code: 'Space', keyCode: 32, color: '#00e5ff' },
+    ],
+    PixelFarm: [
+      { label: '使用 Z', key: 'z', code: 'KeyZ', keyCode: 90, color: '#4ade80' },
+      { label: '睡觉 X', key: 'x', code: 'KeyX', keyCode: 88, color: '#a78bfa' },
+      { label: '交互 E', key: 'e', code: 'KeyE', keyCode: 69, color: '#fbbf24' },
+    ],
+  };
+
+  const DEFAULT_BUTTONS = [
+    { label: 'A', key: ' ', code: 'Space', keyCode: 32, color: '#3b82f6' },
+  ];
+
+  // D-pad: each direction fires both arrow key AND WASD key
+  const DPAD_DIRS = [
+    { row: 1, col: 2, label: '▲', pairs: [['ArrowUp','ArrowUp',38],['w','KeyW',87]] },
+    { row: 2, col: 1, label: '◀', pairs: [['ArrowLeft','ArrowLeft',37],['a','KeyA',65]] },
+    { row: 2, col: 3, label: '▶', pairs: [['ArrowRight','ArrowRight',39],['d','KeyD',68]] },
+    { row: 3, col: 2, label: '▼', pairs: [['ArrowDown','ArrowDown',40],['s','KeyS',83]] },
+  ];
+
+  // ── Setup ─────────────────────────────────────────────────────
+  const params = new URLSearchParams(location.search);
+  const gameId = params.get('game') || '';
+  const frame  = document.getElementById('game-frame');
+
+  // Touch detection
+  const isTouch = navigator.maxTouchPoints > 0 || 'ontouchstart' in window;
+  if (isTouch) document.body.classList.add('touch-device');
+
+  // Load game path from games.json
+  fetch('./games.json')
+    .then(r => r.json())
+    .then(games => {
+      const g = games.find(x => x.id === gameId);
+      document.title = g ? g.title : gameId;
+      frame.src = g ? `./${g.path}` : `./${gameId}/index.html`;
+    })
+    .catch(() => { frame.src = `./${gameId}/index.html`; });
+
+  // Scale iframe to fill available space
+  function scaleFrame() {
+    const wrap = document.getElementById('frame-wrap');
+    const s = Math.min(wrap.clientWidth / 960, wrap.clientHeight / 576);
+    frame.style.transform = `scale(${s})`;
+  }
+  window.addEventListener('resize', scaleFrame);
+  scaleFrame();
+
+  // ── Dispatch keyboard event into iframe ───────────────────────
+  function fireKey(type, key, code, keyCode) {
+    try {
+      frame.contentWindow?.dispatchEvent(new KeyboardEvent(type, {
+        key, code, keyCode, which: keyCode,
+        bubbles: true, cancelable: true,
+      }));
+    } catch (_) {}
+  }
+
+  // ── Bind touch+mouse events to a button element ───────────────
+  function bindBtn(el, onDown, onUp) {
+    el.addEventListener('touchstart', e => { e.preventDefault(); el.classList.add('active');    onDown(); }, { passive: false });
+    el.addEventListener('touchend',   e => { e.preventDefault(); el.classList.remove('active'); onUp();   }, { passive: false });
+    el.addEventListener('touchcancel',e => { e.preventDefault(); el.classList.remove('active'); onUp();   }, { passive: false });
+    el.addEventListener('mousedown',  ()  => { el.classList.add('active');    onDown(); });
+    el.addEventListener('mouseup',    ()  => { el.classList.remove('active'); onUp();   });
+    el.addEventListener('mouseleave', ()  => { el.classList.remove('active'); onUp();   });
+  }
+
+  // ── Build D-pad ───────────────────────────────────────────────
+  const dpadEl = document.getElementById('dpad');
+  // index of each cell in 3×3 grid
+  const dirMap = {};
+  DPAD_DIRS.forEach(d => { dirMap[`${d.row},${d.col}`] = d; });
+
+  for (let r = 1; r <= 3; r++) {
+    for (let c = 1; c <= 3; c++) {
+      const el = document.createElement('div');
+      const dir = dirMap[`${r},${c}`];
+      if (r === 2 && c === 2) {
+        el.className = 'dp dp-center';
+      } else if (dir) {
+        el.className = 'dp';
+        el.textContent = dir.label;
+        bindBtn(el,
+          () => dir.pairs.forEach(([k, co, kc]) => fireKey('keydown', k, co, kc)),
+          () => dir.pairs.forEach(([k, co, kc]) => fireKey('keyup',   k, co, kc))
+        );
+      } else {
+        el.style.visibility = 'hidden'; // corners
+      }
+      dpadEl.appendChild(el);
+    }
+  }
+
+  // ── Build action buttons ──────────────────────────────────────
+  const actEl = document.getElementById('action-btns');
+  const buttons = GAME_BUTTONS[gameId] || DEFAULT_BUTTONS;
+  buttons.forEach(({ label, key, code, keyCode, color }) => {
+    const el = document.createElement('div');
+    el.className = 'ab';
+    el.textContent = label;
+    el.style.borderColor = color;
+    el.style.color = color;
+    bindBtn(el,
+      () => fireKey('keydown', key, code, keyCode),
+      () => fireKey('keyup',   key, code, keyCode)
+    );
+    actEl.appendChild(el);
+  });
+
+})();
+</script>
+</body>
+</html>
