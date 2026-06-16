@@ -135,6 +135,45 @@ class MainScene extends Phaser.Scene {
     this.playerFlashingUlt = false;
     this.playerWasOnFloor = true;
 
+    // Dash/Dodge systems
+    this.playerLastDashLeft = 0;
+    this.playerLastDashRight = 0;
+    this.playerDashUntil = 0;
+    this.playerDodgeUntil = 0;
+    this.playerDodgeInvulUntil = 0;
+    this.playerDashCooldownUntil = 0;
+    this.playerWasDashing = false;
+    this.playerWasDodging = false;
+
+    this.p2LastDashLeft = 0;
+    this.p2LastDashRight = 0;
+    this.p2DashUntil = 0;
+    this.p2DodgeUntil = 0;
+    this.p2DodgeInvulUntil = 0;
+    this.p2DashCooldownUntil = 0;
+    this.p2WasDashing = false;
+    this.p2WasDodging = false;
+
+    // Wakeup invulnerability systems
+    this.playerWakeupUntil = 0;
+    this.p2WakeupUntil = 0;
+    this.playerWakeupEvent = null;
+    this.p2WakeupEvent = null;
+    this.playerWakeupCleanup = null;
+    this.p2WakeupCleanup = null;
+
+    // Grab key window tracking (80ms window for simultaneous J+K / I+O)
+    this.keyJLastDown = 0;
+    this.keyKLastDown = 0;
+    this.p2KeyILastDown = 0;
+    this.p2KeyOLastDown = 0;
+
+    // PvP best of 3 systems
+    this.pvpRound = 1;
+    this.p1Wins = 0;
+    this.p2Wins = 0;
+    this.pvpRoundActive = true;
+
     // AI Spawning params
     this.maxWaveEnemies = 3;
     this.enemiesSpawned = 0;
@@ -318,6 +357,7 @@ class MainScene extends Phaser.Scene {
             </div>
             <span id="p1-energy-text" style="color: #f59e0b; font-size: 11px; font-weight: bold;">0%</span>
           </div>
+          <div id="p1-wins-container" style="color: #fbbf24; font-size: 12px; height: 16px;"></div>
         </div>
         <div id="hud-objective" style="color: #a5f3fc; flex: 1; text-align: center; font-size: 13px;"><span id="hud-objective-text">双人决斗！生死一战！</span></div>
         <div id="p2-hud" style="display: flex; flex-direction: column; align-items: flex-end; gap: 4px;">
@@ -329,6 +369,7 @@ class MainScene extends Phaser.Scene {
             </div>
             <span id="p2-energy-text" style="color: #06b6d4; font-size: 11px; font-weight: bold;">0%</span>
           </div>
+          <div id="p2-wins-container" style="color: #fbbf24; font-size: 12px; height: 16px;"></div>
         </div>
       `;
     } else {
@@ -405,10 +446,17 @@ class MainScene extends Phaser.Scene {
     this.p2IsHit = false;
     this.p2WasOnFloor = true;
 
+    // PvP round system init
+    this.pvpRound = 1;
+    this.p1Wins = 0;
+    this.p2Wins = 0;
+    this.pvpRoundActive = true;
+
     // Register overlaps for P2
     this.physics.add.overlap(this.p2, this.healthPacks, this.collectHealthP2, null, this);
 
     window.GameHUD?.setObjective("对决模式开始！P1: A/D/W/S/J/K/Space | P2: 方向键/I/O/P");
+    this.updateWinsHUD();
   }
 
   update() {
@@ -416,13 +464,11 @@ class MainScene extends Phaser.Scene {
 
     if (this.isPvP) {
       // Local PvP Win/Lose checks
-      if (this.hearts <= 0) {
-        this.triggerGameOver(false, "小红倒下了！小蓝 (P2) 获得了最终胜利！🏆");
-        return;
-      }
-      if (this.p2Hearts <= 0) {
-        this.triggerGameOver(true, "小蓝倒下了！小红 (P1) 获得了最终胜利！🏆");
-        return;
+      if (this.pvpRoundActive) {
+        if (this.hearts <= 0 || this.p2Hearts <= 0) {
+          this.handlePvPRoundEnd();
+          return;
+        }
       }
 
       // Read player actions
@@ -494,7 +540,66 @@ class MainScene extends Phaser.Scene {
   }
 
   handlePlayerActions() {
+    if (this.isPvP && !this.pvpRoundActive) return;
     if (this.isHit || this.hearts <= 0 || this.time.now < this.playerStunnedUntil) return;
+
+    // Check Dash/Dodge Active duration
+    if (this.time.now < this.playerDashUntil) {
+      this.player.setVelocityX(480);
+      return;
+    }
+    if (this.time.now < this.playerDodgeUntil) {
+      this.player.setVelocityX(-380);
+      return;
+    }
+    if (this.playerWasDashing) {
+      this.player.setVelocityX(0);
+      this.playerWasDashing = false;
+    }
+    if (this.playerWasDodging) {
+      this.player.setVelocityX(0);
+      this.playerWasDodging = false;
+    }
+
+    // Grab Detection: 80ms window — both J and K must be held within 80ms of each other
+    if (Phaser.Input.Keyboard.JustDown(this.keyJ)) this.keyJLastDown = this.time.now;
+    if (Phaser.Input.Keyboard.JustDown(this.keyK)) this.keyKLastDown = this.time.now;
+    const isGrabP1 = this.keyJ.isDown && this.keyK.isDown &&
+      (this.time.now - this.keyJLastDown) < 80 &&
+      (this.time.now - this.keyKLastDown) < 80;
+    if (isGrabP1) {
+      if (this.player.body.onFloor() && !this.isAttacking) {
+        this.executeGrab(this.player, true);
+      }
+      return;
+    }
+
+    // Double tap dash/dodge detection
+    if (Phaser.Input.Keyboard.JustDown(this.keyD) || Phaser.Input.Keyboard.JustDown(this.cursors.right)) {
+      const now = this.time.now;
+      if (now - this.playerLastDashRight < 200 && now > this.playerDashCooldownUntil) {
+        this.playerDashUntil = now + 180;
+        this.playerWasDashing = true;
+        this.playerDashCooldownUntil = now + 500;
+        this.player.setVelocityX(480);
+        this.spawnDust(this.player.x, this.player.y);
+        return;
+      }
+      this.playerLastDashRight = now;
+    }
+    if (Phaser.Input.Keyboard.JustDown(this.keyA) || Phaser.Input.Keyboard.JustDown(this.cursors.left)) {
+      const now = this.time.now;
+      if (now - this.playerLastDashLeft < 200 && now > this.playerDashCooldownUntil) {
+        this.playerDodgeUntil = now + 180;
+        this.playerWasDodging = true;
+        this.playerDodgeInvulUntil = now + 100;
+        this.playerDashCooldownUntil = now + 500;
+        this.player.setVelocityX(-380);
+        this.spawnDust(this.player.x, this.player.y);
+        return;
+      }
+      this.playerLastDashLeft = now;
+    }
 
     let vx = 0;
     const speed = GAME_CONFIG.player.speed;
@@ -542,8 +647,9 @@ class MainScene extends Phaser.Scene {
         return;
       }
 
-      // Execute basic attack if no combo matched and not currently attacking or blocking
-      if (!this.isAttacking && !isBlocking) {
+      // Execute basic attack: isAttacking guard always applies; blocking only blocks on ground
+      const inAir = !this.player.body.onFloor();
+      if (!this.isAttacking && (inAir || !isBlocking)) {
         if (attackInput === 'J') {
           this.executeNormalPunch(this.player, true);
         } else if (attackInput === 'K') {
@@ -588,7 +694,66 @@ class MainScene extends Phaser.Scene {
   }
 
   handleP2Actions() {
+    if (!this.pvpRoundActive) return;
     if (!this.isPvP || !this.p2 || this.p2IsHit || this.p2Hearts <= 0 || this.time.now < this.p2StunnedUntil) return;
+
+    // Check Dash/Dodge Active duration
+    if (this.time.now < this.p2DashUntil) {
+      this.p2.setVelocityX(480);
+      return;
+    }
+    if (this.time.now < this.p2DodgeUntil) {
+      this.p2.setVelocityX(-380);
+      return;
+    }
+    if (this.p2WasDashing) {
+      this.p2.setVelocityX(0);
+      this.p2WasDashing = false;
+    }
+    if (this.p2WasDodging) {
+      this.p2.setVelocityX(0);
+      this.p2WasDodging = false;
+    }
+
+    // Grab Detection: 80ms window — both I and O must be held within 80ms of each other
+    if (Phaser.Input.Keyboard.JustDown(this.p2KeyI)) this.p2KeyILastDown = this.time.now;
+    if (Phaser.Input.Keyboard.JustDown(this.p2KeyO)) this.p2KeyOLastDown = this.time.now;
+    const isGrabP2 = this.p2KeyI.isDown && this.p2KeyO.isDown &&
+      (this.time.now - this.p2KeyILastDown) < 80 &&
+      (this.time.now - this.p2KeyOLastDown) < 80;
+    if (isGrabP2) {
+      if (this.p2.body.onFloor() && !this.p2IsAttacking) {
+        this.executeGrab(this.p2, false);
+      }
+      return;
+    }
+
+    // Double tap dash/dodge detection
+    if (Phaser.Input.Keyboard.JustDown(this.p2KeyRight)) {
+      const now = this.time.now;
+      if (now - this.p2LastDashRight < 200 && now > this.p2DashCooldownUntil) {
+        this.p2DashUntil = now + 180;
+        this.p2WasDashing = true;
+        this.p2DashCooldownUntil = now + 500;
+        this.p2.setVelocityX(480);
+        this.spawnDust(this.p2.x, this.p2.y);
+        return;
+      }
+      this.p2LastDashRight = now;
+    }
+    if (Phaser.Input.Keyboard.JustDown(this.p2KeyLeft)) {
+      const now = this.time.now;
+      if (now - this.p2LastDashLeft < 200 && now > this.p2DashCooldownUntil) {
+        this.p2DodgeUntil = now + 180;
+        this.p2WasDodging = true;
+        this.p2DodgeInvulUntil = now + 100;
+        this.p2DashCooldownUntil = now + 500;
+        this.p2.setVelocityX(-380);
+        this.spawnDust(this.p2.x, this.p2.y);
+        return;
+      }
+      this.p2LastDashLeft = now;
+    }
 
     let vx = 0;
     const speed = GAME_CONFIG.player.speed;
@@ -633,8 +798,9 @@ class MainScene extends Phaser.Scene {
         return;
       }
 
-      // Execute basic attack if no combo matched
-      if (!this.p2IsAttacking && !isBlocking) {
+      // Execute basic attack: isAttacking guard always applies; blocking only blocks on ground
+      const inAir = !this.p2.body.onFloor();
+      if (!this.p2IsAttacking && (inAir || !isBlocking)) {
         if (attackInput === 'I') {
           this.executeNormalPunch(this.p2, false);
         } else if (attackInput === 'O') {
@@ -681,33 +847,71 @@ class MainScene extends Phaser.Scene {
   // --- Attack execution helpers ---
 
   executeNormalPunch(char, isP1) {
+    const inAir = !char.body.onFloor();
     if (isP1) {
       this.isAttacking = true;
-      char.setVelocityX(0);
+      if (!inAir) char.setVelocityX(0);
       char.play('player_punch', true);
-      this.time.delayedCall(200, () => this.registerPlayerHit(char, 75, 12, false, isP1, 'punch'));
+      this.time.delayedCall(200, () => {
+        this.registerPlayerHit(
+          char,
+          inAir ? 65 : 75,
+          inAir ? 15 : 12,
+          inAir,
+          isP1,
+          inAir ? 'air_punch' : 'punch'
+        );
+      });
       char.once('animationcomplete', () => { this.isAttacking = false; });
     } else {
       this.p2IsAttacking = true;
-      char.setVelocityX(0);
+      if (!inAir) char.setVelocityX(0);
       char.play('enemy_punch', true);
-      this.time.delayedCall(200, () => this.registerPlayerHit(char, 75, 12, false, isP1, 'punch'));
+      this.time.delayedCall(200, () => {
+        this.registerPlayerHit(
+          char,
+          inAir ? 65 : 75,
+          inAir ? 15 : 12,
+          inAir,
+          isP1,
+          inAir ? 'air_punch' : 'punch'
+        );
+      });
       char.once('animationcomplete', () => { this.p2IsAttacking = false; });
     }
   }
 
   executeNormalKick(char, isP1) {
+    const inAir = !char.body.onFloor();
     if (isP1) {
       this.isAttacking = true;
-      char.setVelocityX(0);
+      if (!inAir) char.setVelocityX(0);
       char.play('player_kick', true);
-      this.time.delayedCall(250, () => this.registerPlayerHit(char, 90, 20, true, isP1, 'kick'));
+      this.time.delayedCall(250, () => {
+        this.registerPlayerHit(
+          char,
+          inAir ? 80 : 90,
+          inAir ? 18 : 20,
+          true,
+          isP1,
+          inAir ? 'air_kick' : 'kick'
+        );
+      });
       char.once('animationcomplete', () => { this.isAttacking = false; });
     } else {
       this.p2IsAttacking = true;
-      char.setVelocityX(0);
+      if (!inAir) char.setVelocityX(0);
       char.play('enemy_kick', true);
-      this.time.delayedCall(250, () => this.registerPlayerHit(char, 90, 20, true, isP1, 'kick'));
+      this.time.delayedCall(250, () => {
+        this.registerPlayerHit(
+          char,
+          inAir ? 80 : 90,
+          inAir ? 18 : 20,
+          true,
+          isP1,
+          inAir ? 'air_kick' : 'kick'
+        );
+      });
       char.once('animationcomplete', () => { this.p2IsAttacking = false; });
     }
   }
@@ -781,7 +985,9 @@ class MainScene extends Phaser.Scene {
       // PvP target is the opponent player
       const opponent = isP1 ? this.p2 : this.player;
       if (opponent && opponent.active) {
-        const dist = Phaser.Math.Distance.Between(char.x, char.y - 32, opponent.x, opponent.y - 32);
+        let charY = char.y - 32;
+        if (hitType === 'air_punch') charY += 20;
+        const dist = Phaser.Math.Distance.Between(char.x, charY, opponent.x, opponent.y - 32);
         if (dist <= range) {
           const isCorrectDirection = isFacingLeft ? (opponent.x < char.x) : (opponent.x > char.x);
           if (isCorrectDirection) {
@@ -794,7 +1000,9 @@ class MainScene extends Phaser.Scene {
       if (isP1) {
         this.enemies.getChildren().forEach(e => {
           if (e.isDead) return;
-          const dist = Phaser.Math.Distance.Between(char.x, char.y - 32, e.x, e.y - 32);
+          let charY = char.y - 32;
+          if (hitType === 'air_punch') charY += 20;
+          const dist = Phaser.Math.Distance.Between(char.x, charY, e.x, e.y - 32);
           if (dist <= range) {
             const isCorrectDirection = isFacingLeft ? (e.x < char.x) : (e.x > char.x);
             if (isCorrectDirection) {
@@ -807,6 +1015,12 @@ class MainScene extends Phaser.Scene {
   }
 
   damageAIEnemy(enemy, damage, hasKnockback, hitType) {
+    // Check if AI is blocking
+    if (enemy.aiState === 'block') {
+      damage = Math.round(damage * 0.2); // 80% reduction
+      this.spawnFloatingText(enemy.x, enemy.y - 75, '格挡 🛡️', '#38bdf8');
+    }
+
     // P1 gets energy on hitting AI
     this.gainEnergy(true, 5);
 
@@ -844,6 +1058,12 @@ class MainScene extends Phaser.Scene {
         kbVelY = -350; // Launch
       } else if (hitType === 'heavy_combo') {
         kbVel = 450; // Super thrust
+      } else if (hitType === 'air_punch') {
+        kbVel = 200;
+        kbVelY = 50; // Downward
+      } else if (hitType === 'air_kick') {
+        kbVel = 250;
+        kbVelY = 80; // Downward smash
       }
 
       enemy.setVelocity(knockDir * kbVel, kbVelY);
@@ -859,13 +1079,38 @@ class MainScene extends Phaser.Scene {
   }
 
   damageOpponentPlayer(opponent, damage, hasKnockback, isP1Source, hitType) {
+    const targetIsP1 = !isP1Source;
+
+    // Wakeup invulnerability check
+    if (targetIsP1 && this.time.now < this.playerWakeupUntil) return;
+    if (!targetIsP1 && this.time.now < this.p2WakeupUntil) return;
+
+    // Reset dash/dodge states on target
+    if (targetIsP1) {
+      this.playerDashUntil = 0;
+      this.playerDodgeUntil = 0;
+    } else {
+      this.p2DashUntil = 0;
+      this.p2DodgeUntil = 0;
+    }
+
+    // Dodge invulnerability check (reduces damage by 50% during first 100ms of dodge)
+    if (targetIsP1) {
+      if (this.time.now < this.playerDodgeInvulUntil) {
+        damage = Math.round(damage * 0.5);
+      }
+    } else {
+      if (this.time.now < this.p2DodgeInvulUntil) {
+        damage = Math.round(damage * 0.5);
+      }
+    }
+
     // Attacker gains energy
     this.gainEnergy(isP1Source, 5);
 
     // Apply hit stop
     this.applyHitStop();
 
-    const targetIsP1 = !isP1Source;
     const isBlocking = targetIsP1 
       ? ((this.keyS.isDown || this.cursors.down.isDown) && this.player.body.onFloor())
       : (this.p2KeyDown.isDown && this.p2.body.onFloor());
@@ -924,6 +1169,12 @@ class MainScene extends Phaser.Scene {
         kbVelY = -380;
       } else if (hitType === 'heavy_combo') {
         kbVel = 480;
+      } else if (hitType === 'air_punch') {
+        kbVel = 200;
+        kbVelY = 50; // Downward
+      } else if (hitType === 'air_kick') {
+        kbVel = 250;
+        kbVelY = 80; // Downward smash
       }
 
       opponent.setVelocity(knockDir * kbVel, kbVelY);
@@ -931,8 +1182,15 @@ class MainScene extends Phaser.Scene {
 
       this.time.delayedCall(400, () => {
         if (opponent.active) {
-          if (targetIsP1) this.isHit = false;
-          else this.p2IsHit = false;
+          if (targetIsP1) {
+            this.isHit = false;
+            this.playerWakeupUntil = this.time.now + 500;
+            this.triggerWakeupFlashing(opponent, 500);
+          } else {
+            this.p2IsHit = false;
+            this.p2WakeupUntil = this.time.now + 500;
+            this.triggerWakeupFlashing(opponent, 500);
+          }
           opponent.setVelocityX(0);
         }
       });
@@ -1114,6 +1372,8 @@ class MainScene extends Phaser.Scene {
     this.enemies.getChildren().forEach(e => e.anims.pause());
 
     this.time.delayedCall(60, () => {
+      // Don't resume if we're in a PvP round-transition freeze
+      if (this.isPvP && !this.pvpRoundActive) return;
       this.physics.resume();
       if (this.player.active) this.player.anims.resume();
       if (this.p2 && this.p2.active) this.p2.anims.resume();
@@ -1509,6 +1769,16 @@ class MainScene extends Phaser.Scene {
     enemy.isAttacking = false;
     enemy.nextAttackTime = 0;
 
+    // AI behavior variables
+    enemy.personalityBias = Math.random();
+    enemy.aiState = 'approach';
+    enemy.aiBlockUntil = 0;
+    enemy.aiRetreatUntil = 0;
+    enemy.aiRetreatDir = 0;
+    enemy.aiDashAttackUntil = 0;
+    enemy.aiDashAttackCooldown = 0;
+    enemy.aiLastBlockAttempt = 0;
+
     // Scale boss
     if (isBoss) {
       enemy.setDisplaySize(130, 130);
@@ -1558,6 +1828,85 @@ class MainScene extends Phaser.Scene {
 
       if (e.isAttacking) return;
 
+      // A. Check Block State
+      if (e.aiState === 'block') {
+        if (this.time.now < e.aiBlockUntil) {
+          e.setVelocityX(0);
+          e.play('enemy_block', true);
+          return;
+        } else {
+          e.aiState = 'approach';
+        }
+      }
+
+      // B. Check Retreat State
+      if (e.aiState === 'retreat') {
+        if (this.time.now < e.aiRetreatUntil) {
+          e.setVelocityX(e.aiRetreatDir * 100);
+          e.play('enemy_walk', true);
+          return;
+        } else {
+          e.aiState = 'approach';
+        }
+      }
+
+      // C. Check Boss Dash Attack State
+      if (e.aiState === 'dash_attack') {
+        if (this.time.now < e.aiDashAttackUntil) {
+          e.setVelocityX(e.aiRetreatDir * 300);
+          e.play('enemy_walk', true);
+          return;
+        } else {
+          // Unleash the Dash Attack!
+          e.isAttacking = true;
+          e.aiState = 'approach';
+          e.play('enemy_kick', true);
+          this.time.delayedCall(250, () => {
+            if (e.isDead) return;
+            const currentDist = Phaser.Math.Distance.Between(this.player.x, this.player.y, e.x, e.y);
+            if (currentDist <= 95) {
+              this.damagePlayerFromAI(30);
+            }
+          });
+          e.once('animationcomplete', () => {
+            e.isAttacking = false;
+            e.nextAttackTime = this.time.now + this.getAIAttackCooldown(e);
+          });
+          return;
+        }
+      }
+
+      // 1. Determine if AI should block (20% default, Cautious personality has 35%)
+      const isLowHealth = e.health < e.maxHealth * 0.4;
+      const isPlayerAttacking = this.isAttacking;
+      let blockChance = 0.2;
+      if (e.personalityBias > 0.7) {
+        blockChance = 0.35; // Cautious type
+      }
+
+      if ((isLowHealth || isPlayerAttacking) && this.time.now > e.aiLastBlockAttempt + 500 && Math.random() < blockChance) {
+        e.aiLastBlockAttempt = this.time.now;
+        e.aiState = 'block';
+        e.aiBlockUntil = this.time.now + Phaser.Math.Between(600, 900);
+        e.setVelocityX(0);
+        e.play('enemy_block', true);
+        return;
+      }
+
+      // 2. Boss Special Dash Attack (HP < 50%, dist > 150px)
+      if (e.isBoss && e.health < e.maxHealth * 0.5 && dist > 150 && this.time.now > e.aiDashAttackCooldown) {
+        if (Math.random() < 0.3) {
+          e.aiState = 'dash_attack';
+          e.aiDashAttackUntil = this.time.now + 200;
+          e.aiRetreatDir = this.player.x < e.x ? -1 : 1; // move towards player
+          e.aiDashAttackCooldown = this.time.now + 3000; // 3s cooldown
+          e.setVelocityX(e.aiRetreatDir * 300);
+          e.play('enemy_walk', true);
+          return;
+        }
+      }
+
+      // 3. Standard Approach / Attack
       const attackRange = e.isBoss ? 85 : 65;
 
       if (dist <= attackRange) {
@@ -1578,7 +1927,17 @@ class MainScene extends Phaser.Scene {
 
           e.once('animationcomplete', () => {
             e.isAttacking = false;
-            e.nextAttackTime = this.time.now + Phaser.Math.Between(1000, 2000);
+            
+            // 50% chance to retreat after attacking
+            if (Math.random() < 0.5) {
+              e.aiState = 'retreat';
+              e.aiRetreatUntil = this.time.now + 500;
+              e.aiRetreatDir = this.player.x < e.x ? 1 : -1; // move away from player
+              e.setVelocityX(e.aiRetreatDir * 100);
+              e.play('enemy_walk', true);
+            } else {
+              e.nextAttackTime = this.time.now + this.getAIAttackCooldown(e);
+            }
           });
         } else {
           e.play('enemy_idle', true);
@@ -1592,8 +1951,37 @@ class MainScene extends Phaser.Scene {
     });
   }
 
+  getAIAttackCooldown(enemy) {
+    const hpPct = enemy.health / enemy.maxHealth;
+    let baseCooldown = 0;
+    if (hpPct >= 0.8) {
+      baseCooldown = Phaser.Math.Between(1200, 2000);
+    } else if (hpPct >= 0.4) {
+      baseCooldown = Phaser.Math.Between(800, 1400);
+    } else {
+      baseCooldown = Phaser.Math.Between(500, 1000);
+    }
+
+    if (enemy.personalityBias < 0.4) {
+      baseCooldown = Math.round(baseCooldown * 0.7); // 30% reduction (Aggressive style)
+    }
+    return baseCooldown;
+  }
+
   damagePlayerFromAI(damage) {
     if (this.isHit || this.victoryShown || this.defeatShown || this.hearts <= 0) return;
+
+    // Wakeup invulnerability check
+    if (this.time.now < this.playerWakeupUntil) return;
+
+    // Reset dash/dodge states on P1
+    this.playerDashUntil = 0;
+    this.playerDodgeUntil = 0;
+
+    // Dodge invulnerability check (reduces damage by 50% during first 100ms of dodge)
+    if (this.time.now < this.playerDodgeInvulUntil) {
+      damage = Math.round(damage * 0.5);
+    }
 
     const isBlocking = (this.keyS.isDown || this.cursors.down.isDown) && this.player.body.onFloor();
     if (isBlocking) {
@@ -1622,6 +2010,8 @@ class MainScene extends Phaser.Scene {
       this.time.delayedCall(400, () => {
         this.isHit = false;
         this.player.setVelocityX(0);
+        this.playerWakeupUntil = this.time.now + 500;
+        this.triggerWakeupFlashing(this.player, 500);
       });
     }
   }
@@ -1695,6 +2085,303 @@ class MainScene extends Phaser.Scene {
 
     window.GameHUD?.showGameOver(isWin, endingText);
     this.gameStarted = false;
+  }
+
+  executeGrab(grabber, isP1) {
+    // Find target
+    let target = null;
+    if (isP1) {
+      if (this.isPvP) {
+        if (this.p2 && this.p2.active && this.p2Hearts > 0) {
+          const dist = Phaser.Math.Distance.Between(grabber.x, grabber.y, this.p2.x, this.p2.y);
+          if (dist <= 55) target = this.p2;
+        }
+      } else {
+        let minDist = 56;
+        this.enemies.getChildren().forEach(e => {
+          if (e.isDead) return;
+          const dist = Phaser.Math.Distance.Between(grabber.x, grabber.y, e.x, e.y);
+          if (dist < minDist) {
+            minDist = dist;
+            target = e;
+          }
+        });
+      }
+    } else {
+      // P2 grab P1
+      if (this.player && this.player.active && this.hearts > 0) {
+        const dist = Phaser.Math.Distance.Between(grabber.x, grabber.y, this.player.x, this.player.y);
+        if (dist <= 55) target = this.player;
+      }
+    }
+
+    if (!target) return;
+
+    // Wakeup invulnerability: grab cannot hit a target in their wakeup window
+    if (target === this.player && this.time.now < this.playerWakeupUntil) {
+      this.spawnFloatingText(grabber.x, grabber.y - 80, 'INVULNERABLE! 🛡️', '#38bdf8');
+      return;
+    }
+    if (target === this.p2 && this.time.now < this.p2WakeupUntil) {
+      this.spawnFloatingText(grabber.x, grabber.y - 80, 'INVULNERABLE! 🛡️', '#38bdf8');
+      return;
+    }
+
+    // Check if target is attacking (attack startup check)
+    const targetIsAttacking = (target === this.player) 
+      ? this.isAttacking 
+      : ((target === this.p2) ? this.p2IsAttacking : (target.isAttacking || (target.anims.currentAnim && (target.anims.currentAnim.key.includes('punch') || target.anims.currentAnim.key.includes('kick')))));
+
+    if (targetIsAttacking) {
+      // Grab failed! Stun grabber for 800ms
+      this.spawnFloatingText(grabber.x, grabber.y - 80, 'THROW FAILED! ❌', '#9ca3af');
+      if (isP1) {
+        this.playerStunnedUntil = this.time.now + 800;
+        grabber.setVelocityX(0);
+        grabber.play('player_hit', true);
+        this.time.delayedCall(800, () => {
+          if (grabber.active) grabber.play('player_idle', true);
+        });
+      } else {
+        this.p2StunnedUntil = this.time.now + 800;
+        grabber.setVelocityX(0);
+        grabber.play('enemy_hit', true);
+        this.time.delayedCall(800, () => {
+          if (grabber.active) grabber.play('enemy_idle', true);
+        });
+      }
+    } else {
+      // Grab success! Play kick anim on attacker, throw target with 30 damage
+      this.spawnFloatingText(target.x, target.y - 80, 'THROW! 💢', '#f97316');
+      grabber.play(isP1 ? 'player_kick' : 'enemy_kick', true);
+      if (isP1) {
+        this.isAttacking = true;
+        grabber.once('animationcomplete', () => { this.isAttacking = false; });
+      } else {
+        this.p2IsAttacking = true;
+        grabber.once('animationcomplete', () => { this.p2IsAttacking = false; });
+      }
+
+      const dir = grabber.flipX ? -1 : 1;
+      target.setVelocity(dir * 350, -300);
+      this.spawnDust(target.x, target.y);
+
+      // Apply 30 damage & 600ms wakeup invulnerability
+      if (target === this.player) {
+        this.hearts = Math.max(0, this.hearts - 0.3); // 30 damage
+        this.isHit = true;
+        this.player.play('player_hit', true);
+        this.updateHUDHearts();
+        this.cameras.main.shake(150, 0.015);
+        this.spawnFloatingText(this.player.x, this.player.y - 75, '-30 HP 🩸', '#ef4444');
+        
+        this.playerWakeupUntil = this.time.now + 400 + 600;
+        this.time.delayedCall(400, () => {
+          if (this.player.active) {
+            this.isHit = false;
+            this.player.setVelocityX(0);
+            this.triggerWakeupFlashing(this.player, 600);
+          }
+        });
+      } else if (target === this.p2) {
+        this.p2Hearts = Math.max(0, this.p2Hearts - 0.3); // 30 damage
+        this.p2IsHit = true;
+        this.p2.play('enemy_hit', true);
+        this.updateHUDHearts();
+        this.cameras.main.shake(150, 0.015);
+        this.spawnFloatingText(this.p2.x, this.p2.y - 75, '-30 HP 🩸', '#ef4444');
+        
+        this.p2WakeupUntil = this.time.now + 400 + 600;
+        this.time.delayedCall(400, () => {
+          if (this.p2 && this.p2.active) {
+            this.p2IsHit = false;
+            this.p2.setVelocityX(0);
+            this.triggerWakeupFlashing(this.p2, 600);
+          }
+        });
+      } else {
+        // Target is AI
+        this.damageAIEnemy(target, 30, true, 'throw');
+      }
+    }
+  }
+
+  triggerWakeupFlashing(char, duration) {
+    const isP1 = (char === this.player);
+
+    // Cancel any existing flash loop and cleanup timer for this character
+    if (isP1) {
+      if (this.playerWakeupEvent) { this.playerWakeupEvent.destroy(); this.playerWakeupEvent = null; }
+      if (this.playerWakeupCleanup) { this.playerWakeupCleanup.remove(); this.playerWakeupCleanup = null; }
+    } else {
+      if (this.p2WakeupEvent) { this.p2WakeupEvent.destroy(); this.p2WakeupEvent = null; }
+      if (this.p2WakeupCleanup) { this.p2WakeupCleanup.remove(); this.p2WakeupCleanup = null; }
+    }
+
+    let isLowAlpha = false;
+    const event = this.time.addEvent({
+      delay: 100,
+      loop: true,
+      callback: () => {
+        if (!char || !char.active) return;
+        isLowAlpha = !isLowAlpha;
+        char.setAlpha(isLowAlpha ? 0.4 : 1.0);
+        char.setTint(0xffffff);
+      }
+    });
+
+    if (isP1) this.playerWakeupEvent = event;
+    else this.p2WakeupEvent = event;
+
+    // Store the cleanup handle so it can be cancelled on re-hit or round reset
+    const cleanup = this.time.delayedCall(duration, () => {
+      event.destroy();
+      if (char && char.active) {
+        char.setAlpha(1.0);
+        if (isP1) {
+          char.clearTint();
+          this.playerWakeupCleanup = null;
+        } else {
+          char.setTint(0x00ffff);
+          this.p2WakeupCleanup = null;
+        }
+      }
+    });
+
+    if (isP1) this.playerWakeupCleanup = cleanup;
+    else this.p2WakeupCleanup = cleanup;
+  }
+
+  handlePvPRoundEnd() {
+    this.pvpRoundActive = false;
+    this.physics.pause();
+
+    const p2WonRound = (this.hearts <= 0);
+    const winnerName = p2WonRound ? "小蓝 (P2)" : "小红 (P1)";
+    const winnerColor = p2WonRound ? '#00ffff' : '#ef4444';
+
+    if (p2WonRound) {
+      this.player.play('player_hit', true);
+      if (this.p2) this.p2.play('enemy_idle', true);
+      this.p2Wins++;
+    } else {
+      if (this.p2) this.p2.play('enemy_hit', true);
+      this.player.play('player_idle', true);
+      this.p1Wins++;
+    }
+    this.updateWinsHUD();
+
+    const viewCenterX = this.cameras.main.worldView.centerX || 480;
+    const viewCenterY = this.cameras.main.worldView.centerY || 300;
+    const roundText = this.add.text(viewCenterX, viewCenterY, `ROUND ${this.pvpRound}\n${winnerName} WINS!`, {
+      font: 'bold 36px Arial',
+      fill: winnerColor,
+      stroke: '#000000',
+      strokeThickness: 6,
+      align: 'center'
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(DEPTH.EFFECTS + 500);
+
+    this.time.delayedCall(2000, () => {
+      roundText.destroy();
+
+      if (this.p1Wins >= 2) {
+        this.physics.resume();
+        this.triggerGameOver(true, "小红 (P1) 获得了最终两胜，大获全胜！🏆");
+      } else if (this.p2Wins >= 2) {
+        this.physics.resume();
+        this.triggerGameOver(false, "小蓝 (P2) 获得了最终两胜，大获全胜！🏆");
+      } else {
+        // Prepare next round
+        this.pvpRound++;
+        this.hearts = 3.0;
+        this.p2Hearts = 3.0;
+        this.playerEnergy = 0;
+        this.p2Energy = 0;
+
+        // Fix 3: clear ult flash tweens so round 2+ ult-ready signal works correctly
+        this.playerFlashingUlt = false;
+        if (this.playerFlashTween) { this.playerFlashTween.remove(); this.playerFlashTween = null; }
+        this.player.clearTint();
+        this.p2FlashingUlt = false;
+        if (this.p2FlashTween) { this.p2FlashTween.remove(); this.p2FlashTween = null; }
+        if (this.p2) this.p2.setTint(0x00ffff);
+
+        // Fix 8: cancel any orphaned wakeup flash timers from previous round
+        if (this.playerWakeupEvent) { this.playerWakeupEvent.destroy(); this.playerWakeupEvent = null; }
+        if (this.playerWakeupCleanup) { this.playerWakeupCleanup.remove(); this.playerWakeupCleanup = null; }
+        if (this.p2WakeupEvent) { this.p2WakeupEvent.destroy(); this.p2WakeupEvent = null; }
+        if (this.p2WakeupCleanup) { this.p2WakeupCleanup.remove(); this.p2WakeupCleanup = null; }
+        this.playerWakeupUntil = 0;
+        this.p2WakeupUntil = 0;
+
+        this.player.setPosition(120, 480);
+        if (this.p2) this.p2.setPosition(840, 480);
+        this.cameras.main.centerOn(480, 288);
+
+        this.player.setVelocity(0, 0);
+        if (this.p2) this.p2.setVelocity(0, 0);
+
+        this.isHit = false;
+        this.p2IsHit = false;
+        this.isAttacking = false;
+        this.p2IsAttacking = false;
+        this.playerStunnedUntil = 0;
+        this.p2StunnedUntil = 0;
+        this.playerDashUntil = 0;
+        this.playerDodgeUntil = 0;
+        this.playerWasDashing = false;
+        this.playerWasDodging = false;
+        this.p2DashUntil = 0;
+        this.p2DodgeUntil = 0;
+        this.p2WasDashing = false;
+        this.p2WasDodging = false;
+
+        this.updateHUDHearts();
+        this.updateHUDValues();
+
+        window.GameHUD?.setObjective(`第${this.pvpRound}局 | P1: ${this.p1Wins}胜 P2: ${this.p2Wins}胜`);
+
+        // Sweep transition
+        const flashGraphics = this.add.graphics();
+        flashGraphics.setScrollFactor(0);
+        flashGraphics.setDepth(DEPTH.EFFECTS + 1000);
+
+        const viewWidth = this.cameras.main.width;
+        const viewHeight = this.cameras.main.height;
+        const centerX = viewWidth / 2;
+        const transitionObj = { progress: 0 };
+
+        this.tweens.add({
+          targets: transitionObj,
+          progress: 1,
+          duration: 600,
+          onUpdate: () => {
+            flashGraphics.clear();
+            flashGraphics.fillStyle(0xffffff, 1 - transitionObj.progress);
+            const w = centerX * transitionObj.progress;
+            flashGraphics.fillRect(centerX - w, 0, w, viewHeight);
+            flashGraphics.fillRect(centerX, 0, w, viewHeight);
+          },
+          onComplete: () => {
+            flashGraphics.destroy();
+            this.physics.resume();
+            this.pvpRoundActive = true;
+          }
+        });
+      }
+    });
+  }
+
+  updateWinsHUD() {
+    if (!this.isPvP) return;
+    const p1WinsEl = document.getElementById('p1-wins-container');
+    if (p1WinsEl) {
+      p1WinsEl.textContent = '★'.repeat(this.p1Wins) + '☆'.repeat(2 - this.p1Wins);
+    }
+    const p2WinsEl = document.getElementById('p2-wins-container');
+    if (p2WinsEl) {
+      p2WinsEl.textContent = '★'.repeat(this.p2Wins) + '☆'.repeat(2 - this.p2Wins);
+    }
   }
 }
 
