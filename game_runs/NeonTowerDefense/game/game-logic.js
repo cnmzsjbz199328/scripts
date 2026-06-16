@@ -228,7 +228,33 @@ class MainScene extends Phaser.Scene {
     if (window.GameHUD) {
       window.GameHUD.onStart(() => {
         this.gameStarted = true;
-        this.startLevelWaves();
+
+        const tipStyle = (color) => ({
+          font: 'bold 17px Courier New', fill: color,
+          stroke: '#000000', strokeThickness: 4,
+          align: 'center', wordWrap: { width: 800 }
+        });
+
+        // Tip 1: how to collect crystals (3s)
+        window.GameHUD?.setObjective('💎 初始60水晶！击败敌人掉落更多，走过自动收集');
+        const tip1 = this.add.text(640, 350, '💎 击败敌人掉落水晶 · 走过自动收集！', tipStyle('#fbbf24'))
+          .setOrigin(0.5).setDepth(DEPTH.EFFECTS);
+
+        this.time.delayedCall(3000, () => {
+          this.tweens.add({ targets: tip1, alpha: 0, duration: 400, onComplete: () => tip1.destroy() });
+
+          // Tip 2: how to build turrets (3s)
+          window.GameHUD?.setObjective('暗色地板 = 建造区 | J 激光塔(50💎)  K 等离子塔(80💎)');
+          const tip2 = this.add.text(640, 350,
+            '🔵 站到暗色地板 → 按 J 建激光塔(50💎) / K 建等离子塔(80💎)',
+            tipStyle('#00ff88')).setOrigin(0.5).setDepth(DEPTH.EFFECTS);
+
+          this.time.delayedCall(3000, () => {
+            this.tweens.add({ targets: tip2, alpha: 0, duration: 400, onComplete: () => tip2.destroy() });
+            this.spawnFloatingText(640, 360, '⚠️ 敌浪即将入侵，建好防线！', '#ef4444');
+            this.startLevelWaves();
+          });
+        });
       });
     }
 
@@ -463,7 +489,7 @@ class MainScene extends Phaser.Scene {
   }
 
   startLevelWaves() {
-    this.time.delayedCall(2000, () => {
+    this.time.delayedCall(1000, () => {
       this.startWave();
     });
   }
