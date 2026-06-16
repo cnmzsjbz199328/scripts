@@ -32,3 +32,6 @@ game_runs/**/*.json
 # Track game assets so Cloudflare Pages CI can deploy them
 !game_runs/**/*.png
 !game_runs/**/*.webp
+
+# AI tool workspaces
+.gemini/

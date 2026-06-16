@@ -266,6 +266,7 @@ async function assembleGame(gameName: string) {
     NeonRacer:      `Controls: WASD / Arrow Keys to steer left/right/up/down<br>SPACE: Quantum Boost (Instant Velocity Multiplier)`,
     StickmanFighter:`Controls: A/D or Arrow Keys to move left/right | W or UP: Jump | S or DOWN: Block<br>J: Punch &nbsp;|&nbsp; K: Kick`,
     PixelFarm:      `Controls: WASD / Arrow Keys to move | 1-6: Select Hotbar Slot<br>Z: Use Equipped Item | X: Sleep (Advance Day &amp; Grow Crops) | E: Interact (Chest / Gate / Bonfire / Shipping Bin)`,
+    NeonTowerDefense:`Controls: WASD / Arrow Keys to move safety drone<br>J: Build Laser Turret (50 💎) &nbsp;|&nbsp; K: Build Plasma Slow Turret (80 💎)`,
   };
   const controlsTip = CONTROLS_BY_GAME[gameName] ?? `Controls: WASD / Arrow Keys to move`;
 
