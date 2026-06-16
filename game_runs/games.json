@@ -1,5 +1,18 @@
 [
   {
+    "id": "NeonTowerDefense",
+    "title": "霓虹防御：终极战线",
+    "tagline": "在赛博网络核心，抵御病毒程序的无休止入侵！",
+    "gameType": "top-down-action",
+    "genre": "ACTION",
+    "accent": "#00e5ff",
+    "previewBg": "#020c14",
+    "icon": "🏎️",
+    "thumbnail": "NeonTowerDefense/scene/neon_td_panorama.png",
+    "path": "NeonTowerDefense/index.html",
+    "createdAt": "2026-06-16T01:16:45.507Z"
+  },
+  {
     "id": "StickmanFighter",
     "title": "火柴人：终极决斗",
     "tagline": "经典火柴人街头对决，用指尖点燃热血！",

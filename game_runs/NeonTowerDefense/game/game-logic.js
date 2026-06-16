@@ -415,6 +415,14 @@ class MainScene extends Phaser.Scene {
         // Base Floor
         const fSprite = this.add.image(px, py, floorKey).setDisplaySize(this.tileW, this.tileH);
         fSprite.setDepth(DEPTH.GROUND);
+        if (val === 0) {
+          // Enemy path: bright neon glow — visually distinct, no building allowed
+          fSprite.setTint(0x00ccff);
+          fSprite.setAlpha(0.9);
+        } else if (val === 1) {
+          // Buildable ground: dimmer platform appearance
+          fSprite.setAlpha(0.45);
+        }
         this.gridSprites.push(fSprite);
 
         // Cyber Wall block
@@ -425,6 +433,13 @@ class MainScene extends Phaser.Scene {
           wSprite.refreshBody();
         }
       }
+    }
+
+    // Build-zone cursor: highlights the cell under the player
+    if (!this.buildCursor) {
+      this.buildCursor = this.add.rectangle(0, 0, this.tileW - 4, this.tileH - 4, 0x00ff88, 0)
+        .setStrokeStyle(2, 0x00ff88, 0)
+        .setDepth(DEPTH.DECOR_FLOOR);
     }
 
     // Set core station at end point
@@ -440,7 +455,7 @@ class MainScene extends Phaser.Scene {
 
     // Initial message
     const zoneName = this.currentLevel === 1 ? "安全网关一号" : (this.currentLevel === 2 ? "内存缓冲区" : "数据库神殿");
-    window.GameHUD?.setObjective(`到达【${zoneName}】！准备御敌！`);
+    window.GameHUD?.setObjective(`移到暗色地板，按 J 建激光塔(50💎) / K 建等离子塔(80💎)`);
     this.spawnFloatingText(640, 400, `【${zoneName}】已载入`, '#00ffff');
 
     this.currentWave = 1;
@@ -629,6 +644,18 @@ class MainScene extends Phaser.Scene {
     const col = Math.floor(this.player.x / this.tileW);
     const row = Math.floor(this.player.y / this.tileH);
 
+    // Update build-zone cursor
+    if (this.buildCursor) {
+      const mapConfig = this.levelMaps[this.currentLevel];
+      const onGrid = col >= 0 && col < this.gridW && row >= 0 && row < this.gridH;
+      const canBuild = onGrid && mapConfig.grid[row][col] === 1;
+      const cx = col * this.tileW + this.tileW / 2;
+      const cy = row * this.tileH + this.tileH / 2;
+      this.buildCursor.setPosition(cx, cy);
+      this.buildCursor.setFillStyle(0x00ff88, canBuild ? 0.12 : 0);
+      this.buildCursor.setStrokeStyle(2, canBuild ? 0x00ff88 : 0xff4444, canBuild ? 0.7 : 0.4);
+    }
+
     // Press J: Build Laser Turret (Cost: 50)
     if (Phaser.Input.Keyboard.JustDown(this.keyJ)) {
       this.attemptBuild('laser_turret', 50, col, row);
@@ -650,7 +677,8 @@ class MainScene extends Phaser.Scene {
 
     // Must be type 1 (Buildable ground)
     if (cellType !== 1) {
-      this.spawnFloatingText(this.player.x, this.player.y - 40, '此处无法建造 🚫', '#ef4444');
+      const reason = cellType === 0 ? '发光路径上不能建造！移到暗色地板' : '此处无法建造 🚫';
+      this.spawnFloatingText(this.player.x, this.player.y - 40, reason, '#ef4444');
       return;
     }
 
@@ -965,11 +993,12 @@ class MainScene extends Phaser.Scene {
       this.loadLevel(this.currentLevel);
       this.startLevelWaves();
     } else {
-      // Game Win!
-      if (this.bossDefeated) {
-        this.gameCleared = true;
-        this.triggerGameOver(true, "终极战线防守成功！数据库木马源头已被彻底清除，赛博核心大获全胜！🏆⚡");
-      }
+      // Game Win — all waves cleared on all levels
+      this.gameCleared = true;
+      const msg = this.bossDefeated
+        ? "终极战线防守成功！数据库木马源头已被彻底清除，赛博核心大获全胜！🏆⚡"
+        : "防线坚守完毕！核心数据库已安全净化！🏆";
+      this.triggerGameOver(true, msg);
     }
   }
 
