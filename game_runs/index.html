@@ -262,6 +262,20 @@
       main   { padding: 36px 16px 64px; }
       #games-grid { grid-template-columns: 1fr; }
     }
+
+    /* ── Header game animation chars ───────────────────────────── */
+    .hc {
+      display: inline-block;
+      opacity: 0;
+      transform: scale(.4) translateY(-6px);
+      transition: opacity .28s ease, transform .38s cubic-bezier(.34,1.56,.64,1);
+    }
+    .hc.r { opacity: 1; transform: none; }
+    .hc-g {
+      background: linear-gradient(130deg, #60a5fa 0%, #a78bfa 55%, #f472b6 100%);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+    }
+    @media (prefers-reduced-motion: reduce) { .hc { transition: none; } }
   </style>
 </head>
 <body>
@@ -349,6 +363,362 @@
     © 2026
   </p>
 </footer>
+
+<script id="header-anim">
+/* ── Header interactive animations ─────────────────────────────────────
+   Title  : pixel-soldier shoots chars to reveal → rest → dissolve → loop
+   Subtitle: snake eats scattered chars → rest → scatter back → loop
+   Mobile  : simplified stagger reveal instead of soldier
+   Loops indefinitely with rest periods to avoid visual fatigue
+   Skipped entirely when prefers-reduced-motion is set
+─────────────────────────────────────────────────────────────────────── */
+(function () {
+  'use strict';
+
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+  // Hide h1 immediately to prevent FOUC while spans are being set up
+  const _h1early = document.querySelector('header h1');
+  if (_h1early) _h1early.style.opacity = '0';
+
+  const MOBILE = window.innerWidth < 540;
+
+  /* ══════════════════════════════════════════════════════════════
+     TITLE LOOP
+     Desktop:  soldier walks left→right, shoots each char to reveal
+               → 2.5s rest → chars dissolve outward → repeat
+     Mobile:   staggered spring reveal → 2.5s rest → dissolve → repeat
+  ══════════════════════════════════════════════════════════════ */
+  function titleLoop() {
+    const h1 = document.querySelector('header h1');
+    const hi = document.querySelector('.header-inner');
+    if (!h1 || !hi) return;
+
+    const GRAD  = new Set(['工', '坊']);
+    const CHARS = '像素游戏工坊';
+
+    // Replace h1 with per-char spans; remove early-hide
+    h1.innerHTML = CHARS.split('').map(ch =>
+      `<span class="hc${GRAD.has(ch) ? ' hc-g' : ''}">${ch}</span>`
+    ).join('');
+    h1.style.opacity = '';
+
+    const spans = [...h1.querySelectorAll('.hc')];
+
+    // Dissolve directions — translate first so motion is in screen-space
+    const DIRS = [
+      'translate(-60px,-40px) rotate(-45deg) scale(.06)',
+      'translate(-20px,-70px) scale(.06)',
+      'translate(20px,-60px) scale(.06)',
+      'translate(60px,-30px) scale(.06)',
+      'translate(50px,20px) rotate(30deg) scale(.06)',
+      'translate(-30px,30px) rotate(-30deg) scale(.06)',
+    ];
+
+    function resetSpans() {
+      spans.forEach(sp => {
+        sp.style.transition = 'none';
+        sp.style.opacity    = '0';
+        sp.style.transform  = '';
+        sp.style.filter     = '';
+        sp.classList.remove('r');
+      });
+      void h1.offsetHeight; // flush
+      spans.forEach(sp => { sp.style.transition = ''; }); // re-enable CSS transition
+    }
+
+    function dissolveSched(onDone) {
+      spans.forEach((sp, i) => setTimeout(() => {
+        sp.style.transition = 'opacity .35s ease, transform .42s ease';
+        sp.style.opacity    = '0';
+        sp.style.transform  = DIRS[i % DIRS.length];
+      }, i * 60));
+      setTimeout(() => { resetSpans(); setTimeout(onDone, 300); },
+        spans.length * 60 + 550);
+    }
+
+    if (MOBILE) {
+      const MDIRS = [
+        'translate(-20px,-30px) rotate(-25deg) scale(.08)',
+        'translate(0,-40px) scale(.08)',
+        'translate(20px,-30px) scale(.08)',
+        'translate(30px,10px) scale(.08)',
+        'translate(20px,25px) rotate(20deg) scale(.08)',
+        'translate(-20px,25px) rotate(-20deg) scale(.08)',
+      ];
+      function mobileReveal() {
+        resetSpans();
+        spans.forEach((sp, i) => setTimeout(() => sp.classList.add('r'), i * 115));
+        setTimeout(() => dissolveSched(mobileReveal), spans.length * 115 + 2500);
+      }
+      setTimeout(mobileReveal, 500);
+      return;
+    }
+
+    // Desktop: create persistent soldier element
+    const hiRect = hi.getBoundingClientRect();
+    const solTop = h1.offsetTop + h1.offsetHeight + 2;
+
+    const sol = document.createElement('div');
+    sol.setAttribute('aria-hidden', 'true');
+    sol.style.cssText = `position:absolute;top:${solTop}px;left:-30px;` +
+      `width:18px;height:20px;pointer-events:none;z-index:10;transition:left .28s linear;`;
+    sol.innerHTML =
+      `<svg width="18" height="20" viewBox="0 0 9 10" xmlns="http://www.w3.org/2000/svg">` +
+      `<rect x="4" y="0" width="2" height="2" fill="#93c5fd"/>` +
+      `<rect x="3" y="2" width="4" height="3" fill="#3b82f6"/>` +
+      `<rect x="6" y="2" width="3" height="1" fill="#93c5fd"/>` +
+      `<rect x="3" y="5" width="1" height="3" fill="#1d4ed8"/>` +
+      `<rect x="5" y="5" width="1" height="3" fill="#1d4ed8"/>` +
+      `<rect x="2" y="8" width="2" height="2" fill="#60a5fa"/>` +
+      `<rect x="5" y="8" width="2" height="2" fill="#60a5fa"/>` +
+      `</svg>`;
+    hi.appendChild(sol);
+
+    const charData = spans.map(sp => {
+      const r = sp.getBoundingClientRect();
+      return { sp, cx: r.left - hiRect.left + r.width / 2 };
+    });
+
+    const WALK = 260, SHOOT = 185, EACH = WALK + SHOOT + 55;
+
+    function doReveal() {
+      resetSpans();
+      // Teleport soldier back to start without transition
+      sol.style.transition = 'none';
+      sol.style.left = '-30px';
+      void sol.offsetWidth;
+      sol.style.transition = `left ${WALK}ms linear`;
+
+      let t = 400;
+      charData.forEach((cd, i) => {
+        setTimeout(() => { sol.style.left = (cd.cx - 9) + 'px'; }, t);
+        setTimeout(() => {
+          cd.sp.classList.add('r');
+          cd.sp.style.filter = 'brightness(3)';
+          setTimeout(() => { cd.sp.style.filter = ''; }, 220);
+        }, t + WALK + SHOOT);
+        t += EACH;
+      });
+      // Soldier exits right
+      setTimeout(() => {
+        sol.style.transition = `left ${WALK}ms linear`;
+        sol.style.left = (hiRect.width + 20) + 'px';
+      }, t);
+      // Rest then dissolve
+      setTimeout(() => dissolveSched(doReveal), t + WALK + 2500);
+    }
+
+    setTimeout(doReveal, 300);
+  }
+
+  /* ══════════════════════════════════════════════════════════════
+     SNAKE LOOP
+     EAT     : snake navigates to each scattered char and eats it;
+               eaten chars appear in a text strip at canvas bottom
+     SHOW    : 3s rest — full text visible, snake idles
+     SCATTER : chars animate from strip back to new random positions
+     (repeat)
+  ══════════════════════════════════════════════════════════════ */
+  function snakeLoop() {
+    const p = document.querySelector('.site-sub');
+    if (!p) return;
+
+    const TEXT  = p.textContent.trim();
+    p.style.opacity = '0'; // visually hidden; stays in DOM for a11y
+
+    const CELL    = MOBILE ? 8  : 11;
+    const CH      = MOBILE ? 90 : 122;
+    const FSZ_G   = MOBILE ? 8  : 10;  // grid char size
+    const FSZ_S   = MOBILE ? 8  : 11;  // strip text size
+    const STEP_MS = MOBILE ? 52 : 36;  // snake step interval
+
+    const cvs = document.createElement('canvas');
+    cvs.setAttribute('aria-hidden', 'true');
+    cvs.style.cssText = `display:block;width:100%;height:${CH}px;`;
+    p.before(cvs);
+
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const CW  = cvs.parentElement.offsetWidth;
+    cvs.width  = CW * dpr;
+    cvs.height = CH * dpr;
+    const ctx  = cvs.getContext('2d');
+    ctx.scale(dpr, dpr);
+
+    const COLS    = Math.floor(CW / CELL);
+    const ROWS    = Math.floor(CH / CELL);
+    const STRIP_Y = CH - (MOBILE ? 6 : 8);
+
+    // Precompute strip x-centre for each char (indexed by text order)
+    ctx.font = `${FSZ_S}px "Segoe UI",system-ui,sans-serif`;
+    const cws    = TEXT.split('').map(ch => ctx.measureText(ch).width);
+    const totalW = cws.reduce((a, b) => a + b, 0);
+    const stripXs = [];
+    let bx = CW / 2 - totalW / 2;
+    cws.forEach(w => { stripXs.push(bx + w / 2); bx += w; });
+
+    function randPos() {
+      const used = new Set();
+      return TEXT.split('').map(() => {
+        let col, row, n = 0;
+        do {
+          col = 1 + Math.floor(Math.random() * (COLS - 2));
+          row = 1 + Math.floor(Math.random() * (ROWS - 3));
+        } while (used.has(`${col},${row}`) && ++n < 300);
+        used.add(`${col},${row}`);
+        return { col, row };
+      });
+    }
+
+    function makeChars(positions) {
+      return TEXT.split('').map((ch, i) => ({
+        ch, order: i, eaten: false,
+        col: positions[i].col, row: positions[i].row,
+      }));
+    }
+
+    let chars  = makeChars(randPos());
+    let snake  = [{ col: 0, row: 0 }];
+    let ate    = [];
+    let stepT  = 0;
+    let phase  = 'EAT'; // 'EAT' | 'SHOW' | 'SCATTER'
+    let phaseT = 0;
+    let scatterFrom = [];
+    let scatterTo   = [];
+
+    function nearest() {
+      const h = snake[0];
+      return chars.filter(c => !c.eaten).reduce((b, c) => {
+        const d  = Math.abs(c.col - h.col) + Math.abs(c.row - h.row);
+        const bd = b ? Math.abs(b.col - h.col) + Math.abs(b.row - h.row) : Infinity;
+        return d < bd ? c : b;
+      }, null);
+    }
+
+    function forceFinish() {
+      chars.filter(c => !c.eaten).forEach(c => { c.eaten = true; ate.push(c); });
+      phase = 'SHOW'; phaseT = 0;
+    }
+
+    function stepSnake() {
+      const tgt = nearest();
+      if (!tgt) { forceFinish(); return; }
+      const h    = snake[0];
+      const body = new Set(snake.slice(0, -1).map(s => `${s.col},${s.row}`));
+      const dc   = Math.sign(tgt.col - h.col);
+      const dr   = Math.sign(tgt.row - h.row);
+      const opts = [];
+      if (dc) opts.push([dc, 0]);
+      if (dr) opts.push([0, dr]);
+      opts.push([1, 0], [-1, 0], [0, 1], [0, -1]);
+      for (const [dc2, dr2] of opts) {
+        const nc = h.col + dc2, nr = h.row + dr2;
+        if (nc < 0 || nc >= COLS || nr < 0 || nr >= ROWS) continue;
+        if (body.has(`${nc},${nr}`)) continue;
+        if (snake.length > 1 && nc === snake[1].col && nr === snake[1].row) continue;
+        snake.unshift({ col: nc, row: nr });
+        const e = chars.find(c => !c.eaten && c.col === nc && c.row === nr);
+        if (e) { e.eaten = true; ate.push(e); }
+        else snake.pop();
+        return;
+      }
+      forceFinish(); // snake is stuck
+    }
+
+    function eio(t) { return t < .5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2; }
+
+    function drawSnake() {
+      for (let i = 0; i < snake.length; i++) {
+        const s = snake[i];
+        ctx.fillStyle = i === 0 ? '#4ade80' : `rgba(74,222,128,${Math.max(.12, .85 - i * .02)})`;
+        ctx.fillRect(s.col * CELL + 1, s.row * CELL + 1, CELL - 2, CELL - 2);
+      }
+    }
+
+    let lt = performance.now();
+    function draw(now) {
+      const dt = Math.min(now - lt, 50); lt = now;
+
+      // Phase transitions
+      if (phase === 'EAT') {
+        stepT += dt;
+        if (stepT >= STEP_MS) { stepT = 0; stepSnake(); }
+        if (chars.every(c => c.eaten)) { phase = 'SHOW'; phaseT = 0; }
+      } else if (phase === 'SHOW') {
+        phaseT += dt;
+        if (phaseT >= 3000) {
+          const np  = randPos();
+          scatterFrom = chars.map(c => ({ x: stripXs[c.order], y: STRIP_Y }));
+          scatterTo   = np;
+          phase = 'SCATTER'; phaseT = 0;
+        }
+      } else if (phase === 'SCATTER') {
+        phaseT += dt;
+        if (phaseT >= 1500) {
+          chars.forEach((c, i) => {
+            c.col = scatterTo[i].col; c.row = scatterTo[i].row; c.eaten = false;
+          });
+          snake = [{ col: 0, row: 0 }]; ate = []; stepT = 0;
+          phase = 'EAT';
+        }
+      }
+
+      ctx.clearRect(0, 0, CW, CH);
+
+      if (phase === 'EAT') {
+        ctx.font = `${FSZ_G}px monospace`;
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        for (const c of chars) {
+          if (c.eaten) continue;
+          ctx.fillStyle = 'rgba(148,163,184,.6)';
+          ctx.fillText(c.ch, c.col * CELL + CELL / 2, c.row * CELL + CELL / 2);
+        }
+        drawSnake();
+        const sorted = [...ate].sort((a, b) => a.order - b.order).map(c => c.ch).join('');
+        ctx.font = `${FSZ_S}px "Segoe UI",system-ui,sans-serif`;
+        ctx.fillStyle = '#94a3b8'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText(sorted, CW / 2, STRIP_Y);
+
+      } else if (phase === 'SHOW') {
+        ctx.font = `${FSZ_S}px "Segoe UI",system-ui,sans-serif`;
+        ctx.fillStyle = '#94a3b8'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText(TEXT, CW / 2, STRIP_Y);
+        drawSnake();
+
+      } else if (phase === 'SCATTER') {
+        const prog = eio(Math.min(phaseT / 1500, 1));
+        ctx.font = `${FSZ_G}px monospace`;
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        chars.forEach((c, i) => {
+          const fx = scatterFrom[i].x, fy = scatterFrom[i].y;
+          const tx = scatterTo[i].col * CELL + CELL / 2;
+          const ty = scatterTo[i].row * CELL + CELL / 2;
+          ctx.globalAlpha = 0.25 + prog * 0.38;
+          ctx.fillStyle = '#94a3b8';
+          ctx.fillText(c.ch, fx + (tx - fx) * prog, fy + (ty - fy) * prog);
+        });
+        ctx.globalAlpha = 1;
+      }
+
+      requestAnimationFrame(draw);
+    }
+
+    setTimeout(() => requestAnimationFrame(draw), 200);
+  }
+
+  /* ── Boot ───────────────────────────────────────────────────── */
+  function boot() {
+    // Double RAF ensures layout is complete before measuring positions
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      titleLoop();
+      snakeLoop();
+    }));
+  }
+  document.readyState === 'loading'
+    ? document.addEventListener('DOMContentLoaded', boot)
+    : boot();
+})();
+</script>
 
 <script>
 (() => {
