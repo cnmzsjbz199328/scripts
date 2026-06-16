@@ -26,7 +26,9 @@ object_runs/**/*.json
 object_runs/*/
 
 # Generated game project runs — track .html and .js source, ignore binaries
-game_runs/**/*.png
-game_runs/**/*.webp
 game_runs/**/*.json
 !game_runs/games.json
+
+# Track game assets so Cloudflare Pages CI can deploy them
+!game_runs/**/*.png
+!game_runs/**/*.webp
