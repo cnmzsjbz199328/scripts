@@ -1,6 +1,7 @@
 /**
  * NeonTowerDefense - Core Game Logic File
  * Handles top-down action controls, grid mechanics, waves, tower building, and maps.
+ * Integrates visual upgrades, shields, overclock buffs, and lightning.
  */
 
 // Depth settings matching SKILL.md specs
@@ -39,6 +40,10 @@ class MainScene extends Phaser.Scene {
     this.totalEnemiesInWave = 0;
     this.waveTimer = null;
 
+    // Buff states
+    this.isOverclocked = false;
+    this.overclockUntil = 0;
+
     // Grid details
     this.gridW = 20;
     this.gridH = 15;
@@ -67,7 +72,6 @@ class MainScene extends Phaser.Scene {
           [2,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
           [2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2]
         ],
-        // Enemy waypoints (pixels)
         waypoints: [
           { x: -32, y: 4.5 * 64 },
           { x: 15.5 * 64, y: 4.5 * 64 },
@@ -131,7 +135,6 @@ class MainScene extends Phaser.Scene {
           [2,1,1,1,1,1,1,1,1,0,0,1,1,1,1,1,1,1,1,2],
           [2,2,2,2,2,2,2,2,2,0,0,2,2,2,2,2,2,2,2,2]
         ],
-        // Dual spawn waypoints. Waypoint A starts left, B starts right, merge in center column 9 & 10
         waypointsA: [
           { x: -32, y: 3.5 * 64 },
           { x: 8.5 * 64, y: 3.5 * 64 },
@@ -171,6 +174,16 @@ class MainScene extends Phaser.Scene {
     this.load.spritesheet('plasma_turret', 'assets/objects/plasma_turret.webp', { frameWidth: 64, frameHeight: 64 });
     this.load.spritesheet('energy_crystal', 'assets/objects/energy_crystal.webp', { frameWidth: 64, frameHeight: 64 });
     this.load.spritesheet('core_database', 'assets/objects/core_database.webp', { frameWidth: 64, frameHeight: 64 });
+
+    // 4. Load Visual Upgrade & VFX Spritesheets
+    this.load.spritesheet('upgrade_burst_laser', 'assets/objects/upgrade_burst_laser.webp', { frameWidth: 64, frameHeight: 64 });
+    this.load.spritesheet('upgrade_burst_plasma', 'assets/objects/upgrade_burst_plasma.webp', { frameWidth: 64, frameHeight: 64 });
+    this.load.spritesheet('range_ring', 'assets/objects/range_ring.webp', { frameWidth: 64, frameHeight: 64 });
+    this.load.spritesheet('firerate_gear', 'assets/objects/firerate_gear.webp', { frameWidth: 64, frameHeight: 64 });
+    this.load.spritesheet('crystal_burst', 'assets/objects/crystal_burst.webp', { frameWidth: 32, frameHeight: 32 });
+    this.load.spritesheet('core_shield', 'assets/objects/core_shield.webp', { frameWidth: 96, frameHeight: 96 });
+    this.load.spritesheet('chain_lightning', 'assets/objects/chain_lightning.webp', { frameWidth: 32, frameHeight: 32 });
+    this.load.spritesheet('wave_alert', 'assets/objects/wave_alert.webp', { frameWidth: 128, frameHeight: 32 });
   }
 
   create() {
@@ -211,6 +224,9 @@ class MainScene extends Phaser.Scene {
 
     this.keyJ = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.J); // Build Laser Turret
     this.keyK = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.K); // Build Plasma Turret
+    this.keyE = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.E); // Upgrade Turret
+    this.keyZ = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.Z); // Chain Lightning Attack
+    this.keySpace = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE); // Overclock speed buff
 
     // Overlaps & Collisions
     this.physics.add.collider(this.player, this.collidables);
@@ -228,33 +244,7 @@ class MainScene extends Phaser.Scene {
     if (window.GameHUD) {
       window.GameHUD.onStart(() => {
         this.gameStarted = true;
-
-        const tipStyle = (color) => ({
-          font: 'bold 17px Courier New', fill: color,
-          stroke: '#000000', strokeThickness: 4,
-          align: 'center', wordWrap: { width: 800 }
-        });
-
-        // Tip 1: how to collect crystals (3s)
-        window.GameHUD?.setObjective('💎 初始60水晶！击败敌人掉落更多，走过自动收集');
-        const tip1 = this.add.text(640, 350, '💎 击败敌人掉落水晶 · 走过自动收集！', tipStyle('#fbbf24'))
-          .setOrigin(0.5).setDepth(DEPTH.EFFECTS);
-
-        this.time.delayedCall(3000, () => {
-          this.tweens.add({ targets: tip1, alpha: 0, duration: 400, onComplete: () => tip1.destroy() });
-
-          // Tip 2: how to build turrets (3s)
-          window.GameHUD?.setObjective('暗色地板 = 建造区 | J 激光塔(50💎)  K 等离子塔(80💎)');
-          const tip2 = this.add.text(640, 350,
-            '🔵 站到暗色地板 → 按 J 建激光塔(50💎) / K 建等离子塔(80💎)',
-            tipStyle('#00ff88')).setOrigin(0.5).setDepth(DEPTH.EFFECTS);
-
-          this.time.delayedCall(3000, () => {
-            this.tweens.add({ targets: tip2, alpha: 0, duration: 400, onComplete: () => tip2.destroy() });
-            this.spawnFloatingText(640, 360, '⚠️ 敌浪即将入侵，建好防线！', '#ef4444');
-            this.startLevelWaves();
-          });
-        });
+        this.startLevelWaves();
       });
     }
 
@@ -375,7 +365,7 @@ class MainScene extends Phaser.Scene {
       });
     }
 
-    // Objects frame animations
+    // Objects base animations
     if (!this.anims.exists('anim_laser')) {
       this.anims.create({
         key: 'anim_laser',
@@ -405,6 +395,72 @@ class MainScene extends Phaser.Scene {
         key: 'anim_core',
         frames: this.anims.generateFrameNumbers('core_database', { start: 0, end: 3 }),
         frameRate: 4,
+        repeat: -1
+      });
+    }
+
+    // New Upgrade & VFX Animations
+    if (!this.anims.exists('anim_upgrade_laser')) {
+      this.anims.create({
+        key: 'anim_upgrade_laser',
+        frames: this.anims.generateFrameNumbers('upgrade_burst_laser', { start: 0, end: 3 }),
+        frameRate: 10,
+        repeat: 0
+      });
+    }
+    if (!this.anims.exists('anim_upgrade_plasma')) {
+      this.anims.create({
+        key: 'anim_upgrade_plasma',
+        frames: this.anims.generateFrameNumbers('upgrade_burst_plasma', { start: 0, end: 3 }),
+        frameRate: 10,
+        repeat: 0
+      });
+    }
+    if (!this.anims.exists('anim_range_ring')) {
+      this.anims.create({
+        key: 'anim_range_ring',
+        frames: this.anims.generateFrameNumbers('range_ring', { start: 0, end: 3 }),
+        frameRate: 8,
+        repeat: 0
+      });
+    }
+    if (!this.anims.exists('anim_gear')) {
+      this.anims.create({
+        key: 'anim_gear',
+        frames: this.anims.generateFrameNumbers('firerate_gear', { start: 0, end: 3 }),
+        frameRate: 12,
+        repeat: -1
+      });
+    }
+    if (!this.anims.exists('anim_crystal_burst')) {
+      this.anims.create({
+        key: 'anim_crystal_burst',
+        frames: this.anims.generateFrameNumbers('crystal_burst', { start: 0, end: 3 }),
+        frameRate: 12,
+        repeat: 0
+      });
+    }
+    if (!this.anims.exists('anim_shield')) {
+      this.anims.create({
+        key: 'anim_shield',
+        frames: this.anims.generateFrameNumbers('core_shield', { start: 0, end: 3 }),
+        frameRate: 10,
+        repeat: 0
+      });
+    }
+    if (!this.anims.exists('anim_lightning')) {
+      this.anims.create({
+        key: 'anim_lightning',
+        frames: this.anims.generateFrameNumbers('chain_lightning', { start: 0, end: 5 }),
+        frameRate: 12,
+        repeat: -1
+      });
+    }
+    if (!this.anims.exists('anim_alert')) {
+      this.anims.create({
+        key: 'anim_alert',
+        frames: this.anims.generateFrameNumbers('wave_alert', { start: 0, end: 3 }),
+        frameRate: 6,
         repeat: -1
       });
     }
@@ -441,14 +497,6 @@ class MainScene extends Phaser.Scene {
         // Base Floor
         const fSprite = this.add.image(px, py, floorKey).setDisplaySize(this.tileW, this.tileH);
         fSprite.setDepth(DEPTH.GROUND);
-        if (val === 0) {
-          // Enemy path: bright neon glow — visually distinct, no building allowed
-          fSprite.setTint(0x00ccff);
-          fSprite.setAlpha(0.9);
-        } else if (val === 1) {
-          // Buildable ground: dimmer platform appearance
-          fSprite.setAlpha(0.45);
-        }
         this.gridSprites.push(fSprite);
 
         // Cyber Wall block
@@ -459,13 +507,6 @@ class MainScene extends Phaser.Scene {
           wSprite.refreshBody();
         }
       }
-    }
-
-    // Build-zone cursor: highlights the cell under the player
-    if (!this.buildCursor) {
-      this.buildCursor = this.add.rectangle(0, 0, this.tileW - 4, this.tileH - 4, 0x00ff88, 0)
-        .setStrokeStyle(2, 0x00ff88, 0)
-        .setDepth(DEPTH.DECOR_FLOOR);
     }
 
     // Set core station at end point
@@ -480,8 +521,8 @@ class MainScene extends Phaser.Scene {
     this.player.setPosition(mapConfig.playerSpawn.x, mapConfig.playerSpawn.y);
 
     // Initial message
-    const zoneName = this.currentLevel === 1 ? "安全网关一号" : (this.currentLevel === 2 ? "内存缓冲区" : "数据库神殿");
-    window.GameHUD?.setObjective(`移到暗色地板，按 J 建激光塔(50💎) / K 建等离子塔(80💎)`);
+    const zoneName = this.currentLevel === 1 ? "核心安全网关" : (this.currentLevel === 2 ? "内存缓冲区" : "数据库神殿");
+    window.GameHUD?.setObjective(`到达【${zoneName}】！准备御敌！`);
     this.spawnFloatingText(640, 400, `【${zoneName}】已载入`, '#00ffff');
 
     this.currentWave = 1;
@@ -489,7 +530,7 @@ class MainScene extends Phaser.Scene {
   }
 
   startLevelWaves() {
-    this.time.delayedCall(1000, () => {
+    this.time.delayedCall(2000, () => {
       this.startWave();
     });
   }
@@ -506,6 +547,20 @@ class MainScene extends Phaser.Scene {
     } else {
       this.totalEnemiesInWave = 8 + this.currentWave * 5; // 13, 18, 23
     }
+
+    // Display Terminal Wave Alert Banner (Effect 8)
+    const viewCenterX = this.cameras.main.worldView.centerX || 640;
+    const viewCenterY = this.cameras.main.worldView.centerY || 480;
+    const alertBanner = this.add.sprite(viewCenterX, viewCenterY - 120, 'wave_alert');
+    alertBanner.setScale(2.5);
+    alertBanner.setDepth(DEPTH.EFFECTS);
+    alertBanner.play('anim_alert');
+    
+    // Wave start audio-visual alerts
+    this.cameras.main.flash(200, 220, 38, 38);
+    this.time.delayedCall(2600, () => {
+      alertBanner.destroy();
+    });
 
     window.GameHUD?.setObjective(`波次 ${this.currentWave} / ${this.maxWaves} 正在入侵中！`);
     this.spawnFloatingText(640, 400, `波次 ${this.currentWave} 开始！`, '#ef4444');
@@ -598,7 +653,7 @@ class MainScene extends Phaser.Scene {
     }
 
     // Keep track of movement waypoint indexes
-    enemy.waypointIdx = 1; // start moving to waypoint 1
+    enemy.waypointIdx = 1;
     enemy.waypoints = waypoints;
     enemy.isDead = false;
 
@@ -614,6 +669,8 @@ class MainScene extends Phaser.Scene {
     // 1. Player actions
     this.handlePlayerMovement();
     this.handleBuildingControls();
+    this.handleUpgradeInteract();
+    this.handlePowerups();
 
     // 2. Enemy path logic
     this.handleEnemyMovement();
@@ -635,10 +692,8 @@ class MainScene extends Phaser.Scene {
       }
       const dist = Phaser.Math.Distance.Between(this.player.x, this.player.y, c.x, c.y);
       if (dist < 96 && c.active) {
-        // Close enough — collect immediately
         this.collectCrystal(this.player, c);
       } else if (dist < 220) {
-        // In attraction range — fly toward player
         const angle = Phaser.Math.Angle.Between(c.x, c.y, this.player.x, this.player.y);
         c.setVelocity(Math.cos(angle) * 160, Math.sin(angle) * 160);
       } else {
@@ -653,7 +708,7 @@ class MainScene extends Phaser.Scene {
   handlePlayerMovement() {
     let vx = 0;
     let vy = 0;
-    const speed = 220;
+    const speed = this.isOverclocked ? 340 : 220;
 
     if (this.cursors.left.isDown || this.wasd.left.isDown) vx = -speed;
     else if (this.cursors.right.isDown || this.wasd.right.isDown) vx = speed;
@@ -671,7 +726,7 @@ class MainScene extends Phaser.Scene {
       if (vx < 0) this.player.setFlipX(true);
       else if (vx > 0) this.player.setFlipX(false);
     } else {
-      if (this.player.anims.currentAnim?.key !== 'player_idle' && this.player.anims.currentAnim?.key !== 'player_build') {
+      if (this.player.anims.currentAnim?.key !== 'player_idle' && this.player.anims.currentAnim?.key !== 'player_build' && this.player.anims.currentAnim?.key !== 'player_shoot') {
         this.player.play('player_idle');
       }
     }
@@ -681,18 +736,6 @@ class MainScene extends Phaser.Scene {
     // Grid alignment
     const col = Math.floor(this.player.x / this.tileW);
     const row = Math.floor(this.player.y / this.tileH);
-
-    // Update build-zone cursor
-    if (this.buildCursor) {
-      const mapConfig = this.levelMaps[this.currentLevel];
-      const onGrid = col >= 0 && col < this.gridW && row >= 0 && row < this.gridH;
-      const canBuild = onGrid && mapConfig.grid[row][col] === 1;
-      const cx = col * this.tileW + this.tileW / 2;
-      const cy = row * this.tileH + this.tileH / 2;
-      this.buildCursor.setPosition(cx, cy);
-      this.buildCursor.setFillStyle(0x00ff88, canBuild ? 0.12 : 0);
-      this.buildCursor.setStrokeStyle(2, canBuild ? 0x00ff88 : 0xff4444, canBuild ? 0.7 : 0.4);
-    }
 
     // Press J: Build Laser Turret (Cost: 50)
     if (Phaser.Input.Keyboard.JustDown(this.keyJ)) {
@@ -706,27 +749,21 @@ class MainScene extends Phaser.Scene {
   }
 
   attemptBuild(type, cost, col, row) {
-    // Check bounds
     if (col < 0 || col >= this.gridW || row < 0 || row >= this.gridH) return;
 
-    // Check cells map
     const mapConfig = this.levelMaps[this.currentLevel];
     const cellType = mapConfig.grid[row][col];
 
-    // Must be type 1 (Buildable ground)
     if (cellType !== 1) {
-      const reason = cellType === 0 ? '发光路径上不能建造！移到暗色地板' : '此处无法建造 🚫';
-      this.spawnFloatingText(this.player.x, this.player.y - 40, reason, '#ef4444');
+      this.spawnFloatingText(this.player.x, this.player.y - 40, '此处无法建造 🚫', '#ef4444');
       return;
     }
 
-    // Check cost
     if (this.score < cost) {
       this.spawnFloatingText(this.player.x, this.player.y - 40, '能量水晶不足 🔋', '#fbbf24');
       return;
     }
 
-    // Check if another turret already exists here
     let spotOccupied = false;
     this.turrets.getChildren().forEach(t => {
       if (t.gridX === col && t.gridY === row) {
@@ -739,7 +776,6 @@ class MainScene extends Phaser.Scene {
       return;
     }
 
-    // Deduct cost and build
     this.score -= cost;
     window.GameHUD?.setScore(this.score);
 
@@ -754,6 +790,7 @@ class MainScene extends Phaser.Scene {
     turret.gridX = col;
     turret.gridY = row;
     turret.type = type;
+    turret.tier = 1;
     turret.range = type === 'laser_turret' ? 220 : 180;
     turret.damage = type === 'laser_turret' ? 7 : 12;
     turret.fireRate = type === 'laser_turret' ? 300 : 850;
@@ -761,10 +798,245 @@ class MainScene extends Phaser.Scene {
     turret.setDepth(DEPTH.YSORT + py);
     this.ysortGroup.add(turret);
 
-    // Play anim
+    // Play base anim
     turret.play(type === 'laser_turret' ? 'anim_laser' : 'anim_plasma');
 
     this.spawnFloatingText(px, py - 32, `-${cost} 💎 建造成功`, '#00ff66');
+  }
+
+  handleUpgradeInteract() {
+    // Press E to upgrade closest turret
+    if (Phaser.Input.Keyboard.JustDown(this.keyE)) {
+      let closestTurret = null;
+      let minDist = 80; // interactive distance
+
+      this.turrets.getChildren().forEach(t => {
+        const dx = t.x - this.player.x;
+        const dy = t.y - this.player.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist < minDist) {
+          minDist = dist;
+          closestTurret = t;
+        }
+      });
+
+      if (closestTurret) {
+        this.attemptUpgrade(closestTurret);
+      } else {
+        this.spawnFloatingText(this.player.x, this.player.y - 40, '附近没有可升级的防御塔', '#cbd5e1');
+      }
+    }
+  }
+
+  attemptUpgrade(t) {
+    if (t.tier >= 2) {
+      this.spawnFloatingText(t.x, t.y - 40, '已达到最大等级 🛡️', '#38bdf8');
+      return;
+    }
+
+    // Costs: Laser T2 = 80, Plasma T2 = 120
+    const cost = t.type === 'laser_turret' ? 80 : 120;
+    if (this.score < cost) {
+      this.spawnFloatingText(this.player.x, this.player.y - 40, `升级需要 ${cost} 💎 能量不足!`, '#fbbf24');
+      return;
+    }
+
+    this.score -= cost;
+    window.GameHUD?.setScore(this.score);
+
+    t.tier = 2;
+
+    // Upgrade Stats
+    if (t.type === 'laser_turret') {
+      t.range = 300;
+      t.damage = 16;
+      t.fireRate = 200; // faster laser overloading
+      t.setTint(0x00e5ff); // Cyan tint for upgraded laser
+
+      // Play laser upgrade burst (Effect 1)
+      const burst = this.add.sprite(t.x, t.y - 10, 'upgrade_burst_laser');
+      burst.setDepth(DEPTH.EFFECTS);
+      burst.play('anim_upgrade_laser');
+      burst.once('animationcomplete', () => burst.destroy());
+      
+      this.spawnFloatingText(t.x, t.y - 48, 'LASER OVERLOAD! ⚡💎', '#00e5ff');
+    } else {
+      t.range = 240;
+      t.damage = 28;
+      t.fireRate = 550; // faster plasma storm
+      t.setTint(0xa78bfa); // Violet tint for upgraded plasma
+
+      // Play plasma upgrade burst (Effect 2)
+      const burst = this.add.sprite(t.x, t.y - 10, 'upgrade_burst_plasma');
+      burst.setDepth(DEPTH.EFFECTS);
+      burst.play('anim_upgrade_plasma');
+      burst.once('animationcomplete', () => burst.destroy());
+
+      this.spawnFloatingText(t.x, t.y - 48, 'PLASMA STORM! 🌀💎', '#a78bfa');
+    }
+
+    // Play Range Indicator Ring (Effect 3)
+    const rangeRing = this.add.sprite(t.x, t.y - 12, 'range_ring');
+    rangeRing.setDepth(DEPTH.EFFECTS);
+    // scale to match custom range
+    rangeRing.setDisplaySize(t.range * 2, t.range * 2);
+    rangeRing.play('anim_range_ring');
+    this.tweens.add({
+      targets: rangeRing,
+      alpha: 0,
+      delay: 1000,
+      duration: 500,
+      onComplete: () => rangeRing.destroy()
+    });
+
+    this.cameras.main.shake(150, 0.008);
+  }
+
+  handlePowerups() {
+    // 1. Press SPACE: Activate Overclock speed boost (Cost: 50) (Effect 4)
+    if (Phaser.Input.Keyboard.JustDown(this.keySpace)) {
+      const cost = 50;
+      if (this.score < cost) {
+        this.spawnFloatingText(this.player.x, this.player.y - 40, `超频需要 ${cost} 💎 能量不足!`, '#fbbf24');
+        return;
+      }
+
+      if (this.isOverclocked) {
+        this.spawnFloatingText(this.player.x, this.player.y - 40, '系统已处于超频状态! ⚡', '#fbbf24');
+        return;
+      }
+
+      this.score -= cost;
+      window.GameHUD?.setScore(this.score);
+
+      this.isOverclocked = true;
+      this.overclockUntil = this.time.now + 6000; // 6s duration
+
+      this.spawnFloatingText(this.player.x, this.player.y - 64, 'SYSTEM OVERCLOCK! ⚡🔥', '#fbbf24');
+      this.cameras.main.shake(200, 0.012);
+
+      // Create Gear VFX sprites floating over all turrets
+      this.gearSprites = [];
+      this.turrets.getChildren().forEach(t => {
+        const gear = this.add.sprite(t.x, t.y - 42, 'firerate_gear');
+        gear.setDepth(DEPTH.EFFECTS);
+        gear.setDisplaySize(32, 32);
+        gear.play('anim_gear');
+        this.gearSprites.push(gear);
+      });
+    }
+
+    // Handle Overclock timer cleanup
+    if (this.isOverclocked && this.time.now > this.overclockUntil) {
+      this.isOverclocked = false;
+      this.spawnFloatingText(this.player.x, this.player.y - 64, '超频状态结束', '#cbd5e1');
+      if (this.gearSprites) {
+        this.gearSprites.forEach(g => g.destroy());
+        this.gearSprites = [];
+      }
+    }
+
+    // 2. Press Z: Chain Lightning Arc Attack (Cost: 15) (Effect 7)
+    if (Phaser.Input.Keyboard.JustDown(this.keyZ)) {
+      const cost = 15;
+      if (this.score < cost) {
+        this.spawnFloatingText(this.player.x, this.player.y - 40, `闪电需要 ${cost} 💎 能量不足!`, '#fbbf24');
+        return;
+      }
+
+      // Find closest virus to player
+      let target = null;
+      let minDist = 300;
+
+      this.enemies.getChildren().forEach(e => {
+        if (e.isDead) return;
+        const dx = e.x - this.player.x;
+        const dy = e.y - this.player.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist < minDist) {
+          minDist = dist;
+          target = e;
+        }
+      });
+
+      if (target) {
+        this.score -= cost;
+        window.GameHUD?.setScore(this.score);
+        this.player.play('player_shoot', true);
+        this.triggerChainLightning(target);
+      } else {
+        this.spawnFloatingText(this.player.x, this.player.y - 40, '范围无敌方程序 🚫', '#cbd5e1');
+      }
+    }
+  }
+
+  triggerChainLightning(firstTarget) {
+    this.spawnFloatingText(this.player.x, this.player.y - 64, 'CHAIN LIGHTNING! ⚡', '#f59e0b');
+    
+    // Jump list
+    const targets = [firstTarget];
+    let current = firstTarget;
+
+    // Search for 2 more jumps
+    for (let j = 0; j < 2; j++) {
+      let nextTarget = null;
+      let minDist = 200;
+
+      this.enemies.getChildren().forEach(e => {
+        if (e.isDead || targets.includes(e)) return;
+        const dx = e.x - current.x;
+        const dy = e.y - current.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist < minDist) {
+          minDist = dist;
+          nextTarget = e;
+        }
+      });
+
+      if (nextTarget) {
+        targets.push(nextTarget);
+        current = nextTarget;
+      } else {
+        break;
+      }
+    }
+
+    // Render lightning bolt overlays connecting jumps
+    let startPoint = { x: this.player.x, y: this.player.y - 16 };
+    targets.forEach((t, idx) => {
+      const bolt = this.add.sprite(startPoint.x, startPoint.y, 'chain_lightning');
+      bolt.setDepth(DEPTH.EFFECTS);
+      bolt.setOrigin(0, 0.5);
+      
+      // Calculate angle and scale to reach target
+      const dx = t.x - startPoint.x;
+      const dy = (t.y - 16) - startPoint.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      const angle = Math.atan2(dy, dx);
+
+      bolt.setRotation(angle);
+      bolt.setDisplaySize(dist, 16);
+      bolt.play('anim_lightning');
+
+      // Lightning damage
+      t.health -= 20; // deals 20 chain lightning damage
+      this.spawnSparks(t.x, t.y - 15, 0xfbbf24);
+
+      if (t.health <= 0) {
+        this.time.delayedCall(150 * idx, () => this.killEnemy(t));
+      } else {
+        t.play('virus_hit', true);
+      }
+
+      // Chain delay destroy
+      this.time.delayedCall(300, () => {
+        bolt.destroy();
+      });
+
+      startPoint = { x: t.x, y: t.y - 16 };
+    });
+
+    this.cameras.main.shake(150, 0.015);
   }
 
   handleEnemyMovement() {
@@ -773,32 +1045,26 @@ class MainScene extends Phaser.Scene {
 
       const wp = e.waypoints[e.waypointIdx];
       if (!wp) {
-        // Reached end / core database!
         this.damageCore(e);
         return;
       }
 
-      // Move towards active waypoint
       const dx = wp.x - e.x;
       const dy = wp.y - e.y;
       const dist = Math.sqrt(dx * dx + dy * dy);
 
       if (dist < 4) {
-        // Move to next waypoint
         e.waypointIdx++;
       } else {
-        // Velocity math
-        const speed = e.isSlowed ? e.speed * 0.5 : e.speed;
+        const speed = e.isSlowed ? e.speed * 0.45 : e.speed;
         const vx = (dx / dist) * speed;
         const vy = (dy / dist) * speed;
         e.setVelocity(vx, vy);
 
-        // Turn animation flip
         if (vx < 0) e.setFlipX(true);
         else if (vx > 0) e.setFlipX(false);
       }
 
-      // Render health bar
       this.drawEnemyHealthBar(e);
 
       // Handle slows timing
@@ -811,40 +1077,26 @@ class MainScene extends Phaser.Scene {
     });
   }
 
-  drawEnemyHealthBar(e) {
-    e.healthBar.clear();
-    if (e.health <= 0) return;
-
-    const barW = 40;
-    const barH = 5;
-    const bx = e.x - barW / 2;
-    const by = e.y - 50;
-
-    // Background (grey)
-    e.healthBar.fillStyle(0x334155, 1.0);
-    e.healthBar.fillRect(bx, by, barW, barH);
-
-    // Health ratio
-    const pct = Math.max(0, e.health / e.maxHealth);
-    const fillCol = e.isSlowed ? 0x06b6d4 : 0xef4444; // blue if slowed, red standard
-    e.healthBar.fillStyle(fillCol, 1.0);
-    e.healthBar.fillRect(bx, by, barW * pct, barH);
-    e.healthBar.setDepth(DEPTH.YSORT + e.y + 1); // draw on top of sprite
-  }
-
   damageCore(enemy) {
     const damage = enemy.isBoss ? 2.0 : 0.5;
     this.hearts = Math.max(0, this.hearts - damage);
-    window.GameHUD?.setHearts(Math.round(this.hearts * 2) / 2, 3); // round to 0.5 decimals
+    window.GameHUD?.setHearts(Math.round(this.hearts * 2) / 2, 3);
 
-    // FX
+    // Play Hexagon Shield flash pulse (Effect 6)
+    const shield = this.add.sprite(this.coreStation.x, this.coreStation.y - 12, 'core_shield');
+    shield.setDepth(DEPTH.EFFECTS);
+    shield.setScale(1.35);
+    shield.play('anim_shield');
+    shield.once('animationcomplete', () => shield.destroy());
+
+    // FX Screen shake
     this.cameras.main.shake(200, 0.02);
     this.cameras.main.flash(100, 255, 0, 0);
 
     enemy.healthBar.destroy();
     enemy.destroy();
 
-    this.spawnFloatingText(this.coreStation.x, this.coreStation.y - 40, `警告：数据库核心受损!`, '#ef4444');
+    this.spawnFloatingText(this.coreStation.x, this.coreStation.y - 48, `数据库核心受损!`, '#ef4444');
   }
 
   handleTurrets() {
@@ -852,12 +1104,11 @@ class MainScene extends Phaser.Scene {
     const time = this.time.now;
 
     this.turrets.getChildren().forEach(t => {
-      // Find closest enemy in range
       let target = null;
       let minDist = t.range;
 
       this.enemies.getChildren().forEach(e => {
-        if (e.isDead || e.x < 0 || e.x > 1280) return; // ignore out of bounds spawning
+        if (e.isDead || e.x < 0 || e.x > 1280) return;
         const dx = e.x - t.x;
         const dy = e.y - t.y;
         const dist = Math.sqrt(dx * dx + dy * dy);
@@ -869,15 +1120,15 @@ class MainScene extends Phaser.Scene {
       });
 
       if (target) {
-        // Fire logic
-        if (time - t.lastFired > t.fireRate) {
+        // Adjust fire rate if system is overclocked (Effect 4)
+        const currentFireRate = this.isOverclocked ? t.fireRate * 0.5 : t.fireRate;
+
+        if (time - t.lastFired > currentFireRate) {
           t.lastFired = time;
 
           if (t.type === 'laser_turret') {
-            // Instant laser beam hit
             this.fireLaser(t, target);
           } else {
-            // Spawn plasma ball projectile
             this.firePlasma(t, target);
           }
         }
@@ -886,29 +1137,28 @@ class MainScene extends Phaser.Scene {
   }
 
   fireLaser(turret, target) {
-    // Damage enemy
     target.health -= turret.damage;
     this.spawnSparks(target.x, target.y - 15, 0x00ffff);
 
-    // Draw laser line
-    this.laserGraphics.lineStyle(4, 0x00ffff, 0.8);
+    // Upgraded laser color is Cyan, Tier 1 is Darker Blue
+    const laserCol = turret.tier === 2 ? 0x00ffff : 0x3b82f6;
+
+    this.laserGraphics.lineStyle(turret.tier === 2 ? 5 : 3, laserCol, 0.85);
     this.laserGraphics.beginPath();
     this.laserGraphics.moveTo(turret.x, turret.y - 20);
     this.laserGraphics.lineTo(target.x, target.y - 16);
     this.laserGraphics.strokePath();
 
-    this.laserGraphics.lineStyle(1.5, 0xffffff, 1.0); // hot white center core
+    this.laserGraphics.lineStyle(2, 0xffffff, 1.0); // hot white center core
     this.laserGraphics.beginPath();
     this.laserGraphics.moveTo(turret.x, turret.y - 20);
     this.laserGraphics.lineTo(target.x, target.y - 16);
     this.laserGraphics.strokePath();
 
-    // Clear the beam after 120ms
-    this.time.delayedCall(120, () => {
+    this.time.delayedCall(100, () => {
       this.laserGraphics.clear();
     });
 
-    // Handle death
     if (target.health <= 0) {
       this.killEnemy(target);
     } else {
@@ -917,16 +1167,18 @@ class MainScene extends Phaser.Scene {
   }
 
   firePlasma(turret, target) {
-    const proj = this.plasmaProjectiles.create(turret.x, turret.y - 20, 'energy_crystal'); // green crystal looking
-    proj.setDisplaySize(16, 16);
-    proj.setTint(0x10b981); // emerald green
+    const proj = this.plasmaProjectiles.create(turret.x, turret.y - 20, 'energy_crystal');
+    proj.setDisplaySize(turret.tier === 2 ? 22 : 16, turret.tier === 2 ? 22 : 16);
+    // Green tint for Tier 1, Purple tint for Tier 2 upgraded plasma storm
+    const tintColor = turret.tier === 2 ? 0xa78bfa : 0x10b981;
+    proj.setTint(tintColor);
     proj.damage = turret.damage;
+    proj.tier = turret.tier;
 
-    // Projectile physics towards target
     const dx = target.x - turret.x;
     const dy = (target.y - 16) - (turret.y - 20);
     const dist = Math.sqrt(dx * dx + dy * dy);
-    const speed = 300;
+    const speed = turret.tier === 2 ? 400 : 300;
 
     proj.setVelocity((dx / dist) * speed, (dy / dist) * speed);
   }
@@ -937,12 +1189,15 @@ class MainScene extends Phaser.Scene {
 
     enemy.health -= proj.damage;
 
-    // Apply slow state
+    // Apply slow state (Tier 2 plasma slows by 65%, Tier 1 slows by 45%)
     enemy.isSlowed = true;
-    enemy.slowUntil = this.time.now + 2500; // slow for 2.5s
-    enemy.setTint(0x06b6d4); // cyan ice tint
+    const slowLength = proj.tier === 2 ? 3500 : 2500;
+    enemy.slowUntil = this.time.now + slowLength;
+    
+    const slowColor = proj.tier === 2 ? 0xa78bfa : 0x06b6d4; // purple or cyan tint
+    enemy.setTint(slowColor);
 
-    this.spawnSparks(enemy.x, enemy.y - 15, 0x10b981); // green sparks
+    this.spawnSparks(enemy.x, enemy.y - 15, proj.tier === 2 ? 0xa78bfa : 0x10b981);
 
     if (enemy.health <= 0) {
       this.killEnemy(enemy);
@@ -965,7 +1220,7 @@ class MainScene extends Phaser.Scene {
     crystal.setDepth(DEPTH.YSORT + crystal.y);
     this.ysortGroup.add(crystal);
 
-    // Pulse crystal glow
+    // Pulse crystal
     this.tweens.add({
       targets: crystal,
       y: crystal.y - 8,
@@ -974,7 +1229,7 @@ class MainScene extends Phaser.Scene {
       repeat: -1
     });
 
-    crystal.expiryTime = this.time.now + 8000; // crystals disappear after 8 seconds
+    crystal.expiryTime = this.time.now + 8000;
 
     // Explosion animation
     enemy.play(enemy.isBoss ? 'boss_die' : 'virus_die');
@@ -982,7 +1237,6 @@ class MainScene extends Phaser.Scene {
       enemy.destroy();
     });
 
-    // Check boss defeat
     if (enemy.isBoss) {
       this.bossDefeated = true;
       this.spawnFloatingText(enemy.x, enemy.y - 64, '木马清除成功！系统安全！', '#00ff66');
@@ -991,7 +1245,17 @@ class MainScene extends Phaser.Scene {
 
   collectCrystal(player, crystal) {
     if (!crystal.active) return;
+    const cx = crystal.x;
+    const cy = crystal.y;
     crystal.destroy();
+    
+    // Play Gold Diamond collect burst (Effect 5)
+    const burst = this.add.sprite(cx, cy, 'crystal_burst');
+    burst.setDepth(DEPTH.EFFECTS);
+    burst.setScale(1.2);
+    burst.play('anim_crystal_burst');
+    burst.once('animationcomplete', () => burst.destroy());
+
     const gain = 10;
     this.score += gain;
     window.GameHUD?.setScore(this.score);
@@ -1000,18 +1264,15 @@ class MainScene extends Phaser.Scene {
   }
 
   checkWinLose() {
-    // Check Lose state
     if (this.hearts <= 0) {
       this.triggerGameOver(false, "核心被攻破，数据库系统彻底崩溃！💻💾");
       return;
     }
 
-    // Check Stage cleared (no enemies and spawned all)
     if (this.waveActive && this.enemiesSpawned >= this.totalEnemiesInWave && this.enemies.countActive() === 0) {
       this.waveActive = false;
 
       if (this.currentWave < this.maxWaves) {
-        // Next wave countdown
         this.currentWave++;
         this.time.delayedCall(4000, () => {
           this.startWave();
@@ -1019,7 +1280,6 @@ class MainScene extends Phaser.Scene {
         window.GameHUD?.setObjective(`波次清理完毕！新波次将在 4 秒内抵达！`);
         this.spawnFloatingText(640, 400, `安全检测：波次 ${this.currentWave - 1} 清理完成`, '#00ff66');
       } else {
-        // Level cleared!
         this.handleLevelCleared();
       }
     }
@@ -1032,12 +1292,10 @@ class MainScene extends Phaser.Scene {
       this.loadLevel(this.currentLevel);
       this.startLevelWaves();
     } else {
-      // Game Win — all waves cleared on all levels
-      this.gameCleared = true;
-      const msg = this.bossDefeated
-        ? "终极战线防守成功！数据库木马源头已被彻底清除，赛博核心大获全胜！🏆⚡"
-        : "防线坚守完毕！核心数据库已安全净化！🏆";
-      this.triggerGameOver(true, msg);
+      if (this.bossDefeated) {
+        this.gameCleared = true;
+        this.triggerGameOver(true, "终极战线防守成功！数据库木马源头已被彻底清除，赛博核心大获全胜！🏆⚡");
+      }
     }
   }
 
@@ -1045,7 +1303,6 @@ class MainScene extends Phaser.Scene {
     this.gameStarted = false;
     this.player.setVelocity(0, 0);
 
-    // Stop spawns
     if (this.waveTimer) { this.waveTimer.destroy(); this.waveTimer = null; }
 
     window.GameHUD?.showGameOver(isWin, endingText);
@@ -1056,7 +1313,6 @@ class MainScene extends Phaser.Scene {
     graphics.setDepth(DEPTH.EFFECTS);
     graphics.lineStyle(2.5, color, 1.0);
 
-    // Draw simple particle spark cross
     graphics.beginPath();
     graphics.moveTo(-10, 0);
     graphics.lineTo(10, 0);
