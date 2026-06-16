@@ -359,6 +359,7 @@ class MainScene extends Phaser.Scene {
         if (oTile > 0) {
           const wallImg = this.physics.add.staticSprite(gx, gy, `tile_${oTile}`);
           wallImg.setDisplaySize(64, 64);
+          wallImg.refreshBody(); // sync static body to 64x64 display (tile art is 256px)
           wallImg.setDepth(DEPTH.YSORT + gy);
           this.obstaclesGroup.add(wallImg);
           this.ysortGroup.add(wallImg);
@@ -492,6 +493,7 @@ class MainScene extends Phaser.Scene {
     // Render static trap
     const trap = this.trapsGroup.create(x, y, 'tile_5');
     trap.setDisplaySize(64, 64);
+    trap.refreshBody(); // sync overlap body to 64x64 (tile art is 256px)
     trap.setDepth(DEPTH.DECOR_FLOOR);
     trap.setData('lastDamageTime', 0);
   }
@@ -509,6 +511,7 @@ class MainScene extends Phaser.Scene {
   spawnPortal(x, y) {
     const portal = this.portalGroup.create(x, y, 'tile_6');
     portal.setDisplaySize(64, 64);
+    portal.refreshBody(); // sync overlap body to 64x64 (tile art is 256px)
     portal.setDepth(DEPTH.DECOR_FLOOR);
     portal.setAlpha(0.3); // faded/inactive initially
   }
