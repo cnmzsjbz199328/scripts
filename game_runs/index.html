@@ -418,7 +418,7 @@
     function resetSpans() {
       spans.forEach(sp => {
         sp.style.transition = 'none';
-        sp.style.opacity    = '0';
+        sp.style.opacity    = '';   // clear inline; .hc class gives opacity:0
         sp.style.transform  = '';
         sp.style.filter     = '';
         sp.classList.remove('r');
