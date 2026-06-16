@@ -84,24 +84,29 @@ function buildGameHudJs(gdd: GDD): string {
   return `window.GameHUD = (function () {
       let _startCallback = null;
       let _started = false;
+      let _isPvP = false;
 
       function showHud() {
         document.getElementById('hud').style.display = 'flex';
       }
 
       // __hudStart must be before return to capture _startCallback and showHud from closure
-      window.__hudStart = function () {
+      window.__hudStart = function (isPvP = false) {
         if (_started) return;
         _started = true;
+        _isPvP = isPvP;
         document.getElementById('start-screen').style.display = 'none';
         showHud();
-        if (_startCallback) _startCallback();
+        if (_startCallback) _startCallback(isPvP);
       };
 
       return {${heartsApi}${scoreApi}${objectiveApi}${dayApi}
 
         onStart(cb) {
           _startCallback = cb;
+          if (_started) {
+            cb(_isPvP);
+          }
         },
 
         showGameOver(win, message) {
@@ -414,7 +419,13 @@ async function assembleGame(gameName: string) {
         <h2>${gameTitle}</h2>
         ${tagline ? `<p class="tagline">${tagline}</p>` : ''}
         ${storySetting ? `<p class="story-setting">${storySetting}</p>` : ''}
-        <button id="start-btn" class="game-btn" onclick="window.__hudStart()">▶ START GAME</button>
+        ${gameName === 'StickmanFighter'
+          ? `<div style="display:flex;gap:16px;justify-content:center;margin-bottom:16px;">
+               <button id="story-btn" class="game-btn" style="background:#ef4444" onclick="window.__hudStart(false)">▶ 单人闯关 (STORY)</button>
+               <button id="pvp-btn" class="game-btn" style="background:#06b6d4" onclick="window.__hudStart(true)">⚔️ 双人对决 (PVP)</button>
+             </div>`
+          : `<button id="start-btn" class="game-btn" onclick="window.__hudStart()">▶ START GAME</button>`
+        }
         <p class="controls-hint">
           ${controlsTip}
         </p>
@@ -452,11 +463,12 @@ async function assembleGame(gameName: string) {
 
     // Headless autostart trigger for gameplay screenshot capture
     if (window.location.search.includes('autostart')) {
-      window.addEventListener('load', () => {
-        setTimeout(() => {
-          if (window.__hudStart) window.__hudStart();
-        }, 200);
-      });
+      setTimeout(() => {
+        if (window.__hudStart) {
+          const isPvP = window.location.search.includes('pvp');
+          window.__hudStart(isPvP);
+        }
+      }, 300);
     }
   </script>
   <script src="game/game-logic.js"></script>
