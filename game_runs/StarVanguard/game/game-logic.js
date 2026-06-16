@@ -1197,6 +1197,11 @@ class MainScene extends Phaser.Scene {
         this.cameras.main.flash(400, 255, 255, 255);
         window.GameHUD?.setObjective("要塞护盾已瓦解！全力击破中央核心！");
         this.createSparks(boss.x, boss.y, 0xef4444, 40);
+        this.showCinematicBanner([
+          '💥 护盾崩溃！PHASE 2',
+          '双联炮塔已击毁，能量护盾消散。',
+          '中央核心暴露——集中火力！'
+        ], 2500);
       }
     }
 
@@ -1221,6 +1226,11 @@ class MainScene extends Phaser.Scene {
         this.bossPhase = 3;
         window.GameHUD?.setObjective("要塞核心超负荷！躲避毁灭死亡射线！");
         this.cameras.main.flash(300, 239, 68, 68); // red flash
+        this.showCinematicBanner([
+          '🔴 核心超负荷！PHASE 3 — FINAL',
+          '星际堡垒濒死，正在释放毁灭死亡射线！',
+          '全速闪避——不能让它触碰到先锋号！'
+        ], 2500);
       }
     }
 
@@ -1525,6 +1535,28 @@ class MainScene extends Phaser.Scene {
     this.cameras.main.flash(300, 74, 222, 128); // Green flash
   }
 
+  showCinematicBanner(lines, duration = 3000) {
+    const cx = this.cameras.main.width / 2;
+    const cy = this.cameras.main.height / 2;
+    const bg = this.add.rectangle(cx, cy, this.cameras.main.width, this.cameras.main.height, 0x000000, 0.78)
+      .setScrollFactor(0).setDepth(DEPTH.HUD_OVERLAY + 50);
+    const textObjs = lines.map((line, i) => {
+      const y = cy - (lines.length * 16) + i * 32;
+      const isTitle = i === 0;
+      return this.add.text(cx, y, line, {
+        font: `${isTitle ? 'bold ' : ''}${isTitle ? '22px' : '14px'} monospace`,
+        fill: isTitle ? '#f59e0b' : '#e2e8f0',
+        stroke: '#000000',
+        strokeThickness: 3,
+        align: 'center'
+      }).setOrigin(0.5).setScrollFactor(0).setDepth(DEPTH.HUD_OVERLAY + 51);
+    });
+    this.time.delayedCall(duration, () => {
+      bg.destroy();
+      textObjs.forEach(t => t.destroy());
+    });
+  }
+
   transitionToNextLevel() {
     if (this.levelText) this.levelText.destroy();
     this.levelComplete = false;
@@ -1534,9 +1566,21 @@ class MainScene extends Phaser.Scene {
     if (this.currentLevel === 2) {
       window.GameHUD?.setObjective("第二关：击溃敌舰先锋编队！ (击落15架敌机)");
       this.nextSpawnTime = this.time.now + 1000;
+      this.showCinematicBanner([
+        '⚠ 第二关：帝国舰队先锋编队',
+        '穿出陨石带，前方是帝国巡逻编队。',
+        '15架战机已进入交战范围——',
+        '全力开炮，击溃先锋！'
+      ], 3000);
     } else if (this.currentLevel === 3) {
       window.GameHUD?.setObjective("终极关卡：决战星际堡垒要塞！");
       this.nextSpawnTime = this.time.now + 1000;
+      this.showCinematicBanner([
+        '🔴 终极关卡：星际堡垒',
+        '帝国最强防御工事正前方出现。',
+        '双联炮塔、能量护盾、核心死亡射线……',
+        '这是最后的战役。先锋号，全力冲刺！'
+      ], 3500);
     }
   }
 
@@ -1548,16 +1592,26 @@ class MainScene extends Phaser.Scene {
 
     if (win) {
       // Victory screen
-      window.GameHUD?.showGameOver(true, "先锋号战机大获全胜！你单枪匹马击破了帝国终极防御壁垒，银河系重获自由与和平！");
+      window.GameHUD?.showGameOver(true,
+        '🌟 银河系得救了！\n\n' +
+        '先锋号战机单枪匹马，穿越陨石风暴、击溃舰队先锋，\n' +
+        '摧毁了帝国最强大的防御壁垒——星际堡垒。\n\n' +
+        '核心爆炸的冲击波在宇宙中蔓延，\n如同第二颗太阳照亮了整个星系。\n\n' +
+        '自由星系广播响彻银河：先锋号归来！'
+      );
     } else {
       // Defeat screen
-      // explode player
       this.explodeEntity(this.player, 'large');
       this.player.destroy();
       sounds.playExplosion(true);
-      
+
       this.time.delayedCall(1200, () => {
-        window.GameHUD?.showGameOver(false, "战机不幸被毁，帝国庞大的星际要塞撕裂了防线，星系陷入黑暗……");
+        window.GameHUD?.showGameOver(false,
+          '💀 先锋号坠毁\n\n' +
+          '帝国防线坚不可摧，战机在炮火中化为灰烬……\n' +
+          '星际堡垒启动超时空炮，星系的命运悬于一线。\n\n' +
+          '但先锋号的牺牲绝不会被遗忘。\n也许，下一次会有所不同。'
+        );
       });
     }
   }
