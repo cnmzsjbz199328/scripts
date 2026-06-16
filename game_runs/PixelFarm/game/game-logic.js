@@ -1160,7 +1160,13 @@ class MainScene extends Phaser.Scene {
     this.player.anims.stop();
 
     // GameHUD Integration
-    window.GameHUD?.showGameOver(true, '你培育出了黄金花朵，恢复了祖父农场的荣光！✨🌻✨');
+    window.GameHUD?.showGameOver(true,
+      '🌻 家族传承 — 圆满！\n\n' +
+      '黄金种子在篝火的温暖下，悄然绽放成璀璨的金黄色花朵。\n\n' +
+      '那一刻，仿佛能听见祖父的声音从远方传来：\n"孩子……你做到了。这片土地，又活了。"\n\n' +
+      '山谷中的篝火燃得更旺了，鸟儿归巢，星光初现。\n' +
+      '农场，回来了。'
+    );
     this.gameStarted = false;
 
     const overlay = this.add.graphics();

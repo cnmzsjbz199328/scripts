@@ -286,9 +286,20 @@ class MainScene extends Phaser.Scene {
     // Check Win Condition
     if (this.distanceLeft <= 0) {
       if (this.score >= 200) {
-        this.triggerGameOver(true, '冲线成功！你以绝尘之姿突破了 Arasaka 的防线，成为了新东京的飙车传奇！🏆');
+        this.triggerGameOver(true,
+          '🏁 冲线！\n\n' +
+          '闪电号以近光速冲过了终点线，\n' +
+          '将 Arasaka 的 AI 防线甩在了身后。\n\n' +
+          '幻影（Phantom）将解密核心投入了中央主机——\n' +
+          '城市的网络防火墙轰然倒塌，\n霓虹街头爆发出欢呼声！\n\n' +
+          '新东京，再次属于街头的飙车手们。'
+        );
       } else {
-        this.triggerGameOver(false, '虽然抵达了终点，但你收集的量子能量不足（需达到200），无法强冲过引力防护网……');
+        this.triggerGameOver(false,
+          `到达终点，但量子能量仅 ${this.score} / 200。\n\n` +
+          '引力防护网需要充足的能量才能强行穿越，\n' +
+          '这次冲刺功败垂成……\n\n收集更多电池，再来一次！'
+        );
       }
       return;
     }

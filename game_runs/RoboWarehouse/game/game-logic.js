@@ -789,13 +789,39 @@ class MainScene extends Phaser.Scene {
         });
       });
 
+      const bottyComments = {
+        1: '✅ 小博特：单色方块归位！简单？等等后面的……',
+        2: '✅ 小博特：双色分流成功！传送带，我的朋友！',
+        3: '✅ 小博特：三色方块全归位！我的弹簧臂快断了……',
+        4: '✅ 小博特：重力翻转也难不倒我！最后一关——来吧！',
+      };
+
       this.time.delayedCall(500, () => {
+        const comment = bottyComments[this.currentLevel];
+        if (comment && this.currentLevel < 5) {
+          const txt = this.add.text(
+            this.cameras.main.width / 2, this.cameras.main.height / 2 - 30,
+            comment, {
+              font: 'bold 14px monospace', fill: '#fbbf24',
+              stroke: '#000', strokeThickness: 3, align: 'center'
+            }
+          ).setOrigin(0.5).setScrollFactor(0).setDepth(9999);
+          this.time.delayedCall(2000, () => txt.destroy());
+        }
+
         if (this.currentLevel < 5) {
           this.loadLevel(this.currentLevel + 1);
         } else {
           // Win Game
           this.gameStarted = false;
-          window.GameHUD?.showGameOver(true, "太棒了！你完美解开了所有货仓谜题，彩虹蒸汽再次欢快喷发！");
+          window.GameHUD?.showGameOver(true,
+            '🎉 仓库全面重启！\n\n' +
+            '小博特（Botty）用弹簧手臂逐一归位了所有能量方块，\n' +
+            '穿越传送带迷宫、克服重力翻转，解开了全部5个谜题。\n\n' +
+            '齿轮咔哒一声旋转，彩虹蒸汽从烟囱欢快地喷涌而出——\n' +
+            '卡通蒸汽工厂，重新开工了！\n\n' +
+            '小博特的大圆眼睛弯成了两道弧线：\n"谢谢你，伙伴！"'
+          );
         }
       });
     } else {
