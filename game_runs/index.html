@@ -260,53 +260,17 @@
     }
     .error-state p { margin-top: 6px; font-size: .82rem; }
 
-    /* ── Play modal ─────────────────────────────────────────── */
-    #play-modal {
-      position: fixed; inset: 0; z-index: 9000;
-      display: flex; align-items: center; justify-content: center; padding: 20px;
-      background: rgba(4, 6, 14, .94);
-      backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
-      opacity: 0; visibility: hidden;
-      transition: opacity .25s ease, visibility .25s ease;
-    }
-    #play-modal.open { opacity: 1; visibility: visible; }
-
-    .modal-wrap {
-      width: 100%; max-width: 990px;
-      display: flex; flex-direction: column; gap: 10px;
-    }
-
-    .modal-bar {
-      display: flex; align-items: center; justify-content: space-between; padding: 0 2px;
-    }
-
-    #modal-title {
-      font-size: .8rem; font-weight: 600; color: var(--text-dim); letter-spacing: .06em;
-    }
-
-    .modal-actions { display: flex; gap: 8px; }
-
-    .modal-icon-btn {
+    /* ── New-tab link ───────────────────────────────────────── */
+    .newtab-btn {
       display: inline-flex; align-items: center; justify-content: center;
-      width: 32px; height: 32px;
+      width: 34px; height: 34px; flex-shrink: 0;
       background: none; border: 1px solid var(--border-hi);
-      border-radius: 6px; color: var(--text-dim); cursor: pointer;
-      font-size: .9rem; text-decoration: none;
+      border-radius: 6px; color: var(--text-muted); cursor: pointer;
+      font-size: .88rem; text-decoration: none;
       transition: background .15s, color .15s, border-color .15s;
     }
-    .modal-icon-btn:hover {
+    .newtab-btn:hover {
       background: var(--surface-hi); color: var(--text); border-color: var(--text-muted);
-    }
-
-    .modal-frame {
-      position: relative; width: 100%; aspect-ratio: 5/3;
-      background: #000; border-radius: 10px; overflow: hidden;
-      border: 1px solid var(--border-hi);
-      box-shadow: 0 28px 72px rgba(0,0,0,.75);
-    }
-
-    #modal-iframe {
-      position: absolute; inset: 0; width: 100%; height: 100%; border: none;
     }
 
     /* ── Footer ─────────────────────────────────────────────── */
@@ -379,25 +343,6 @@
     </li>
   </ul>
 </main>
-
-<!-- ── Play modal ────────────────────────────────────────────────── -->
-<div id="play-modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
-  <div class="modal-wrap">
-    <div class="modal-bar">
-      <span id="modal-title"></span>
-      <div class="modal-actions">
-        <a id="modal-newtab" class="modal-icon-btn" target="_blank" rel="noopener"
-           aria-label="在新标签页中打开游戏" title="新标签页">↗</a>
-        <button id="modal-close" class="modal-icon-btn" aria-label="关闭游戏 (Esc)">✕</button>
-      </div>
-    </div>
-    <div class="modal-frame">
-      <iframe id="modal-iframe" allow="autoplay"
-              sandbox="allow-scripts allow-same-origin allow-forms"
-              allowfullscreen></iframe>
-    </div>
-  </div>
-</div>
 
 <!-- ── Footer ────────────────────────────────────────────────────── -->
 <footer>
@@ -511,58 +456,23 @@
         <p class="card-tagline">${esc(game.tagline)}</p>
         <div class="card-footer">
           <span class="card-engine">Phaser 3 · Pixel</span>
-          <button class="play-btn"
-                  data-path="${esc(game.path)}"
-                  data-title="${esc(game.title)}"
-                  aria-label="开始游玩 ${esc(game.title)}">
-            <svg viewBox="0 0 10 12" aria-hidden="true"><path d="M0 0l10 6-10 6z"/></svg>
-            PLAY
-          </button>
+          <div style="display:flex;gap:8px;align-items:center">
+            <a class="play-btn"
+               href="./${esc(game.path)}"
+               aria-label="开始游玩 ${esc(game.title)}">
+              <svg viewBox="0 0 10 12" aria-hidden="true"><path d="M0 0l10 6-10 6z"/></svg>
+              PLAY
+            </a>
+            <a class="newtab-btn"
+               href="./${esc(game.path)}"
+               target="_blank" rel="noopener"
+               aria-label="在新标签页中打开 ${esc(game.title)}"
+               title="在新标签页中打开">↗</a>
+          </div>
         </div>
       </div>`;
     return li;
   }
-
-  // ── Modal ────────────────────────────────────────────────────────
-  const modal       = document.getElementById('play-modal');
-  const modalIframe = document.getElementById('modal-iframe');
-  const modalTitle  = document.getElementById('modal-title');
-  const modalClose  = document.getElementById('modal-close');
-  const modalNewTab = document.getElementById('modal-newtab');
-  let returnFocus   = null;
-
-  function openGame(path, title) {
-    returnFocus = document.activeElement;
-    modalTitle.textContent = title;
-    modalIframe.src = `./${path}`;
-    modalNewTab.href = `./${path}`;
-    modal.classList.add('open');
-    modalClose.focus();
-    document.body.style.overflow = 'hidden';
-  }
-
-  function closeGame() {
-    modal.classList.remove('open');
-    document.body.style.overflow = '';
-    // slight delay so transition finishes before clearing src
-    setTimeout(() => { modalIframe.src = 'about:blank'; }, 260);
-    returnFocus?.focus();
-  }
-
-  modalClose.addEventListener('click', closeGame);
-  modal.addEventListener('click', e => { if (e.target === modal) closeGame(); });
-  document.addEventListener('keydown', e => {
-    if (e.key === 'Escape' && modal.classList.contains('open')) {
-      e.preventDefault();
-      closeGame();
-    }
-  });
-
-  // delegate play button clicks from the grid
-  document.getElementById('games-grid').addEventListener('click', e => {
-    const btn = e.target.closest('.play-btn');
-    if (btn) openGame(btn.dataset.path, btn.dataset.title);
-  });
 
   // ── Helpers ──────────────────────────────────────────────────────
   function esc(s) {
