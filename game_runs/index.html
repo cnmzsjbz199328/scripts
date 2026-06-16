@@ -157,6 +157,7 @@
 
     /* ── Game card ──────────────────────────────────────────── */
     .game-card {
+      position: relative;
       background: var(--surface); border: 1px solid var(--border);
       border-radius: var(--radius); overflow: hidden;
       display: flex; flex-direction: column;
@@ -184,13 +185,6 @@
       transition: opacity .5s ease;
     }
 
-    /* scrim: bottom of preview bleeds into card body */
-    .card-preview::after {
-      content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 48%;
-      background: linear-gradient(to bottom, transparent, var(--surface));
-      z-index: 3; pointer-events: none;
-    }
-
     /* scaled iframe */
     .card-preview iframe {
       position: absolute; top: 0; left: 0;
@@ -208,54 +202,39 @@
     }
     .card-placeholder-icon { font-size: 3.8rem; opacity: .07; user-select: none; }
 
+    /* play hover overlay */
+    .card-hover {
+      position: absolute; inset: 0; z-index: 5;
+      display: flex; align-items: center; justify-content: center;
+      background: rgba(0,0,0,0); transition: background .22s; pointer-events: none;
+    }
+    .game-card:hover .card-hover { background: rgba(0,0,0,.28); }
+    .card-hover-icon {
+      opacity: 0; transform: scale(.8);
+      transition: opacity .22s, transform .22s;
+      font-size: 2.4rem; color: #fff;
+      text-shadow: 0 0 20px rgba(255,255,255,.5);
+    }
+    .game-card:hover .card-hover-icon { opacity: 1; transform: scale(1); }
+
     /* accent bar */
     .card-bar { height: 2px; background: var(--a, var(--accent)); flex-shrink: 0; opacity: .8; }
 
-    /* card body */
-    .card-body {
-      padding: 18px 22px 22px; flex: 1;
-      display: flex; flex-direction: column; gap: 8px;
-    }
+    /* stretched main link covers entire card */
+    .card-stretched-link { position: absolute; inset: 0; z-index: 6; }
 
-    .genre-tag {
-      display: inline-block;
-      font-size: .62rem; font-weight: 700; letter-spacing: .14em; text-transform: uppercase;
-      color: var(--a, var(--accent));
-      background: color-mix(in srgb, var(--a, var(--accent)) 10%, transparent);
-      border: 1px solid color-mix(in srgb, var(--a, var(--accent)) 26%, transparent);
-      padding: 3px 9px; border-radius: 4px; white-space: nowrap;
-      align-self: flex-start;
+    /* newtab icon — top-right, appears on card hover */
+    .newtab-overlay {
+      position: absolute; top: 8px; right: 8px; z-index: 7;
+      width: 28px; height: 28px;
+      display: flex; align-items: center; justify-content: center;
+      background: rgba(8,12,24,.75); border: 1px solid rgba(255,255,255,.15);
+      border-radius: 6px; color: var(--text-muted);
+      font-size: .82rem; text-decoration: none;
+      opacity: 0; transition: opacity .15s, background .15s, color .15s;
     }
-
-    /* title overlay on preview bottom (replaces card-body title) */
-    .card-caption {
-      position: absolute; bottom: 0; left: 0; right: 0;
-      z-index: 4; padding: 10px 14px 14px;
-      font-size: 1rem; font-weight: 700; color: #f1f5f9; line-height: 1.3;
-      pointer-events: none;
-      text-shadow: 0 1px 6px rgba(0,0,0,.8);
-    }
-
-    .card-footer {
-      display: flex; align-items: center; justify-content: space-between;
-      gap: 12px; margin-top: 6px;
-    }
-
-    .card-engine { font-size: .66rem; color: var(--text-muted); letter-spacing: .04em; }
-
-    .play-btn {
-      display: inline-flex; align-items: center; gap: 7px;
-      padding: 9px 20px;
-      font-size: .78rem; font-weight: 700; letter-spacing: .1em; text-transform: uppercase;
-      color: #fff; background: var(--a, var(--accent));
-      border: none; cursor: pointer; flex-shrink: 0;
-      clip-path: polygon(8px 0%, 100% 0%, calc(100% - 8px) 100%, 0% 100%);
-      -webkit-clip-path: polygon(8px 0%, 100% 0%, calc(100% - 8px) 100%, 0% 100%);
-      transition: filter .15s, transform .1s;
-    }
-    .play-btn:hover  { filter: brightness(1.22); }
-    .play-btn:active { transform: scale(.96); }
-    .play-btn svg    { width: 10px; height: 10px; fill: currentColor; flex-shrink: 0; }
+    .game-card:hover .newtab-overlay { opacity: 1; }
+    .newtab-overlay:hover { background: rgba(255,255,255,.18); color: #fff; }
 
     /* ── Error state ────────────────────────────────────────── */
     .error-state {
@@ -268,19 +247,6 @@
       padding: 2px 6px; border-radius: 4px; color: #60a5fa;
     }
     .error-state p { margin-top: 6px; font-size: .82rem; }
-
-    /* ── New-tab link ───────────────────────────────────────── */
-    .newtab-btn {
-      display: inline-flex; align-items: center; justify-content: center;
-      width: 34px; height: 34px; flex-shrink: 0;
-      background: none; border: 1px solid var(--border-hi);
-      border-radius: 6px; color: var(--text-muted); cursor: pointer;
-      font-size: .88rem; text-decoration: none;
-      transition: background .15s, color .15s, border-color .15s;
-    }
-    .newtab-btn:hover {
-      background: var(--surface-hi); color: var(--text); border-color: var(--text-muted);
-    }
 
     /* ── Footer ─────────────────────────────────────────────── */
     footer {
@@ -477,28 +443,19 @@
           tabindex="-1"
           aria-hidden="true"
         ></iframe>
-        <div class="card-caption" aria-hidden="true">${esc(game.title)}</div>
+        <div class="card-hover" aria-hidden="true">
+          <span class="card-hover-icon">▶</span>
+        </div>
       </div>
       <div class="card-bar" aria-hidden="true"></div>
-      <div class="card-body">
-        <span class="genre-tag">${esc(game.genre)}</span>
-        <div class="card-footer" style="margin-top:auto">
-          <span class="card-engine">Phaser 3 · Pixel</span>
-          <div style="display:flex;gap:8px;align-items:center">
-            <a class="play-btn"
-               href="./play.html?game=${esc(game.id)}"
-               aria-label="开始游玩 ${esc(game.title)}">
-              <svg viewBox="0 0 10 12" aria-hidden="true"><path d="M0 0l10 6-10 6z"/></svg>
-              PLAY
-            </a>
-            <a class="newtab-btn"
-               href="./${esc(game.path)}"
-               target="_blank" rel="noopener"
-               aria-label="在新标签页中打开 ${esc(game.title)}"
-               title="在新标签页中打开（无虚拟手柄）">↗</a>
-          </div>
-        </div>
-      </div>`;
+      <a class="card-stretched-link"
+         href="./play.html?game=${esc(game.id)}"
+         aria-label="开始游玩 ${esc(game.title)}"></a>
+      <a class="newtab-overlay"
+         href="./${esc(game.path)}"
+         target="_blank" rel="noopener"
+         aria-label="在新标签页中打开 ${esc(game.title)}"
+         title="在新标签页中打开（无虚拟手柄）">↗</a>`;
     return li;
   }
 
