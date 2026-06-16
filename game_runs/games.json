@@ -1,5 +1,31 @@
 [
   {
+    "id": "RaccoonDungeon",
+    "title": "吉卜力遗迹：浣熊魔法师的地牢探险",
+    "tagline": "操控小浣熊魔法师，深入随机地牢击败守卫，重现森林阳光！",
+    "gameType": "top-down-action",
+    "genre": "ACTION",
+    "accent": "#00e5ff",
+    "previewBg": "#020c14",
+    "icon": "🏎️",
+    "thumbnail": "RaccoonDungeon/scene/raccoon_dungeon_panorama_1781620650483.jpg",
+    "path": "RaccoonDungeon/index.html",
+    "createdAt": "2026-06-16T14:36:34.211Z"
+  },
+  {
+    "id": "PokePixel",
+    "title": "怪兽收集：像素物语",
+    "tagline": "探索神秘的像素世界，收集与培养你的最强怪兽队伍，挑战道馆馆主！",
+    "gameType": "top-down-rpg",
+    "genre": "RPG / SIM",
+    "accent": "#4ade80",
+    "previewBg": "#041008",
+    "icon": "🌾",
+    "thumbnail": null,
+    "path": "PokePixel/index.html",
+    "createdAt": "2026-06-16T14:25:13.837Z"
+  },
+  {
     "id": "NeonTowerDefense",
     "title": "霓虹防御：终极战线",
     "tagline": "在赛博网络核心，抵御病毒程序的无休止入侵！",
@@ -47,18 +73,8 @@
     "accent": "#4ade80",
     "previewBg": "#041008",
     "icon": "🌾",
-  },
-  {
-    "id": "PokePixel",
-    "title": "怪兽收集：像素物语",
-    "tagline": "探索神秘的像素世界，收集与培养你的最强怪兽队伍，挑战道馆馆主！",
-    "gameType": "top-down-rpg",
-    "genre": "RPG",
-    "accent": "#a855f7",
-    "previewBg": "#080c18",
-    "icon": "🔴",
-    "thumbnail": null,
-    "path": "PokePixel/index.html",
-    "createdAt": "2026-06-16T23:54:00.000Z"
+    "thumbnail": "PixelFarm/screenshot.png",
+    "path": "PixelFarm/index.html",
+    "createdAt": "2026-06-15T06:55:34.349Z"
   }
 ]
