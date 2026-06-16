@@ -818,6 +818,30 @@ class MainScene extends Phaser.Scene {
     this.player.setVelocity(0);
     this.setPlayerIdleFrame();
 
+    const trainerSpeeches = {
+      TrainerJack: [
+        '⚔️ 训练师 Jack 发起挑战！',
+        '"我在草地上训练了好几个月……"',
+        '"你这个新人，准备见识一下我的水龟和叶兔！"'
+      ],
+      TrainerRocky: [
+        '⚔️ 训练师 Rocky 拦住了你的去路！',
+        '"洞窟是我的主场——岩石与闪电，无人能敌！"',
+        '"击败我，才配进入雪山！"'
+      ],
+      TrainerYeti: [
+        '⚔️ 训练师 Yeti 从暴风雪中现身！',
+        '"终于有人闯到这里了……寒冰是我的礼物。"',
+        '"我的霜狼和冰晶兽会让你领略极地的力量！"'
+      ],
+      GymLeader: [
+        '🏆 道馆馆主 烈达 踏前一步！',
+        '"年轻的训练师……你能走到这里，已经让我刮目相看。"',
+        '"但这里是顶峰——我的极光龙不曾败北。"',
+        '"拿出你最强的伙伴，用羁绊之力挑战极限！"'
+      ]
+    };
+
     let enemyTeam = [];
     if (npc.name === 'TrainerJack') {
       enemyTeam = [
@@ -841,15 +865,27 @@ class MainScene extends Phaser.Scene {
       ];
     }
 
-    this.cameras.main.flash(500, 244, 63, 94); // red flash
-    
-    this.time.delayedCall(500, () => {
-      this.startBattle('trainer', {
-        name: npc.name === 'GymLeader' ? "道馆馆主 烈达" : `训练师 ${npc.name}`,
-        npcRef: npc,
-        monsters: enemyTeam
+    const speech = trainerSpeeches[npc.name];
+    const flashDuration = npc.name === 'GymLeader' ? 800 : 500;
+    this.cameras.main.flash(flashDuration, 244, 63, 94);
+
+    if (speech) {
+      this.showStoryBanner(speech, npc.name === 'GymLeader' ? 3500 : 2500, () => {
+        this.startBattle('trainer', {
+          name: npc.name === 'GymLeader' ? "道馆馆主 烈达" : `训练师 ${npc.name}`,
+          npcRef: npc,
+          monsters: enemyTeam
+        });
       });
-    });
+    } else {
+      this.time.delayedCall(500, () => {
+        this.startBattle('trainer', {
+          name: `训练师 ${npc.name}`,
+          npcRef: npc,
+          monsters: enemyTeam
+        });
+      });
+    }
   }
 
   // --- Battle System Logic ---
@@ -872,6 +908,10 @@ class MainScene extends Phaser.Scene {
       battleOverlay.style.display = 'flex';
     }
 
+    const openingLog = type === 'wild'
+      ? `野生的 ${enemyData.name} 出现了！它露出了警觉的眼神！`
+      : `${enemyData.name} 发起了挑战！`;
+
     this.battleState = {
       type: type, // 'wild' or 'trainer'
       enemyName: enemyData.name,
@@ -879,11 +919,11 @@ class MainScene extends Phaser.Scene {
       enemyActiveIdx: 0,
       playerActiveIdx: activePlayerIdx,
       npcRef: enemyData.npcRef,
-      logs: [`与 ${enemyData.name} 的战斗开始了！`]
+      logs: [openingLog]
     };
 
     this.initBattleUI();
-    this.writeBattleLog(`与 ${enemyData.name} 的战斗开始了！`);
+    this.writeBattleLog(openingLog);
   }
 
   initBattleUI() {
@@ -1346,7 +1386,12 @@ class MainScene extends Phaser.Scene {
     this.player.setVelocity(0);
     this.setPlayerIdleFrame();
 
-    window.GameHUD?.showGameOver(true, "太伟大了！你成功击败了道馆馆主，收集并训练了强大的怪兽伙伴，成为了这片大陆上最强的怪兽训练大师！🏆");
+    window.GameHUD?.showGameOver(true, [
+      '🏆 传奇诞生！',
+      '你击败了从未败北的道馆馆主 烈达，',
+      '用羁绊的力量征服了草地、洞窟、雪山与顶峰道馆。',
+      '整个像素大陆将永远铭记这位怪兽训练大师的名字！'
+    ].join('\n'));
   }
 
   // --- HTML DOM Integration ---
@@ -1919,9 +1964,44 @@ class MainScene extends Phaser.Scene {
     };
   }
 
+  showStoryBanner(lines, duration = 3500, callback = null) {
+    const existing = document.getElementById('story-banner');
+    if (existing) existing.remove();
+
+    const banner = document.createElement('div');
+    banner.id = 'story-banner';
+    banner.style.cssText = `
+      position:absolute; inset:0; z-index:100; display:flex; flex-direction:column;
+      align-items:center; justify-content:center; pointer-events:none;
+      background:rgba(0,0,0,0.72); font-family:'Segoe UI',monospace;
+    `;
+    banner.innerHTML = lines.map((l, i) =>
+      `<div style="color:${i===0?'#fbbf24':'#e2e8f0'};font-size:${i===0?'20px':'15px'};
+        font-weight:${i===0?'bold':'normal'};text-align:center;margin:4px 32px;
+        text-shadow:0 0 12px rgba(251,191,36,0.6)">${l}</div>`
+    ).join('');
+    const gameContainer = document.querySelector('#game-container') || document.body;
+    gameContainer.appendChild(banner);
+
+    this.time.delayedCall(duration, () => {
+      banner.style.transition = 'opacity 0.6s';
+      banner.style.opacity = '0';
+      this.time.delayedCall(600, () => { banner.remove(); if (callback) callback(); });
+    });
+  }
+
   showStarterSelect() {
     this.inBattle = true;
-    document.getElementById('starter-overlay').style.display = 'flex';
+    this.showStoryBanner([
+      '🌿 怪兽收集：像素物语',
+      '一个充满奇妙怪兽的像素世界向你敞开大门。',
+      '草地、洞窟、雪山……每一片土地都潜藏着传说中的伙伴。',
+      '收集怪兽，磨砺羁绊，挑战道馆馆主，成为顶级大师！',
+      '',
+      '首先，选择你的初始伙伴——'
+    ], 3000, () => {
+      document.getElementById('starter-overlay').style.display = 'flex';
+    });
   }
 
   openMonstersMenu() {
