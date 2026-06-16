@@ -138,61 +138,74 @@
 (() => {
   'use strict';
 
-  // ── Per-game action button config ─────────────────────────────
-  // D-pad always maps to arrow keys + WASD simultaneously.
-  // Only define the extra action buttons here.
-  const GAME_BUTTONS = {
-    StickmanFighter: [
-      { label: '跳',   key: 'w', code: 'KeyW',  keyCode: 87, color: '#60a5fa' },
-      { label: '拳 J', key: 'j', code: 'KeyJ',  keyCode: 74, color: '#f97316' },
-      { label: '踢 K', key: 'k', code: 'KeyK',  keyCode: 75, color: '#ef4444' },
-      { label: '防',   key: 's', code: 'KeyS',  keyCode: 83, color: '#94a3b8' },
-      { label: '必杀', key: ' ', code: 'Space',  keyCode: 32, color: '#f59e0b' },
-    ],
-    NeonTowerDefense: [
-      { label: '激光 J',  key: 'j', code: 'KeyJ', keyCode: 74, color: '#00e5ff' },
-      { label: '等离子 K', key: 'k', code: 'KeyK', keyCode: 75, color: '#a78bfa' },
-      { label: '升级 E',  key: 'e', code: 'KeyE', keyCode: 69, color: '#4ade80' },
-      { label: '闪电 Z',  key: 'z', code: 'KeyZ', keyCode: 90, color: '#fbbf24' },
-      { label: '超频',    key: ' ', code: 'Space', keyCode: 32, color: '#f97316' },
-    ],
-    NeonRacer: [
-      { label: 'BOOST', key: ' ', code: 'Space', keyCode: 32, color: '#00e5ff' },
-    ],
-    PixelFarm: [
-      { label: '使用 Z', key: 'z', code: 'KeyZ',   keyCode: 90, color: '#4ade80' },
-      { label: '睡觉 X', key: 'x', code: 'KeyX',   keyCode: 88, color: '#a78bfa' },
-      { label: '交互 E', key: 'e', code: 'KeyE',   keyCode: 69, color: '#fbbf24' },
-      { label: '格1',    key: '1', code: 'Digit1', keyCode: 49, color: '#64748b' },
-      { label: '格2',    key: '2', code: 'Digit2', keyCode: 50, color: '#64748b' },
-      { label: '格3',    key: '3', code: 'Digit3', keyCode: 51, color: '#64748b' },
-    ],
-    NinjaStealth: [
-      { label: '刺杀',   key: ' ', code: 'Space', keyCode: 32, color: '#f97316' },
-      { label: '烟弹 K', key: 'k', code: 'KeyK',  keyCode: 75, color: '#64748b' },
-    ],
-    PokePixel: [
-      { label: '交互 E', key: 'e', code: 'KeyE', keyCode: 69, color: '#fbbf24' },
-      { label: '队伍 C', key: 'c', code: 'KeyC', keyCode: 67, color: '#a78bfa' },
-    ],
-    RaccoonDungeon: [
-      { label: '近战 J', key: 'j', code: 'KeyJ', keyCode: 74, color: '#f97316' },
-      { label: '魔法 K', key: 'k', code: 'KeyK', keyCode: 75, color: '#a78bfa' },
-      { label: '治愈 L', key: 'l', code: 'KeyL', keyCode: 76, color: '#4ade80' },
-      { label: '交互 E', key: 'e', code: 'KeyE', keyCode: 69, color: '#fbbf24' },
-    ],
+  // ── Phaser KeyCode name → browser key info ────────────────────
+  // label is only set when the key name differs from what we show on the button
+  const KC = {
+    A:{key:'a',code:'KeyA',keyCode:65},   B:{key:'b',code:'KeyB',keyCode:66},
+    C:{key:'c',code:'KeyC',keyCode:67},   D:{key:'d',code:'KeyD',keyCode:68},
+    E:{key:'e',code:'KeyE',keyCode:69},   F:{key:'f',code:'KeyF',keyCode:70},
+    G:{key:'g',code:'KeyG',keyCode:71},   H:{key:'h',code:'KeyH',keyCode:72},
+    I:{key:'i',code:'KeyI',keyCode:73},   J:{key:'j',code:'KeyJ',keyCode:74},
+    K:{key:'k',code:'KeyK',keyCode:75},   L:{key:'l',code:'KeyL',keyCode:76},
+    M:{key:'m',code:'KeyM',keyCode:77},   N:{key:'n',code:'KeyN',keyCode:78},
+    O:{key:'o',code:'KeyO',keyCode:79},   P:{key:'p',code:'KeyP',keyCode:80},
+    Q:{key:'q',code:'KeyQ',keyCode:81},   R:{key:'r',code:'KeyR',keyCode:82},
+    S:{key:'s',code:'KeyS',keyCode:83},   T:{key:'t',code:'KeyT',keyCode:84},
+    U:{key:'u',code:'KeyU',keyCode:85},   V:{key:'v',code:'KeyV',keyCode:86},
+    W:{key:'w',code:'KeyW',keyCode:87},   X:{key:'x',code:'KeyX',keyCode:88},
+    Y:{key:'y',code:'KeyY',keyCode:89},   Z:{key:'z',code:'KeyZ',keyCode:90},
+    ONE:  {key:'1',code:'Digit1',keyCode:49,label:'1'},
+    TWO:  {key:'2',code:'Digit2',keyCode:50,label:'2'},
+    THREE:{key:'3',code:'Digit3',keyCode:51,label:'3'},
+    FOUR: {key:'4',code:'Digit4',keyCode:52,label:'4'},
+    FIVE: {key:'5',code:'Digit5',keyCode:53,label:'5'},
+    SIX:  {key:'6',code:'Digit6',keyCode:54,label:'6'},
+    SEVEN:{key:'7',code:'Digit7',keyCode:55,label:'7'},
+    EIGHT:{key:'8',code:'Digit8',keyCode:56,label:'8'},
+    NINE: {key:'9',code:'Digit9',keyCode:57,label:'9'},
+    ZERO: {key:'0',code:'Digit0',keyCode:48,label:'0'},
+    SPACE:{key:' ',code:'Space', keyCode:32,label:'SPC'},
+    ENTER:{key:'Enter',code:'Enter',keyCode:13,label:'ENT'},
+    SHIFT:{key:'Shift',code:'ShiftLeft',keyCode:16,label:'SHF'},
+    // Arrow keys — handled by D-pad, listed only for the exclusion set
+    UP:   {key:'ArrowUp',   code:'ArrowUp',   keyCode:38},
+    DOWN: {key:'ArrowDown', code:'ArrowDown', keyCode:40},
+    LEFT: {key:'ArrowLeft', code:'ArrowLeft', keyCode:37},
+    RIGHT:{key:'ArrowRight',code:'ArrowRight',keyCode:39},
   };
 
-  const DEFAULT_BUTTONS = [
-    { label: 'A', key: ' ', code: 'Space', keyCode: 32, color: '#3b82f6' },
+  // Keys covered by the D-pad — never generate action buttons for these
+  const DPAD_EXCLUDE = new Set(['W','A','S','D','UP','DOWN','LEFT','RIGHT']);
+
+  // Rotating palette for auto-generated buttons
+  const COLORS = [
+    '#f97316','#a78bfa','#4ade80','#fbbf24',
+    '#00e5ff','#ef4444','#60a5fa','#f472b6',
+    '#34d399','#fb923c','#e879f9','#38bdf8',
   ];
 
-  // D-pad: each direction fires both arrow key AND WASD key
+  // Script injected into the iframe on load.
+  // 1. Intercepts 'blur' in capture phase — Phaser's bubble-phase blur handler
+  //    never fires, so it never clears keyboard state when the gamepad is touched.
+  // 2. Receives postMessage from play.html and re-dispatches a KeyboardEvent
+  //    inside the iframe's own window — same-window events are fully trusted by Phaser.
+  const BRIDGE = `(function(){
+    window.addEventListener('blur',function(e){e.stopImmediatePropagation();},true);
+    window.addEventListener('message',function(e){
+      var d=e.data;
+      if(!d||d._t!=='gk') return;
+      window.dispatchEvent(new KeyboardEvent(d.ev,{
+        key:d.key,code:d.code,keyCode:d.kc,which:d.kc,bubbles:true,cancelable:true
+      }));
+    });
+  })();`;
+
+  // D-pad directions: each fires both the arrow key AND the WASD equivalent
   const DPAD_DIRS = [
-    { row: 1, col: 2, label: '▲', pairs: [['ArrowUp','ArrowUp',38],['w','KeyW',87]] },
-    { row: 2, col: 1, label: '◀', pairs: [['ArrowLeft','ArrowLeft',37],['a','KeyA',65]] },
-    { row: 2, col: 3, label: '▶', pairs: [['ArrowRight','ArrowRight',39],['d','KeyD',68]] },
-    { row: 3, col: 2, label: '▼', pairs: [['ArrowDown','ArrowDown',40],['s','KeyS',83]] },
+    { row:1,col:2,label:'▲',pairs:[['ArrowUp','ArrowUp',38],['w','KeyW',87]] },
+    { row:2,col:1,label:'◀',pairs:[['ArrowLeft','ArrowLeft',37],['a','KeyA',65]] },
+    { row:2,col:3,label:'▶',pairs:[['ArrowRight','ArrowRight',39],['d','KeyD',68]] },
+    { row:3,col:2,label:'▼',pairs:[['ArrowDown','ArrowDown',40],['s','KeyS',83]] },
   ];
 
   // ── Setup ─────────────────────────────────────────────────────
@@ -200,11 +213,9 @@
   const gameId = params.get('game') || '';
   const frame  = document.getElementById('game-frame');
 
-  // Touch detection
   const isTouch = navigator.maxTouchPoints > 0 || 'ontouchstart' in window;
   if (isTouch) document.body.classList.add('touch-device');
 
-  // Load game path from games.json
   fetch('./games.json')
     .then(r => r.json())
     .then(games => {
@@ -214,7 +225,6 @@
     })
     .catch(() => { frame.src = `./${gameId}/index.html`; });
 
-  // Scale iframe to fill available space
   function scaleFrame() {
     const wrap = document.getElementById('frame-wrap');
     const s = Math.min(wrap.clientWidth / 960, wrap.clientHeight / 576);
@@ -223,54 +233,39 @@
   window.addEventListener('resize', scaleFrame);
   scaleFrame();
 
-  // ── Dispatch keyboard event into iframe ───────────────────────
+  // ── Send key event via postMessage (bridge inside iframe handles it) ──
   function fireKey(type, key, code, keyCode) {
     try {
-      frame.contentWindow?.dispatchEvent(new KeyboardEvent(type, {
-        key, code, keyCode, which: keyCode,
-        bubbles: true, cancelable: true,
-      }));
-    } catch (_) {}
+      frame.contentWindow?.postMessage({ _t:'gk', ev:type, key, code, kc:keyCode }, '*');
+    } catch(_) {}
   }
 
-  // ── Bind touch+mouse events to a button element ───────────────
-  // Tracks pressed buttons so a held key is never left "stuck" if the
-  // page loses focus or is hidden mid-press (e.g. when a game overlay
-  // pops up). A guard flag also prevents duplicate down/up firing.
+  // ── Button press tracking — prevents stuck keys on blur/overlay ──
   const pressed = new Set();
-
   function bindBtn(el, onDown, onUp) {
     const press = () => {
       if (pressed.has(el)) return;
-      pressed.add(el);
-      el.classList.add('active');
-      onDown();
+      pressed.add(el); el.classList.add('active'); onDown();
     };
     el._release = () => {
       if (!pressed.has(el)) return;
-      pressed.delete(el);
-      el.classList.remove('active');
-      onUp();
+      pressed.delete(el); el.classList.remove('active'); onUp();
     };
-    el.addEventListener('touchstart', e => { e.preventDefault(); press();       }, { passive: false });
-    el.addEventListener('touchend',   e => { e.preventDefault(); el._release(); }, { passive: false });
-    el.addEventListener('touchcancel',e => { e.preventDefault(); el._release(); }, { passive: false });
+    el.addEventListener('touchstart', e => { e.preventDefault(); press();       }, { passive:false });
+    el.addEventListener('touchend',   e => { e.preventDefault(); el._release(); }, { passive:false });
+    el.addEventListener('touchcancel',e => { e.preventDefault(); el._release(); }, { passive:false });
     el.addEventListener('mousedown',  () => press());
     el.addEventListener('mouseup',    () => el._release());
     el.addEventListener('mouseleave', () => el._release());
   }
-
-  // Force-release everything when focus/visibility is lost.
   function releaseAll() { [...pressed].forEach(el => el._release && el._release()); }
   window.addEventListener('blur', releaseAll);
   document.addEventListener('visibilitychange', () => { if (document.hidden) releaseAll(); });
 
-  // ── Build D-pad ───────────────────────────────────────────────
+  // ── Build D-pad (always present) ─────────────────────────────
   const dpadEl = document.getElementById('dpad');
-  // index of each cell in 3×3 grid
   const dirMap = {};
   DPAD_DIRS.forEach(d => { dirMap[`${d.row},${d.col}`] = d; });
-
   for (let r = 1; r <= 3; r++) {
     for (let c = 1; c <= 3; c++) {
       const el = document.createElement('div');
@@ -281,30 +276,79 @@
         el.className = 'dp';
         el.textContent = dir.label;
         bindBtn(el,
-          () => dir.pairs.forEach(([k, co, kc]) => fireKey('keydown', k, co, kc)),
-          () => dir.pairs.forEach(([k, co, kc]) => fireKey('keyup',   k, co, kc))
+          () => dir.pairs.forEach(([k,co,kc]) => fireKey('keydown',k,co,kc)),
+          () => dir.pairs.forEach(([k,co,kc]) => fireKey('keyup',  k,co,kc))
         );
       } else {
-        el.style.visibility = 'hidden'; // corners
+        el.style.visibility = 'hidden';
       }
       dpadEl.appendChild(el);
     }
   }
 
-  // ── Build action buttons ──────────────────────────────────────
-  const actEl = document.getElementById('action-btns');
-  const buttons = GAME_BUTTONS[gameId] || DEFAULT_BUTTONS;
-  buttons.forEach(({ label, key, code, keyCode, color }) => {
-    const el = document.createElement('div');
-    el.className = 'ab';
-    el.textContent = label;
-    el.style.borderColor = color;
-    el.style.color = color;
-    bindBtn(el,
-      () => fireKey('keydown', key, code, keyCode),
-      () => fireKey('keyup',   key, code, keyCode)
-    );
-    actEl.appendChild(el);
+  // ── Auto-scan game-logic.js for registered keys ───────────────
+  // Finds every Phaser.Input.Keyboard.KeyCodes.X reference, filters out
+  // D-pad keys (W/A/S/D + arrows), returns the rest in source order (deduped).
+  async function scanKeys(frameSrc) {
+    const jsUrl = frameSrc.replace(/\/index\.html(\?.*)?$/, '/game/game-logic.js');
+    try {
+      const text = await fetch(jsUrl).then(r => {
+        if (!r.ok) throw new Error(r.status);
+        return r.text();
+      });
+      const seen = new Set();
+      const re = /Phaser\.Input\.Keyboard\.KeyCodes\.([A-Z0-9_]+)/g;
+      let m;
+      while ((m = re.exec(text)) !== null) {
+        const name = m[1];
+        if (KC[name] && !DPAD_EXCLUDE.has(name)) seen.add(name);
+      }
+      return [...seen];
+    } catch(_) {
+      return [];
+    }
+  }
+
+  // ── Build action buttons from scanned key names ───────────────
+  function buildActionBtns(keyNames) {
+    const actEl = document.getElementById('action-btns');
+    actEl.innerHTML = '';
+    keyNames.forEach((name, i) => {
+      const info = KC[name];
+      const el   = document.createElement('div');
+      el.className = 'ab';
+      el.textContent = info.label ?? name;   // e.g. 'J', 'SPC', '1'
+      const color = COLORS[i % COLORS.length];
+      el.style.borderColor = color;
+      el.style.color = color;
+      bindBtn(el,
+        () => fireKey('keydown', info.key, info.code, info.keyCode),
+        () => fireKey('keyup',   info.key, info.code, info.keyCode)
+      );
+      actEl.appendChild(el);
+    });
+  }
+
+  // ── On iframe load: inject bridge, scan keys, build buttons ───
+  frame.addEventListener('load', async () => {
+    const src = frame.src;
+    // Skip the initial empty/about:blank load
+    if (!src || !src.includes('index.html')) return;
+
+    // 1. Inject bridge into iframe (blur-intercept + postMessage relay)
+    try {
+      const doc = frame.contentDocument;
+      const s = doc.createElement('script');
+      s.textContent = BRIDGE;
+      (doc.head || doc.body || doc.documentElement).appendChild(s);
+    } catch(_) {}
+
+    // 2. Only build buttons on touch devices
+    if (!isTouch) return;
+
+    // 3. Scan & build
+    const keyNames = await scanKeys(src);
+    buildActionBtns(keyNames);
   });
 
 })();
