@@ -241,17 +241,18 @@
       gap: 12px; margin-top: 6px;
     }
 
-    .card-engine { font-size: .66rem; color: var(--border-hi); letter-spacing: .04em; }
+    .card-engine { font-size: .66rem; color: var(--text-muted); letter-spacing: .04em; }
 
     .play-btn {
       display: inline-flex; align-items: center; gap: 7px;
       padding: 9px 20px;
       font-size: .78rem; font-weight: 700; letter-spacing: .1em; text-transform: uppercase;
       color: #fff; background: var(--a, var(--accent));
-      border: none; border-radius: 6px; cursor: pointer; flex-shrink: 0;
+      border: none; cursor: pointer; flex-shrink: 0;
+      clip-path: polygon(8px 0%, 100% 0%, calc(100% - 8px) 100%, 0% 100%);
       transition: filter .15s, transform .1s;
     }
-    .play-btn:hover  { filter: brightness(1.18); }
+    .play-btn:hover  { filter: brightness(1.22); }
     .play-btn:active { transform: scale(.96); }
     .play-btn svg    { width: 10px; height: 10px; fill: currentColor; flex-shrink: 0; }
 
