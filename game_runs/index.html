@@ -511,7 +511,8 @@
       cx: sp.offsetLeft + sp.offsetWidth  / 2,
       cy: sp.offsetTop  + sp.offsetHeight / 2,
     }));
-    const solY     = charData[0].cy - SOL_H / 2;
+    // Soldiers at bottom of header-inner — bullets travel diagonally upward at falling chars
+    const solY     = hi.offsetHeight - SOL_H - 8;
     // Chars start 80 px above header-inner top (passes through logo/pill area)
     const fallDist = charData[0].sp.offsetTop + 80;
     charData.forEach(cd => cd.sp.style.setProperty('--fall-y', `-${fallDist}px`));
@@ -561,73 +562,79 @@
       }, travelMs);
     }
 
+    // Bullet fires mid-fall; arrives at char's landing position
     function fireBullet(fromLeft, cd) {
       const sx = fromLeft ? leftGunX : rightGunX;
-      spawnBullet(sx, cd.cy, cd.cx, cd.cy,
-        '#e0f2fe', '0 0 5px #93c5fd,0 0 10px #3b82f6', 130, null);
+      spawnBullet(sx, solY + SOL_H / 2, cd.cx, cd.cy,
+        '#e0f2fe', '0 0 5px #93c5fd,0 0 10px #3b82f6', BULLET_TRAVEL, null);
     }
 
-    // Idle shots at logo/pill during SHOW rest — yellow tracer, diagonal
+    // Hit logo or pill — yellow tracer from soldier, wobble on arrival
+    function hitTarget(target, anim, fromLeft) {
+      if (!target) return;
+      const sol = fromLeft ? leftSol : rightSol;
+      sol.style.filter = 'brightness(3)';
+      setTimeout(() => { sol.style.filter = ''; }, 120);
+      const hiBox = hi.getBoundingClientRect();
+      const tBox  = target.getBoundingClientRect();
+      const tCx   = tBox.left - hiBox.left + tBox.width  / 2;
+      const tCy   = tBox.top  - hiBox.top  + tBox.height / 2;
+      spawnBullet(fromLeft ? leftGunX : rightGunX, solY + SOL_H / 2, tCx, tCy,
+        '#fde68a', '0 0 6px #f59e0b', 220,
+        () => {
+          target.style.filter = 'brightness(2.2)';
+          setTimeout(() => { target.style.filter = ''; }, 180);
+          target.style.animation = 'none';
+          void target.offsetHeight;
+          target.style.animation = `${anim} 640ms ease-out`;
+          target.addEventListener('animationend',
+            () => { target.style.animation = ''; }, { once: true });
+        });
+    }
+
+    // Idle shots during SHOW rest — 2 stray shots (chars already took some mid-reveal)
     function idleShots() {
-      function hitTarget(target, anim, fromLeft, delay) {
-        if (!target) return;
-        setTimeout(() => {
-          const sol = fromLeft ? leftSol : rightSol;
-          sol.style.filter = 'brightness(3)';
-          setTimeout(() => { sol.style.filter = ''; }, 120);
-
-          const hiBox = hi.getBoundingClientRect();
-          const tBox  = target.getBoundingClientRect();
-          const tCx   = tBox.left - hiBox.left + tBox.width  / 2;
-          const tCy   = tBox.top  - hiBox.top  + tBox.height / 2;
-          const sx    = fromLeft ? leftGunX : rightGunX;
-          const sy    = solY + SOL_H / 2;
-
-          spawnBullet(sx, sy, tCx, tCy,
-            '#fde68a', '0 0 6px #f59e0b', 180,
-            () => {
-              target.style.filter = 'brightness(2.2)';
-              setTimeout(() => { target.style.filter = ''; }, 180);
-              target.style.animation = 'none';
-              void target.offsetHeight;
-              target.style.animation = `${anim} 640ms ease-out`;
-              target.addEventListener('animationend',
-                () => { target.style.animation = ''; }, { once: true });
-            });
-        }, delay);
-      }
-      hitTarget(logoEl, 'logo-wobble', true,   350);
-      hitTarget(pillEl, 'pill-wobble', false, 1050);
-      hitTarget(logoEl, 'logo-wobble', false, 1850);
+      setTimeout(() => hitTarget(logoEl, 'logo-wobble', true),   350);
+      setTimeout(() => hitTarget(pillEl, 'pill-wobble', false), 1300);
     }
 
-    const DROP_DUR   = 480;
-    const CHAR_GAP   = 540;
-    const TUMBLE_DUR = 540;
-    const SHOW_DUR   = 3000;
+    const DROP_DUR     = 480;
+    const CHAR_GAP     = 540;
+    const TUMBLE_DUR   = 540;
+    const SHOW_DUR     = 3000;
+    const FIRE_OFFSET  = Math.round(DROP_DUR * 0.35);   // 168 ms — mid-fall
+    const BULLET_TRAVEL = Math.round(DROP_DUR * 0.65);  // 312 ms — arrives as char lands
 
     function doReveal() {
       resetSpans();
-      // Re-apply --fall-y (cleared by resetSpans? No — custom props persist, but be safe)
       charData.forEach(cd => cd.sp.style.setProperty('--fall-y', `-${fallDist}px`));
 
       let t = 200;
       charData.forEach((cd, i) => {
-        const fromLeft = i % 2 === 0;
+        const fromLeft  = i % 2 === 0;
+        const charStart = t;
+
         setTimeout(() => {
           cd.sp.style.animation = `char-drop ${DROP_DUR}ms linear forwards`;
-          // Bullet fires at landing; tumble starts when bullet arrives
+          // Fire mid-fall; bullet arrives at landing → tumble triggered
           setTimeout(() => {
             fireBullet(fromLeft, cd);
             setTimeout(() => {
               cd.sp.style.animation = `char-tumble ${TUMBLE_DUR}ms ease-out forwards`;
-            }, 130);
-          }, DROP_DUR + 10);
-        }, t);
+            }, BULLET_TRAVEL + 40);
+          }, FIRE_OFFSET);
+        }, charStart);
+
+        // Stray shots woven into the reveal: logo after char[1] lands, pill after char[3]
+        const landTime = charStart + DROP_DUR + 40;
+        if (i === 1) setTimeout(() => hitTarget(logoEl, 'logo-wobble', true),  landTime + 200);
+        if (i === 3) setTimeout(() => hitTarget(pillEl, 'pill-wobble', false), landTime + 200);
+
         t += CHAR_GAP;
       });
 
-      const showStart = t + DROP_DUR + 130 + TUMBLE_DUR;
+      // showStart = last char's land time + tumble duration
+      const showStart = (t - CHAR_GAP) + DROP_DUR + 40 + TUMBLE_DUR;
       setTimeout(idleShots, showStart);
       setTimeout(() => dissolveLoop(doReveal), showStart + SHOW_DUR);
     }
