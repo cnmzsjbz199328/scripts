@@ -186,7 +186,17 @@ class MainScene extends Phaser.Scene {
     // GameHUD Integration
     window.GameHUD?.onStart((isPvP) => {
       this.isPvP = !!isPvP;
-      this.gameStarted = true;
+      if (!this.isPvP) {
+        this.showFightBanner([
+          '🔥 火柴人：终极决斗',
+          '黑白线条与霓虹交织的几何次元，',
+          '阴影核心派出了无尽的暗影克隆体。',
+          '小红，挺起脊梁——击败3名暗影战士与首领，',
+          '让几何次元重见光明！'
+        ], 3500, () => { this.gameStarted = true; });
+      } else {
+        this.gameStarted = true;
+      }
 
       // Configure visual layouts and custom HUD elements
       this.setupHUD();
@@ -204,6 +214,32 @@ class MainScene extends Phaser.Scene {
     if (!window.GameHUD) {
       this.gameStarted = true;
     }
+  }
+
+  showFightBanner(lines, duration = 3000, callback = null) {
+    const existing = document.getElementById('fight-banner');
+    if (existing) existing.remove();
+
+    const banner = document.createElement('div');
+    banner.id = 'fight-banner';
+    banner.style.cssText = `
+      position:absolute; inset:0; z-index:100; display:flex; flex-direction:column;
+      align-items:center; justify-content:center; pointer-events:none;
+      background:rgba(0,0,0,0.78); font-family:'Courier New',monospace;
+    `;
+    banner.innerHTML = lines.map((l, i) =>
+      `<div style="color:${i===0?'#ef4444':'#f1f5f9'};font-size:${i===0?'20px':'14px'};
+        font-weight:${i===0?'bold':'normal'};text-align:center;margin:4px 36px;
+        text-shadow:0 0 12px rgba(239,68,68,0.7)">${l}</div>`
+    ).join('');
+    const gameContainer = document.querySelector('#game-container') || document.body;
+    gameContainer.appendChild(banner);
+
+    this.time.delayedCall(duration, () => {
+      banner.style.transition = 'opacity 0.5s';
+      banner.style.opacity = '0';
+      this.time.delayedCall(500, () => { banner.remove(); if (callback) callback(); });
+    });
   }
 
   setupAnimations() {
@@ -497,12 +533,23 @@ class MainScene extends Phaser.Scene {
     } else {
       // Original single-player story mode
       if (this.hearts <= 0) {
-        this.triggerGameOver(false, "小红战败！暗影兵团彻底吞噬了几何次元……");
+        this.triggerGameOver(false,
+          '💀 战败……\n\n' +
+          '暗影兵团的人海战术终究压垮了小红——\n' +
+          '几何次元陷入了彻底的黑暗。\n\n' +
+          '但这不是终点。每一次倒下，\n都是下一次站起来的力量。'
+        );
         return;
       }
 
       if (this.bossDefeated) {
-        this.triggerGameOver(true, "K.O！小红击败了暗影首领，粉碎了阴影核心，拯救了几何次元！🏆");
+        this.triggerGameOver(true,
+          '🔥 传奇！K.O！\n\n' +
+          '小红以最后一口气，将暗影首领击落！\n' +
+          '阴影核心轰然崩塌，黑白次元重现色彩。\n\n' +
+          '被囚禁的斗士们重获自由，\n几何次元的街头，回响着他们的欢呼声。\n\n' +
+          '没有人知道小红会在下一次的战场中出现——\n但凡有黑暗之处，就有他的身影。'
+        );
         return;
       }
 
@@ -1743,8 +1790,16 @@ class MainScene extends Phaser.Scene {
         this.spawnEnemy(false);
       } else if (!this.bossSpawned) {
         this.bossSpawned = true;
-        this.spawnEnemy(true);
-        window.GameHUD?.setObjective("警告：暗影首领降临！全力击败它！");
+        this.showFightBanner([
+          '⚠ 暗影首领降临！',
+          '"小红……你的坚持让我刮目相看。"',
+          '"但这里是几何次元的终点——你的故事，到此结束！"',
+          '全力以赴！击败首领，拯救几何次元！'
+        ], 3000);
+        this.time.delayedCall(500, () => {
+          this.spawnEnemy(true);
+          window.GameHUD?.setObjective("警告：暗影首领降临！全力击败它！");
+        });
       }
     }
   }
