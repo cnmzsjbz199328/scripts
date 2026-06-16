@@ -115,10 +115,34 @@
       background: rgba(255,255,255,.12);
       box-shadow: 0 0 16px currentColor, inset 0 0 10px rgba(255,255,255,.14);
     }
+
+    /* ── Portrait orientation adjustments ── */
+    /* In portrait the landscape game canvas is constrained by width (~40% scale).
+       Top-align it so the black gap is below the game (near thumbs) not above. */
+    @media (orientation: portrait) {
+      .touch-device #frame-wrap {
+        align-items: flex-start;
+        padding-top: 30px; /* clearance for #orient-tip */
+      }
+    }
+
+    /* Landscape orientation tip */
+    #orient-tip {
+      display: none;
+      position: fixed; top: 0; left: 0; right: 0; z-index: 300;
+      background: rgba(10,16,32,.92); border-bottom: 1px solid #1a2540;
+      color: #64748b; font-size: .72rem; font-family: system-ui, sans-serif;
+      text-align: center; padding: 6px 12px;
+      letter-spacing: .02em;
+    }
+    @media (orientation: portrait) {
+      #orient-tip { display: block; }
+    }
   </style>
 </head>
 <body>
 
+<div id="orient-tip">↺ 横屏游玩效果更佳</div>
 <a id="back-btn" href="./">← 返回</a>
 
 <div id="frame-wrap">
@@ -287,8 +311,11 @@
   }
 
   // ── Auto-scan game-logic.js for registered keys ───────────────
-  // Finds every Phaser.Input.Keyboard.KeyCodes.X reference, filters out
-  // D-pad keys (W/A/S/D + arrows), returns the rest in source order (deduped).
+  // Primary scan: every Phaser.Input.Keyboard.KeyCodes.X reference.
+  // Secondary scan: createCursorKeys() implicit keys — cursors.space /
+  //   cursors.shift are not registered via addKey(), so the primary regex
+  //   misses them (affects e.g. NinjaCat / MermaidPrincess jump).
+  // Filters out D-pad keys (W/A/S/D + arrows). Returns keys in source order.
   async function scanKeys(frameSrc) {
     const jsUrl = frameSrc.replace(/\/index\.html(\?.*)?$/, '/game/game-logic.js');
     try {
@@ -297,12 +324,19 @@
         return r.text();
       });
       const seen = new Set();
+
+      // Primary: explicit addKey / KeyCodes references
       const re = /Phaser\.Input\.Keyboard\.KeyCodes\.([A-Z0-9_]+)/g;
       let m;
       while ((m = re.exec(text)) !== null) {
         const name = m[1];
         if (KC[name] && !DPAD_EXCLUDE.has(name)) seen.add(name);
       }
+
+      // Secondary: implicit keys from createCursorKeys()
+      if (/cursors\.space\b/.test(text) && !seen.has('SPACE')) seen.add('SPACE');
+      if (/cursors\.shift\b/.test(text) && !seen.has('SHIFT')) seen.add('SHIFT');
+
       return [...seen];
     } catch(_) {
       return [];
