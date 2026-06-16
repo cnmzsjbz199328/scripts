@@ -111,11 +111,12 @@
     }
 
     .count-pill {
-      display: inline-block; margin-top: 12px;
-      font-size: .72rem; color: var(--text-muted);
-      background: var(--surface); border: 1px solid var(--border);
-      padding: 5px 14px; border-radius: 999px;
+      display: inline-block;
+      font-size: .66rem; font-weight: 700; letter-spacing: .12em;
+      color: var(--text-muted);
     }
+    .count-pill::before { content: '['; }
+    .count-pill::after  { content: ']'; }
 
     /* ── Main ───────────────────────────────────────────────── */
     main {
@@ -316,7 +317,6 @@
     </div>
     <h1>像素游戏<span class="h1-grad">工坊</span></h1>
     <p class="site-sub">作者是纯懒，游戏逻辑不想写，贴图不想找，全靠AI生图、脚本切分动画帧和抠图，最后结合逻辑生成器拼成的合集，欢迎游玩！</p>
-    <span id="count-pill" class="count-pill" aria-live="polite"></span>
   </div>
 </header>
 
@@ -324,6 +324,7 @@
 <main>
   <div class="section-row">
     <span class="section-label" aria-hidden="true">游戏库 / GAME LIBRARY</span>
+    <span id="count-pill" class="count-pill" aria-live="polite"></span>
     <span class="section-rule" aria-hidden="true"></span>
   </div>
 
