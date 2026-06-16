@@ -498,6 +498,7 @@ class MainScene extends Phaser.Scene {
   }
 
   triggerGameOver(isWin, endingText) {
+    if (this.victoryShown || this.defeatShown) return;
     if (isWin) {
       this.victoryShown = true;
     } else {
