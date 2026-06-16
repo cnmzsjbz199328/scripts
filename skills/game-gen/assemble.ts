@@ -267,6 +267,7 @@ async function assembleGame(gameName: string) {
     StickmanFighter:`Controls: A/D or Arrow Keys to move left/right | W or UP: Jump | S or DOWN: Block<br>J: Punch &nbsp;|&nbsp; K: Kick`,
     PixelFarm:      `Controls: WASD / Arrow Keys to move | 1-6: Select Hotbar Slot<br>Z: Use Equipped Item | X: Sleep (Advance Day &amp; Grow Crops) | E: Interact (Chest / Gate / Bonfire / Shipping Bin)`,
     NeonTowerDefense:`Controls: WASD / Arrow Keys to move drone | J/K: Build Turrets (50/80 💎)<br>E: Upgrade closest Turret | Z: Chain Lightning (15 💎) | SPACE: System Overclock (50 💎)`,
+    RaccoonDungeon: `操作说明：WASD / 方向键 移动<br>J: 近战法杖挥击 (Melee) | K: 火球魔法 (Magic) | L: 祈愿治疗 (Heal)<br>E: 开启宝箱 / 触碰传送门 (Interact)`
   };
   const controlsTip = CONTROLS_BY_GAME[gameName] ?? `Controls: WASD / Arrow Keys to move`;
 
