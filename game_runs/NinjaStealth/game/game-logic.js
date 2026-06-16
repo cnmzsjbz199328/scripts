@@ -247,14 +247,48 @@ class MainScene extends Phaser.Scene {
     this.gameStarted = false;
     if (window.GameHUD) {
       window.GameHUD.onStart(() => {
-        this.gameStarted = true;
-        sfx.play('win_level'); // play startup chime
+        this.showNarrativeBanner([
+          '🥷 暗影刺客 — 任务简报',
+          '幕府时代。夜幕已降，行动开始。',
+          '邪恶将军夺走了三份机密情报卷轴，',
+          '藏于城堡庭院、敌营仓库和将军御所三处。',
+          '以暗影之名，一一取回，不得被发现……',
+        ], 3500, () => {
+          this.gameStarted = true;
+          sfx.play('win_level');
+        });
       });
       window.GameHUD.setHearts(this.playerHp, 3);
       window.GameHUD.setScore(this.score);
     } else {
       this.gameStarted = true;
     }
+  }
+
+  showNarrativeBanner(lines, duration = 3000, callback = null) {
+    const existing = document.getElementById('ninja-narration');
+    if (existing) existing.remove();
+
+    const banner = document.createElement('div');
+    banner.id = 'ninja-narration';
+    banner.style.cssText = `
+      position:absolute; inset:0; z-index:100; display:flex; flex-direction:column;
+      align-items:center; justify-content:center; pointer-events:none;
+      background:rgba(0,0,0,0.80); font-family:'Courier New',monospace;
+    `;
+    banner.innerHTML = lines.map((l, i) =>
+      `<div style="color:${i===0?'#f59e0b':'#e2e8f0'};font-size:${i===0?'19px':'14px'};
+        font-weight:${i===0?'bold':'normal'};text-align:center;margin:3px 40px;
+        text-shadow:0 0 10px rgba(245,158,11,0.7);letter-spacing:1px">${l}</div>`
+    ).join('');
+    const gameContainer = document.querySelector('#game-container') || document.body;
+    gameContainer.appendChild(banner);
+
+    this.time.delayedCall(duration, () => {
+      banner.style.transition = 'opacity 0.5s';
+      banner.style.opacity = '0';
+      this.time.delayedCall(500, () => { banner.remove(); if (callback) callback(); });
+    });
   }
 
   createCharAnimations(charName, metaKey, sheetKey) {
@@ -416,6 +450,16 @@ class MainScene extends Phaser.Scene {
     sfx.play('scroll');
     window.GameHUD?.setScore(this.score);
     this.updateHUDText();
+
+    const scrollTexts = {
+      1: ['📜 情报卷轴 获取！', '卷轴一：将军的兵力部署图。', '看，伏兵就藏在这里……'],
+      2: ['📜 情报卷轴 获取！', '卷轴二：密道入口坐标。', '这将成为撤离时的生命线。'],
+      3: ['📜 情报卷轴 获取！', '卷轴三：将军的真实身份文书。', '这将是推翻其统治的关键证据！']
+    };
+    const text = scrollTexts[this.levelScrolls];
+    if (text) {
+      this.showNarrativeBanner(text, 1800);
+    }
 
     // Spawn sparkle effects
     this.spawnSparkles(scroll.x, scroll.y);
@@ -1019,12 +1063,27 @@ class MainScene extends Phaser.Scene {
   }
 
   completeLevel() {
+    const levelBriefs = [
+      null,
+      ['🥷 任务：敌营仓库', '城堡庭院已清理，卷轴在握。', '情报显示：第二份卷轴藏于敌营仓库深处。', '守卫已更换阵型，小心视野锥——行动！'],
+      ['🥷 终极任务：将军御所', '两份卷轴已到手。最后一份……', '就在将军寝殿之内。', '警戒级别最高，一旦暴露将引来全军围攻。', '沉住气，为了幕府的和平，这是最后一战！']
+    ];
+
     if (this.currentLevel === 3) {
       this.gameOver(true);
     } else {
       this.currentLevel++;
       sfx.play('win_level');
-      this.loadLevel(this.currentLevel);
+      const brief = levelBriefs[this.currentLevel - 1];
+      if (brief) {
+        this.gameStarted = false;
+        this.showNarrativeBanner(brief, 3000, () => {
+          this.loadLevel(this.currentLevel);
+          this.gameStarted = true;
+        });
+      } else {
+        this.loadLevel(this.currentLevel);
+      }
     }
   }
 
@@ -1034,13 +1093,19 @@ class MainScene extends Phaser.Scene {
 
     if (win) {
       sfx.play('win_level');
-      const message = window.ENTITIES_DATA.levels[2].objective.includes('将军') 
-        ? '你成功集齐了所有机密卷轴，避开了守卫，顺利逃离了将军的城堡！幕府国家重获和平与安宁！'
-        : '你成功完成了所有的潜行任务！';
-      window.GameHUD?.showGameOver(true, message);
+      window.GameHUD?.showGameOver(true,
+        '🥷 任务完成！\n\n黑影（Kage）成功从将军御所取回了全部九份机密卷轴，\n' +
+        '穿越城堡庭院、敌营仓库与将军寝殿，如同一道无声的风影。\n\n' +
+        '幕府将这些情报秘密送达了天皇御所——\n将军的政权土崩瓦解，动乱的国家重归和平。\n\n' +
+        '没有人知道那个夜晚究竟发生了什么，\n只有风，见证了影的归来。'
+      );
     } else {
       sfx.play('damage');
-      window.GameHUD?.showGameOver(false, '你被守卫正面包围抓获，潜行失败……');
+      window.GameHUD?.showGameOver(false,
+        '⚠️ 任务失败\n\n守卫发现了你的踪迹，鸣钟示警！\n' +
+        '在重重包围下，黑影负伤倒地……\n\n' +
+        '情报卷轴仍在将军手中。\n幕府的命运，悬于一线。'
+      );
     }
   }
 }
