@@ -8,11 +8,14 @@
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-    :root { --pad-h: 164px; }
+    :root { --pad-h: 180px; }
 
     html, body {
       width: 100%; height: 100%; background: #000;
       overflow: hidden; touch-action: none;
+      -webkit-user-select: none; -moz-user-select: none; user-select: none;
+      -webkit-touch-callout: none;
+      -webkit-tap-highlight-color: transparent;
     }
 
     /* ── Back button ── */
@@ -25,6 +28,7 @@
       backdrop-filter: blur(10px); transition: color .15s, border-color .15s;
     }
     #back-btn:hover { color: #e2e8f0; border-color: #2a3d5e; }
+    #back-btn { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
 
     /* ── Frame wrap ── */
     #frame-wrap {
@@ -56,47 +60,61 @@
     /* D-pad */
     #dpad {
       display: grid;
-      grid-template-columns: repeat(3, 46px);
-      grid-template-rows: repeat(3, 46px);
-      gap: 5px;
+      grid-template-columns: repeat(3, 48px);
+      grid-template-rows: repeat(3, 48px);
+      gap: 6px;
     }
     .dp {
       display: flex; align-items: center; justify-content: center;
-      background: rgba(255,255,255,.07);
-      border: 1px solid rgba(255,255,255,.12);
-      border-radius: 9px; color: #94a3b8;
-      font-size: 1.05rem; cursor: pointer;
+      background: linear-gradient(145deg, rgba(255,255,255,.11), rgba(255,255,255,.04));
+      border: 1px solid rgba(255,255,255,.14);
+      border-radius: 12px; color: #cbd5e1;
+      font-size: 1.15rem; cursor: pointer;
+      box-shadow: 0 2px 6px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.08);
+      -webkit-user-select: none; user-select: none;
+      -webkit-touch-callout: none;
       -webkit-tap-highlight-color: transparent;
-      transition: background .08s;
+      transition: transform .06s ease, background .1s, border-color .1s, box-shadow .1s;
     }
     .dp.active {
-      background: rgba(96,165,250,.22);
-      border-color: rgba(96,165,250,.45);
-      color: #60a5fa;
+      background: linear-gradient(145deg, rgba(96,165,250,.45), rgba(96,165,250,.20));
+      border-color: rgba(96,165,250,.7);
+      color: #fff;
+      box-shadow: 0 0 14px rgba(96,165,250,.6), inset 0 1px 0 rgba(255,255,255,.18);
+      transform: scale(.9);
     }
     .dp-center {
       background: rgba(255,255,255,.03) !important;
       border-color: rgba(255,255,255,.06) !important;
       border-radius: 50% !important;
+      box-shadow: none !important;
       pointer-events: none;
     }
 
     /* Action buttons */
     #action-btns {
       display: flex; flex-wrap: wrap;
-      gap: 10px; justify-content: flex-end;
-      max-width: 220px;
+      gap: 10px; justify-content: flex-end; align-items: center;
+      max-width: 240px;
     }
     .ab {
-      width: 58px; height: 58px; border-radius: 50%;
-      border: 2px solid; background: rgba(0,0,0,.35);
-      font-size: .67rem; font-weight: 700; letter-spacing: .03em;
-      text-align: center; line-height: 1.25;
+      width: 56px; height: 56px; border-radius: 50%;
+      border: 2px solid; background: rgba(0,0,0,.4);
+      font-size: .66rem; font-weight: 700; letter-spacing: .02em;
+      text-align: center; line-height: 1.2;
       display: flex; align-items: center; justify-content: center;
-      cursor: pointer; -webkit-tap-highlight-color: transparent;
-      transition: opacity .08s;
+      cursor: pointer;
+      box-shadow: 0 2px 8px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.06);
+      -webkit-user-select: none; user-select: none;
+      -webkit-touch-callout: none;
+      -webkit-tap-highlight-color: transparent;
+      transition: transform .06s ease, background .1s, box-shadow .1s;
     }
-    .ab.active { opacity: .5; }
+    .ab.active {
+      transform: scale(.88);
+      background: rgba(255,255,255,.12);
+      box-shadow: 0 0 16px currentColor, inset 0 0 10px rgba(255,255,255,.14);
+    }
   </style>
 </head>
 <body>
@@ -216,14 +234,36 @@
   }
 
   // ── Bind touch+mouse events to a button element ───────────────
+  // Tracks pressed buttons so a held key is never left "stuck" if the
+  // page loses focus or is hidden mid-press (e.g. when a game overlay
+  // pops up). A guard flag also prevents duplicate down/up firing.
+  const pressed = new Set();
+
   function bindBtn(el, onDown, onUp) {
-    el.addEventListener('touchstart', e => { e.preventDefault(); el.classList.add('active');    onDown(); }, { passive: false });
-    el.addEventListener('touchend',   e => { e.preventDefault(); el.classList.remove('active'); onUp();   }, { passive: false });
-    el.addEventListener('touchcancel',e => { e.preventDefault(); el.classList.remove('active'); onUp();   }, { passive: false });
-    el.addEventListener('mousedown',  ()  => { el.classList.add('active');    onDown(); });
-    el.addEventListener('mouseup',    ()  => { el.classList.remove('active'); onUp();   });
-    el.addEventListener('mouseleave', ()  => { el.classList.remove('active'); onUp();   });
+    const press = () => {
+      if (pressed.has(el)) return;
+      pressed.add(el);
+      el.classList.add('active');
+      onDown();
+    };
+    el._release = () => {
+      if (!pressed.has(el)) return;
+      pressed.delete(el);
+      el.classList.remove('active');
+      onUp();
+    };
+    el.addEventListener('touchstart', e => { e.preventDefault(); press();       }, { passive: false });
+    el.addEventListener('touchend',   e => { e.preventDefault(); el._release(); }, { passive: false });
+    el.addEventListener('touchcancel',e => { e.preventDefault(); el._release(); }, { passive: false });
+    el.addEventListener('mousedown',  () => press());
+    el.addEventListener('mouseup',    () => el._release());
+    el.addEventListener('mouseleave', () => el._release());
   }
+
+  // Force-release everything when focus/visibility is lost.
+  function releaseAll() { [...pressed].forEach(el => el._release && el._release()); }
+  window.addEventListener('blur', releaseAll);
+  document.addEventListener('visibilitychange', () => { if (document.hidden) releaseAll(); });
 
   // ── Build D-pad ───────────────────────────────────────────────
   const dpadEl = document.getElementById('dpad');
