@@ -513,6 +513,8 @@ class MainScene extends Phaser.Scene {
       if (this.playerEnergy >= 100) {
         this.fireUltimate(true);
         return;
+      } else {
+        this.spawnFloatingText(this.player.x, this.player.y - 80, `⚡ ${this.playerEnergy}% / 100%`, '#6b7280');
       }
     }
 
