@@ -124,6 +124,9 @@
         align-items: flex-start;
         padding-top: 30px; /* clearance for #orient-tip */
       }
+      /* flex-start only top-aligns the layout box; the scaled canvas must
+         anchor to the top too, otherwise center origin re-centers it. */
+      .touch-device #game-frame { transform-origin: top center; }
     }
 
     /* Landscape orientation tip */
@@ -249,13 +252,40 @@
     })
     .catch(() => { frame.src = `./${gameId}/index.html`; });
 
+  // Game canvas size. Defaults to a 960×576 landscape guess and is corrected
+  // to each game's real dimensions once the iframe loads. Games range from
+  // 800×600 to 1280×960, so a single hardcoded size letterboxes most of them
+  // (dead black margins) and crops the taller ones — making the game look far
+  // smaller than the available space.
+  let natW = 960, natH = 576;
+
   function scaleFrame() {
     const wrap = document.getElementById('frame-wrap');
-    const s = Math.min(wrap.clientWidth / 960, wrap.clientHeight / 576);
+    const s = Math.min(wrap.clientWidth / natW, wrap.clientHeight / natH);
+    frame.style.width  = natW + 'px';
+    frame.style.height = natH + 'px';
     frame.style.transform = `scale(${s})`;
   }
   window.addEventListener('resize', scaleFrame);
   scaleFrame();
+
+  // Measure the game's actual canvas (same-origin iframe) and refit. Phaser
+  // builds the canvas asynchronously, so callers poll until it appears.
+  function detectSize() {
+    try {
+      const doc = frame.contentDocument;
+      const canvas = doc && doc.querySelector('canvas');
+      if (!canvas) return false;
+      const r = canvas.getBoundingClientRect();
+      const w = Math.round(r.width)  || canvas.width;
+      const h = Math.round(r.height) || canvas.height;
+      if (w > 0 && h > 0) {
+        if (w !== natW || h !== natH) { natW = w; natH = h; scaleFrame(); }
+        return true;
+      }
+    } catch(_) {}
+    return false;
+  }
 
   // ── Send key event via postMessage (bridge inside iframe handles it) ──
   function fireKey(type, key, code, keyCode) {
@@ -368,6 +398,12 @@
     const src = frame.src;
     // Skip the initial empty/about:blank load
     if (!src || !src.includes('index.html')) return;
+
+    // 0. Fit the frame to the game's real canvas once Phaser has built it
+    let tries = 0;
+    const sizePoll = setInterval(() => {
+      if (detectSize() || ++tries >= 40) clearInterval(sizePoll);
+    }, 100);
 
     // 1. Inject bridge into iframe (blur-intercept + postMessage relay)
     try {
