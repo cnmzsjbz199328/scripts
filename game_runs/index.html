@@ -270,19 +270,45 @@
       background: linear-gradient(130deg, #60a5fa 0%, #a78bfa 55%, #f472b6 100%);
       -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
     }
+    /* Pendulum wobble during free fall; --fall-y set per-element in JS */
     @keyframes char-drop {
-      from { opacity:0; transform:translateY(-140px) rotate(-18deg) scale(.85); }
-      75%  { opacity:1; transform:translateY(6px) rotate(4deg); }
-      to   { opacity:1; transform:none; }
+      0%   { opacity:0; transform:translateY(var(--fall-y)) rotate(-28deg) scale(.85); }
+      10%  { opacity:1; }
+      30%  { transform:translateY(calc(var(--fall-y)*.58)) rotate(35deg); }
+      58%  { transform:translateY(calc(var(--fall-y)*.12)) rotate(-18deg); }
+      76%  { transform:translateY(14px) rotate(7deg); }
+      87%  { transform:translateY(-7px) rotate(-3deg); }
+      94%  { transform:translateY(4px) rotate(1deg); }
+      100% { opacity:1; transform:none; }
     }
+    /* 2-full-spin impact tumble; ends at -720deg == 0 visually */
     @keyframes char-tumble {
       0%   { transform:none; }
-      25%  { transform:rotate(-220deg) scale(1.12) translateY(-4px); }
-      60%  { transform:rotate(22deg); }
-      82%  { transform:rotate(-7deg); }
-      100% { transform:none; }
+      20%  { transform:rotate(-240deg) scale(1.22) translateY(-14px); }
+      52%  { transform:rotate(-580deg); }
+      74%  { transform:rotate(-690deg); }
+      88%  { transform:rotate(-710deg); }
+      100% { transform:rotate(-720deg); }
     }
-    @media (prefers-reduced-motion: reduce) { .hc { animation:none !important; } }
+    /* Logo: translate + tilt (pinned — wobbles but won't fall) */
+    @keyframes logo-wobble {
+      0%,100% { transform:translateX(0) rotate(0deg); }
+      18%     { transform:translateX(-9px) rotate(-4deg); }
+      40%     { transform:translateX(7px) rotate(2.5deg); }
+      62%     { transform:translateX(-3px) rotate(-1deg); }
+      82%     { transform:translateX(2px) rotate(.5deg); }
+    }
+    /* Pill: translate only, keep text readable */
+    @keyframes pill-wobble {
+      0%,100% { transform:translateX(0); }
+      18%     { transform:translateX(-7px); }
+      40%     { transform:translateX(5px); }
+      62%     { transform:translateX(-2px); }
+      82%     { transform:translateX(1px); }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .hc, .site-logo-icon, .site-pill { animation: none !important; }
+    }
   </style>
 </head>
 <body>
@@ -373,13 +399,15 @@
 
 <script id="header-anim">
 /* ── Header interactive animations ─────────────────────────────────────
-   Title  : two soldiers flank header edges; chars fall one by one,
-            soldiers alternate shooting — bullet hits → char tumbles
-            into place → 2.5s rest → chars dissolve outward → loop
-   Subtitle: snake eats scattered chars → rest → scatter back → loop
-   Mobile  : simplified staggered drop-in instead of soldiers
-   Loops indefinitely with rest periods to avoid visual fatigue
-   Skipped entirely when prefers-reduced-motion is set
+   Unified header scene — all elements participate:
+   · Soldiers at far edges use space beside logo/pill
+   · Chars fall from above logo, pendulum-wobble in air, land at h1
+   · Bullet (moving pixel) hits → 2-spin tumble → settle
+   · SHOW rest: idle shots hit logo (tilt wobble) & pill (slide wobble)
+   · Chars dissolve outward → repeat (~8 s cycle)
+   Subtitle: snake eats scattered chars → rest → scatter → repeat
+   Mobile  : staggered drop-in only
+   prefers-reduced-motion: skip all
 ─────────────────────────────────────────────────────────────────────── */
 (function () {
   'use strict';
@@ -393,16 +421,19 @@
   const MOBILE = window.innerWidth < 540;
 
   /* ══════════════════════════════════════════════════════════════
-     TITLE LOOP
-     Desktop:  two soldiers flank the header edges (using space beside
-               logo/pill); chars fall from above one by one; soldiers
-               alternate shooting — char tumbles on bullet hit → settles
-               → 2.5s rest → chars dissolve outward → repeat
-     Mobile:   staggered drop-in → 2.5s rest → dissolve → repeat
+     TITLE LOOP  —  unified header scene
+     Soldiers stand at far left/right edges (beside logo & pill).
+     Chars fall from above the logo, pendulum-wobbling in the air,
+     land at h1 row → bullet hits → 2-spin tumble → settle.
+     SHOW phase: soldiers fire idle shots that hit logo & pill
+     (pinned → wobble only). Then chars dissolve outward → repeat.
+     Mobile: staggered drop-in, no soldiers.
   ══════════════════════════════════════════════════════════════ */
   function titleLoop() {
-    const h1 = document.querySelector('header h1');
-    const hi = document.querySelector('.header-inner');
+    const h1     = document.querySelector('header h1');
+    const hi     = document.querySelector('.header-inner');
+    const logoEl = hi && hi.querySelector('.site-logo-icon');
+    const pillEl = hi && hi.querySelector('.site-pill');
     if (!h1 || !hi) return;
 
     const GRAD  = new Set(['工', '坊']);
@@ -416,18 +447,18 @@
     const spans = [...h1.querySelectorAll('.hc')];
 
     const DIRS = [
-      'translate(-70px,-50px) rotate(-30deg) scale(.05)',
-      'translate(-20px,-85px) scale(.05)',
-      'translate(18px,-75px) scale(.05)',
-      'translate(65px,-45px) rotate(25deg) scale(.05)',
-      'translate(55px,30px) rotate(20deg) scale(.05)',
-      'translate(-45px,32px) rotate(-25deg) scale(.05)',
+      'translate(-80px,-60px) rotate(-35deg) scale(.04)',
+      'translate(-22px,-90px) scale(.04)',
+      'translate(20px,-82px) scale(.04)',
+      'translate(78px,-52px) rotate(28deg) scale(.04)',
+      'translate(62px,36px) rotate(22deg) scale(.04)',
+      'translate(-52px,38px) rotate(-28deg) scale(.04)',
     ];
 
     function resetSpans() {
       spans.forEach(sp => {
-        sp.style.transition = 'none';
         sp.style.animation  = 'none';
+        sp.style.transition = 'none';
         sp.style.opacity    = '';
         sp.style.transform  = '';
         sp.style.filter     = '';
@@ -435,7 +466,14 @@
       void h1.offsetHeight;
     }
 
+    // Freeze visible state before dissolving so transitions start from opacity:1/transform:none
     function dissolveLoop(onDone) {
+      spans.forEach(sp => {
+        sp.style.animation = 'none';
+        sp.style.opacity   = '1';
+        sp.style.transform = 'none';
+      });
+      void h1.offsetHeight;
       spans.forEach((sp, i) => setTimeout(() => {
         sp.style.transition = 'opacity .35s ease, transform .44s ease';
         sp.style.opacity    = '0';
@@ -445,33 +483,38 @@
         spans.length * 60 + 560);
     }
 
-    // Mobile: staggered drop, no soldiers
+    // Mobile: simple staggered drop, no soldiers, no idle shots
     if (MOBILE) {
+      const fallDist = spans[0].offsetTop + 60;
       function mobileReveal() {
         resetSpans();
-        spans.forEach((sp, i) => setTimeout(() => {
-          sp.style.animation = 'char-drop 480ms cubic-bezier(.3,0,.2,1) forwards';
-        }, i * 130));
-        setTimeout(() => dissolveLoop(mobileReveal), spans.length * 130 + 480 + 2500);
+        spans.forEach((sp, i) => {
+          sp.style.setProperty('--fall-y', `-${fallDist}px`);
+          setTimeout(() => {
+            sp.style.animation = 'char-drop 560ms linear forwards';
+          }, i * 140);
+        });
+        setTimeout(() => dissolveLoop(mobileReveal),
+          spans.length * 140 + 560 + 2500);
       }
       setTimeout(mobileReveal, 400);
       return;
     }
 
-    // Desktop: two soldiers at far edges of .header-inner,
-    // using the space beside the logo/pill for a longer shooting range
+    // ── Desktop ───────────────────────────────────────────────
     const HI_W   = hi.offsetWidth;
-    const SOL_W  = 18, SOL_H = 20;
-    const SOL_PAD = 14; // px from header-inner edge
+    const SOL_W  = 18, SOL_H = 20, SOL_PAD = 14;
 
-    // Measure char positions using offsetLeft (unaffected by CSS transforms)
+    // Layout positions via offsetLeft (unaffected by CSS transforms)
     const charData = spans.map(sp => ({
       sp,
       cx: sp.offsetLeft + sp.offsetWidth  / 2,
       cy: sp.offsetTop  + sp.offsetHeight / 2,
     }));
-    const textMidY = charData[0].cy;
-    const solY     = textMidY - SOL_H / 2;
+    const solY     = charData[0].cy - SOL_H / 2;
+    // Chars start 80 px above header-inner top (passes through logo/pill area)
+    const fallDist = charData[0].sp.offsetTop + 80;
+    charData.forEach(cd => cd.sp.style.setProperty('--fall-y', `-${fallDist}px`));
 
     const SOL_SVG =
       `<svg width="${SOL_W}" height="${SOL_H}" viewBox="0 0 9 10" xmlns="http://www.w3.org/2000/svg">` +
@@ -485,73 +528,108 @@
       `</svg>`;
 
     function makeSoldier(flip) {
-      const d = document.createElement('div');
+      const d  = document.createElement('div');
       d.setAttribute('aria-hidden', 'true');
-      const lx = flip ? HI_W - SOL_W - SOL_PAD : SOL_PAD;
       d.style.cssText =
-        `position:absolute;left:${lx}px;top:${solY}px;` +
+        `position:absolute;left:${flip ? HI_W - SOL_W - SOL_PAD : SOL_PAD}px;top:${solY}px;` +
         `width:${SOL_W}px;height:${SOL_H}px;pointer-events:none;z-index:10;` +
         (flip ? 'transform:scaleX(-1);' : '');
       d.innerHTML = SOL_SVG;
       hi.appendChild(d);
       return d;
     }
+    const leftSol  = makeSoldier(false);
+    const rightSol = makeSoldier(true);
 
-    makeSoldier(false); // left soldier (faces right)
-    makeSoldier(true);  // right soldier (faces left, mirrored)
+    const leftGunX  = SOL_PAD + SOL_W;
+    const rightGunX = HI_W - SOL_PAD - SOL_W;
 
-    // Gun-tip x in hi coordinate space
-    const leftGunX  = SOL_PAD + SOL_W;               // left soldier's muzzle
-    const rightGunX = HI_W - SOL_PAD - SOL_W;        // right soldier's muzzle (after mirror)
-
-    function fireBullet(fromLeft, cd) {
-      const startX = fromLeft ? leftGunX : rightGunX;
-      const endX   = cd.cx;
-      const bLeft  = Math.min(startX, endX);
-      const width  = Math.abs(endX - startX);
-      const bTop   = cd.cy - 1;
+    // Moving-pixel bullet (5×3 px glow dot travelling to target)
+    function spawnBullet(sx, sy, tx, ty, color, shadow, travelMs, onArrive) {
       const b = document.createElement('div');
       b.style.cssText =
-        `position:absolute;left:${bLeft}px;top:${bTop}px;` +
-        `width:${width}px;height:2px;pointer-events:none;z-index:5;` +
-        `background:linear-gradient(to ${fromLeft ? 'right' : 'left'},#93c5fd,rgba(147,197,253,0));` +
-        `transform:scaleX(0);transform-origin:${fromLeft ? 'left' : 'right'} center;` +
-        `transition:transform 130ms linear;`;
+        `position:absolute;left:${sx}px;top:${sy - 1.5}px;` +
+        `width:5px;height:3px;border-radius:1px;pointer-events:none;z-index:6;` +
+        `background:${color};box-shadow:${shadow};transition:transform ${travelMs}ms linear;`;
       hi.appendChild(b);
       void b.offsetWidth;
-      b.style.transform = 'scaleX(1)';
+      b.style.transform = `translate(${tx - sx}px,${ty - sy}px)`;
       setTimeout(() => {
-        b.style.transition = 'transform 80ms linear';
-        b.style.transform  = 'scaleX(0)';
-        setTimeout(() => b.remove(), 100);
-      }, 170);
+        b.style.transition = 'opacity 60ms';
+        b.style.opacity = '0';
+        setTimeout(() => { b.remove(); if (onArrive) onArrive(); }, 70);
+      }, travelMs);
     }
 
-    const DROP_DUR = 420;
-    const CHAR_GAP = 530;
+    function fireBullet(fromLeft, cd) {
+      const sx = fromLeft ? leftGunX : rightGunX;
+      spawnBullet(sx, cd.cy, cd.cx, cd.cy,
+        '#e0f2fe', '0 0 5px #93c5fd,0 0 10px #3b82f6', 130, null);
+    }
+
+    // Idle shots at logo/pill during SHOW rest — yellow tracer, diagonal
+    function idleShots() {
+      function hitTarget(target, anim, fromLeft, delay) {
+        if (!target) return;
+        setTimeout(() => {
+          const sol = fromLeft ? leftSol : rightSol;
+          sol.style.filter = 'brightness(3)';
+          setTimeout(() => { sol.style.filter = ''; }, 120);
+
+          const hiBox = hi.getBoundingClientRect();
+          const tBox  = target.getBoundingClientRect();
+          const tCx   = tBox.left - hiBox.left + tBox.width  / 2;
+          const tCy   = tBox.top  - hiBox.top  + tBox.height / 2;
+          const sx    = fromLeft ? leftGunX : rightGunX;
+          const sy    = solY + SOL_H / 2;
+
+          spawnBullet(sx, sy, tCx, tCy,
+            '#fde68a', '0 0 6px #f59e0b', 180,
+            () => {
+              target.style.filter = 'brightness(2.2)';
+              setTimeout(() => { target.style.filter = ''; }, 180);
+              target.style.animation = 'none';
+              void target.offsetHeight;
+              target.style.animation = `${anim} 640ms ease-out`;
+              target.addEventListener('animationend',
+                () => { target.style.animation = ''; }, { once: true });
+            });
+        }, delay);
+      }
+      hitTarget(logoEl, 'logo-wobble', true,   350);
+      hitTarget(pillEl, 'pill-wobble', false, 1050);
+      hitTarget(logoEl, 'logo-wobble', false, 1850);
+    }
+
+    const DROP_DUR   = 480;
+    const CHAR_GAP   = 540;
+    const TUMBLE_DUR = 540;
+    const SHOW_DUR   = 3000;
 
     function doReveal() {
       resetSpans();
-      let t = 180;
+      // Re-apply --fall-y (cleared by resetSpans? No — custom props persist, but be safe)
+      charData.forEach(cd => cd.sp.style.setProperty('--fall-y', `-${fallDist}px`));
+
+      let t = 200;
       charData.forEach((cd, i) => {
         const fromLeft = i % 2 === 0;
         setTimeout(() => {
-          cd.sp.style.animation =
-            `char-drop ${DROP_DUR}ms cubic-bezier(.3,0,.2,1) forwards`;
-          // bullet fires the moment char lands
+          cd.sp.style.animation = `char-drop ${DROP_DUR}ms linear forwards`;
+          // Bullet fires at landing; tumble starts when bullet arrives
           setTimeout(() => {
             fireBullet(fromLeft, cd);
-            // tumble starts when bullet arrives
             setTimeout(() => {
-              cd.sp.style.animation = 'char-tumble 400ms ease-out forwards';
+              cd.sp.style.animation = `char-tumble ${TUMBLE_DUR}ms ease-out forwards`;
             }, 130);
           }, DROP_DUR + 10);
         }, t);
         t += CHAR_GAP;
       });
-      // wait for last char's tumble to finish, then 2.5 s rest, then dissolve
-      setTimeout(() => dissolveLoop(doReveal),
-        t + DROP_DUR + 130 + 400 + 2500);
+
+      const showStart = t + DROP_DUR + 130 + TUMBLE_DUR;
+      setTimeout(idleShots, showStart);
+      setTimeout(() => dissolveLoop(doReveal), showStart + SHOW_DUR);
     }
 
     setTimeout(doReveal, 300);
