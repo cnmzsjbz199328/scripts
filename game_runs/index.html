@@ -640,7 +640,7 @@
     const DROP_DUR      = 480;
     const CHAR_GAP      = 540;
     const IMPACT_DUR    = 380;
-    const SHOW_DUR      = 3000;
+    const SHOW_DUR      = 6000;
     const FIRE_OFFSET   = Math.round(DROP_DUR * 0.20);  // 96 ms — char still high in air
     const BULLET_TRAVEL = 150;                           // arrives at 246 ms (51% of fall)
 
@@ -836,7 +836,7 @@
         if (chars.every(c => c.eaten)) { phase = 'SHOW'; phaseT = 0; }
       } else if (phase === 'SHOW') {
         phaseT += dt;
-        if (phaseT >= 3000) {
+        if (phaseT >= 4000) {
           const np  = randPos();
           scatterFrom = chars.map(c => ({ x: stripXs[c.order], y: STRIP_Y }));
           scatterTo   = np;
