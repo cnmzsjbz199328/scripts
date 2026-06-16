@@ -264,18 +264,24 @@
     }
 
     /* ── Header game animation chars ───────────────────────────── */
-    .hc {
-      display: inline-block;
-      opacity: 0;
-      transform: scale(.4) translateY(-6px);
-      transition: opacity .28s ease, transform .38s cubic-bezier(.34,1.56,.64,1);
-    }
-    .hc.r { opacity: 1; transform: none; }
+    .hc { display: inline-block; opacity: 0; }
     .hc-g {
       background: linear-gradient(130deg, #60a5fa 0%, #a78bfa 55%, #f472b6 100%);
       -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
     }
-    @media (prefers-reduced-motion: reduce) { .hc { transition: none; } }
+    @keyframes char-drop {
+      from { opacity:0; transform:translateY(-140px) rotate(-18deg) scale(.85); }
+      75%  { opacity:1; transform:translateY(6px) rotate(4deg); }
+      to   { opacity:1; transform:none; }
+    }
+    @keyframes char-tumble {
+      0%   { transform:none; }
+      25%  { transform:rotate(-220deg) scale(1.12) translateY(-4px); }
+      60%  { transform:rotate(22deg); }
+      82%  { transform:rotate(-7deg); }
+      100% { transform:none; }
+    }
+    @media (prefers-reduced-motion: reduce) { .hc { animation:none !important; } }
   </style>
 </head>
 <body>
@@ -366,9 +372,11 @@
 
 <script id="header-anim">
 /* ── Header interactive animations ─────────────────────────────────────
-   Title  : pixel-soldier shoots chars to reveal → rest → dissolve → loop
+   Title  : two soldiers flank header edges; chars fall one by one,
+            soldiers alternate shooting — bullet hits → char tumbles
+            into place → 2.5s rest → chars dissolve outward → loop
    Subtitle: snake eats scattered chars → rest → scatter back → loop
-   Mobile  : simplified stagger reveal instead of soldier
+   Mobile  : simplified staggered drop-in instead of soldiers
    Loops indefinitely with rest periods to avoid visual fatigue
    Skipped entirely when prefers-reduced-motion is set
 ─────────────────────────────────────────────────────────────────────── */
@@ -385,9 +393,11 @@
 
   /* ══════════════════════════════════════════════════════════════
      TITLE LOOP
-     Desktop:  soldier walks left→right, shoots each char to reveal
+     Desktop:  two soldiers flank the header edges (using space beside
+               logo/pill); chars fall from above one by one; soldiers
+               alternate shooting — char tumbles on bullet hit → settles
                → 2.5s rest → chars dissolve outward → repeat
-     Mobile:   staggered spring reveal → 2.5s rest → dissolve → repeat
+     Mobile:   staggered drop-in → 2.5s rest → dissolve → repeat
   ══════════════════════════════════════════════════════════════ */
   function titleLoop() {
     const h1 = document.querySelector('header h1');
@@ -397,7 +407,6 @@
     const GRAD  = new Set(['工', '坊']);
     const CHARS = '像素游戏工坊';
 
-    // Replace h1 with per-char spans; remove early-hide
     h1.innerHTML = CHARS.split('').map(ch =>
       `<span class="hc${GRAD.has(ch) ? ' hc-g' : ''}">${ch}</span>`
     ).join('');
@@ -405,66 +414,66 @@
 
     const spans = [...h1.querySelectorAll('.hc')];
 
-    // Dissolve directions — translate first so motion is in screen-space
     const DIRS = [
-      'translate(-60px,-40px) rotate(-45deg) scale(.06)',
-      'translate(-20px,-70px) scale(.06)',
-      'translate(20px,-60px) scale(.06)',
-      'translate(60px,-30px) scale(.06)',
-      'translate(50px,20px) rotate(30deg) scale(.06)',
-      'translate(-30px,30px) rotate(-30deg) scale(.06)',
+      'translate(-70px,-50px) rotate(-30deg) scale(.05)',
+      'translate(-20px,-85px) scale(.05)',
+      'translate(18px,-75px) scale(.05)',
+      'translate(65px,-45px) rotate(25deg) scale(.05)',
+      'translate(55px,30px) rotate(20deg) scale(.05)',
+      'translate(-45px,32px) rotate(-25deg) scale(.05)',
     ];
 
     function resetSpans() {
       spans.forEach(sp => {
         sp.style.transition = 'none';
-        sp.style.opacity    = '';   // clear inline; .hc class gives opacity:0
+        sp.style.animation  = 'none';
+        sp.style.opacity    = '';
         sp.style.transform  = '';
         sp.style.filter     = '';
-        sp.classList.remove('r');
       });
-      void h1.offsetHeight; // flush
-      spans.forEach(sp => { sp.style.transition = ''; }); // re-enable CSS transition
+      void h1.offsetHeight;
     }
 
-    function dissolveSched(onDone) {
+    function dissolveLoop(onDone) {
       spans.forEach((sp, i) => setTimeout(() => {
-        sp.style.transition = 'opacity .35s ease, transform .42s ease';
+        sp.style.transition = 'opacity .35s ease, transform .44s ease';
         sp.style.opacity    = '0';
         sp.style.transform  = DIRS[i % DIRS.length];
       }, i * 60));
       setTimeout(() => { resetSpans(); setTimeout(onDone, 300); },
-        spans.length * 60 + 550);
+        spans.length * 60 + 560);
     }
 
+    // Mobile: staggered drop, no soldiers
     if (MOBILE) {
-      const MDIRS = [
-        'translate(-20px,-30px) rotate(-25deg) scale(.08)',
-        'translate(0,-40px) scale(.08)',
-        'translate(20px,-30px) scale(.08)',
-        'translate(30px,10px) scale(.08)',
-        'translate(20px,25px) rotate(20deg) scale(.08)',
-        'translate(-20px,25px) rotate(-20deg) scale(.08)',
-      ];
       function mobileReveal() {
         resetSpans();
-        spans.forEach((sp, i) => setTimeout(() => sp.classList.add('r'), i * 115));
-        setTimeout(() => dissolveSched(mobileReveal), spans.length * 115 + 2500);
+        spans.forEach((sp, i) => setTimeout(() => {
+          sp.style.animation = 'char-drop 480ms cubic-bezier(.3,0,.2,1) forwards';
+        }, i * 130));
+        setTimeout(() => dissolveLoop(mobileReveal), spans.length * 130 + 480 + 2500);
       }
-      setTimeout(mobileReveal, 500);
+      setTimeout(mobileReveal, 400);
       return;
     }
 
-    // Desktop: create persistent soldier element
-    const hiRect = hi.getBoundingClientRect();
-    const solTop = h1.offsetTop + h1.offsetHeight + 2;
+    // Desktop: two soldiers at far edges of .header-inner,
+    // using the space beside the logo/pill for a longer shooting range
+    const HI_W   = hi.offsetWidth;
+    const SOL_W  = 18, SOL_H = 20;
+    const SOL_PAD = 14; // px from header-inner edge
 
-    const sol = document.createElement('div');
-    sol.setAttribute('aria-hidden', 'true');
-    sol.style.cssText = `position:absolute;top:${solTop}px;left:-30px;` +
-      `width:18px;height:20px;pointer-events:none;z-index:10;transition:left .28s linear;`;
-    sol.innerHTML =
-      `<svg width="18" height="20" viewBox="0 0 9 10" xmlns="http://www.w3.org/2000/svg">` +
+    // Measure char positions using offsetLeft (unaffected by CSS transforms)
+    const charData = spans.map(sp => ({
+      sp,
+      cx: sp.offsetLeft + sp.offsetWidth  / 2,
+      cy: sp.offsetTop  + sp.offsetHeight / 2,
+    }));
+    const textMidY = charData[0].cy;
+    const solY     = textMidY - SOL_H / 2;
+
+    const SOL_SVG =
+      `<svg width="${SOL_W}" height="${SOL_H}" viewBox="0 0 9 10" xmlns="http://www.w3.org/2000/svg">` +
       `<rect x="4" y="0" width="2" height="2" fill="#93c5fd"/>` +
       `<rect x="3" y="2" width="4" height="3" fill="#3b82f6"/>` +
       `<rect x="6" y="2" width="3" height="1" fill="#93c5fd"/>` +
@@ -473,40 +482,75 @@
       `<rect x="2" y="8" width="2" height="2" fill="#60a5fa"/>` +
       `<rect x="5" y="8" width="2" height="2" fill="#60a5fa"/>` +
       `</svg>`;
-    hi.appendChild(sol);
 
-    const charData = spans.map(sp => {
-      const r = sp.getBoundingClientRect();
-      return { sp, cx: r.left - hiRect.left + r.width / 2 };
-    });
+    function makeSoldier(flip) {
+      const d = document.createElement('div');
+      d.setAttribute('aria-hidden', 'true');
+      const lx = flip ? HI_W - SOL_W - SOL_PAD : SOL_PAD;
+      d.style.cssText =
+        `position:absolute;left:${lx}px;top:${solY}px;` +
+        `width:${SOL_W}px;height:${SOL_H}px;pointer-events:none;z-index:10;` +
+        (flip ? 'transform:scaleX(-1);' : '');
+      d.innerHTML = SOL_SVG;
+      hi.appendChild(d);
+      return d;
+    }
 
-    const WALK = 260, SHOOT = 185, EACH = WALK + SHOOT + 55;
+    makeSoldier(false); // left soldier (faces right)
+    makeSoldier(true);  // right soldier (faces left, mirrored)
+
+    // Gun-tip x in hi coordinate space
+    const leftGunX  = SOL_PAD + SOL_W;               // left soldier's muzzle
+    const rightGunX = HI_W - SOL_PAD - SOL_W;        // right soldier's muzzle (after mirror)
+
+    function fireBullet(fromLeft, cd) {
+      const startX = fromLeft ? leftGunX : rightGunX;
+      const endX   = cd.cx;
+      const bLeft  = Math.min(startX, endX);
+      const width  = Math.abs(endX - startX);
+      const bTop   = cd.cy - 1;
+      const b = document.createElement('div');
+      b.style.cssText =
+        `position:absolute;left:${bLeft}px;top:${bTop}px;` +
+        `width:${width}px;height:2px;pointer-events:none;z-index:5;` +
+        `background:linear-gradient(to ${fromLeft ? 'right' : 'left'},#93c5fd,rgba(147,197,253,0));` +
+        `transform:scaleX(0);transform-origin:${fromLeft ? 'left' : 'right'} center;` +
+        `transition:transform 130ms linear;`;
+      hi.appendChild(b);
+      void b.offsetWidth;
+      b.style.transform = 'scaleX(1)';
+      setTimeout(() => {
+        b.style.transition = 'transform 80ms linear';
+        b.style.transform  = 'scaleX(0)';
+        setTimeout(() => b.remove(), 100);
+      }, 170);
+    }
+
+    const DROP_DUR = 420;
+    const CHAR_GAP = 530;
 
     function doReveal() {
       resetSpans();
-      // Teleport soldier back to start without transition
-      sol.style.transition = 'none';
-      sol.style.left = '-30px';
-      void sol.offsetWidth;
-      sol.style.transition = `left ${WALK}ms linear`;
-
-      let t = 400;
+      let t = 180;
       charData.forEach((cd, i) => {
-        setTimeout(() => { sol.style.left = (cd.cx - 9) + 'px'; }, t);
+        const fromLeft = i % 2 === 0;
         setTimeout(() => {
-          cd.sp.classList.add('r');
-          cd.sp.style.filter = 'brightness(3)';
-          setTimeout(() => { cd.sp.style.filter = ''; }, 220);
-        }, t + WALK + SHOOT);
-        t += EACH;
+          cd.sp.style.animation =
+            `char-drop ${DROP_DUR}ms cubic-bezier(.3,0,.2,1) forwards`;
+          // bullet fires the moment char lands
+          setTimeout(() => {
+            fireBullet(fromLeft, cd);
+            // tumble starts when bullet arrives
+            setTimeout(() => {
+              cd.sp.style.animation = 'char-tumble 400ms ease-out forwards';
+            }, 130);
+          }, DROP_DUR + 10);
+        }, t);
+        t += CHAR_GAP;
       });
-      // Soldier exits right
-      setTimeout(() => {
-        sol.style.transition = `left ${WALK}ms linear`;
-        sol.style.left = (hiRect.width + 20) + 'px';
-      }, t);
-      // Rest then dissolve
-      setTimeout(() => dissolveSched(doReveal), t + WALK + 2500);
+      // wait for last char's tumble to finish, then 2.5 s rest, then dissolve
+      setTimeout(() => dissolveLoop(doReveal),
+        t + DROP_DUR + 130 + 400 + 2500);
     }
 
     setTimeout(doReveal, 300);
