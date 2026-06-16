@@ -281,14 +281,14 @@
       94%  { transform:translateY(4px) rotate(1deg); }
       100% { opacity:1; transform:none; }
     }
-    /* 2-full-spin impact tumble; ends at -720deg == 0 visually */
-    @keyframes char-tumble {
-      0%   { transform:none; }
-      20%  { transform:rotate(-240deg) scale(1.22) translateY(-14px); }
-      52%  { transform:rotate(-580deg); }
-      74%  { transform:rotate(-690deg); }
-      88%  { transform:rotate(-710deg); }
-      100% { transform:rotate(-720deg); }
+    /* Shot mid-air: spins from impact position, lands at random tilt (东倒西歪) */
+    @keyframes char-impact-fall {
+      0%   { opacity:1; transform:translateY(var(--impact-y)) rotate(var(--impact-rot)); }
+      22%  { transform:translateY(calc(var(--impact-y)*0.45)) rotate(calc(var(--impact-rot) - 160deg)) scale(1.12); }
+      50%  { transform:translateY(-12px) rotate(calc(var(--land-rot) + 55deg)); }
+      74%  { transform:translateY(7px)   rotate(calc(var(--land-rot) - 10deg)); }
+      90%  { transform:translateY(-3px)  rotate(calc(var(--land-rot) + 2deg)); }
+      100% { transform:translateY(0)     rotate(var(--land-rot)); }
     }
     /* Logo: translate + tilt (pinned — wobbles but won't fall) */
     @keyframes logo-wobble {
@@ -562,11 +562,11 @@
       }, travelMs);
     }
 
-    // Bullet fires mid-fall; arrives at char's landing position
+    // Bullet fired mid-fall; travels diagonally upward to char's resting X/Y
     function fireBullet(fromLeft, cd) {
       const sx = fromLeft ? leftGunX : rightGunX;
       spawnBullet(sx, solY + SOL_H / 2, cd.cx, cd.cy,
-        '#e0f2fe', '0 0 5px #93c5fd,0 0 10px #3b82f6', BULLET_TRAVEL, null);
+        '#e0f2fe', '0 0 5px #93c5fd,0 0 10px #3b82f6', 150, null);
     }
 
     // Hit logo or pill — yellow tracer from soldier, wobble on arrival
@@ -598,16 +598,21 @@
       setTimeout(() => hitTarget(pillEl, 'pill-wobble', false), 1300);
     }
 
-    const DROP_DUR     = 480;
-    const CHAR_GAP     = 540;
-    const TUMBLE_DUR   = 540;
-    const SHOW_DUR     = 3000;
-    const FIRE_OFFSET  = Math.round(DROP_DUR * 0.35);   // 168 ms — mid-fall
-    const BULLET_TRAVEL = Math.round(DROP_DUR * 0.65);  // 312 ms — arrives as char lands
+    const DROP_DUR      = 480;
+    const CHAR_GAP      = 540;
+    const IMPACT_DUR    = 380;
+    const SHOW_DUR      = 3000;
+    const FIRE_OFFSET   = Math.round(DROP_DUR * 0.20);  // 96 ms — char still high in air
+    const BULLET_TRAVEL = 150;                           // arrives at 246 ms (51% of fall)
 
     function doReveal() {
       resetSpans();
-      charData.forEach(cd => cd.sp.style.setProperty('--fall-y', `-${fallDist}px`));
+      charData.forEach(cd => {
+        cd.sp.style.setProperty('--fall-y',   `-${fallDist}px`);
+        // Random landing tilt: ±4–14°, alternating sign for variety
+        const tilt = (Math.random() * 10 + 4) * (Math.random() < 0.5 ? 1 : -1);
+        cd.sp.style.setProperty('--land-rot', `${tilt.toFixed(1)}deg`);
+      });
 
       let t = 200;
       charData.forEach((cd, i) => {
@@ -616,25 +621,37 @@
 
         setTimeout(() => {
           cd.sp.style.animation = `char-drop ${DROP_DUR}ms linear forwards`;
-          // Fire mid-fall; bullet arrives at landing → tumble triggered
+
+          // Fire when char is ~20% through fall — still clearly in the air
           setTimeout(() => {
             fireBullet(fromLeft, cd);
+
+            // Bullet arrives — read actual animated position, switch to impact-fall
             setTimeout(() => {
-              cd.sp.style.animation = `char-tumble ${TUMBLE_DUR}ms ease-out forwards`;
-            }, BULLET_TRAVEL + 40);
+              const cs  = window.getComputedStyle(cd.sp);
+              const mtx = new DOMMatrix(cs.transform);
+              const impactY   = mtx.m42;
+              const impactRot = Math.atan2(mtx.m12, mtx.m11) * 180 / Math.PI;
+              cd.sp.style.setProperty('--impact-y',   `${impactY.toFixed(1)}px`);
+              cd.sp.style.setProperty('--impact-rot', `${impactRot.toFixed(1)}deg`);
+              cd.sp.style.animation = 'none';
+              cd.sp.style.opacity   = '1';
+              void cd.sp.offsetHeight;
+              cd.sp.style.animation = `char-impact-fall ${IMPACT_DUR}ms ease-out forwards`;
+            }, BULLET_TRAVEL);
           }, FIRE_OFFSET);
         }, charStart);
 
-        // Stray shots woven into the reveal: logo after char[1] lands, pill after char[3]
-        const landTime = charStart + DROP_DUR + 40;
-        if (i === 1) setTimeout(() => hitTarget(logoEl, 'logo-wobble', true),  landTime + 200);
-        if (i === 3) setTimeout(() => hitTarget(pillEl, 'pill-wobble', false), landTime + 200);
+        // Stray shots woven into reveal: logo after char[1] impact, pill after char[3]
+        const impactTime = charStart + FIRE_OFFSET + BULLET_TRAVEL;
+        if (i === 1) setTimeout(() => hitTarget(logoEl, 'logo-wobble', true),  impactTime + 120);
+        if (i === 3) setTimeout(() => hitTarget(pillEl, 'pill-wobble', false), impactTime + 120);
 
         t += CHAR_GAP;
       });
 
-      // showStart = last char's land time + tumble duration
-      const showStart = (t - CHAR_GAP) + DROP_DUR + 40 + TUMBLE_DUR;
+      // showStart = last char fully landed
+      const showStart = (t - CHAR_GAP) + FIRE_OFFSET + BULLET_TRAVEL + IMPACT_DUR;
       setTimeout(idleShots, showStart);
       setTimeout(() => dissolveLoop(doReveal), showStart + SHOW_DUR);
     }
