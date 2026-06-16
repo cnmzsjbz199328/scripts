@@ -661,7 +661,11 @@
     const CH      = MOBILE ? 90 : 122;
     const FSZ_G   = MOBILE ? 8  : 10;  // grid char size
     const FSZ_S   = MOBILE ? 8  : 11;  // strip text size
-    const STEP_MS = MOBILE ? 52 : 36;  // snake step interval
+    const STEP_MS    = MOBILE ? 52 : 36;  // snake step interval
+    const SWELL_MS   = 350;   // chars inflate
+    const TREMBLE_MS = 420;   // chars shake with growing amplitude
+    const EXPLODE_MS = 630;   // chars fly to grid positions
+    const SCATTER_TOTAL = SWELL_MS + TREMBLE_MS + EXPLODE_MS; // ~1400 ms
 
     const cvs = document.createElement('canvas');
     cvs.setAttribute('aria-hidden', 'true');
@@ -784,7 +788,7 @@
         }
       } else if (phase === 'SCATTER') {
         phaseT += dt;
-        if (phaseT >= 1500) {
+        if (phaseT >= SCATTER_TOTAL) {
           chars.forEach((c, i) => {
             c.col = scatterTo[i].col; c.row = scatterTo[i].row; c.eaten = false;
           });
@@ -816,17 +820,45 @@
         drawSnake();
 
       } else if (phase === 'SCATTER') {
-        const prog = eio(Math.min(phaseT / 1500, 1));
-        ctx.font = `${FSZ_G}px monospace`;
         ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-        chars.forEach((c, i) => {
-          const fx = scatterFrom[i].x, fy = scatterFrom[i].y;
-          const tx = scatterTo[i].col * CELL + CELL / 2;
-          const ty = scatterTo[i].row * CELL + CELL / 2;
-          ctx.globalAlpha = 0.25 + prog * 0.38;
-          ctx.fillStyle = '#94a3b8';
-          ctx.fillText(c.ch, fx + (tx - fx) * prog, fy + (ty - fy) * prog);
-        });
+        ctx.fillStyle = '#94a3b8';
+        const t = phaseT;
+
+        if (t < SWELL_MS) {
+          // ① Swell: font inflates smoothly, chars hold position
+          const p     = t / SWELL_MS;
+          const scale = 1 + eio(p) * 0.22;
+          ctx.font = `${Math.round(FSZ_S * scale)}px "Segoe UI",system-ui,sans-serif`;
+          ctx.globalAlpha = 1;
+          chars.forEach((c, i) => {
+            ctx.fillText(c.ch, scatterFrom[i].x, scatterFrom[i].y);
+          });
+
+        } else if (t < SWELL_MS + TREMBLE_MS) {
+          // ② Tremble: shake amplitude ramps up quadratically (tension builds)
+          const tp  = (t - SWELL_MS) / TREMBLE_MS;
+          const amp = tp * tp * 5.5;
+          ctx.font = `${Math.round(FSZ_S * 1.22)}px "Segoe UI",system-ui,sans-serif`;
+          ctx.globalAlpha = 1;
+          chars.forEach((c, i) => {
+            const dx = Math.sin(t * 0.058 + i * 1.9) * amp;
+            const dy = Math.cos(t * 0.051 + i * 2.5) * amp * 0.65;
+            ctx.fillText(c.ch, scatterFrom[i].x + dx, scatterFrom[i].y + dy);
+          });
+
+        } else {
+          // ③ Explode: chars burst outward to grid positions
+          const ep   = (t - SWELL_MS - TREMBLE_MS) / EXPLODE_MS;
+          const prog = eio(Math.min(ep, 1));
+          ctx.font = `${FSZ_G}px monospace`;
+          chars.forEach((c, i) => {
+            const fx = scatterFrom[i].x, fy = scatterFrom[i].y;
+            const tx = scatterTo[i].col * CELL + CELL / 2;
+            const ty = scatterTo[i].row * CELL + CELL / 2;
+            ctx.globalAlpha = 0.25 + prog * 0.38;
+            ctx.fillText(c.ch, fx + (tx - fx) * prog, fy + (ty - fy) * prog);
+          });
+        }
         ctx.globalAlpha = 1;
       }
 
