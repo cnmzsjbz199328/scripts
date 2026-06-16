@@ -29,3 +29,4 @@ object_runs/*/
 game_runs/**/*.png
 game_runs/**/*.webp
 game_runs/**/*.json
+!game_runs/games.json

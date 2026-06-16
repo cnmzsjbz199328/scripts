@@ -1,0 +1,41 @@
+[
+  {
+    "id": "StickmanFighter",
+    "title": "火柴人：终极决斗",
+    "tagline": "经典火柴人街头对决，用指尖点燃热血！",
+    "gameType": "side-scroller",
+    "genre": "BEAT-EM-UP",
+    "accent": "#f97316",
+    "previewBg": "#100804",
+    "icon": "👊",
+    "thumbnail": "StickmanFighter/scene/stickman_panorama.png",
+    "path": "StickmanFighter/index.html",
+    "createdAt": "2026-06-15T23:56:52.000Z"
+  },
+  {
+    "id": "NeonRacer",
+    "title": "霓虹狂飙：赛博漂移",
+    "tagline": "在这个霓虹闪烁的赛博都市中，挑战速度极限！",
+    "gameType": "top-down-action",
+    "genre": "ACTION",
+    "accent": "#00e5ff",
+    "previewBg": "#020c14",
+    "icon": "🏎️",
+    "thumbnail": null,
+    "path": "NeonRacer/index.html",
+    "createdAt": "2026-06-15T11:51:57.000Z"
+  },
+  {
+    "id": "PixelFarm",
+    "title": "像素农场：黄金种子的传承",
+    "tagline": "重燃篝火，唤醒沉睡在土地中的黄金种子",
+    "gameType": "top-down-rpg",
+    "genre": "RPG / SIM",
+    "accent": "#4ade80",
+    "previewBg": "#041008",
+    "icon": "🌾",
+    "thumbnail": "PixelFarm/screenshot.png",
+    "path": "PixelFarm/index.html",
+    "createdAt": "2026-06-15T06:55:34.349Z"
+  }
+]
