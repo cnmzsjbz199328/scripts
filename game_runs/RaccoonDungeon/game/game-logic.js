@@ -938,6 +938,33 @@ class MainScene extends Phaser.Scene {
     }
   }
 
+  showDungeonNarration(lines, duration = 2500) {
+    const existing = document.getElementById('dungeon-narration');
+    if (existing) existing.remove();
+
+    const banner = document.createElement('div');
+    banner.id = 'dungeon-narration';
+    banner.style.cssText = `
+      position:absolute; left:50%; transform:translateX(-50%); top:20%;
+      z-index:100; pointer-events:none; text-align:center;
+      background:rgba(10,20,10,0.82); border:1px solid #4ade80;
+      border-radius:12px; padding:16px 32px; font-family:'Courier New',serif;
+    `;
+    banner.innerHTML = lines.map((l, i) =>
+      `<div style="color:${i===0?'#4ade80':'#d1fae5'};font-size:${i===0?'17px':'13px'};
+        font-weight:${i===0?'bold':'normal'};margin:3px 0;
+        text-shadow:0 0 8px rgba(74,222,128,0.6)">${l}</div>`
+    ).join('');
+    const gameContainer = document.querySelector('#game-container') || document.body;
+    gameContainer.appendChild(banner);
+
+    this.time.delayedCall(duration, () => {
+      banner.style.transition = 'opacity 0.5s';
+      banner.style.opacity = '0';
+      this.time.delayedCall(500, () => banner.remove());
+    });
+  }
+
   advanceToNextLevel() {
     this.currentLevel++;
     if (this.currentLevel > 5) {
@@ -955,9 +982,22 @@ class MainScene extends Phaser.Scene {
 
     // HUD Update
     window.GameHUD?.setScore(this.currentLevel);
-    
+
     // Regenerate
     this.generateLevel(this.currentLevel);
+
+    // Floor story narration
+    const floorStory = {
+      2: ['🌿 第二层：藤蔓走廊', '黑雾在此处愈发浓厚，藤蔓如手臂般向你伸来。', '守卫的嚎叫声从深处传来……'],
+      3: ['🔥 第三层：炽热前哨', '地面开始发烫，岩浆在裂缝中流淌。', '黑雾已化为炽热的怒焰——小心！'],
+      4: ['🌋 第四层：熔岩地核', '这里是遗迹最深处，黑雾的源头就在前方。', '你已能感受到Boss巨龙的气息……'],
+      5: ['💀 第五层：核心神殿', '黑雾核心就在这里——一条被黑雾腐蚀的巨龙在等待你。', '它就是导致一切灾难的根源。', '消灭它，让阳光重新照耀这片森林！']
+    };
+
+    const story = floorStory[this.currentLevel];
+    if (story) {
+      this.showDungeonNarration(story, this.currentLevel === 5 ? 4000 : 2800);
+    }
 
     // Floor Display Text Banner
     this.showFloorBanner(`第 ${this.currentLevel} 层：${this.getFloorName(this.currentLevel)}`);
@@ -1356,11 +1396,22 @@ class MainScene extends Phaser.Scene {
     if (this.player && this.player.body) this.player.body.setVelocity(0);
 
     if (win) {
-      // Game Win
-      window.GameHUD?.showGameOver(true, "你击败了黑雾核心！温暖的阳光重新照耀着遗迹，魔法森林重获和平。");
+      window.GameHUD?.showGameOver(true,
+        '🌟 黑雾消散！\n\n' +
+        '你击败了黑雾核心守护者——那条被腐蚀的古老巨龙。\n' +
+        '随着龙的倒下，黑雾如同被春风吹散，\n' +
+        '遗迹的裂缝中，一缕缕温暖的阳光重新渗透进来。\n\n' +
+        '小浣熊法师带着秘宝欢快地回到了阳光明媚的森林，\n' +
+        '鸟儿歌唱，花朵盛开，一切都恢复了生机。\n\n' +
+        '吉卜力遗迹，永远记住了这位茸茸帽法师的名字。'
+      );
     } else {
-      // Game Over
-      window.GameHUD?.showGameOver(false, "小浣熊法师倒下了……遗迹中又回荡起黑雾的低鸣……");
+      window.GameHUD?.showGameOver(false,
+        '🌑 法师倒下了……\n\n' +
+        '黑雾紧紧包裹住了小浣熊，法杖从手中滑落……\n' +
+        '遗迹深处，巨龙的低鸣再次响彻石壁。\n\n' +
+        '但茸茸帽里，还有最后一颗光之晶核……\n也许，这不是终点。'
+      );
     }
   }
 }
