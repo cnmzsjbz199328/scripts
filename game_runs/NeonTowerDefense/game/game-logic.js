@@ -1077,6 +1077,23 @@ class MainScene extends Phaser.Scene {
     });
   }
 
+  drawEnemyHealthBar(e) {
+    if (!e.healthBar) return;
+    const bar = e.healthBar;
+    bar.clear();
+    const bw = 36;
+    const bh = 4;
+    const bx = e.x - bw / 2;
+    const by = e.y - 28;
+    const pct = Math.max(0, e.health / e.maxHealth);
+    bar.fillStyle(0x000000, 0.6);
+    bar.fillRect(bx, by, bw, bh);
+    const color = pct > 0.5 ? 0x00ff66 : pct > 0.25 ? 0xffaa00 : 0xff3333;
+    bar.fillStyle(color, 1);
+    bar.fillRect(bx, by, bw * pct, bh);
+    bar.setDepth(DEPTH.EFFECTS);
+  }
+
   damageCore(enemy) {
     const damage = enemy.isBoss ? 2.0 : 0.5;
     this.hearts = Math.max(0, this.hearts - damage);
