@@ -394,6 +394,8 @@
     Generated with <a href="https://claude.ai/code" target="_blank" rel="noopener">Claude Code</a>
     &nbsp;·&nbsp;
     © 2026
+    &nbsp;·&nbsp;
+    <a href="mailto:tangjiang199328@gmail.com">tangjiang199328@gmail.com</a>
   </p>
 </footer>
 
@@ -446,14 +448,7 @@
 
     const spans = [...h1.querySelectorAll('.hc')];
 
-    const DIRS = [
-      'translate(-80px,-60px) rotate(-35deg) scale(.04)',
-      'translate(-22px,-90px) scale(.04)',
-      'translate(20px,-82px) scale(.04)',
-      'translate(78px,-52px) rotate(28deg) scale(.04)',
-      'translate(62px,36px) rotate(22deg) scale(.04)',
-      'translate(-52px,38px) rotate(-28deg) scale(.04)',
-    ];
+
 
     function resetSpans() {
       spans.forEach(sp => {
@@ -466,21 +461,45 @@
       void h1.offsetHeight;
     }
 
-    // Freeze visible state before dissolving so transitions start from opacity:1/transform:none
+    // Exit: chars swirl into a tangled cluster then rise off-screen — loops back to the fall
     function dissolveLoop(onDone) {
+      // Freeze each span at its current animated position (may be tilted from impact-fall)
       spans.forEach(sp => {
-        sp.style.animation = 'none';
-        sp.style.opacity   = '1';
-        sp.style.transform = 'none';
+        const cs = window.getComputedStyle(sp);
+        sp.style.animation  = 'none';
+        sp.style.opacity    = '1';
+        sp.style.transform  = cs.transform === 'none' ? '' : cs.transform;
       });
       void h1.offsetHeight;
-      spans.forEach((sp, i) => setTimeout(() => {
-        sp.style.transition = 'opacity .35s ease, transform .44s ease';
-        sp.style.opacity    = '0';
-        sp.style.transform  = DIRS[i % DIRS.length];
-      }, i * 60));
-      setTimeout(() => { resetSpans(); setTimeout(onDone, 300); },
-        spans.length * 60 + 560);
+
+      // Phase 1: each char drifts toward h1 centre, rotating chaotically — looks entangled
+      const cx = h1.offsetWidth  / 2;
+      const cy = h1.offsetHeight / 2;
+      const targets = spans.map(sp => ({
+        tx:  cx - (sp.offsetLeft + sp.offsetWidth  / 2) + (Math.random() - 0.5) * 22,
+        ty:  cy - (sp.offsetTop  + sp.offsetHeight / 2) + (Math.random() - 0.5) * 16,
+        rot: Math.random() * 540 - 270,   // ±270° — each char distinct so they look tangled
+      }));
+      spans.forEach((sp, i) => {
+        const { tx, ty, rot } = targets[i];
+        sp.style.transition = `transform .5s cubic-bezier(.4,0,.2,1) ${i * 22}ms,` +
+                              `opacity .2s ease ${i * 22 + 360}ms`;
+        sp.style.transform  = `translate(${tx}px,${ty}px) rotate(${rot}deg) scale(.85)`;
+        sp.style.opacity    = '0.8';
+      });
+
+      // Phase 2: cluster rises to the exact height chars fall from — perfect loop continuity
+      const P1 = 530 + spans.length * 22;
+      setTimeout(() => {
+        spans.forEach((sp, i) => {
+          const { tx, ty, rot } = targets[i];
+          sp.style.transition = `transform .56s ease-in ${i * 14}ms,` +
+                                `opacity .36s ease-in ${i * 14}ms`;
+          sp.style.transform  = `translate(${tx}px,${ty - fallDist}px) rotate(${rot + (i % 2 === 0 ? 80 : -80)}deg) scale(.5)`;
+          sp.style.opacity    = '0';
+        });
+        setTimeout(() => { resetSpans(); setTimeout(onDone, 220); }, 620);
+      }, P1);
     }
 
     // Mobile: simple staggered drop, no soldiers, no idle shots
