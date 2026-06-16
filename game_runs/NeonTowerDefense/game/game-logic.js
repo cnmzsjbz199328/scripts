@@ -56,7 +56,7 @@ class MainScene extends Phaser.Scene {
           [2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2],
           [2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2],
           [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,2],
-          [2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,0,1,1,1,2],
+          [2,2,2,2,2,1,2,2,2,2,2,1,2,2,2,0,1,1,1,2],
           [2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,1,1,1,2],
           [2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,1,1,1,2],
           [2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,1,1,1,2],
@@ -627,10 +627,22 @@ class MainScene extends Phaser.Scene {
       ent.setDepth(DEPTH.YSORT + ent.y);
     });
 
-    // 5. Clean up crystal items that are too old
+    // 5. Crystal magnet: auto-attract & collect within range
     this.crystals.getChildren().forEach(c => {
       if (this.time.now > c.expiryTime) {
         c.destroy();
+        return;
+      }
+      const dist = Phaser.Math.Distance.Between(this.player.x, this.player.y, c.x, c.y);
+      if (dist < 96 && c.active) {
+        // Close enough — collect immediately
+        this.collectCrystal(this.player, c);
+      } else if (dist < 220) {
+        // In attraction range — fly toward player
+        const angle = Phaser.Math.Angle.Between(c.x, c.y, this.player.x, this.player.y);
+        c.setVelocity(Math.cos(angle) * 160, Math.sin(angle) * 160);
+      } else {
+        c.setVelocity(0, 0);
       }
     });
 
@@ -978,6 +990,7 @@ class MainScene extends Phaser.Scene {
   }
 
   collectCrystal(player, crystal) {
+    if (!crystal.active) return;
     crystal.destroy();
     const gain = 10;
     this.score += gain;
