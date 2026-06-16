@@ -111,11 +111,11 @@ class MainScene extends Phaser.Scene {
     if (window.GameHUD) {
       window.GameHUD.onStart(() => {
         this.gameStarted = true;
-        this.player.body.setAllowGravity(true);
+        this.player.body.setAllowGravity(false); // free swimming — no gravity underwater
       });
     } else {
       this.gameStarted = true;
-      this.player.body.setAllowGravity(true);
+      this.player.body.setAllowGravity(false);
     }
 
     // Keyboard inputs
@@ -264,7 +264,7 @@ class MainScene extends Phaser.Scene {
 
       const tileSprite = this.groundGroup.create(x, y, `tile_${tileId}`);
       tileSprite.setDisplaySize(tileW, tileH);
-      tileSprite.body.updateFromImage(); // Update bounding boxes
+      tileSprite.refreshBody(); // sync static body to 64x64 display (tile art is 512px) — was updateFromImage(), which left the body at full texture size and trapped the player
       tileSprite.setDepth(DEPTH.GROUND);
     });
 
@@ -389,10 +389,13 @@ class MainScene extends Phaser.Scene {
       } else if (this.cursors.down.isDown || this.wasd.down.isDown) {
         this.player.setVelocityY(-config.player.jumpForce * 0.7); // sink down
         movedY = true;
-        
+
         if (!this.player.anims.isPlaying || this.player.anims.currentAnim?.key !== 'mermaidprincess_walk-left') {
           this.player.play('mermaidprincess_walk-left');
         }
+      } else {
+        // Smooth vertical deceleration in water (no gravity to settle the mermaid)
+        this.player.setVelocityY(this.player.body.velocity.y * 0.85);
       }
 
       // If floating in place (no move inputs, on ground or in mid water)
