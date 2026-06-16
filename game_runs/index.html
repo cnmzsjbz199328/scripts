@@ -227,8 +227,13 @@
       align-self: flex-start;
     }
 
-    .card-title {
-      font-size: 1.13rem; font-weight: 700; color: #f1f5f9; line-height: 1.3;
+    /* title overlay on preview bottom (replaces card-body title) */
+    .card-caption {
+      position: absolute; bottom: 0; left: 0; right: 0;
+      z-index: 4; padding: 10px 14px 14px;
+      font-size: 1rem; font-weight: 700; color: #f1f5f9; line-height: 1.3;
+      pointer-events: none;
+      text-shadow: 0 1px 6px rgba(0,0,0,.8);
     }
 
     .card-footer {
@@ -470,11 +475,11 @@
           tabindex="-1"
           aria-hidden="true"
         ></iframe>
+        <div class="card-caption" aria-hidden="true">${esc(game.title)}</div>
       </div>
       <div class="card-bar" aria-hidden="true"></div>
       <div class="card-body">
         <span class="genre-tag">${esc(game.genre)}</span>
-        <h2 class="card-title">${esc(game.title)}</h2>
         <div class="card-footer" style="margin-top:auto">
           <span class="card-engine">Phaser 3 · Pixel</span>
           <div style="display:flex;gap:8px;align-items:center">
