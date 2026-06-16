@@ -219,6 +219,17 @@ class MainScene extends Phaser.Scene {
     this.interactPrompt.setDepth(DEPTH.EFFECTS);
     this.interactPrompt.setVisible(false);
 
+    // Tile highlight — shows the tile the player will act on
+    this.tileHighlight = this.add.graphics();
+    this.tileHighlight.setDepth(DEPTH.DECOR_FLOOR + 50);
+
+    this.tileHint = this.add.text(0, 0, '', {
+      font: 'bold 11px monospace',
+      fill: '#ffffff',
+      stroke: '#000000',
+      strokeThickness: 3
+    }).setOrigin(0.5, 1).setDepth(DEPTH.EFFECTS).setVisible(false);
+
     // Day/Night Cycle variables
     this.timeOfDay = 600; // starts at 10:00 AM (minutes)
     this.dayCount = 1;
@@ -464,6 +475,9 @@ class MainScene extends Phaser.Scene {
     // Interaction Check for all objects
     this.handleInteractions();
 
+    // Tile highlight feedback for farming actions
+    this.updateTileHighlight();
+
     // Grow planted crops
     this.updateCropsGrowth(delta);
 
@@ -567,19 +581,27 @@ class MainScene extends Phaser.Scene {
     });
   }
 
-  useActiveItem() {
-    let targetX = this.player.x;
-    let targetY = this.player.y;
-    
-    if (this.facingDir === 'down') targetY += 48;
-    else if (this.facingDir === 'up') targetY -= 48;
-    else if (this.facingDir === 'left') targetX -= 48;
-    else if (this.facingDir === 'right') targetX += 48;
-
-    const col = Math.floor(targetX / this.tileW);
-    const row = Math.floor(targetY / this.tileH);
+  getFacingTile() {
     const mapW = TILEMAP_DATA.width;
     const mapH = TILEMAP_DATA.height;
+    // +20 approximates the player's feet offset from sprite center
+    const playerCol = Math.floor(this.player.x / this.tileW);
+    const playerRow = Math.floor((this.player.y + 20) / this.tileH);
+    let col = playerCol;
+    let row = playerRow;
+    if (this.facingDir === 'down') row++;
+    else if (this.facingDir === 'up') row--;
+    else if (this.facingDir === 'left') col--;
+    else if (this.facingDir === 'right') col++;
+    col = Phaser.Math.Clamp(col, 0, mapW - 1);
+    row = Phaser.Math.Clamp(row, 0, mapH - 1);
+    return { col, row, mapW, mapH };
+  }
+
+  useActiveItem() {
+    const { col, row, mapW, mapH } = this.getFacingTile();
+    const targetX = col * this.tileW + this.tileW / 2;
+    const targetY = row * this.tileH + this.tileH / 2;
 
     if (col >= 0 && col < mapW && row >= 0 && row < mapH) {
       const index = row * mapW + col;
@@ -669,6 +691,93 @@ class MainScene extends Phaser.Scene {
           this.spawnFloatingText(targetX, targetY, 'Planted Golden Seed! 🌟', '#fbbf24');
         }
       }
+    }
+  }
+
+  updateTileHighlight() {
+    this.tileHighlight.clear();
+    this.tileHint.setVisible(false);
+
+    if (this.isAttacking || this.isSleeping) return;
+
+    const { col, row, mapW, mapH } = this.getFacingTile();
+    if (col < 0 || col >= mapW || row < 0 || row >= mapH) return;
+
+    const index = row * mapW + col;
+    const groundId = TILEMAP_DATA.layers.ground[index];
+    const activeTool = this.inventory[this.activeSlot];
+    const crop = this.crops[index];
+
+    const px = col * this.tileW;
+    const py = row * this.tileH;
+
+    let borderColor = 0x94a3b8;
+    let fillColor = 0x94a3b8;
+    let fillAlpha = 0.0;
+    let actionText = '';
+
+    if (this.activeSlot === 1) {
+      if (crop && crop.stage === 'ripe') {
+        borderColor = 0xfbbf24; fillColor = 0xfbbf24; fillAlpha = 0.3;
+        actionText = crop.isGolden ? 'Z: 收获黄金花 🌻' : 'Z: 收获番茄 🍅';
+      } else if (groundId === 1 || groundId === 5) {
+        borderColor = 0x10b981; fillColor = 0x10b981; fillAlpha = 0.25;
+        actionText = 'Z: 耕地 ⛏';
+      } else if (groundId === 2 && !crop) {
+        borderColor = 0x94a3b8; fillColor = 0x94a3b8; fillAlpha = 0.12;
+        actionText = '已耕地';
+      } else if (groundId === 2 && crop) {
+        borderColor = 0x94a3b8; fillColor = 0x94a3b8; fillAlpha = 0.1;
+        if (crop.stage === 'sprout') {
+          actionText = crop.watered ? '🌱 生长中...' : '🌱 需要浇水';
+        }
+      }
+    } else if (this.activeSlot === 2) {
+      if (activeTool.count <= 0) {
+        borderColor = 0xef4444; fillAlpha = 0.0; actionText = '种子不足';
+      } else if (groundId === 2 && !crop) {
+        borderColor = 0x10b981; fillColor = 0x10b981; fillAlpha = 0.25;
+        actionText = 'Z: 种植番茄 🌱';
+      } else if (groundId !== 2) {
+        borderColor = 0xef4444; fillAlpha = 0.0; actionText = '需先耕地';
+      } else {
+        borderColor = 0x94a3b8; fillAlpha = 0.1; actionText = '已占用';
+      }
+    } else if (this.activeSlot === 3) {
+      if (activeTool.count <= 0) {
+        borderColor = 0xef4444; fillAlpha = 0.0; actionText = '无水';
+      } else if (crop && !crop.watered && crop.stage !== 'ripe') {
+        borderColor = 0x60a5fa; fillColor = 0x60a5fa; fillAlpha = 0.3;
+        actionText = 'Z: 浇水 💧';
+      } else if (crop && crop.watered) {
+        borderColor = 0x60a5fa; fillColor = 0x60a5fa; fillAlpha = 0.1;
+        actionText = '💧 已浇水';
+      } else {
+        borderColor = 0x94a3b8; fillAlpha = 0.0; actionText = '无作物';
+      }
+    } else if (this.activeSlot === 6) {
+      if (activeTool.count <= 0) {
+        borderColor = 0xef4444; fillAlpha = 0.0; actionText = '无黄金种子';
+      } else if (groundId === 2 && !crop) {
+        borderColor = 0xfbbf24; fillColor = 0xfbbf24; fillAlpha = 0.3;
+        actionText = 'Z: 种植黄金种子 🌟';
+      } else if (groundId !== 2) {
+        borderColor = 0xef4444; fillAlpha = 0.0; actionText = '需先耕地';
+      }
+    }
+
+    // Draw tile border
+    this.tileHighlight.lineStyle(2, borderColor, 0.9);
+    this.tileHighlight.strokeRect(px + 2, py + 2, this.tileW - 4, this.tileH - 4);
+    if (fillAlpha > 0) {
+      this.tileHighlight.fillStyle(fillColor, fillAlpha);
+      this.tileHighlight.fillRect(px + 2, py + 2, this.tileW - 4, this.tileH - 4);
+    }
+
+    if (actionText) {
+      this.tileHint.setPosition(px + this.tileW / 2, py - 2);
+      this.tileHint.setText(actionText);
+      this.tileHint.setVisible(true);
     }
   }
 
