@@ -547,11 +547,11 @@ class MainScene extends Phaser.Scene {
 
       // Play walk animation
       if (this.facingDir === 'down') {
-        if (this.player.anims.currentAnim?.key !== 'farmer_walk_down') {
+        if (!this.player.anims.isPlaying || this.player.anims.currentAnim?.key !== 'farmer_walk_down') {
           this.player.play('farmer_walk_down');
         }
       } else if (this.facingDir === 'up') {
-        if (this.player.anims.currentAnim?.key !== 'farmer_walk_up') {
+        if (!this.player.anims.isPlaying || this.player.anims.currentAnim?.key !== 'farmer_walk_up') {
           this.player.play('farmer_walk_up');
         }
       } else if (this.facingDir === 'left') {
