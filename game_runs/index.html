@@ -461,45 +461,65 @@
       void h1.offsetHeight;
     }
 
-    // Exit: chars swirl into a tangled cluster then rise off-screen — loops back to the fall
+    // Exit: struggle → magnetic snap → rise — loops back to the fall
     function dissolveLoop(onDone) {
-      // Freeze each span at its current animated position (may be tilted from impact-fall)
-      spans.forEach(sp => {
-        const cs = window.getComputedStyle(sp);
-        sp.style.animation  = 'none';
-        sp.style.opacity    = '1';
-        sp.style.transform  = cs.transform === 'none' ? '' : cs.transform;
+      // Freeze each span at its landing-tilt state; extract current rotation for struggle
+      const frozenRots = spans.map(sp => {
+        const cs  = window.getComputedStyle(sp);
+        const mtx = new DOMMatrix(cs.transform);
+        sp.style.animation = 'none';
+        sp.style.opacity   = '1';
+        sp.style.transform = cs.transform === 'none' ? '' : cs.transform;
+        return Math.atan2(mtx.m12, mtx.m11) * 180 / Math.PI;
       });
       void h1.offsetHeight;
 
-      // Phase 1: each char drifts toward h1 centre, rotating chaotically — looks entangled
       const cx = h1.offsetWidth  / 2;
       const cy = h1.offsetHeight / 2;
       const targets = spans.map(sp => ({
         tx:  cx - (sp.offsetLeft + sp.offsetWidth  / 2) + (Math.random() - 0.5) * 22,
         ty:  cy - (sp.offsetTop  + sp.offsetHeight / 2) + (Math.random() - 0.5) * 16,
-        rot: Math.random() * 540 - 270,   // ±270° — each char distinct so they look tangled
+        rot: Math.random() * 540 - 270,
       }));
+
+      // Phase 0: struggle — nudge away from centre + rotation jitter (resisting the pull)
       spans.forEach((sp, i) => {
-        const { tx, ty, rot } = targets[i];
-        sp.style.transition = `transform .5s cubic-bezier(.4,0,.2,1) ${i * 22}ms,` +
-                              `opacity .2s ease ${i * 22 + 360}ms`;
-        sp.style.transform  = `translate(${tx}px,${ty}px) rotate(${rot}deg) scale(.85)`;
-        sp.style.opacity    = '0.8';
+        const { tx, ty } = targets[i];
+        const jitter = (Math.random() - 0.5) * 20;
+        sp.style.transition = `transform .2s ease-out ${i * 14}ms`;
+        sp.style.transform  =
+          `translate(${(-tx * 0.14).toFixed(1)}px,${(-ty * 0.14).toFixed(1)}px)` +
+          ` rotate(${(frozenRots[i] + jitter).toFixed(1)}deg)`;
       });
 
-      // Phase 2: cluster rises to the exact height chars fall from — perfect loop continuity
-      const P1 = 530 + spans.length * 22;
+      // Phase 1: magnetic snap — cubic-bezier front-loaded inertia then fast-snap to cluster
+      const T1 = 220 + spans.length * 14;
       setTimeout(() => {
         spans.forEach((sp, i) => {
           const { tx, ty, rot } = targets[i];
-          sp.style.transition = `transform .56s ease-in ${i * 14}ms,` +
-                                `opacity .36s ease-in ${i * 14}ms`;
-          sp.style.transform  = `translate(${tx}px,${ty - fallDist}px) rotate(${rot + (i % 2 === 0 ? 80 : -80)}deg) scale(.5)`;
-          sp.style.opacity    = '0';
+          sp.style.transition =
+            `transform .52s cubic-bezier(.85,0,.2,1) ${i * 20}ms,` +
+            `opacity .2s ease ${i * 20 + 340}ms`;
+          sp.style.transform  = `translate(${tx}px,${ty}px) rotate(${rot}deg) scale(.85)`;
+          sp.style.opacity    = '0.8';
         });
-        setTimeout(() => { resetSpans(); setTimeout(onDone, 220); }, 620);
-      }, P1);
+
+        // Phase 2: cluster rises to the exact height chars fall from
+        const T2 = 550 + spans.length * 20;
+        setTimeout(() => {
+          spans.forEach((sp, i) => {
+            const { tx, ty, rot } = targets[i];
+            sp.style.transition =
+              `transform .56s ease-in ${i * 14}ms,` +
+              `opacity .36s ease-in ${i * 14}ms`;
+            sp.style.transform  =
+              `translate(${tx}px,${ty - fallDist}px)` +
+              ` rotate(${rot + (i % 2 === 0 ? 80 : -80)}deg) scale(.5)`;
+            sp.style.opacity    = '0';
+          });
+          setTimeout(() => { resetSpans(); setTimeout(onDone, 220); }, 620);
+        }, T2);
+      }, T1);
     }
 
     // Mobile: simple staggered drop, no soldiers, no idle shots
