@@ -474,8 +474,9 @@
       });
       void h1.offsetHeight;
 
-      const cx = h1.offsetWidth  / 2;
-      const cy = h1.offsetHeight / 2;
+      // Centre of h1 relative to header-inner (same coord space as sp.offsetLeft/Top)
+      const cx = h1.offsetLeft + h1.offsetWidth  / 2;
+      const cy = h1.offsetTop  + h1.offsetHeight / 2;
       const targets = spans.map(sp => ({
         tx:  cx - (sp.offsetLeft + sp.offsetWidth  / 2) + (Math.random() - 0.5) * 22,
         ty:  cy - (sp.offsetTop  + sp.offsetHeight / 2),   // same Y for all — one horizontal line
