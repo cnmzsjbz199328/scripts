@@ -292,13 +292,6 @@ async function assembleGame(gameName: string) {
       overflow: hidden;
     }
 
-    h1#game-title {
-      font-size: 1.6rem;
-      letter-spacing: 0.12em;
-      color: #e2e8f0;
-      margin-bottom: 10px;
-    }
-
     /* ── game wrapper ── */
     #game-wrapper {
       position: relative;
@@ -404,8 +397,6 @@ async function assembleGame(gameName: string) {
   </style>
 </head>
 <body>
-  <h1 id="game-title">${gameTitle}</h1>
-
   <div id="game-wrapper">
     <div id="game-container"></div>
 

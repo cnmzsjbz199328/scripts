@@ -478,6 +478,8 @@ npx tsx skills/game-gen/assemble.ts <GameName>
 
 **UI 架构**：所有 UI 层为纯 DOM 元素，叠加在 Phaser canvas 之上（CSS `position: absolute`）。`window.GameHUD` 对象暴露 API，由 `game-logic.js` 调用以更新 HUD 状态。
 
+> **注意**：`assemble.ts` 不生成 `<h1 id="game-title">` 持久标题头。游戏标题仅在两处出现：开始界面 overlay 的 `<h2>`（进入游戏后自动隐藏）和浏览器标签页标题（由 `play.html` 通过 `document.title` 设置）。避免双重标题。
+
 产物：
 ```
 game_runs/<GameName>/
