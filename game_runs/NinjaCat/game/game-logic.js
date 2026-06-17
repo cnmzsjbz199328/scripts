@@ -87,6 +87,7 @@ class MainScene extends Phaser.Scene {
     this.hearts = 3;
     this.currentLevel = 1;
     this.isInvincible = false;
+    this.jumpsRemaining = 0; // refreshed to 2 when grounded; enables mid-air double jump
     
     // Game state check
     this.gameStarted = false;
@@ -289,6 +290,9 @@ class MainScene extends Phaser.Scene {
 
     const config = window.GAME_CONFIG;
 
+    // Refresh double-jump charges while standing on solid ground
+    if (this.player.body.blocked.down) this.jumpsRemaining = 2;
+
     // ─── PLAYER MOVEMENT ───
     if (!this.isInvincible || this.player.body.velocity.y !== 0) { // allow jump/fall controls even when damaged
       if (this.cursors.left.isDown || this.wasd.left.isDown) {
@@ -316,9 +320,20 @@ class MainScene extends Phaser.Scene {
         }
       }
 
-      // Jump
-      if ((this.cursors.up.isDown || this.wasd.up.isDown || this.cursors.space.isDown) && this.player.body.blocked.down) {
-        this.player.setVelocityY(config.player.jumpForce);
+      // Jump (ground jump + one mid-air double jump). Edge-detect each key
+      // with JustDown so a held key triggers exactly one jump per press.
+      const jumpUp = Phaser.Input.Keyboard.JustDown(this.cursors.up);
+      const jumpW = Phaser.Input.Keyboard.JustDown(this.wasd.up);
+      const jumpSpace = Phaser.Input.Keyboard.JustDown(this.cursors.space);
+      if ((jumpUp || jumpW || jumpSpace) && this.jumpsRemaining > 0) {
+        const isGroundJump = this.player.body.blocked.down;
+        this.player.setVelocityY(config.player.jumpForce * (isGroundJump ? 1 : 0.82));
+        this.jumpsRemaining--;
+        if (isGroundJump) {
+          this.spawnBurst(this.player.x, this.player.y + 30, 0xffffff, 8, 55);
+        } else {
+          this.spawnBurst(this.player.x, this.player.y, 0x67e8f9, 12, 70);
+        }
       }
     }
 
@@ -369,6 +384,7 @@ class MainScene extends Phaser.Scene {
   }
 
   collectCoin(player, coin) {
+    this.spawnBurst(coin.x, coin.y, 0xfbbf24, 10, 50);
     coin.destroy();
     this.score += 1;
     window.GameHUD?.setScore(this.score);
@@ -381,6 +397,7 @@ class MainScene extends Phaser.Scene {
 
     if (isSquishing) {
       player.setVelocityY(-400); // Bounce
+      this.spawnBurst(enemy.x, enemy.y, 0xa855f7, 14, 75);
       enemy.destroy();
       this.score += 5;
       window.GameHUD?.setScore(this.score);
@@ -494,6 +511,27 @@ class MainScene extends Phaser.Scene {
       banner.style.opacity = '0';
       this.time.delayedCall(500, () => banner.remove());
     });
+  }
+
+  // Code-drawn particle burst (no asset dependency). Spawns short-lived
+  // circles that fly outward and fade — used for jumps, coins and squishes.
+  spawnBurst(x, y, color, count = 8, spread = 60) {
+    for (let i = 0; i < count; i++) {
+      const angle = Phaser.Math.FloatBetween(0, Math.PI * 2);
+      const dist = Phaser.Math.FloatBetween(spread * 0.3, spread);
+      const p = this.add.circle(x, y, Phaser.Math.Between(2, 5), color, 0.9);
+      p.setDepth(DEPTH.EFFECTS);
+      this.tweens.add({
+        targets: p,
+        x: x + Math.cos(angle) * dist,
+        y: y + Math.sin(angle) * dist,
+        alpha: 0,
+        scale: 0.2,
+        duration: Phaser.Math.Between(300, 500),
+        ease: 'Quad.easeOut',
+        onComplete: () => p.destroy()
+      });
+    }
   }
 
   showFloatingText(x, y, text, color) {
