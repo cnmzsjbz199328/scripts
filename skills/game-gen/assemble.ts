@@ -247,7 +247,6 @@ async function assembleGame(gameName: string) {
       type: Phaser.AUTO,
       width: 800, height: 600,
       parent: 'game-container',
-      scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
       physics: { default: 'arcade', arcade: { gravity: { y: 300 }, debug: false } },
       scene: FallbackScene,
     };
@@ -406,13 +405,13 @@ async function assembleGame(gameName: string) {
     #gameover-title.win  { color: #4ade80; }
     #gameover-title.lose { color: #f87171; }
 
-    /* ── responsive scaling ── */
+    /* ── responsive stage scaling (canvas + HUD scale together) ── */
     html, body { width: 100%; height: 100%; }
     #game-wrapper {
-      width: min(${gameW}px, 96vw, calc(96vh * ${gameW} / ${gameH}));
-      aspect-ratio: ${gameW} / ${gameH};
+      width: ${gameW}px; height: ${gameH}px;
+      flex: 0 0 auto;
+      transform-origin: center center;
     }
-    #game-container { width: 100%; height: 100%; }
   </style>
 </head>
 <body>
@@ -483,6 +482,22 @@ async function assembleGame(gameName: string) {
     }
   </script>
   <script src="game/game-logic.js"></script>
+  <script>
+    /* Fit the whole stage (canvas + HUD overlays) to the viewport so everything
+       scales as one piece — keeps HUD proportions correct at any screen size. */
+    (function () {
+      var W = ${gameW}, H = ${gameH};
+      var wrap = document.getElementById('game-wrapper');
+      function fit() {
+        if (!wrap) return;
+        var s = Math.min(window.innerWidth / W, window.innerHeight / H, 1);
+        wrap.style.transform = 'scale(' + s + ')';
+      }
+      window.addEventListener('resize', fit);
+      window.addEventListener('orientationchange', fit);
+      fit();
+    })();
+  </script>
 </body>
 </html>
 `;
