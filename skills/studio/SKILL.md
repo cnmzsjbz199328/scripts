@@ -86,17 +86,27 @@ Phase 5  质量审阅              ← agy（Gemini 审阅）
 
 ### 什么任务交给 agy
 
-- **0→1 生成**：全景图、素材贴图、角色精灵帧、游戏逻辑框架
-- **多模态理解**：从全景图推导素材清单
+- **0→1 图像生成**：全景图、素材贴图、角色精灵帧、游戏逻辑框架（game-gen Phase 1-3）
+- **增强中的新素材生成**：game-enhance 的 VFX recipe 需要新序列帧时，由 agy 经共享管线（object-anim / material-texture / char-sprite）生成，Claude 负责代码集成
+- **多模态理解**：从全景图推导素材清单（game-gen Phase 2）
 - **批量审阅**：Phase 5 风格一致性、动画连贯性检查
 
 ### 什么任务由 Claude 直接实现
 
-- **外科手术式修改**：对已有 `game-logic.js` 的定向增强（叙事面板、Boss 台词、结局文本）
-  - 原因：agy 的 `/game-gen` 是 0→1 生成器，无法针对已有文件做精确的局部编辑；强行让 agy 重写整个文件会丢失手工修复和已有增强内容
+- **代码层增强**：game-enhance 中不涉及新素材的 recipe——叙事（narrative）、玩法（mechanics）、平衡（balance）对已有 `game-logic.js` 做定向修改
+  - 原因：agy 的 `/game-gen` 是 0→1 生成器，无法对已有文件做精确局部编辑；强行让 agy 重写整个文件会丢失手工修复和已有增强
 - **Bug 修复**：`game-fix` 流程——读报告、定位根因、最小改动——这是诊断性工作，需要上下文理解
 - **验证报告解读**：verify.ts 输出结构化 JSON，Claude 判断根因并决定修复策略
 - **版本控制**：所有 `git commit` 由 Claude 执行，保证提交信息语义准确
+
+### game-enhance 的 recipe 分派速查
+
+| Recipe | 需要新素材？ | agy 负责 | Claude 负责 |
+|--------|-----------|---------|------------|
+| 叙事（narrative）| 否 | — | 全部（修改 game-logic.js） |
+| 玩法（mechanics）| 否 | — | 全部（修改 game-logic.js + 配置） |
+| 视觉特效（VFX）| **是** | 序列帧生成（object-anim 管线）| 代码集成 + 深度/销毁逻辑 |
+| 平衡（balance）| 否 | — | 全部（数值调参） |
 
 ---
 
@@ -156,7 +166,7 @@ studio（本 skill）
   └─ 协议层，被以下 skill 引用
 
 game-gen     使用 studio 的角色映射（Phase 0-5 谁执行）
-game-enhance 使用 studio 的"Claude 直接实现"原则（外科手术式修改）
+game-enhance 按 recipe 分派：VFX → agy 生成素材；叙事/玩法/平衡 → Claude 直接实现
 game-fix     使用 studio 的版本控制规范 + 交接门控
 game-verify  是 studio 门控检查点的技术实现
 
