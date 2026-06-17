@@ -33,5 +33,8 @@ game_runs/**/*.json
 !game_runs/**/*.png
 !game_runs/**/*.webp
 
+# ...except game-verify's transient interaction screenshots
+game_runs/**/verify-screenshot.png
+
 # AI tool workspaces
 .gemini/

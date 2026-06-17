@@ -211,7 +211,7 @@ class MainScene extends Phaser.Scene {
 
       const tileSprite = this.groundGroup.create(x, y, `tile_${tileId}`);
       tileSprite.setDisplaySize(tileW, tileH);
-      tileSprite.body.updateFromImage(); // Update bounding boxes
+      tileSprite.refreshBody(); // sync static body to display size (was updateFromImage(), which doesn't exist on static bodies and threw, crashing the scene)
       tileSprite.setDepth(DEPTH.GROUND);
     });
 
