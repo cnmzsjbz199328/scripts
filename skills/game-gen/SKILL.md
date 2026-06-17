@@ -320,9 +320,9 @@ game_runs/<GameName>/game/
 ---
 
 **game-logic.js 必须包含**：
-- **Phaser 配置必须启用响应式缩放**：`new Phaser.Game` 的 config 中，除 `width`/`height`/`parent: 'game-container'` 外，必须加入
-  `scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH }`。
-  否则画布会以固定像素渲染，在移动端（尤其通过 `play.html` 的 iframe 播放时）内容视口塌缩，游戏窗口过小。`assemble.ts` 会自动从此 config 解析 `width`/`height` 来设置外层 `#game-wrapper` 的宽高比，二者必须一致。
+- **Phaser 配置使用固定原生分辨率**（`width`/`height` + `parent: 'game-container'`，不要加 `scale` 字段）。
+  响应式缩放由 `index.html` 模板统一处理：整个 `#game-wrapper`（画布 + 所有 HTML HUD/遮罩层）作为一个整体用 CSS `transform: scale()` 缩放到视口大小，保证 HUD 比例在任意屏幕都正确。
+  **不要**用 `Phaser.Scale.FIT`——它只缩放 canvas，不缩放 HTML HUD 层，会导致 HUD 在移动端过大遮挡画面。`assemble.ts` 会自动从 config 解析 `width`/`height` 注入模板，二者必须一致。
 - 按 `game-config.json layers[]` 顺序渲染各瓦片层，碰撞层自动生成静态物理体
 - **图层深度与 Y-sort**（见下方《图层与深度规范》，违反导致角色穿模）
 - 角色加载（使用 `char.json` 中的动画定义）
