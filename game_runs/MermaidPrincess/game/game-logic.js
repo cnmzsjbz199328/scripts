@@ -105,6 +105,7 @@ class MainScene extends Phaser.Scene {
     this.currentLevel = 1;
     this.isInvincible = false;
     this.levelCompleted = false;
+    this.canDash = true; // swim dash, refreshed after cooldown
     
     // Game state check
     this.gameStarted = false;
@@ -126,6 +127,7 @@ class MainScene extends Phaser.Scene {
       down: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.S),
       right: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.D),
     };
+    this.dashKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SHIFT);
 
     // Physics groups
     this.groundGroup = this.physics.add.staticGroup();
@@ -413,6 +415,18 @@ class MainScene extends Phaser.Scene {
       }
     }
 
+    // ─── SWIM DASH ─── burst toward current facing, brief i-frames, cooldown
+    if (Phaser.Input.Keyboard.JustDown(this.dashKey) && this.canDash) {
+      this.canDash = false;
+      const dir = this.player.flipX ? -1 : 1;
+      this.player.setVelocityX(dir * config.player.speed * 3);
+      this.spawnBurst(this.player.x - dir * 30, this.player.y, 0x67e8f9, 14, 80);
+      this.showFloatingText(this.player.x, this.player.y - 50, '冲刺！💨', '#a5f3fc');
+      this.isInvincible = true;
+      this.time.delayedCall(350, () => { if (this.hearts > 0) this.isInvincible = false; });
+      this.time.delayedCall(1200, () => { this.canDash = true; });
+    }
+
     // ─── ENEMY PATROL ───
     this.enemiesGroup.getChildren().forEach(enemy => {
       const charKey = enemy.charKey;
@@ -451,6 +465,7 @@ class MainScene extends Phaser.Scene {
   }
 
   collectPearl(player, pearl) {
+    this.spawnBurst(pearl.x, pearl.y, 0xa5f3fc, 10, 50);
     pearl.destroy();
     this.score += 1;
     window.GameHUD?.setScore(this.score);
@@ -469,6 +484,7 @@ class MainScene extends Phaser.Scene {
     if (isSquishing) {
       player.setVelocityY(-300); // Bounce upwards
       const name = enemy.charKey === 'shark' ? '鲨鱼' : '章鱼怪';
+      this.spawnBurst(enemy.x, enemy.y, 0xfbc531, 14, 75);
       enemy.destroy();
       this.score += 5;
       window.GameHUD?.setScore(this.score);
@@ -593,6 +609,26 @@ class MainScene extends Phaser.Scene {
       '阳光再次穿透深海，照耀在粉色珊瑚与摇曳海草之上——\n' +
       '这片海洋，将永远铭记美人鱼公主的勇敢与善良。'
     );
+  }
+
+  // Code-drawn particle burst (no asset dependency) for dashes, pickups, defeats.
+  spawnBurst(x, y, color, count = 8, spread = 60) {
+    for (let i = 0; i < count; i++) {
+      const angle = Phaser.Math.FloatBetween(0, Math.PI * 2);
+      const dist = Phaser.Math.FloatBetween(spread * 0.3, spread);
+      const p = this.add.circle(x, y, Phaser.Math.Between(2, 5), color, 0.9);
+      p.setDepth(DEPTH.EFFECTS);
+      this.tweens.add({
+        targets: p,
+        x: x + Math.cos(angle) * dist,
+        y: y + Math.sin(angle) * dist,
+        alpha: 0,
+        scale: 0.2,
+        duration: Phaser.Math.Between(300, 500),
+        ease: 'Quad.easeOut',
+        onComplete: () => p.destroy()
+      });
+    }
   }
 
   showFloatingText(x, y, text, color) {
