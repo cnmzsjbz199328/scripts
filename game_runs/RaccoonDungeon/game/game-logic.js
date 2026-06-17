@@ -22,6 +22,8 @@ class MainScene extends Phaser.Scene {
     this.bossDefeated = false;
     this.healingCooldown = 0;
     this.magicCooldown = 0;
+    this.dashCooldown = 0;
+    this.isDashing = false;
     this.isTransitioning = false;
     
     // Player status
@@ -107,6 +109,7 @@ class MainScene extends Phaser.Scene {
     this.keyK = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.K); // Magic Fireball
     this.keyL = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.L); // Healing
     this.keyE = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.E); // Interact
+    this.keyShift = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SHIFT); // Dodge roll
 
     // Camera
     this.cameras.main.setBounds(0, 0, this.mapW, this.mapH);
@@ -148,6 +151,7 @@ class MainScene extends Phaser.Scene {
     // 1. Handle Cooldowns
     if (this.healingCooldown > 0) this.healingCooldown -= delta;
     if (this.magicCooldown > 0) this.magicCooldown -= delta;
+    if (this.dashCooldown > 0) this.dashCooldown -= delta;
 
     // 2. Handle Player Input and Movement
     this.handlePlayerMovement();
@@ -520,6 +524,9 @@ class MainScene extends Phaser.Scene {
   // CONTROLS & PLAYER ACTIONS
   // -------------------------------------------------------------
   handlePlayerMovement() {
+    // While dashing, the roll fully controls velocity — skip normal movement.
+    if (this.isDashing) return;
+
     // Guard against attacking anim locks
     const activeAnim = this.player.anims.currentAnim?.key;
     if (activeAnim === 'attack_melee' || activeAnim === 'attack_magic' || activeAnim === 'heal' || activeAnim === 'hurt') {
@@ -590,6 +597,11 @@ class MainScene extends Phaser.Scene {
 
     // Block combat inputs if transitioning
     if (this.isTransitioning) return;
+
+    // Dodge Roll (Shift)
+    if (Phaser.Input.Keyboard.JustDown(this.keyShift) && this.dashCooldown <= 0 && !this.isDashing) {
+      this.performDash();
+    }
 
     // 2. Melee Attack (J)
     if (Phaser.Input.Keyboard.JustDown(this.keyJ)) {
@@ -719,11 +731,39 @@ class MainScene extends Phaser.Scene {
     });
   }
 
+  performDash() {
+    this.isDashing = true;
+    this.dashCooldown = 900;
+    const ds = 520;
+    let dx = 0, dy = 0;
+    if (this.facingDirection === 'left') dx = -ds;
+    else if (this.facingDirection === 'right') dx = ds;
+    else if (this.facingDirection === 'up') dy = -ds;
+    else dy = ds;
+
+    this.player.body.setVelocity(dx, dy);
+    this.player.setAlpha(0.6);
+    this.showFloatingText(this.player.x, this.player.y - 50, '闪避翻滚！', '#67e8f9');
+
+    // Cyan afterimage trail along the roll
+    this.time.addEvent({
+      delay: 40,
+      repeat: 5,
+      callback: () => { if (this.player.active) this.createSparks(this.player.x, this.player.y, 0x67e8f9, 3); }
+    });
+
+    this.time.delayedCall(250, () => {
+      this.isDashing = false;
+      if (this.player.active) this.player.setAlpha(1);
+    });
+  }
+
   // -------------------------------------------------------------
   // COLLISION HANDLERS & COMBAT ACTIONS
   // -------------------------------------------------------------
   damagePlayer(amount) {
     if (this.playerHp <= 0 || this.isTransitioning) return;
+    if (this.isDashing) return; // i-frames during dodge roll
     const now = this.time.now;
     if (now - (this._lastDamageTime || 0) < 700) return; // 0.7s iFrame
     this._lastDamageTime = now;
@@ -787,6 +827,10 @@ class MainScene extends Phaser.Scene {
     let deathAnim = 'slime_death';
     if (type === 'Gargoyle') deathAnim = 'garg_death';
     else if (type === 'BossDragon') deathAnim = 'dragon_death';
+
+    // Death particle burst (boss gets a bigger one)
+    const burstCount = type === 'BossDragon' ? 24 : 12;
+    this.createSparks(enemy.x, enemy.y, 0xfbbf24, burstCount);
 
     enemy.play(deathAnim);
 
