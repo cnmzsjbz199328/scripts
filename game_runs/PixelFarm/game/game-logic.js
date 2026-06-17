@@ -202,6 +202,7 @@ class MainScene extends Phaser.Scene {
     this.key5 = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.FIVE);
     this.key6 = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SIX);
     this.keyR = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.R);
+    this.keyShift = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SHIFT);
 
     // Camera bounds
     this.physics.world.setBounds(0, 0, mapW * this.tileW, mapH * this.tileH);
@@ -520,7 +521,7 @@ class MainScene extends Phaser.Scene {
     // Movement checks
     let vx = 0;
     let vy = 0;
-    const speed = GAME_CONFIG.player?.speed || 160;
+    const speed = (GAME_CONFIG.player?.speed || 160) * (this.keyShift.isDown ? 1.6 : 1);
 
     if (this.cursors.left.isDown || this.keyA.isDown) {
       vx = -speed;
@@ -619,6 +620,7 @@ class MainScene extends Phaser.Scene {
           
           if (isGolden) {
             this.harvestedGolden = true;
+            this.spawnBurst(targetX, targetY, 0xfbbf24, 18, 80);
             this.spawnFloatingText(targetX, targetY, 'Harvested Golden Flower! 🏆', '#fbbf24');
             this.showVictoryScreen();
           } else {
@@ -627,6 +629,7 @@ class MainScene extends Phaser.Scene {
             this.inventory[5].icon = '🍅';
             this.updateHotbarUI();
             this.harvestCount++;
+            this.spawnBurst(targetX, targetY, 0xf87171, 12, 55);
             this.spawnFloatingText(targetX, targetY, 'Harvested Tomato 🍅', '#10b981');
           }
         } else if (groundId === 1 || groundId === 5) {
@@ -634,6 +637,7 @@ class MainScene extends Phaser.Scene {
           TILEMAP_DATA.layers.ground[index] = 2; // tilled soil ID
           this.tileSprites[index].setTexture('tile_dirt_tilled');
           this.tilledCount++;
+          this.spawnBurst(targetX, targetY, 0x8b5a2b, 9, 35);
           this.spawnFloatingText(targetX, targetY, 'Tilled!', '#fbbf24');
         }
       }
@@ -667,6 +671,7 @@ class MainScene extends Phaser.Scene {
           crop.watered = true;
           this.tileSprites[index].setTint(0x7c7c7c); // Darken soil to wet
           this.wateredCount++;
+          this.spawnBurst(targetX, targetY, 0x60a5fa, 10, 40);
           this.spawnFloatingText(targetX, targetY, 'Watered 💧', '#60a5fa');
         }
       }
@@ -797,6 +802,26 @@ class MainScene extends Phaser.Scene {
       duration: 1200,
       onComplete: () => text.destroy()
     });
+  }
+
+  // Code-drawn particle burst (no asset dependency) for tilling, watering, harvests.
+  spawnBurst(x, y, color, count = 8, spread = 50) {
+    for (let i = 0; i < count; i++) {
+      const angle = Phaser.Math.FloatBetween(0, Math.PI * 2);
+      const dist = Phaser.Math.FloatBetween(spread * 0.3, spread);
+      const p = this.add.circle(x, y, Phaser.Math.Between(2, 5), color, 0.9);
+      p.setDepth(DEPTH.EFFECTS);
+      this.tweens.add({
+        targets: p,
+        x: x + Math.cos(angle) * dist,
+        y: y + Math.sin(angle) * dist,
+        alpha: 0,
+        scale: 0.2,
+        duration: Phaser.Math.Between(300, 500),
+        ease: 'Quad.easeOut',
+        onComplete: () => p.destroy()
+      });
+    }
   }
 
   spawnFloatingItem(x, y, iconStr, color) {
@@ -1062,6 +1087,7 @@ class MainScene extends Phaser.Scene {
             const row = Math.floor(index / TILEMAP_DATA.width);
             const x = col * this.tileW + this.tileW / 2;
             const y = row * this.tileH + this.tileH / 2;
+            this.spawnBurst(x, y, 0xfbbf24, 16, 70);
             this.spawnFloatingText(x, y, 'Golden Flower Ripe! ✨🌻✨', '#fbbf24');
           } else {
             crop.sprite.setText('🍅');
@@ -1069,6 +1095,7 @@ class MainScene extends Phaser.Scene {
             const row = Math.floor(index / TILEMAP_DATA.width);
             const x = col * this.tileW + this.tileW / 2;
             const y = row * this.tileH + this.tileH / 2;
+            this.spawnBurst(x, y, 0xf87171, 10, 50);
             this.spawnFloatingText(x, y, 'Ripe 🍅!', '#f87171');
           }
         }
