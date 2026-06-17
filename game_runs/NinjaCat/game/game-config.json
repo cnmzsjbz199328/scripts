@@ -1,0 +1,11 @@
+{
+  "width": 3200,
+  "height": 640,
+  "tileWidth": 64,
+  "tileHeight": 64,
+  "gravity": 1200,
+  "player": {
+    "speed": 300,
+    "jumpForce": -720
+  }
+}
