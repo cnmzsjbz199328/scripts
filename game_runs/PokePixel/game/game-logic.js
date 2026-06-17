@@ -340,6 +340,8 @@ class MainScene extends Phaser.Scene {
     this.keyD = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.D);
     this.keyE = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.E);
     this.keyC = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.C);
+    this.keyShift = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SHIFT); // Run
+    this._lastDust = 0;
 
     // Camera follow bounds
     this.physics.world.setBounds(0, 0, mapW, mapH);
@@ -483,7 +485,8 @@ class MainScene extends Phaser.Scene {
     // Movement checks
     let vx = 0;
     let vy = 0;
-    const speed = GAME_CONFIG.player?.speed || 180;
+    const isRunning = this.keyShift.isDown;
+    const speed = (GAME_CONFIG.player?.speed || 180) * (isRunning ? 1.7 : 1);
     let moved = false;
 
     if (this.cursors.left.isDown || this.keyA.isDown) {
@@ -534,6 +537,12 @@ class MainScene extends Phaser.Scene {
         this.player.setFlipX(false);
       }
 
+      // Running kicks up dust behind the trainer (throttled)
+      if (isRunning && time > this._lastDust + 90) {
+        this._lastDust = time;
+        this.spawnBurst(this.player.x, this.player.y + 36, 0xd6c39a, 3, 22);
+      }
+
       // Check for tile step transition (random encounters)
       this.checkStepEncounters();
     } else {
@@ -550,6 +559,26 @@ class MainScene extends Phaser.Scene {
 
     // Check proximity to interactive items
     this.updateProximityPrompts();
+  }
+
+  // Code-drawn particle burst (no asset dependency) for run dust and encounters.
+  spawnBurst(x, y, color, count = 8, spread = 50) {
+    for (let i = 0; i < count; i++) {
+      const angle = Phaser.Math.FloatBetween(0, Math.PI * 2);
+      const dist = Phaser.Math.FloatBetween(spread * 0.3, spread);
+      const p = this.add.circle(x, y, Phaser.Math.Between(2, 5), color, 0.9);
+      p.setDepth(DEPTH.EFFECTS);
+      this.tweens.add({
+        targets: p,
+        x: x + Math.cos(angle) * dist,
+        y: y + Math.sin(angle) * dist,
+        alpha: 0,
+        scale: 0.2,
+        duration: Phaser.Math.Between(300, 500),
+        ease: 'Quad.easeOut',
+        onComplete: () => p.destroy()
+      });
+    }
   }
 
   checkStepEncounters() {
@@ -596,9 +625,10 @@ class MainScene extends Phaser.Scene {
     this.player.setVelocity(0);
     this.setPlayerIdleFrame();
 
-    // Trigger visual screen flash effect
+    // Trigger visual screen flash + burst effect
     this.cameras.main.flash(400, 255, 255, 255);
-    
+    this.spawnBurst(this.player.x, this.player.y, 0xfde047, 16, 80);
+
     // Pick wild monster based on area
     let possibleMonsters = [];
     if (area === 'Grassland') {
