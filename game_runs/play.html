@@ -269,18 +269,38 @@
   window.addEventListener('resize', scaleFrame);
   scaleFrame();
 
+  // Force the iframe's content viewport to a fixed CSS width. Games declare
+  // <meta viewport width=device-width>, which on mobile makes the content lay
+  // out at the *device* width (~390px) regardless of the iframe element's
+  // width — so the 960px-wide frame we scale only ever contained a 390px-wide
+  // render, leaving the game tiny inside a sea of black. Pinning the content
+  // viewport to the game's real width makes the element size and the rendered
+  // content agree, so the transform scale fills the screen.
+  function setFrameViewport(w) {
+    try {
+      const doc = frame.contentDocument;
+      if (!doc) return;
+      let vp = doc.querySelector('meta[name="viewport"]');
+      if (!vp) { vp = doc.createElement('meta'); vp.name = 'viewport'; (doc.head || doc.documentElement).appendChild(vp); }
+      vp.setAttribute('content', `width=${w}, initial-scale=1, maximum-scale=1, user-scalable=no`);
+    } catch(_) {}
+  }
+
   // Measure the game's actual canvas (same-origin iframe) and refit. Phaser
-  // builds the canvas asynchronously, so callers poll until it appears.
+  // builds the canvas asynchronously, so callers poll until it appears. The
+  // canvas size is independent of the viewport (Phaser ScaleMode.NONE renders
+  // at its configured size), so it can be measured before pinning the viewport.
   function detectSize() {
     try {
       const doc = frame.contentDocument;
       const canvas = doc && doc.querySelector('canvas');
       if (!canvas) return false;
-      const r = canvas.getBoundingClientRect();
-      const w = Math.round(r.width)  || canvas.width;
-      const h = Math.round(r.height) || canvas.height;
+      const w = canvas.width  || Math.round(canvas.getBoundingClientRect().width);
+      const h = canvas.height || Math.round(canvas.getBoundingClientRect().height);
       if (w > 0 && h > 0) {
-        if (w !== natW || h !== natH) { natW = w; natH = h; scaleFrame(); }
+        if (w !== natW || h !== natH) { natW = w; natH = h; }
+        setFrameViewport(natW);
+        scaleFrame();
         return true;
       }
     } catch(_) {}
@@ -399,7 +419,9 @@
     // Skip the initial empty/about:blank load
     if (!src || !src.includes('index.html')) return;
 
-    // 0. Fit the frame to the game's real canvas once Phaser has built it
+    // 0. Pin the content viewport immediately (default width), then fit the
+    //    frame to the game's real canvas once Phaser has built it.
+    setFrameViewport(natW);
     let tries = 0;
     const sizePoll = setInterval(() => {
       if (detectSize() || ++tries >= 40) clearInterval(sizePoll);
