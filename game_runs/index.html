@@ -179,40 +179,35 @@
     .stage-frame.is-loading .stage-spinner { opacity: 1; }
     @keyframes spin { to { transform: rotate(360deg); } }
 
-    /* Stage meta + actions */
+    /* The whole stage is the play target (like the old clickable card) */
+    .stage-frame { cursor: pointer; }
+    .stage-link { position: absolute; inset: 0; z-index: 5; }
+    .stage-link:focus-visible { outline: 3px solid var(--a, var(--accent)); outline-offset: -3px; }
+    .stage-veil {
+      position: absolute; inset: 0; z-index: 4;
+      display: flex; align-items: center; justify-content: center;
+      background: rgba(0,0,0,0); transition: background .22s; pointer-events: none;
+    }
+    .stage-frame:hover .stage-veil,
+    .stage-link:focus-visible ~ .stage-veil { background: rgba(0,0,0,.32); }
+    .stage-cta {
+      opacity: 0; transform: scale(.8); transition: opacity .22s, transform .22s;
+      font-size: 3rem; color: #fff; text-shadow: 0 0 20px rgba(255,255,255,.5);
+    }
+    .stage-frame:hover .stage-cta,
+    .stage-link:focus-visible ~ .stage-veil .stage-cta { opacity: 1; transform: scale(1); }
+
+    /* Stage meta */
     .stage-meta { margin-top: 18px; }
     .stage-genre {
       font-size: .64rem; font-weight: 700; letter-spacing: .2em;
       text-transform: uppercase; color: var(--a, var(--accent));
     }
     .stage-title {
-      display: inline-block;
       font-size: clamp(1.3rem, 3vw, 1.95rem); font-weight: 800;
       color: #f1f5f9; margin: 6px 0 8px; line-height: 1.2;
-      text-decoration: none;
     }
-    .stage-title:hover { color: #fff; }
     .stage-tagline { color: var(--text-dim); font-size: .94rem; max-width: 64ch; }
-    .stage-actions { display: flex; gap: 12px; margin-top: 20px; flex-wrap: wrap; }
-    .btn-play {
-      display: inline-flex; align-items: center; gap: 8px;
-      background: var(--a, var(--accent)); color: #061018;
-      font-weight: 700; font-size: .92rem;
-      padding: 11px 22px; border-radius: 10px; text-decoration: none;
-      transition: transform .15s, box-shadow .15s, filter .15s;
-    }
-    .btn-play:hover {
-      transform: translateY(-2px); filter: brightness(1.08);
-      box-shadow: 0 10px 28px -8px var(--a, var(--accent));
-    }
-    .btn-ghost {
-      display: inline-flex; align-items: center; gap: 8px;
-      border: 1px solid var(--border-hi); color: var(--text-dim);
-      font-weight: 600; font-size: .88rem;
-      padding: 11px 18px; border-radius: 10px; text-decoration: none;
-      transition: border-color .15s, color .15s;
-    }
-    .btn-ghost:hover { border-color: var(--a, var(--accent)); color: var(--text); }
 
     /* Picker — scrollable title list (horizontal filmstrip on mobile) */
     .picker {
@@ -987,15 +982,13 @@
                     sandbox="allow-scripts allow-same-origin"
                     scrolling="no" tabindex="-1" aria-hidden="true"></iframe>
             <div class="stage-spinner" aria-hidden="true"></div>
+            <a class="stage-link"></a>
+            <div class="stage-veil" aria-hidden="true"><span class="stage-cta">▶</span></div>
           </div>
           <div class="stage-meta">
             <div class="stage-genre"></div>
-            <a class="stage-title"></a>
+            <h2 class="stage-title"></h2>
             <p class="stage-tagline"></p>
-            <div class="stage-actions">
-              <a class="btn-play">▶ 开始游玩</a>
-              <a class="btn-ghost" target="_blank" rel="noopener">新标签打开 ↗</a>
-            </div>
           </div>
         </div>
         <div class="picker" role="group" aria-label="游戏标题，方向键切换"></div>
@@ -1009,8 +1002,7 @@
     els.genre   = root.querySelector('.stage-genre');
     els.title   = root.querySelector('.stage-title');
     els.tagline = root.querySelector('.stage-tagline');
-    els.play    = root.querySelector('.btn-play');
-    els.newtab  = root.querySelector('.btn-ghost');
+    els.link    = root.querySelector('.stage-link');
     els.picker  = root.querySelector('.picker');
 
     GAMES.forEach((g, i) => els.picker.appendChild(buildPickerItem(g, i)));
@@ -1089,13 +1081,11 @@
   }
 
   function setMeta(g) {
-    const play = `./play.html?game=${encodeURIComponent(g.id)}`;
     els.genre.textContent   = g.genre || '';
     els.title.textContent   = g.title;
-    els.title.href          = play;
     els.tagline.textContent = g.tagline || '';
-    els.play.href           = play;
-    els.newtab.href         = `./${g.path}`;
+    els.link.href           = `./play.html?game=${encodeURIComponent(g.id)}`;
+    els.link.setAttribute('aria-label', `开始游玩 ${g.title}`);
   }
 
   function onPickerKey(e) {
