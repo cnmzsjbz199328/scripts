@@ -265,6 +265,34 @@ class MainScene extends Phaser.Scene {
     }
   }
 
+  // Small non-blocking toast for item pickups — does not dim the screen or pause gameplay
+  showPickupToast(lines, duration = 1800) {
+    const existing = document.getElementById('ninja-pickup-toast');
+    if (existing) existing.remove();
+
+    const toast = document.createElement('div');
+    toast.id = 'ninja-pickup-toast';
+    toast.style.cssText = `
+      position:absolute; bottom:80px; left:50%; transform:translateX(-50%);
+      z-index:100; padding:10px 24px; pointer-events:none;
+      background:rgba(0,0,0,0.72); border:1px solid #f59e0b;
+      border-radius:6px; font-family:'Courier New',monospace; text-align:center;
+    `;
+    toast.innerHTML = lines.map((l, i) =>
+      `<div style="color:${i===0?'#f59e0b':'#e2e8f0'};font-size:${i===0?'15px':'12px'};
+        font-weight:${i===0?'bold':'normal'};margin:2px 0;
+        text-shadow:0 0 8px rgba(245,158,11,0.6);letter-spacing:1px">${l}</div>`
+    ).join('');
+    const gameContainer = document.querySelector('#game-container') || document.body;
+    gameContainer.appendChild(toast);
+
+    this.time.delayedCall(duration, () => {
+      toast.style.transition = 'opacity 0.4s';
+      toast.style.opacity = '0';
+      this.time.delayedCall(400, () => toast.remove());
+    });
+  }
+
   showNarrativeBanner(lines, duration = 3000, callback = null) {
     const existing = document.getElementById('ninja-narration');
     if (existing) existing.remove();
@@ -458,7 +486,7 @@ class MainScene extends Phaser.Scene {
     };
     const text = scrollTexts[this.levelScrolls];
     if (text) {
-      this.showNarrativeBanner(text, 1800);
+      this.showPickupToast(text, 1800);
     }
 
     // Spawn sparkle effects
