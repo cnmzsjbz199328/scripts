@@ -217,8 +217,10 @@ class MainScene extends Phaser.Scene {
       D: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.D)
     };
     
-    // Reset key (R)
+    // Reset key (R) and Undo key (Z)
     this.resetKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.R);
+    this.undoKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.Z);
+    this.history = []; // snapshot stack for undo
 
     // Create Animations
     this.createAnims();
@@ -296,6 +298,7 @@ class MainScene extends Phaser.Scene {
     this.isTransitioning = true;
     this.currentLevel = levelNum;
     this.gravityDirection = 'down';
+    this.history = []; // fresh undo stack per level
 
     const lvl = LEVELS[levelNum - 1];
     
@@ -436,6 +439,12 @@ class MainScene extends Phaser.Scene {
       return;
     }
 
+    // Check Undo Key — revert to the state captured before the last manual move
+    if (Phaser.Input.Keyboard.JustDown(this.undoKey)) {
+      if (this.history.length > 0) this.restoreState(this.history.pop());
+      return;
+    }
+
     // Grid Input Check
     let dx = 0;
     let dy = 0;
@@ -470,10 +479,12 @@ class MainScene extends Phaser.Scene {
 
       // Check if space beyond box is free
       if (!this.isWall(beyondX, beyondY) && !this.getBoxAt(beyondX, beyondY)) {
-        // Push Box
+        // Capture pre-move state for undo, then push Box
+        this.history.push(this.snapshotState());
         box.gridX = beyondX;
         box.gridY = beyondY;
-        
+        this.spawnBurst(beyondX * 64 + 32, beyondY * 64 + 32, 0xd1d5db, 7, 38);
+
         this.isTransitioning = true;
 
         // Animate Botty
@@ -509,9 +520,10 @@ class MainScene extends Phaser.Scene {
       }
     } else {
       // Empty floor movement
+      this.history.push(this.snapshotState());
       this.player.gridX = nextX;
       this.player.gridY = nextY;
-      
+
       this.isTransitioning = true;
       
       this.playWalkAnim(dx, dy);
@@ -671,8 +683,9 @@ class MainScene extends Phaser.Scene {
         }
       });
 
-      // Play a quick camera flash to show flip
+      // Play a quick camera flash + energy burst to show flip
       this.cameras.main.flash(150, 160, 100, 240, 0.4);
+      this.spawnBurst(this.player.x, this.player.y, 0xa066f0, 16, 90);
 
       // Perform gravity slide
       this.applyGravity();
@@ -780,6 +793,7 @@ class MainScene extends Phaser.Scene {
       this.cameras.main.flash(250, 255, 255, 255);
       
       // Play target success effects
+      const colorHex = { red: 0xff5555, green: 0x4ade80, blue: 0x60a5fa };
       this.activeTargets.forEach(tgt => {
         this.tweens.add({
           targets: tgt,
@@ -787,6 +801,7 @@ class MainScene extends Phaser.Scene {
           yoyo: true,
           duration: 150
         });
+        this.spawnBurst(tgt.x, tgt.y, colorHex[tgt.getData('color')] || 0xffffff, 14, 60);
       });
 
       const bottyComments = {
@@ -827,6 +842,65 @@ class MainScene extends Phaser.Scene {
     } else {
       // Finished all updates, release input lock
       this.isTransitioning = false;
+    }
+  }
+
+  // Capture the stable pre-move state (player + boxes + gravity) for undo.
+  snapshotState() {
+    return {
+      gravityDirection: this.gravityDirection,
+      player: { gridX: this.player.gridX, gridY: this.player.gridY },
+      boxes: this.activeBoxes.map(b => ({ gridX: b.gridX, gridY: b.gridY }))
+    };
+  }
+
+  // Restore a snapshot, cancelling any in-flight cascade tweens.
+  restoreState(s) {
+    this.tweens.killAll();
+    this.gravityDirection = s.gravityDirection;
+    this.player.gridX = s.player.gridX;
+    this.player.gridY = s.player.gridY;
+    this.player.x = s.player.gridX * 64 + 32;
+    this.player.y = s.player.gridY * 64 + 32;
+    this.player.setDepth(DEPTH.YSORT + this.player.y);
+    this.player.anims.stop();
+    s.boxes.forEach((bs, i) => {
+      const b = this.activeBoxes[i];
+      if (!b) return;
+      b.gridX = bs.gridX;
+      b.gridY = bs.gridY;
+      b.sprite.x = bs.gridX * 64 + 32;
+      b.sprite.y = bs.gridY * 64 + 32;
+      b.sprite.setDepth(DEPTH.YSORT + b.sprite.y);
+    });
+    this.mapTiles.forEach(tile => {
+      if (tile.getData && tile.getData('isGravityIndicator')) {
+        const key = this.gravityDirection === 'down'
+          ? 'tile_gravity_indicator_down_base'
+          : 'tile_gravity_indicator_up_base';
+        tile.setTexture(key);
+      }
+    });
+    this.isTransitioning = false;
+  }
+
+  // Code-drawn particle burst (no asset dependency) for pushes, flips, completions.
+  spawnBurst(x, y, color, count = 8, spread = 60) {
+    for (let i = 0; i < count; i++) {
+      const angle = Phaser.Math.FloatBetween(0, Math.PI * 2);
+      const dist = Phaser.Math.FloatBetween(spread * 0.3, spread);
+      const p = this.add.circle(x, y, Phaser.Math.Between(2, 5), color, 0.9);
+      p.setDepth(DEPTH.EFFECTS);
+      this.tweens.add({
+        targets: p,
+        x: x + Math.cos(angle) * dist,
+        y: y + Math.sin(angle) * dist,
+        alpha: 0,
+        scale: 0.2,
+        duration: Phaser.Math.Between(300, 500),
+        ease: 'Quad.easeOut',
+        onComplete: () => p.destroy()
+      });
     }
   }
 }
