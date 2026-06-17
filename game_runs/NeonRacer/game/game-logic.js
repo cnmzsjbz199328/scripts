@@ -323,6 +323,9 @@ class MainScene extends Phaser.Scene {
       isBoosting = true;
       vy -= 180; // boost speed
       horizontalSpeed = 320;
+      // Exhaust flame trail behind the car (alternating cyan/orange).
+      const tcolor = (time % 120 < 60) ? 0x06b6d4 : 0xf97316;
+      this.spawnBurst(this.player.x + Phaser.Math.Between(-12, 12), this.player.y + 40, tcolor, 2, 28);
     }
 
     if (this.cursors.left.isDown || this.keyA.isDown) {
@@ -354,6 +357,21 @@ class MainScene extends Phaser.Scene {
     this.player.setDepth(DEPTH.YSORT + this.player.y);
     this.ysortGroup?.getChildren().forEach(s => {
       s.setDepth(DEPTH.YSORT + s.y);
+    });
+
+    // Near-miss bonus: any roadblock that slips behind the car (it wasn't hit,
+    // since a hit destroys it) and passed within a tight horizontal gap rewards
+    // bonus energy — encourages risky precision weaving.
+    this.roadblocks.getChildren().forEach(r => {
+      if (!r.nearMissDone && r.y > this.player.y + 60) {
+        r.nearMissDone = true;
+        if (Math.abs(r.x - this.player.x) < 64) {
+          this.score += 8;
+          window.GameHUD?.setScore(this.score);
+          this.spawnFloatingText(this.player.x, this.player.y - 30, 'NEAR MISS! +8 ⚡', '#facc15');
+          this.spawnBurst(r.x, r.y, 0xfacc15, 10, 60);
+        }
+      }
     });
 
     // Cleanup offscreen objects to free memory
@@ -430,6 +448,7 @@ class MainScene extends Phaser.Scene {
   }
 
   collectBattery(player, battery) {
+    this.spawnBurst(battery.x, battery.y, 0x10b981, 10, 50);
     battery.destroy();
     
     // Increase speed/score
@@ -490,6 +509,26 @@ class MainScene extends Phaser.Scene {
       duration: 1000,
       onComplete: () => text.destroy()
     });
+  }
+
+  // Code-drawn particle burst (no asset dependency) for trails, sparks, pickups.
+  spawnBurst(x, y, color, count = 8, spread = 60) {
+    for (let i = 0; i < count; i++) {
+      const angle = Phaser.Math.FloatBetween(0, Math.PI * 2);
+      const dist = Phaser.Math.FloatBetween(spread * 0.3, spread);
+      const p = this.add.circle(x, y, Phaser.Math.Between(2, 5), color, 0.9);
+      p.setDepth(DEPTH.EFFECTS);
+      this.tweens.add({
+        targets: p,
+        x: x + Math.cos(angle) * dist,
+        y: y + Math.sin(angle) * dist,
+        alpha: 0,
+        scale: 0.2,
+        duration: Phaser.Math.Between(300, 500),
+        ease: 'Quad.easeOut',
+        onComplete: () => p.destroy()
+      });
+    }
   }
 
   spawnFloatingItem(x, y, iconStr, color) {
