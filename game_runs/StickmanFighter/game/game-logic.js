@@ -657,6 +657,11 @@ class MainScene extends Phaser.Scene {
     const speed = GAME_CONFIG.player.speed;
     const isBlocking = (this.keyS.isDown || this.cursors.down.isDown) && this.player.body.onFloor();
 
+    // Opening a guard arms a brief perfect-parry window
+    if (Phaser.Input.Keyboard.JustDown(this.keyS) || Phaser.Input.Keyboard.JustDown(this.cursors.down)) {
+      this.playerParryUntil = this.time.now + 160;
+    }
+
     // 1. Capture Combo Input queue
     const time = this.time.now;
     let attackInput = null;
@@ -2041,6 +2046,24 @@ class MainScene extends Phaser.Scene {
     // Reset dash/dodge states on P1
     this.playerDashUntil = 0;
     this.playerDodgeUntil = 0;
+
+    // Perfect Parry: guarding just before impact negates all damage and bursts energy
+    if (this.time.now < (this.playerParryUntil || 0)) {
+      this.playerParryUntil = 0;
+      this.gainEnergy(true, 40);
+      this.applyHitStop();
+      this.spawnSparks(this.player.x, this.player.y - 20, 0xfde047);
+      this.cameras.main.flash(120, 255, 255, 200);
+      this.spawnFloatingText(this.player.x, this.player.y - 80, '完美格挡! ⚡', '#fde047');
+      const ring = this.add.graphics({ x: this.player.x, y: this.player.y - 20 }).setDepth(DEPTH.EFFECTS);
+      ring.lineStyle(4, 0xfde047, 0.9);
+      ring.strokeCircle(0, 0, 16);
+      this.tweens.add({
+        targets: ring, scaleX: 4, scaleY: 4, alpha: 0, duration: 300,
+        ease: 'Quad.easeOut', onComplete: () => ring.destroy()
+      });
+      return;
+    }
 
     // Dodge invulnerability check (reduces damage by 50% during first 100ms of dodge)
     if (this.time.now < this.playerDodgeInvulUntil) {
