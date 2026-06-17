@@ -1,0 +1,27 @@
+{
+  "game": "NinjaStealth",
+  "pass": false,
+  "layers": {
+    "L0": {
+      "pass": true
+    },
+    "L1": {
+      "pass": true
+    },
+    "L2": {
+      "pass": false,
+      "reason": "交互期间发生运行时错误",
+      "errors": [
+        {
+          "type": "pageerror",
+          "msg": "this.exitPortal.strokeArc is not a function",
+          "at": "at MainScene.drawExitPortal (http://127.0.0.1:61149/NinjaStealth/game/game-logic.js:1039:23)"
+        }
+      ],
+      "notes": [
+        "未暴露 window.__gameState（跳过精确移动断言；仅靠画面变化判定）"
+      ]
+    }
+  },
+  "screenshot": "game_runs\\NinjaStealth\\verify-screenshot.png"
+}
