@@ -1036,7 +1036,10 @@ class MainScene extends Phaser.Scene {
       // Locked lock shape
       this.exitPortal.lineStyle(3, 0xffffff, 0.6);
       this.exitPortal.strokeRect(cx - 10, cy - 6, 20, 16);
-      this.exitPortal.strokeArc(cx, cy - 6, 8, Math.PI, 0, false);
+      // strokeArc doesn't exist in Phaser 3 Graphics; use arc() + strokePath()
+      this.exitPortal.beginPath();
+      this.exitPortal.arc(cx, cy - 6, 8, Math.PI, 0, false);
+      this.exitPortal.strokePath();
     }
   }
 
