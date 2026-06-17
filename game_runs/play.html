@@ -33,14 +33,15 @@
     /* ── Frame wrap ── */
     #frame-wrap {
       position: fixed; inset: 0;
-      display: flex; align-items: center; justify-content: center;
       overflow: hidden; background: #000;
     }
     .touch-device #frame-wrap { bottom: var(--pad-h); }
 
+    /* Games are self-responsive (Phaser Scale.FIT), so the frame just fills
+       the available space — no transform scaling or viewport hacks needed. */
     #game-frame {
-      border: none; width: 960px; height: 576px;
-      transform-origin: center center;
+      border: none; display: block;
+      width: 100%; height: 100%;
     }
 
     /* ── Virtual gamepad ── */
@@ -120,13 +121,7 @@
     /* In portrait the landscape game canvas is constrained by width (~40% scale).
        Top-align it so the black gap is below the game (near thumbs) not above. */
     @media (orientation: portrait) {
-      .touch-device #frame-wrap {
-        align-items: flex-start;
-        padding-top: 30px; /* clearance for #orient-tip */
-      }
-      /* flex-start only top-aligns the layout box; the scaled canvas must
-         anchor to the top too, otherwise center origin re-centers it. */
-      .touch-device #game-frame { transform-origin: top center; }
+      .touch-device #frame-wrap { padding-top: 30px; } /* clearance for #orient-tip */
     }
 
     /* Landscape orientation tip */
@@ -252,61 +247,6 @@
     })
     .catch(() => { frame.src = `./${gameId}/index.html`; });
 
-  // Game canvas size. Defaults to a 960×576 landscape guess and is corrected
-  // to each game's real dimensions once the iframe loads. Games range from
-  // 800×600 to 1280×960, so a single hardcoded size letterboxes most of them
-  // (dead black margins) and crops the taller ones — making the game look far
-  // smaller than the available space.
-  let natW = 960, natH = 576;
-
-  function scaleFrame() {
-    const wrap = document.getElementById('frame-wrap');
-    const s = Math.min(wrap.clientWidth / natW, wrap.clientHeight / natH);
-    frame.style.width  = natW + 'px';
-    frame.style.height = natH + 'px';
-    frame.style.transform = `scale(${s})`;
-  }
-  window.addEventListener('resize', scaleFrame);
-  scaleFrame();
-
-  // Force the iframe's content viewport to a fixed CSS width. Games declare
-  // <meta viewport width=device-width>, which on mobile makes the content lay
-  // out at the *device* width (~390px) regardless of the iframe element's
-  // width — so the 960px-wide frame we scale only ever contained a 390px-wide
-  // render, leaving the game tiny inside a sea of black. Pinning the content
-  // viewport to the game's real width makes the element size and the rendered
-  // content agree, so the transform scale fills the screen.
-  function setFrameViewport(w) {
-    try {
-      const doc = frame.contentDocument;
-      if (!doc) return;
-      let vp = doc.querySelector('meta[name="viewport"]');
-      if (!vp) { vp = doc.createElement('meta'); vp.name = 'viewport'; (doc.head || doc.documentElement).appendChild(vp); }
-      vp.setAttribute('content', `width=${w}, initial-scale=1, maximum-scale=1, user-scalable=no`);
-    } catch(_) {}
-  }
-
-  // Measure the game's actual canvas (same-origin iframe) and refit. Phaser
-  // builds the canvas asynchronously, so callers poll until it appears. The
-  // canvas size is independent of the viewport (Phaser ScaleMode.NONE renders
-  // at its configured size), so it can be measured before pinning the viewport.
-  function detectSize() {
-    try {
-      const doc = frame.contentDocument;
-      const canvas = doc && doc.querySelector('canvas');
-      if (!canvas) return false;
-      const w = canvas.width  || Math.round(canvas.getBoundingClientRect().width);
-      const h = canvas.height || Math.round(canvas.getBoundingClientRect().height);
-      if (w > 0 && h > 0) {
-        if (w !== natW || h !== natH) { natW = w; natH = h; }
-        setFrameViewport(natW);
-        scaleFrame();
-        return true;
-      }
-    } catch(_) {}
-    return false;
-  }
-
   // ── Send key event via postMessage (bridge inside iframe handles it) ──
   function fireKey(type, key, code, keyCode) {
     try {
@@ -418,14 +358,6 @@
     const src = frame.src;
     // Skip the initial empty/about:blank load
     if (!src || !src.includes('index.html')) return;
-
-    // 0. Pin the content viewport immediately (default width), then fit the
-    //    frame to the game's real canvas once Phaser has built it.
-    setFrameViewport(natW);
-    let tries = 0;
-    const sizePoll = setInterval(() => {
-      if (detectSize() || ++tries >= 40) clearInterval(sizePoll);
-    }, 100);
 
     // 1. Inject bridge into iframe (blur-intercept + postMessage relay)
     try {

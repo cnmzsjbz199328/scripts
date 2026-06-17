@@ -247,6 +247,7 @@ async function assembleGame(gameName: string) {
       type: Phaser.AUTO,
       width: 800, height: 600,
       parent: 'game-container',
+      scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
       physics: { default: 'arcade', arcade: { gravity: { y: 300 }, debug: false } },
       scene: FallbackScene,
     };
@@ -260,6 +261,15 @@ async function assembleGame(gameName: string) {
   const hudHtml      = buildHudHtml(gdd);
   const gameHudJs    = buildGameHudJs(gdd);
   const gameLogicSection = gameLogic || fallbackLogic;
+
+  // Canvas dimensions — parsed from the game's Phaser config so the wrapper can
+  // be sized to the right aspect ratio (keeps HUD/overlays aligned with the
+  // FIT-scaled canvas). Falls back to 960×576 if not found.
+  const sizeMatch = gameLogicSection.match(
+    /type:\s*Phaser\.(?:AUTO|CANVAS|WEBGL)[\s\S]*?width:\s*(\d+)[\s\S]*?height:\s*(\d+)/
+  );
+  const gameW = sizeMatch ? Number(sizeMatch[1]) : 960;
+  const gameH = sizeMatch ? Number(sizeMatch[2]) : 576;
 
   // 6. Write index.html
   const CONTROLS_BY_GAME: Record<string, string> = {
@@ -395,6 +405,14 @@ async function assembleGame(gameName: string) {
     /* ── game-over title colours ── */
     #gameover-title.win  { color: #4ade80; }
     #gameover-title.lose { color: #f87171; }
+
+    /* ── responsive scaling ── */
+    html, body { width: 100%; height: 100%; }
+    #game-wrapper {
+      width: min(${gameW}px, 96vw, calc(96vh * ${gameW} / ${gameH}));
+      aspect-ratio: ${gameW} / ${gameH};
+    }
+    #game-container { width: 100%; height: 100%; }
   </style>
 </head>
 <body>
