@@ -573,9 +573,13 @@ class MainScene extends Phaser.Scene {
     this.keyA = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.A);
     this.keyD = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.D);
     this.keySpace = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
-    
+    this.keyBomb = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.X); // Screen-clear bomb
+
     // Auto-fire is enabled by default to allow players to focus on left-right steering
     this.autoFire = true;
+
+    // Smart bombs — independent emergency resource (does not consume weapon crystals)
+    this.bombs = 3;
 
     // Screen Flash overlay for damage/boss
     this.flashOverlay = this.add.graphics();
@@ -648,6 +652,11 @@ class MainScene extends Phaser.Scene {
     // ── Weapon Handling (Auto/Manual) ──
     const isShooting = this.autoFire || this.cursors.space.isDown || this.keySpace.isDown || this.input.activePointer.isDown;
     this.handleShooting(time, isShooting);
+
+    // ── Smart Bomb (X) ──
+    if (Phaser.Input.Keyboard.JustDown(this.keyBomb)) {
+      this.useBomb();
+    }
 
     // ── Invincibility Flash Timer ──
     if (this.isInvincible) {
@@ -1029,6 +1038,54 @@ class MainScene extends Phaser.Scene {
       this.cameras.main.flash(200, 34, 211, 238); // Cyan flash
       this.createSparks(player.x, player.y, 0x22d3ee, 20);
     }
+  }
+
+  // ── Smart Bomb: clear bullets + AoE damage everything on screen ──
+  useBomb() {
+    if (this.bombs <= 0) {
+      this.createFloatingText?.(this.player.x, this.player.y - 40, '无炸弹', '#ef4444');
+      return;
+    }
+    this.bombs--;
+
+    // Snapshot lists so destroying/splitting during the sweep doesn't skip entries
+    [...this.enemyBullets.getChildren()].forEach(b => {
+      this.createSparks(b.x, b.y, 0xc084fc, 3);
+      b.destroy();
+    });
+    [...this.enemies.getChildren()].forEach(e => this.damageEnemy(e, 3));
+    [...this.asteroids.getChildren()].forEach(a => this.damageAsteroid(a, 3));
+
+    // Boss components take bomb damage too (core only once shield is down)
+    if (this.currentLevel === 3 && this.bossSpawned) {
+      if (this.bossTurrets[0] && this.bossTurrets[0].active) this.damageBossTurret(this.bossTurrets[0], 3);
+      if (this.bossTurrets[1] && this.bossTurrets[1].active) this.damageBossTurret(this.bossTurrets[1], 3);
+      if (!this.bossShieldActive && this.boss && this.boss.active) this.damageBossCore(3);
+    }
+
+    sounds.playExplosion(true);
+    this.cameras.main.flash(300, 255, 255, 255);
+    this.cameras.main.shake(250, 0.012);
+    this.spawnShockwave(this.player.x, this.player.y);
+
+    // Brief grace window after detonation
+    this.isInvincible = true;
+    this.invincibleTimer = 800;
+  }
+
+  spawnShockwave(x, y) {
+    const ring = this.add.graphics({ x, y }).setDepth(DEPTH.EFFECTS);
+    ring.lineStyle(4, 0x22d3ee, 0.9);
+    ring.strokeCircle(0, 0, 20);
+    this.tweens.add({
+      targets: ring,
+      scaleX: 32,
+      scaleY: 32,
+      alpha: 0,
+      duration: 500,
+      ease: 'Quad.easeOut',
+      onComplete: () => ring.destroy()
+    });
   }
 
   // ── Enemy Bullet logic ──
