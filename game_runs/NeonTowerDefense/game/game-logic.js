@@ -227,6 +227,7 @@ class MainScene extends Phaser.Scene {
     this.keyE = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.E); // Upgrade Turret
     this.keyZ = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.Z); // Chain Lightning Attack
     this.keySpace = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE); // Overclock speed buff
+    this.keyX = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.X); // Sell/dismantle turret
 
     // Overlaps & Collisions
     this.physics.add.collider(this.player, this.collidables);
@@ -746,6 +747,33 @@ class MainScene extends Phaser.Scene {
     if (Phaser.Input.Keyboard.JustDown(this.keyK)) {
       this.attemptBuild('plasma_turret', 80, col, row);
     }
+
+    // Press X: Dismantle the nearest turret for a 50% crystal refund
+    if (Phaser.Input.Keyboard.JustDown(this.keyX)) {
+      this.attemptSellTurret();
+    }
+  }
+
+  attemptSellTurret() {
+    let closest = null;
+    let minDist = 80;
+    this.turrets.getChildren().forEach(t => {
+      const d = Phaser.Math.Distance.Between(t.x, t.y, this.player.x, this.player.y);
+      if (d < minDist) { minDist = d; closest = t; }
+    });
+
+    if (!closest) {
+      this.spawnFloatingText(this.player.x, this.player.y - 40, '附近没有可拆除的防御塔', '#cbd5e1');
+      return;
+    }
+
+    const refund = Math.floor((closest.investedCost || 50) * 0.5);
+    this.score += refund;
+    window.GameHUD?.setScore(this.score);
+    this.spawnBurst(closest.x, closest.y, 0x38bdf8, 14, 60);
+    this.spawnFloatingText(closest.x, closest.y - 40, `拆除回收 +${refund} 💎`, '#38bdf8');
+    this.ysortGroup.remove(closest);
+    closest.destroy();
   }
 
   attemptBuild(type, cost, col, row) {
@@ -795,6 +823,7 @@ class MainScene extends Phaser.Scene {
     turret.damage = type === 'laser_turret' ? 7 : 12;
     turret.fireRate = type === 'laser_turret' ? 300 : 850;
     turret.lastFired = 0;
+    turret.investedCost = cost; // tracked for dismantle refund
     turret.setDepth(DEPTH.YSORT + py);
     this.ysortGroup.add(turret);
 
@@ -845,6 +874,7 @@ class MainScene extends Phaser.Scene {
     window.GameHUD?.setScore(this.score);
 
     t.tier = 2;
+    t.investedCost = (t.investedCost || (t.type === 'laser_turret' ? 50 : 80)) + cost;
 
     // Upgrade Stats
     if (t.type === 'laser_turret') {
@@ -1248,6 +1278,10 @@ class MainScene extends Phaser.Scene {
 
     crystal.expiryTime = this.time.now + 8000;
 
+    // Explosion particle burst (color-coded by enemy type)
+    const burstColor = enemy.isBoss ? 0xec4899 : (enemy.isFast ? 0x00ff66 : 0xff3333);
+    this.spawnBurst(enemy.x, enemy.y - 10, burstColor, enemy.isBoss ? 26 : 11, enemy.isBoss ? 120 : 55);
+
     // Explosion animation
     enemy.play(enemy.isBoss ? 'boss_die' : 'virus_die');
     enemy.once('animationcomplete', () => {
@@ -1371,6 +1405,26 @@ class MainScene extends Phaser.Scene {
     if (this.waveTimer) { this.waveTimer.destroy(); this.waveTimer = null; }
 
     window.GameHUD?.showGameOver(isWin, endingText);
+  }
+
+  // Code-drawn particle burst (no asset dependency) for kills and dismantles.
+  spawnBurst(x, y, color, count = 10, spread = 55) {
+    for (let i = 0; i < count; i++) {
+      const angle = Phaser.Math.FloatBetween(0, Math.PI * 2);
+      const dist = Phaser.Math.FloatBetween(spread * 0.3, spread);
+      const p = this.add.circle(x, y, Phaser.Math.Between(2, 5), color, 0.9);
+      p.setDepth(DEPTH.EFFECTS);
+      this.tweens.add({
+        targets: p,
+        x: x + Math.cos(angle) * dist,
+        y: y + Math.sin(angle) * dist,
+        alpha: 0,
+        scale: 0.2,
+        duration: Phaser.Math.Between(300, 500),
+        ease: 'Quad.easeOut',
+        onComplete: () => p.destroy()
+      });
+    }
   }
 
   spawnSparks(x, y, color) {
