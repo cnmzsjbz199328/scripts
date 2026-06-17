@@ -20,13 +20,15 @@
     "char:process": "tsx skills/char-sprite/process.ts",
     "char:assemble": "tsx skills/char-sprite/assemble.ts",
     "game:prepare": "tsx skills/game-gen/prepare.ts",
-    "game:assemble": "tsx skills/game-gen/assemble.ts"
+    "game:assemble": "tsx skills/game-gen/assemble.ts",
+    "game:verify": "tsx skills/game-verify/verify.ts"
   },
   "dependencies": {
     "sharp": "^0.33.5"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
+    "playwright": "^1.61.0",
     "tsx": "^4.19.0",
     "typescript": "^5.6.0"
   }

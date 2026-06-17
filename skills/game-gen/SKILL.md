@@ -5,6 +5,8 @@ description: 从自然语言描述出发，由游戏策划师（Phase 0）生成
 
 # Game Gen Skill
 
+> **本 skill 只负责 0→1 生成新游戏。** 修复已生成游戏的运行时 bug → 用 **game-fix**；增加玩法/叙事/特效/平衡 → 用 **game-enhance**。三者共享验证门 **game-verify** 与素材管线（material-texture / char-sprite / object-anim）。
+
 ## 执行主体声明
 
 | 角色 | 执行者 | 介入时机 |
@@ -44,6 +46,8 @@ Phase 3  素材生成（图像）+ 游戏逻辑生成（代码）← 并行
          └─ 动态物体   → object-anim pipeline
               ↓
 Phase 4  游戏组装 → 含 UI/HUD 的 Phaser.js index.html
+              ↓
+Phase 4.5 验证门（game-verify）→ 全绿方可宣布完成
               ↓
 Phase 5  Gemini 审阅 + 优化（后期）
 ```
@@ -493,7 +497,21 @@ game_runs/<GameName>/
     objects/      ← 从 object_runs/ 复制的条带
 ```
 
-验证：直接在浏览器打开 `index.html`，先看到开始界面，点击 START 后进入游戏。
+---
+
+## Phase 4.5 — 验证门（game-verify，强制）
+
+组装完成后，**必须**通过自动化验证门才能向用户宣布"完成"——人工目视会漏掉绝大多数破坏可玩性的运行时 bug（未定义方法、移动卡死、按键抢占、资源 404）。
+
+```bash
+npx tsx skills/game-verify/verify.ts <GameName>
+```
+
+- 跑 L0 静态 + L1 启动 + L2 交互烟雾，输出结构化 JSON 报告，并在 `game_runs/<GameName>/verify-screenshot.png` 存交互后截图（用 Read 看图核对）。
+- **未全绿不得宣布完成**：按报告 `errors[].at` 定位，参照 **game-fix** 的《已知 bug 知识库》修复，再重跑直到绿。
+- 详见 **game-verify** skill。
+
+> 可选增强：在 `game-logic.js` 的 `create()` 末尾加 `window.__gameState = { player: this.player };`，让 game-verify 能精确断言移动响应（向后兼容，不加也能跑）。
 
 ---
 
