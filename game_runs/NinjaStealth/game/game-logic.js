@@ -213,8 +213,10 @@ class MainScene extends Phaser.Scene {
       SPACE: Phaser.Input.Keyboard.KeyCodes.SPACE,
       J: Phaser.Input.Keyboard.KeyCodes.J,
       K: Phaser.Input.Keyboard.KeyCodes.K,
-      X: Phaser.Input.Keyboard.KeyCodes.X
+      X: Phaser.Input.Keyboard.KeyCodes.X,
+      SHIFT: Phaser.Input.Keyboard.KeyCodes.SHIFT
     });
+    this.isSneaking = false;
 
     // 5. Setup Vision graphics overlay
     this.visionGraphics = this.add.graphics().setDepth(DEPTH.YSORT - 50);
@@ -524,6 +526,13 @@ class MainScene extends Phaser.Scene {
   update(time, delta) {
     if (!this.gameStarted || this.playerHp <= 0) return;
 
+    // Sneak (crouch) mode — slower but harder to detect. Tint gives feedback.
+    this.isSneaking = this.keys.SHIFT.isDown;
+    if (!this.isInvincible) {
+      if (this.isSneaking) this.player.setTint(0x6688cc);
+      else this.player.clearTint();
+    }
+
     // Update invincibility flash
     if (this.isInvincible) {
       this.invincibilityTimer -= delta;
@@ -582,7 +591,7 @@ class MainScene extends Phaser.Scene {
   handlePlayerMovement() {
     let vx = 0;
     let vy = 0;
-    const speed = window.GAME_CONFIG.player.speed;
+    const speed = window.GAME_CONFIG.player.speed * (this.isSneaking ? 0.5 : 1);
 
     if (this.cursors.left.isDown || this.keys.A.isDown) {
       vx = -speed;
@@ -644,7 +653,8 @@ class MainScene extends Phaser.Scene {
       this.isPlayerAttacking = true;
       this.player.body.setVelocity(0, 0);
       sfx.play('slash');
-      
+      this.spawnSlash(targetGuard.x, targetGuard.y);
+
       // Face the guard
       if (targetGuard.x < this.player.x) {
         this.player.setFlipX(false); // face left
@@ -753,6 +763,25 @@ class MainScene extends Phaser.Scene {
         duration: 500,
         onComplete: () => cloud.destroy()
       });
+    });
+  }
+
+  // White crescent slash arc for assassinations (code-drawn, no asset).
+  spawnSlash(x, y) {
+    const g = this.add.graphics({ x, y }).setDepth(DEPTH.EFFECTS);
+    g.lineStyle(5, 0xffffff, 0.95);
+    g.beginPath();
+    g.arc(0, 0, 40, -Math.PI * 0.25, Math.PI * 0.55, false);
+    g.strokePath();
+    g.setRotation(Phaser.Math.FloatBetween(0, Math.PI * 2));
+    this.tweens.add({
+      targets: g,
+      alpha: 0,
+      scaleX: 1.8,
+      scaleY: 1.8,
+      duration: 280,
+      ease: 'Quad.easeOut',
+      onComplete: () => g.destroy()
     });
   }
 
@@ -880,8 +909,8 @@ class MainScene extends Phaser.Scene {
 
       // Detection check
       if (this.checkPlayerDetection(guard)) {
-        // Spots player!
-        guard.detectionProgress += 4; // fast detection build-up
+        // Spots player! Sneaking slows the build-up, buying reaction time.
+        guard.detectionProgress += this.isSneaking ? 2 : 4;
         if (guard.detectionProgress >= 100) {
           guard.state = 'combat';
           sfx.play('alert');
@@ -925,7 +954,7 @@ class MainScene extends Phaser.Scene {
     if (this.playerHp <= 0 || this.isPlayerInSmoke()) return false;
 
     const dist = Phaser.Math.Distance.Between(guard.x, guard.y, this.player.x, this.player.y);
-    const maxSight = 240;
+    const maxSight = this.isSneaking ? 130 : 240; // crouching shrinks guards' effective sight
 
     if (dist > maxSight) return false;
 
