@@ -343,9 +343,11 @@ class MainScene extends Phaser.Scene {
     this.keyShift = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SHIFT); // Run
     this._lastDust = 0;
 
-    // Camera follow bounds
-    this.physics.world.setBounds(0, 0, mapW, mapH);
-    this.cameras.main.setBounds(0, 0, mapW, mapH);
+    // Camera follow bounds — mapW/mapH are tile counts, so convert to pixels.
+    // (Previously passed tile counts, making the world a 30×30px box that pinned
+    // the player in the corner via collideWorldBounds and blocked all movement.)
+    this.physics.world.setBounds(0, 0, mapW * this.tileW, mapH * this.tileH);
+    this.cameras.main.setBounds(0, 0, mapW * this.tileW, mapH * this.tileH);
     this.cameras.main.startFollow(this.player, true, 0.05, 0.05);
 
     // Proximity Interaction Prompt
@@ -441,6 +443,11 @@ class MainScene extends Phaser.Scene {
 
         if (layerConfig.collision) {
           this.physics.add.existing(tileSprite, true);
+          // sync the static body to the 64×64 display size (tile art is 256/512px).
+          // plain sprites use body.updateFromGameObject() (refreshBody only exists on
+          // factory static sprites). Without this the oversized body overflowed the
+          // cell and trapped the player.
+          tileSprite.body.updateFromGameObject();
           this.obstaclesGroup.add(tileSprite);
         }
       }
@@ -1897,10 +1904,12 @@ class MainScene extends Phaser.Scene {
         this.monstersTeam.push(starter);
         
         document.getElementById('starter-overlay').style.display = 'none';
-        
-        // Let the game start now!
+
+        // Let the game start now! Clear inBattle (set by showStarterSelect) so the
+        // update() movement loop resumes — without this the player could never move.
         this.gameStarted = true;
-        
+        this.inBattle = false;
+
         this.writeBattleLog(`你获得了初始伙伴 ${starter.fullName}！`);
         this.updateWorldHUD();
         this.spawnFloatingText(this.player.x, this.player.y, `获得了初始伙伴 ${name}! 🐰`, "#22c55e");
