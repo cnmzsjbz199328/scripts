@@ -32,6 +32,7 @@ const MONSTER_DB = {
     defense: 8,
     speed: 18,
     icon: "🦊",
+    sprite: "flamefox",
     color: "#f97316",
     skills: [
       { name: "抓 Scratch", type: "Normal", power: 40, effect: "damage" },
@@ -64,6 +65,7 @@ const MONSTER_DB = {
     defense: 9,
     speed: 22,
     icon: "⚡",
+    sprite: "sparkmarmot",
     color: "#eab308",
     skills: [
       { name: "电光一闪 Quick Attack", type: "Normal", power: 40, effect: "damage" },
@@ -112,6 +114,7 @@ const MONSTER_DB = {
     defense: 11,
     speed: 16,
     icon: "🐺",
+    sprite: "frostwolf",
     color: "#06b6d4",
     skills: [
       { name: "咬住 Bite", type: "Normal", power: 45, effect: "damage" },
@@ -128,6 +131,7 @@ const MONSTER_DB = {
     defense: 16,
     speed: 14,
     icon: "❄️",
+    sprite: "frostcrystal",
     color: "#0891b2",
     skills: [
       { name: "撞击 Tackle", type: "Normal", power: 40, effect: "damage" },
@@ -144,6 +148,7 @@ const MONSTER_DB = {
     defense: 20,
     speed: 22,
     icon: "🐉",
+    sprite: "auroradragon",
     color: "#f43f5e",
     skills: [
       { name: "龙息 Dragon Breath", type: "Dragon", power: 60, effect: "damage" },
@@ -682,6 +687,7 @@ class MainScene extends Phaser.Scene {
       speed: speed,
       exp: 0,
       icon: template.icon,
+      sprite: template.sprite, // optional animated pet spritesheet key (assets/monsters/<key>.webp)
       color: template.color,
       skills: JSON.parse(JSON.stringify(template.skills))
     };
@@ -995,8 +1001,7 @@ class MainScene extends Phaser.Scene {
 
     const pXpPct = Math.max(0, (pActive.exp / (pActive.level * 100)) * 100);
     document.getElementById('bt-p-xp-bar').style.width = `${pXpPct}%`;
-    document.getElementById('bt-p-avatar').textContent = pActive.icon;
-    document.getElementById('bt-p-avatar').style.color = pActive.color;
+    this.applyMonsterAvatar(document.getElementById('bt-p-avatar'), pActive, true); // player faces right
 
     // Enemy Card
     document.getElementById('bt-e-name').textContent = eActive.fullName;
@@ -1008,8 +1013,7 @@ class MainScene extends Phaser.Scene {
     const eHpBar = document.getElementById('bt-e-hp-bar');
     eHpBar.style.width = `${eHpPct}%`;
     eHpBar.style.backgroundColor = eHpPct < 25 ? '#ef4444' : eHpPct < 50 ? '#eab308' : '#22c55e';
-    document.getElementById('bt-e-avatar').textContent = eActive.icon;
-    document.getElementById('bt-e-avatar').style.color = eActive.color;
+    this.applyMonsterAvatar(document.getElementById('bt-e-avatar'), eActive, false); // enemy faces left (toward player)
 
     // Skills Grid
     const skillsGrid = document.getElementById('bt-skills-grid');
@@ -1021,6 +1025,28 @@ class MainScene extends Phaser.Scene {
       btn.onclick = () => this.executeBattleTurn(index);
       skillsGrid.appendChild(btn);
     });
+  }
+
+  // Render a battle avatar: animated pet spritesheet if the monster has one,
+  // otherwise fall back to its emoji icon. faceRight flips the (left-facing) sheet.
+  applyMonsterAvatar(el, monster, faceRight) {
+    if (!el) return;
+    if (monster.sprite) {
+      el.textContent = '';
+      let s = el.querySelector('.mon-sprite');
+      if (!s) {
+        s = document.createElement('div');
+        s.className = 'mon-sprite';
+        el.appendChild(s);
+      }
+      s.style.backgroundImage = `url(assets/monsters/${monster.sprite}.webp)`;
+      s.style.transform = faceRight ? 'scaleX(-1)' : 'none';
+    } else {
+      const s = el.querySelector('.mon-sprite');
+      if (s) s.remove();
+      el.textContent = monster.icon;
+      el.style.color = monster.color;
+    }
   }
 
   writeBattleLog(text) {
@@ -1738,6 +1764,23 @@ class MainScene extends Phaser.Scene {
         0%, 100% { transform: rotate(0deg); }
         25% { transform: rotate(-15deg) translateY(-8px); }
         75% { transform: rotate(15deg) translateY(-8px); }
+      }
+
+      /* Animated pet spritesheets used as battle monster avatars.
+         Source frames are 192x208 in a 9x6 grid (1728x1248), displayed at
+         90px tall (scale = 90/208). One row = 9 frames stepped over 0.9s. */
+      .mon-sprite {
+        width: 83px;
+        height: 90px;
+        background-repeat: no-repeat;
+        background-size: 748px 540px;
+        background-position-y: -180px; /* row 2: running-left (loops) */
+        image-rendering: pixelated;
+        animation: monwalk 0.9s steps(9) infinite;
+      }
+      @keyframes monwalk {
+        from { background-position-x: 0; }
+        to { background-position-x: -748px; }
       }
     `;
 
