@@ -1,0 +1,19 @@
+{
+  "game": "NinjaCat",
+  "pass": true,
+  "layers": {
+    "L0": {
+      "pass": true
+    },
+    "L1": {
+      "pass": true
+    },
+    "L2": {
+      "pass": true,
+      "notes": [
+        "未暴露 window.__gameState（跳过精确移动断言；仅靠画面变化判定）"
+      ]
+    }
+  },
+  "screenshot": "game_runs\\NinjaCat\\verify-screenshot.png"
+}
