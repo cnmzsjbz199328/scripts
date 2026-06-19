@@ -1,0 +1,3091 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>元素对决：冰火争霸 (Elemental Clash: Fire & Ice)</title>
+    <meta name="description" content="一款卡通风格的双人对战格斗游戏，火焰魔法师与冰霜骑士同屏竞技，在城堡擂台、火山熔岩台、极光雪原三个场景轮流对战，采用三局两胜制。">
+    <!-- 引入 Orbitron 字体用于科技感/游戏UI，ZCOOL KuaiLe 用于中文标题 -->
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=ZCOOL+KuaiLe&family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --fire-color: #ff5722;
+            --fire-glow: #ff9100;
+            --frost-color: #00e5ff;
+            --frost-glow: #00b0ff;
+            --bg-dark: #09090e;
+            --panel-bg: rgba(15, 15, 25, 0.6);
+            --border-glow: rgba(255, 255, 255, 0.1);
+        }
+
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: var(--bg-dark);
+            color: #ffffff;
+            font-family: 'Outfit', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            overflow: hidden;
+            background-image: radial-gradient(circle at center, #181528 0%, #050508 100%);
+        }
+
+        /* 游戏总容器 */
+        .game-wrapper {
+            position: relative;
+            width: 1024px;
+            height: 576px;
+            aspect-ratio: 16 / 9;
+            background: #000;
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 0 40px rgba(0, 0, 0, 0.8), 0 0 20px rgba(167, 139, 250, 0.1);
+            border: 4px solid #1a1a2e;
+            transition: border-color 0.5s ease, box-shadow 0.5s ease;
+        }
+
+        /* 画布 */
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* HUD/UI 顶层 */
+        .hud-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none; /* 让鼠标事件穿透到画布/按钮 */
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 20px;
+        }
+
+        /* 顶部血条和倒计时区 */
+        .hud-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            width: 100%;
+        }
+
+        /* 玩家面板 */
+        .player-panel {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            background: var(--panel-bg);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            border: 1px solid var(--border-glow);
+            padding: 10px 20px;
+            border-radius: 12px;
+            width: 360px;
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+        }
+
+        .player-panel.p1 {
+            border-left: 4px solid var(--fire-color);
+            box-shadow: inset 5px 0 15px rgba(255, 87, 34, 0.1), 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+        }
+
+        .player-panel.p2 {
+            flex-direction: row-reverse;
+            border-right: 4px solid var(--frost-color);
+            box-shadow: inset -5px 0 15px rgba(0, 229, 255, 0.1), 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+        }
+
+        /* 头像 */
+        .avatar {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background: rgba(0,0,0,0.4);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 26px;
+            border: 2px solid;
+        }
+
+        .p1 .avatar {
+            border-color: var(--fire-color);
+            text-shadow: 0 0 10px var(--fire-glow);
+            box-shadow: 0 0 15px rgba(255, 87, 34, 0.3);
+            animation: pulse-fire 2s infinite alternate;
+        }
+
+        .p2 .avatar {
+            border-color: var(--frost-color);
+            text-shadow: 0 0 10px var(--frost-glow);
+            box-shadow: 0 0 15px rgba(0, 229, 255, 0.3);
+            animation: pulse-frost 2s infinite alternate;
+        }
+
+        /* 玩家名字和血量 */
+        .player-info {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .p2 .player-info {
+            align-items: flex-end;
+        }
+
+        .player-name {
+            font-weight: 800;
+            font-size: 16px;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+
+        .p1 .player-name {
+            color: #ffab91;
+            text-shadow: 0 0 8px rgba(255, 87, 34, 0.5);
+        }
+
+        .p2 .player-name {
+            color: #80deea;
+            text-shadow: 0 0 8px rgba(0, 229, 255, 0.5);
+        }
+
+        /* 3格血量设计 */
+        .hearts-container {
+            display: flex;
+            gap: 8px;
+        }
+
+        .heart {
+            width: 24px;
+            height: 24px;
+            background-size: contain;
+            background-repeat: no-repeat;
+            transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.4s;
+            filter: drop-shadow(0 0 5px rgba(0,0,0,0.5));
+        }
+
+        .p1 .heart {
+            background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23ff5722'><path d='M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z'/></svg>");
+            filter: drop-shadow(0 0 6px var(--fire-glow));
+        }
+
+        .p2 .heart {
+            background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%2300e5ff'><path d='M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z'/></svg>");
+            filter: drop-shadow(0 0 6px var(--frost-glow));
+        }
+
+        .heart.lost {
+            transform: scale(0) rotate(-45deg);
+            opacity: 0.2;
+        }
+
+        /* 计时器和比分 */
+        .match-center {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+            background: var(--panel-bg);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            border: 1px solid var(--border-glow);
+            padding: 8px 16px;
+            border-radius: 12px;
+            min-width: 140px;
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4);
+        }
+
+        .timer {
+            font-family: 'Orbitron', monospace;
+            font-size: 28px;
+            font-weight: 900;
+            color: #ffffff;
+            text-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+            letter-spacing: 1px;
+        }
+
+        /* 比分小灯 */
+        .score-orbs {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+
+        .score-group {
+            display: flex;
+            gap: 6px;
+        }
+
+        .orb {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1.5px solid rgba(255, 255, 255, 0.3);
+            transition: all 0.5s ease;
+        }
+
+        .p1-orb.won {
+            background: var(--fire-color);
+            border-color: #ffab91;
+            box-shadow: 0 0 10px var(--fire-glow);
+        }
+
+        .p2-orb.won {
+            background: var(--frost-color);
+            border-color: #80deea;
+            box-shadow: 0 0 10px var(--frost-glow);
+        }
+
+        .vs-text {
+            font-size: 11px;
+            font-weight: 700;
+            color: #888;
+            letter-spacing: 1px;
+        }
+
+        /* 底部技能和控制指示器 */
+        .hud-bottom {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            width: 100%;
+        }
+
+        .ability-box {
+            display: flex;
+            gap: 12px;
+            background: rgba(10, 10, 15, 0.5);
+            backdrop-filter: blur(6px);
+            -webkit-backdrop-filter: blur(6px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            padding: 8px 12px;
+            border-radius: 10px;
+        }
+
+        .skill {
+            position: relative;
+            width: 44px;
+            height: 44px;
+            border-radius: 8px;
+            background: rgba(0,0,0,0.6);
+            border: 2px solid rgba(255,255,255,0.2);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.4);
+        }
+
+        .p1 .skill.normal { border-color: rgba(255, 87, 34, 0.4); color: #ffab91; }
+        .p1 .skill.special { border-color: var(--fire-color); color: #ff5722; }
+        .p2 .skill.normal { border-color: rgba(0, 229, 255, 0.4); color: #80deea; }
+        .p2 .skill.special { border-color: var(--frost-color); color: #00e5ff; }
+
+        /* 冷却遮罩 */
+        .cooldown-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.75);
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+            font-family: 'Orbitron', monospace;
+            font-weight: 700;
+            color: #fff;
+            opacity: 0;
+            transition: opacity 0.1s;
+        }
+
+        .skill.on-cooldown .cooldown-overlay {
+            opacity: 1;
+        }
+
+        /* 技能按键标记 */
+        .key-badge {
+            position: absolute;
+            bottom: -6px;
+            right: -6px;
+            background: #fff;
+            color: #000;
+            font-size: 9px;
+            font-weight: 900;
+            padding: 1px 4px;
+            border-radius: 4px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+            text-transform: uppercase;
+        }
+        .p1 .key-badge { background: #ff7043; color: #fff; }
+        .p2 .key-badge { background: #26c6da; color: #fff; }
+
+        /* 屏幕中间信息提示 */
+        .stage-title {
+            font-size: 11px;
+            font-weight: 700;
+            color: #aaa;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            margin-top: 2px;
+        }
+
+        /* 声音控制 */
+        .sound-btn {
+            pointer-events: auto;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: #fff;
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.3s;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+        }
+
+        .sound-btn:hover {
+            background: rgba(255, 255, 255, 0.25);
+            transform: scale(1.1);
+        }
+
+        /* 全屏覆盖菜单：开始/结束 */
+        .screen-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 10;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: rgba(5, 5, 8, 0.85);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            transition: opacity 0.5s ease, visibility 0.5s ease;
+            opacity: 0;
+            visibility: hidden;
+        }
+
+        .screen-overlay.active {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        /* 标题设计 */
+        .title-container {
+            text-align: center;
+            margin-bottom: 30px;
+            animation: float 4s ease-in-out infinite;
+        }
+
+        .game-title {
+            font-family: 'ZCOOL KuaiLe', sans-serif;
+            font-size: 64px;
+            font-weight: 900;
+            background: linear-gradient(to right, #ff5722, #ffb74d, #80deea, #00e5ff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-shadow: 0 15px 30px rgba(0,0,0,0.5);
+            letter-spacing: 4px;
+            margin-bottom: 5px;
+        }
+
+        .game-subtitle {
+            font-size: 16px;
+            letter-spacing: 6px;
+            color: #8888aa;
+            text-transform: uppercase;
+            font-weight: 600;
+        }
+
+        /* 卡通角色展示卡片 */
+        .character-showcase {
+            display: flex;
+            gap: 40px;
+            margin-bottom: 35px;
+            width: 100%;
+            justify-content: center;
+            max-width: 800px;
+        }
+
+        .char-card {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 16px;
+            padding: 20px;
+            width: 280px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            transition: all 0.4s cubic-bezier(0.165, 0.84, 0.44, 1);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .char-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            opacity: 0;
+            transition: opacity 0.4s ease;
+            z-index: 0;
+        }
+
+        .char-card.fire:hover {
+            transform: translateY(-8px);
+            border-color: rgba(255, 87, 34, 0.4);
+            box-shadow: 0 15px 35px rgba(255, 87, 34, 0.15), 0 0 20px rgba(255, 87, 34, 0.05);
+        }
+
+        .char-card.frost:hover {
+            transform: translateY(-8px);
+            border-color: rgba(0, 229, 255, 0.4);
+            box-shadow: 0 15px 35px rgba(0, 229, 255, 0.15), 0 0 20px rgba(0, 229, 255, 0.05);
+        }
+
+        .char-card.fire::before {
+            background: radial-gradient(circle at top, rgba(255, 87, 34, 0.1) 0%, transparent 70%);
+        }
+        .char-card.frost::before {
+            background: radial-gradient(circle at top, rgba(0, 229, 255, 0.1) 0%, transparent 70%);
+        }
+        .char-card:hover::before {
+            opacity: 1;
+        }
+
+        .char-avatar {
+            font-size: 48px;
+            margin-bottom: 15px;
+            z-index: 1;
+            filter: drop-shadow(0 0 10px currentColor);
+        }
+        .char-card.fire .char-avatar { color: var(--fire-glow); }
+        .char-card.frost .char-avatar { color: var(--frost-glow); }
+
+        .char-name {
+            font-size: 20px;
+            font-weight: 800;
+            margin-bottom: 8px;
+            z-index: 1;
+        }
+        .char-card.fire .char-name { color: #ff8a65; }
+        .char-card.frost .char-name { color: #4dd0e1; }
+
+        .char-desc {
+            font-size: 12px;
+            color: #888;
+            line-height: 1.5;
+            margin-bottom: 15px;
+            z-index: 1;
+            height: 36px;
+        }
+
+        .char-keys {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            width: 100%;
+            z-index: 1;
+            background: rgba(0,0,0,0.2);
+            padding: 10px;
+            border-radius: 8px;
+            border: 1px solid rgba(255,255,255,0.03);
+        }
+
+        .key-row {
+            display: flex;
+            justify-content: space-between;
+            font-size: 11px;
+            color: #ccc;
+        }
+        .key-btn {
+            background: rgba(255, 255, 255, 0.1);
+            color: #fff;
+            padding: 1px 6px;
+            border-radius: 3px;
+            font-family: 'Orbitron', monospace;
+            font-weight: 700;
+            border-bottom: 2px solid rgba(0,0,0,0.3);
+        }
+
+        /* 按钮设计 */
+        .btn-primary {
+            pointer-events: auto;
+            background: linear-gradient(135deg, #6366f1 0%, #a855f7 100%);
+            border: none;
+            color: #fff;
+            padding: 14px 44px;
+            font-size: 18px;
+            font-weight: 800;
+            border-radius: 30px;
+            cursor: pointer;
+            letter-spacing: 2px;
+            box-shadow: 0 10px 25px rgba(168, 85, 247, 0.4), 0 0 15px rgba(99, 102, 241, 0.2);
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            text-transform: uppercase;
+        }
+
+        .btn-primary:hover {
+            transform: scale(1.05) translateY(-2px);
+            box-shadow: 0 15px 30px rgba(168, 85, 247, 0.6), 0 0 25px rgba(99, 102, 241, 0.4);
+        }
+
+        .btn-primary:active {
+            transform: scale(0.98) translateY(0);
+        }
+
+        /* 规则描述 */
+        .game-rules-info {
+            font-size: 11px;
+            color: #666;
+            margin-top: 15px;
+            letter-spacing: 1px;
+            text-align: center;
+        }
+
+        /* 局间转场提示 */
+        .round-announcement {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) scale(0.5);
+            z-index: 5;
+            font-family: 'Orbitron', 'ZCOOL KuaiLe', sans-serif;
+            font-size: 72px;
+            font-weight: 900;
+            font-style: italic;
+            text-transform: uppercase;
+            text-align: center;
+            opacity: 0;
+            pointer-events: none;
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            letter-spacing: 4px;
+        }
+
+        .round-announcement.active {
+            transform: translate(-50%, -50%) scale(1);
+            opacity: 1;
+        }
+
+        .round-announcement.round-text {
+            color: #fff;
+            text-shadow: 0 0 20px rgba(255,255,255,0.6), 0 0 40px rgba(167, 139, 250, 0.3);
+        }
+        .round-announcement.fight-text {
+            color: #ffd54f;
+            text-shadow: 0 0 20px #ff8f00, 0 0 40px rgba(255, 87, 34, 0.6);
+        }
+        .round-announcement.ko-text {
+            color: #e53935;
+            text-shadow: 0 0 20px #b71c1c, 0 0 40px rgba(255, 0, 0, 0.6);
+        }
+
+        /* 结算面板 */
+        .winner-title {
+            font-family: 'ZCOOL KuaiLe', sans-serif;
+            font-size: 48px;
+            font-weight: 900;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+
+        .winner-fire {
+            color: #ff7043;
+            text-shadow: 0 0 20px rgba(255, 87, 34, 0.6);
+        }
+        .winner-frost {
+            color: #26c6da;
+            text-shadow: 0 0 20px rgba(0, 229, 255, 0.6);
+        }
+
+        .stats-panel {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.05);
+            border-radius: 12px;
+            padding: 15px 30px;
+            margin-bottom: 30px;
+            min-width: 320px;
+            text-align: center;
+        }
+
+        .stat-row {
+            display: flex;
+            justify-content: space-between;
+            margin: 8px 0;
+            font-size: 14px;
+            color: #aaa;
+        }
+        .stat-value {
+            font-weight: 700;
+            color: #fff;
+            font-family: 'Orbitron', monospace;
+        }
+
+        /* 画面抖动效果 */
+        @keyframes shake {
+            0% { transform: translate(1px, 1px) rotate(0deg); }
+            10% { transform: translate(-1px, -2px) rotate(-1deg); }
+            20% { transform: translate(-3px, 0px) rotate(1deg); }
+            30% { transform: translate(0px, 2px) rotate(0deg); }
+            40% { transform: translate(1px, -1px) rotate(1deg); }
+            50% { transform: translate(-1px, 2px) rotate(-1deg); }
+            60% { transform: translate(-3px, 1px) rotate(0deg); }
+            70% { transform: translate(2px, 1px) rotate(-1deg); }
+            80% { transform: translate(-1px, -1px) rotate(1deg); }
+            90% { transform: translate(2px, 2px) rotate(0deg); }
+            100% { transform: translate(1px, -2px) rotate(-1deg); }
+        }
+
+        .shake {
+            animation: shake 0.25s infinite;
+        }
+
+        /* 动画关键帧 */
+        @keyframes float {
+            0% { transform: translateY(0px); }
+            50% { transform: translateY(-10px); }
+            100% { transform: translateY(0px); }
+        }
+
+        @keyframes pulse-fire {
+            0% { box-shadow: 0 0 10px rgba(255, 87, 34, 0.2); }
+            100% { box-shadow: 0 0 22px rgba(255, 87, 34, 0.6); }
+        }
+
+        @keyframes pulse-frost {
+            0% { box-shadow: 0 0 10px rgba(0, 229, 255, 0.2); }
+            100% { box-shadow: 0 0 22px rgba(0, 229, 255, 0.6); }
+        }
+
+        /* 全局状态控制 */
+        .hidden {
+            display: none !important;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="game-wrapper" id="gameWrapper">
+        <canvas id="gameCanvas" width="1024" height="576"></canvas>
+
+        <!-- HUD UI Overlay -->
+        <div class="hud-overlay">
+            <!-- 顶部状态栏 -->
+            <div class="hud-top">
+                <!-- 玩家 1 (火焰魔法师) -->
+                <div class="player-panel p1">
+                    <div class="avatar" title="火焰魔法师">🔥</div>
+                    <div class="player-info">
+                        <div class="player-name">烈焰魔法师 (P1)</div>
+                        <div class="hearts-container" id="p1Hearts">
+                            <div class="heart" id="p1-heart-0"></div>
+                            <div class="heart" id="p1-heart-1"></div>
+                            <div class="heart" id="p1-heart-2"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 计时器与比分 -->
+                <div class="match-center">
+                    <div class="timer" id="timerText">99</div>
+                    <div class="score-orbs">
+                        <div class="score-group" id="p1Orbs">
+                            <div class="orb p1-orb" id="p1-orb-0"></div>
+                            <div class="orb p1-orb" id="p1-orb-1"></div>
+                        </div>
+                        <div class="vs-text">VS</div>
+                        <div class="score-group" id="p2Orbs">
+                            <div class="orb p2-orb" id="p2-orb-0"></div>
+                            <div class="orb p2-orb" id="p2-orb-1"></div>
+                        </div>
+                    </div>
+                    <div class="stage-title" id="stageName">城堡擂台</div>
+                </div>
+
+                <!-- 玩家 2 (冰霜骑士) -->
+                <div class="player-panel p2">
+                    <div class="avatar" title="冰霜骑士">❄️</div>
+                    <div class="player-info">
+                        <div class="player-name">(P2) 冰霜骑士</div>
+                        <div class="hearts-container" id="p2Hearts">
+                            <div class="heart" id="p2-heart-0"></div>
+                            <div class="heart" id="p2-heart-1"></div>
+                            <div class="heart" id="p2-heart-2"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 底部技能状态栏 -->
+            <div class="hud-bottom">
+                <!-- 玩家 1 技能 -->
+                <div class="ability-box p1">
+                    <!-- 普通攻击 -->
+                    <div class="skill normal" id="p1NormalSkill" title="普通攻击：火球术">
+                        ☄️
+                        <div class="key-badge">F</div>
+                    </div>
+                    <!-- 特殊技能 -->
+                    <div class="skill special" id="p1SpecialSkill" title="特技：地裂火柱">
+                        🌋
+                        <div class="cooldown-overlay" id="p1SpecialCd">5.0</div>
+                        <div class="key-badge">G</div>
+                    </div>
+                </div>
+
+                <!-- 音乐/音效切换 -->
+                <button class="sound-btn" id="soundBtn" title="切换声音">🔊</button>
+
+                <!-- 玩家 2 技能 -->
+                <div class="ability-box p2">
+                    <!-- 普通攻击 -->
+                    <div class="skill normal" id="p2NormalSkill" title="普通攻击：寒冰斩">
+                        ⚔️
+                        <div class="key-badge">I</div>
+                    </div>
+                    <!-- 特殊技能 -->
+                    <div class="skill special" id="p2SpecialSkill" title="特技：极冰突刺">
+                        ❄️
+                        <div class="cooldown-overlay" id="p2SpecialCd">5.0</div>
+                        <div class="key-badge">O</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 局内通知文本（Round 1, FIGHT!, K.O.） -->
+        <div class="round-announcement" id="announcementText">ROUND 1</div>
+
+        <!-- 1. 开始屏幕 -->
+        <div class="screen-overlay active" id="startScreen">
+            <div class="title-container">
+                <h1 class="game-title">元素对决：冰火争霸</h1>
+                <p class="game-subtitle">Elemental Clash: Fire & Ice</p>
+            </div>
+
+            <div class="character-showcase">
+                <!-- 火焰魔法师 -->
+                <div class="char-card fire">
+                    <div class="char-avatar">🔥</div>
+                    <h3 class="char-name">烈焰魔法师 (P1)</h3>
+                    <p class="char-desc">掌控火焰的远程法师。火球飞行迅速，特技能在对手脚下召唤熔岩火柱。</p>
+                    <div class="char-keys">
+                        <div class="key-row"><span>移动 (A / D)</span> <span class="key-btn">A</span> <span class="key-btn">D</span></div>
+                        <div class="key-row"><span>跳跃 (W)</span> <span class="key-btn">W</span></div>
+                        <div class="key-row"><span>格挡火焰盾 (S)</span> <span class="key-btn">S</span></div>
+                        <div class="key-row"><span>普通攻击：火球 (F)</span> <span class="key-btn">F</span></div>
+                        <div class="key-row"><span>特技：熔岩火柱 (G)</span> <span class="key-btn">G</span></div>
+                    </div>
+                </div>
+
+                <!-- 冰霜骑士 -->
+                <div class="char-card frost">
+                    <div class="char-avatar">❄️</div>
+                    <h3 class="char-name">冰霜骑士 (P2)</h3>
+                    <p class="char-desc">身披重甲的冰雪守卫。冰刀斩击带出刀光，特技能向前方地面放出多段极冰冰刺。</p>
+                    <div class="char-keys">
+                        <div class="key-row"><span>移动 (← / →)</span> <span class="key-btn">←</span> <span class="key-btn">→</span></div>
+                        <div class="key-row"><span>跳跃 (↑)</span> <span class="key-btn">↑</span></div>
+                        <div class="key-row"><span>格挡寒冰盾 (↓)</span> <span class="key-btn">↓</span></div>
+                        <div class="key-row"><span>普通攻击：冰斩 (I)</span> <span class="key-btn">I</span></div>
+                        <div class="key-row"><span>特技：极冰突刺 (O)</span> <span class="key-btn">O</span></div>
+                    </div>
+                </div>
+            </div>
+
+            <button class="btn-primary" id="startBtn">开始对决</button>
+            <p class="game-rules-info">三局两胜制 | 每局3格血量 | 城堡、火山、雪原三大场景轮流对战</p>
+        </div>
+
+        <!-- 2. 游戏结束/结算屏幕 -->
+        <div class="screen-overlay" id="gameOverScreen">
+            <div class="title-container">
+                <div class="winner-title" id="winnerText">火焰魔法师 胜利！</div>
+                <p class="game-subtitle">MATCH OVER</p>
+            </div>
+
+            <div class="stats-panel">
+                <div class="stat-row">
+                    <span>对战场景数</span>
+                    <span class="stat-value" id="statRounds">3</span>
+                </div>
+                <div class="stat-row">
+                    <span>玩家 1 胜局</span>
+                    <span class="stat-value" id="statP1Wins" style="color:var(--fire-glow)">2</span>
+                </div>
+                <div class="stat-row">
+                    <span>玩家 2 胜局</span>
+                    <span class="stat-value" id="statP2Wins" style="color:var(--frost-glow)">1</span>
+                </div>
+                <div class="stat-row">
+                    <span>总伤害次数</span>
+                    <span class="stat-value" id="statHits">18</span>
+                </div>
+            </div>
+
+            <button class="btn-primary" id="restartBtn">再次对决</button>
+        </div>
+    </div>
+
+    <script>
+        // ── Web Audio Synth (声音合成) ──────────────────────────────────────────────
+        class SoundSynth {
+            constructor() {
+                this.ctx = null;
+                this.muted = false;
+                this.bgmNode = null;
+                this.bgmOscs = [];
+                this.sequencerTimer = null;
+                this.tempo = 120;
+                this.beatIndex = 0;
+            }
+
+            init() {
+                if (this.ctx) return;
+                this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+                this.startBgm();
+            }
+
+            setMute(val) {
+                this.muted = val;
+                if (this.ctx) {
+                    if (this.muted) {
+                        this.ctx.suspend();
+                    } else {
+                        this.ctx.resume();
+                    }
+                }
+            }
+
+            // 触发简单的震荡器音效
+            playSynth(freqs, duration, type = 'sine', decay = 0.1, gainVal = 0.1) {
+                if (this.muted || !this.ctx) return;
+                try {
+                    const now = this.ctx.currentTime;
+                    const gain = this.ctx.createGain();
+                    gain.gain.setValueAtTime(gainVal, now);
+                    gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+
+                    freqs.forEach(f => {
+                        const osc = this.ctx.createOscillator();
+                        osc.type = type;
+                        osc.frequency.setValueAtTime(f.start, now);
+                        if (f.end && f.end !== f.start) {
+                            osc.frequency.exponentialRampToValueAtTime(f.end, now + duration);
+                        }
+                        osc.connect(gain);
+                        osc.start(now);
+                        osc.stop(now + duration);
+                    });
+
+                    gain.connect(this.ctx.destination);
+                } catch(e) {}
+            }
+
+            // 噪音音效 (如爆炸/火球)
+            playNoise(duration, lowpassFreq, bandpassFreq, gainVal = 0.1) {
+                if (this.muted || !this.ctx) return;
+                try {
+                    const bufferSize = this.ctx.sampleRate * duration;
+                    const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+                    const data = buffer.getChannelData(0);
+                    for (let i = 0; i < bufferSize; i++) {
+                        data[i] = Math.random() * 2 - 1;
+                    }
+
+                    const noise = this.ctx.createBufferSource();
+                    noise.buffer = buffer;
+
+                    const filter = this.ctx.createBiquadFilter();
+                    filter.type = 'lowpass';
+                    filter.frequency.setValueAtTime(lowpassFreq, this.ctx.currentTime);
+                    if (bandpassFreq) {
+                        filter.frequency.exponentialRampToValueAtTime(bandpassFreq, this.ctx.currentTime + duration);
+                    }
+
+                    const gain = this.ctx.createGain();
+                    gain.gain.setValueAtTime(gainVal, this.ctx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.0001, this.ctx.currentTime + duration);
+
+                    noise.connect(filter);
+                    filter.connect(gain);
+                    gain.connect(this.ctx.destination);
+
+                    noise.start();
+                } catch(e) {}
+            }
+
+            playJump() {
+                this.playSynth([{ start: 150, end: 400 }], 0.15, 'triangle', 0.1, 0.08);
+            }
+
+            playFireball() {
+                // 火球：噪音 + 频率向下的正弦波
+                this.playSynth([{ start: 500, end: 200 }], 0.25, 'triangle', 0.2, 0.1);
+                this.playNoise(0.2, 800, 300, 0.05);
+            }
+
+            playFirePillar() {
+                // 火柱爆裂：低频噪音
+                this.playNoise(0.6, 200, 50, 0.25);
+                this.playSynth([{ start: 80, end: 40 }], 0.5, 'sawtooth', 0.4, 0.15);
+            }
+
+            playSlash() {
+                // 挥砍：高频噪音带滤波
+                this.playNoise(0.15, 2000, 800, 0.1);
+                this.playSynth([{ start: 600, end: 300 }], 0.15, 'sawtooth', 0.1, 0.08);
+            }
+
+            playIceSpikes() {
+                // 冰刺：连续快速的晶莹音符
+                const now = this.ctx ? this.ctx.currentTime : 0;
+                for (let i = 0; i < 5; i++) {
+                    setTimeout(() => {
+                        this.playSynth([{ start: 800 + i * 150, end: 1200 + i * 100 }], 0.1, 'sine', 0.05, 0.06);
+                    }, i * 80);
+                }
+                this.playNoise(0.4, 1500, 500, 0.08);
+            }
+
+            playHit() {
+                // 击中：强烈的冲击噪音
+                this.playNoise(0.12, 100, 20, 0.25);
+                this.playSynth([{ start: 180, end: 60 }], 0.12, 'sawtooth', 0.1, 0.2);
+            }
+
+            playBlock() {
+                // 铁器/盾格挡：高频清脆的叮声
+                this.playSynth([{ start: 1200, end: 1000 }, { start: 2000, end: 1800 }], 0.15, 'sine', 0.1, 0.15);
+            }
+
+            playAnnounce() {
+                this.playSynth([{ start: 220, end: 330 }], 0.25, 'square', 0.2, 0.05);
+            }
+
+            playRoundEnd() {
+                this.playSynth([{ start: 300, end: 150 }], 0.6, 'sawtooth', 0.5, 0.1);
+            }
+
+            playMatchEnd() {
+                const notes = [261.63, 329.63, 392.00, 523.25]; // C E G C
+                notes.forEach((note, index) => {
+                    setTimeout(() => {
+                        this.playSynth([{ start: note, end: note * 1.01 }], 0.8, 'sine', 0.6, 0.1);
+                    }, index * 150);
+                });
+            }
+
+            // 循环音乐序列器 (简单的节拍器背景音乐)
+            startBgm() {
+                if (this.sequencerTimer) clearInterval(this.sequencerTimer);
+                
+                // 极其简易的四拍子背景音乐循环
+                // 两个轨道：低音贝司 + 主旋律
+                const notesBass = [110, 110, 130, 130, 98, 98, 87, 87]; // A, C, G, F
+                const notesLead = [
+                    [440, 494, 523, 587], // 城堡：神秘大气
+                    [330, 392, 440, 523], // 火山：紧张急促
+                    [523, 587, 659, 784]  // 雪原：寒冷飘逸
+                ];
+
+                this.beatIndex = 0;
+                
+                this.sequencerTimer = setInterval(() => {
+                    if (this.muted || !this.ctx || this.ctx.state !== 'running') return;
+                    
+                    const now = this.ctx.currentTime;
+                    const stageIdx = window.currentGame ? window.currentGame.currentStageIdx : 0;
+                    
+                    // 每拍响一次低音
+                    const bassFreq = notesBass[this.beatIndex % notesBass.length];
+                    this.playSynth([{ start: bassFreq, end: bassFreq }], 0.25, 'triangle', 0.2, 0.05);
+                    
+                    // 每四拍响一次旋律
+                    if (this.beatIndex % 2 === 0) {
+                        const melody = notesLead[stageIdx % 3];
+                        const leadFreq = melody[Math.floor(this.beatIndex / 2) % melody.length];
+                        this.playSynth([{ start: leadFreq, end: leadFreq }], 0.35, 'sine', 0.3, 0.03);
+                    }
+                    
+                    // 每拍的重音打击鼓点（噪音模拟军鼓和底鼓）
+                    if (this.beatIndex % 4 === 0) {
+                        // 底鼓
+                        this.playSynth([{ start: 80, end: 30 }], 0.1, 'triangle', 0.1, 0.08);
+                    } else if (this.beatIndex % 4 === 2) {
+                        // 军鼓 (白噪音)
+                        this.playNoise(0.06, 1000, 500, 0.03);
+                    } else {
+                        // 闭镲
+                        this.playNoise(0.02, 6000, 4000, 0.01);
+                    }
+
+                    this.beatIndex++;
+                }, 300); // 100 BPM (每 300ms 一拍)
+            }
+        }
+
+        const sound = new SoundSynth();
+
+        // ── 游戏物理和核心变量 ──────────────────────────────────────────────────────
+        const CANVAS_WIDTH = 1024;
+        const CANVAS_HEIGHT = 576;
+        const GROUND_Y = 440;
+        const GRAVITY = 0.6;
+        const FRICTION = 0.85;
+
+        // 场景数据
+        const STAGES = [
+            {
+                name: "城堡擂台",
+                engName: "Castle Arena",
+                bgColor: "linear-gradient(to bottom, #110e20, #2b1d3d)",
+                accentColor: "#a78bfa",
+                hazardName: null
+            },
+            {
+                name: "火山熔岩台",
+                engName: "Volcano Lava Platform",
+                bgColor: "linear-gradient(to bottom, #100606, #360f0d)",
+                accentColor: "#ef4444",
+                hazardName: "岩浆喷泉"
+            },
+            {
+                name: "极光雪原",
+                engName: "Aurora Snowy Field",
+                bgColor: "linear-gradient(to bottom, #03141f, #09283d)",
+                accentColor: "#00e5ff",
+                hazardName: "落雪风暴 / 坠落冰锥"
+            }
+        ];
+
+        // 输入系统
+        const keys = {
+            a: false, d: false, w: false, s: false, f: false, g: false, // P1
+            ArrowLeft: false, ArrowRight: false, ArrowUp: false, ArrowDown: false, i: false, o: false // P2
+        };
+
+        window.addEventListener('keydown', e => {
+            if (e.key in keys) {
+                keys[e.key] = true;
+                // 防止按键引起滚动
+                if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' '].includes(e.key)) {
+                    e.preventDefault();
+                }
+            }
+        });
+
+        window.addEventListener('keyup', e => {
+            if (e.key in keys) {
+                keys[e.key] = false;
+            }
+        });
+
+        // ── 粒子系统 ────────────────────────────────────────────────────────────────
+        class Particle {
+            constructor(x, y, vx, vy, size, color, life, type = 'fade') {
+                this.x = x;
+                this.y = y;
+                this.vx = vx;
+                this.vy = vy;
+                this.size = size;
+                this.color = color;
+                this.maxLife = life;
+                this.life = life;
+                this.type = type; // 'fade', 'shrink', 'gravity'
+            }
+
+            update() {
+                this.x += this.vx;
+                this.y += this.vy;
+                this.life--;
+                
+                if (this.type === 'gravity') {
+                    this.vy += 0.2;
+                }
+            }
+
+            draw(ctx) {
+                const alpha = this.life / this.maxLife;
+                ctx.save();
+                ctx.globalAlpha = alpha;
+                ctx.fillStyle = this.color;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            }
+        }
+
+        // ── 投射物 ──────────────────────────────────────────────────────────────────
+        class Projectile {
+            constructor(owner, x, y, vx, vy, size, color, damage, isFire = true) {
+                this.owner = owner; // 'p1' or 'p2'
+                this.x = x;
+                this.y = y;
+                this.vx = vx;
+                this.vy = vy;
+                this.size = size;
+                this.color = color;
+                this.damage = damage;
+                this.isFire = isFire;
+                this.life = 120; // 最多存活 2 秒
+            }
+
+            update(game) {
+                this.x += this.vx;
+                this.y += this.vy;
+                this.life--;
+
+                // 创建轨迹粒子
+                const particleColor = this.isFire ? 'rgba(255, 90, 30, 0.6)' : 'rgba(0, 220, 255, 0.6)';
+                game.particles.push(new Particle(
+                    this.x - this.vx * 0.5,
+                    this.y + (Math.random() - 0.5) * 10,
+                    -this.vx * 0.2 + (Math.random() - 0.5),
+                    (Math.random() - 0.5) * 2,
+                    this.size * (0.4 + Math.random() * 0.4),
+                    particleColor,
+                    20
+                ));
+            }
+
+            draw(ctx) {
+                ctx.save();
+                ctx.shadowBlur = 15;
+                ctx.shadowColor = this.color;
+                ctx.fillStyle = this.color;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fill();
+
+                // 画个亮色核心
+                ctx.fillStyle = '#ffffff';
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size * 0.5, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            }
+        }
+
+        // ── 地面特技 ────────────────────────────────────────────────────────────────
+        class GroundSpecial {
+            constructor(owner, targetX, targetY, isFire = true) {
+                this.owner = owner;
+                this.targetX = targetX;
+                this.targetY = targetY;
+                this.isFire = isFire;
+                this.timer = 0;
+                
+                // 火柱 0.8秒预警，冰刺 0.4秒开始释放多段
+                this.warningDuration = isFire ? 48 : 24; 
+                this.activeDuration = isFire ? 30 : 25; // 持续时间
+                this.state = 'warning'; // 'warning', 'active', 'done'
+                this.width = isFire ? 70 : 80;
+                this.height = isFire ? 360 : 100;
+                
+                this.hasDealtDamage = false;
+                
+                // 冰霜骑士特技专用的多段冰刺数据
+                this.iceSpikeProgress = 0; // 当前伸出的冰刺数量
+                this.iceSpikeMax = 5;
+                this.iceSpikePositions = [];
+                if (!isFire) {
+                    // 顺着施法者方向算出一连串冰刺点
+                    const dir = targetX > targetY ? 1 : -1; // 用 targetY 暂存施法者方向
+                    this.startX = targetY; // 施法者当前X
+                    for (let i = 0; i < this.iceSpikeMax; i++) {
+                        this.iceSpikePositions.push({
+                            x: this.startX + dir * (i + 1) * 80,
+                            activeTimer: -1, // 尚未激活
+                            hasHit: false
+                        });
+                    }
+                }
+            }
+
+            update(game) {
+                this.timer++;
+                
+                if (this.isFire) {
+                    // P1 火柱逻辑
+                    if (this.state === 'warning') {
+                        // 预警阶段粒子
+                        if (this.timer % 3 === 0) {
+                            game.particles.push(new Particle(
+                                this.targetX + (Math.random() - 0.5) * this.width,
+                                GROUND_Y - 5,
+                                (Math.random() - 0.5) * 2,
+                                -Math.random() * 3 - 1,
+                                Math.random() * 4 + 2,
+                                'rgba(255, 87, 34, 0.8)',
+                                30
+                            ));
+                        }
+                        
+                        if (this.timer >= this.warningDuration) {
+                            this.state = 'active';
+                            this.timer = 0;
+                            sound.playFirePillar();
+                            // 屏幕震动
+                            game.shakeTimer = 15;
+                        }
+                    } else if (this.state === 'active') {
+                        // 喷发中粒子
+                        for (let i = 0; i < 5; i++) {
+                            game.particles.push(new Particle(
+                                this.targetX + (Math.random() - 0.5) * this.width,
+                                GROUND_Y - Math.random() * this.height,
+                                (Math.random() - 0.5) * 3,
+                                -Math.random() * 8 - 4,
+                                Math.random() * 10 + 4,
+                                i % 2 === 0 ? '#ff5722' : '#ffd54f',
+                                25,
+                                'gravity'
+                            ));
+                        }
+
+                        // 碰撞判定：对非 owner 玩家造成伤害（无法防御）
+                        if (!this.hasDealtDamage) {
+                            const targetPlayer = this.owner === 'p1' ? game.p2 : game.p1;
+                            const dist = Math.abs(targetPlayer.x - this.targetX);
+                            // 高度检测：玩家处于火柱内 (火柱从地面网上喷)
+                            if (dist < (this.width / 2 + targetPlayer.width / 2) && targetPlayer.y + targetPlayer.height > GROUND_Y - this.height) {
+                                targetPlayer.takeDamage(1, game);
+                                targetPlayer.vy = -12; // 击飞
+                                this.hasDealtDamage = true;
+                            }
+                        }
+
+                        if (this.timer >= this.activeDuration) {
+                            this.state = 'done';
+                        }
+                    }
+                } else {
+                    // P2 冰刺逻辑：依次在不同地点升起冰刺
+                    if (this.state === 'warning') {
+                        // 蓄力前摇粒子
+                        if (this.timer % 2 === 0) {
+                            game.particles.push(new Particle(
+                                this.startX + (Math.random() - 0.5) * 40,
+                                GROUND_Y - 10,
+                                (Math.random() - 0.5) * 1,
+                                -Math.random() * 2 - 1,
+                                Math.random() * 3 + 2,
+                                '#00e5ff',
+                                20
+                            ));
+                        }
+
+                        if (this.timer >= this.warningDuration) {
+                            this.state = 'active';
+                            this.timer = 0;
+                            sound.playIceSpikes();
+                        }
+                    } else if (this.state === 'active') {
+                        // 逐段激活动作
+                        const spikeIndex = Math.floor(this.timer / 6); // 每6帧(100ms)冒出一个冰刺
+                        
+                        this.iceSpikePositions.forEach((spike, idx) => {
+                            if (idx === spikeIndex && spike.activeTimer === -1) {
+                                spike.activeTimer = 0; // 开始冒起
+                                // 生成冰刺碎屑
+                                for (let p = 0; p < 8; p++) {
+                                    game.particles.push(new Particle(
+                                        spike.x,
+                                        GROUND_Y,
+                                        (Math.random() - 0.5) * 5,
+                                        -Math.random() * 5 - 2,
+                                        Math.random() * 4 + 2,
+                                        '#80deea',
+                                        20,
+                                        'gravity'
+                                    ));
+                                }
+                            }
+
+                            if (spike.activeTimer >= 0) {
+                                spike.activeTimer++;
+                                
+                                // 判定攻击：每个冰刺点只伤害一次，无法防御
+                                if (!spike.hasHit) {
+                                    const targetPlayer = game.p1; // P2 释放的刺只能打 P1
+                                    const dist = Math.abs(targetPlayer.x - spike.x);
+                                    if (dist < 40 && targetPlayer.y + targetPlayer.height > GROUND_Y - 80) {
+                                        targetPlayer.takeDamage(1, game);
+                                        targetPlayer.freeze(36); // 冰冻 36帧 (约 0.6 秒)
+                                        spike.hasHit = true;
+                                    }
+                                }
+                            }
+                        });
+
+                        // 最后一根冰刺结束后完结
+                        if (this.timer >= this.iceSpikeMax * 6 + 15) {
+                            this.state = 'done';
+                        }
+                    }
+                }
+            }
+
+            draw(ctx) {
+                ctx.save();
+                if (this.isFire) {
+                    if (this.state === 'warning') {
+                        // 画地面红光预警圈
+                        const pulse = 1 + Math.sin(this.timer * 0.2) * 0.1;
+                        const w = this.width * pulse;
+                        const grad = ctx.createRadialGradient(this.targetX, GROUND_Y, 2, this.targetX, GROUND_Y, w/2);
+                        grad.addColorStop(0, 'rgba(255, 60, 0, 0.7)');
+                        grad.addColorStop(0.5, 'rgba(255, 120, 0, 0.3)');
+                        grad.addColorStop(1, 'rgba(255, 60, 0, 0)');
+                        
+                        ctx.fillStyle = grad;
+                        ctx.beginPath();
+                        ctx.ellipse(this.targetX, GROUND_Y, w/2, 12, 0, 0, Math.PI * 2);
+                        ctx.fill();
+                        
+                        // 预警小叹号
+                        ctx.fillStyle = '#ff3d00';
+                        ctx.font = '900 24px Orbitron';
+                        ctx.textAlign = 'center';
+                        ctx.fillText('!', this.targetX, GROUND_Y - 30);
+                    } else if (this.state === 'active') {
+                        // 画火柱
+                        const grad = ctx.createLinearGradient(this.targetX - this.width/2, 0, this.targetX + this.width/2, 0);
+                        grad.addColorStop(0, 'rgba(230, 30, 0, 0.9)');
+                        grad.addColorStop(0.3, 'rgba(255, 120, 0, 0.95)');
+                        grad.addColorStop(0.5, 'rgba(255, 240, 200, 1)');
+                        grad.addColorStop(0.7, 'rgba(255, 120, 0, 0.95)');
+                        grad.addColorStop(1, 'rgba(230, 30, 0, 0.9)');
+
+                        ctx.shadowBlur = 30;
+                        ctx.shadowColor = '#ff5722';
+                        ctx.fillStyle = grad;
+                        ctx.beginPath();
+                        ctx.moveTo(this.targetX - this.width/2, GROUND_Y);
+                        ctx.quadraticCurveTo(this.targetX - this.width/4, GROUND_Y - this.height, this.targetX, GROUND_Y - this.height - 20);
+                        ctx.quadraticCurveTo(this.targetX + this.width/4, GROUND_Y - this.height, this.targetX + this.width/2, GROUND_Y);
+                        ctx.closePath();
+                        ctx.fill();
+                    }
+                } else {
+                    // P2 冰刺绘制
+                    if (this.state === 'warning') {
+                        // 骑士武器插地的红/蓝震荡波
+                        ctx.strokeStyle = 'rgba(0, 229, 255, 0.5)';
+                        ctx.lineWidth = 2;
+                        ctx.beginPath();
+                        ctx.ellipse(this.startX, GROUND_Y, 20 + this.timer, 6, 0, 0, Math.PI * 2);
+                        ctx.stroke();
+                    } else if (this.state === 'active') {
+                        // 绘制每一个冒出来的冰晶刺
+                        this.iceSpikePositions.forEach(spike => {
+                            if (spike.activeTimer >= 0 && spike.activeTimer < 20) {
+                                // 向上增长的锐利三角形
+                                const progress = Math.min(1, spike.activeTimer / 8);
+                                const h = 75 * progress;
+                                const w = 40;
+                                
+                                const grad = ctx.createLinearGradient(spike.x - w/2, 0, spike.x + w/2, 0);
+                                grad.addColorStop(0, '#00b0ff');
+                                grad.addColorStop(0.5, '#e0f7fa');
+                                grad.addColorStop(1, '#00b0ff');
+                                
+                                ctx.shadowBlur = 10;
+                                ctx.shadowColor = '#00e5ff';
+                                ctx.fillStyle = grad;
+                                
+                                ctx.beginPath();
+                                ctx.moveTo(spike.x - w/2, GROUND_Y);
+                                ctx.lineTo(spike.x, GROUND_Y - h);
+                                ctx.lineTo(spike.x + w/2, GROUND_Y);
+                                ctx.closePath();
+                                ctx.fill();
+
+                                // 冰刺表面的晶莹反光线
+                                ctx.strokeStyle = '#ffffff';
+                                ctx.lineWidth = 1.5;
+                                ctx.beginPath();
+                                ctx.moveTo(spike.x - w/4, GROUND_Y);
+                                ctx.lineTo(spike.x, GROUND_Y - h);
+                                ctx.stroke();
+                            }
+                        });
+                    }
+                }
+                ctx.restore();
+            }
+        }
+
+        // ── 场景环境危害物 (熔岩爆裂 / 落冰锥) ──────────────────────────────────────────
+        class StageHazard {
+            constructor(type, x, y) {
+                this.type = type; // 'lava_geyser', 'falling_icicle'
+                this.x = x;
+                this.y = y;
+                this.timer = 0;
+                this.state = 'warning'; // 'warning', 'active', 'done'
+                this.warningTime = type === 'lava_geyser' ? 70 : 60;
+                this.activeTime = type === 'lava_geyser' ? 40 : 1;
+                this.vy = 0;
+                this.width = type === 'lava_geyser' ? 50 : 25;
+                this.height = type === 'lava_geyser' ? 300 : 40;
+                this.hasHit = false;
+            }
+
+            update(game) {
+                this.timer++;
+
+                if (this.type === 'lava_geyser') {
+                    if (this.state === 'warning') {
+                        if (this.timer >= this.warningTime) {
+                            this.state = 'active';
+                            this.timer = 0;
+                            sound.playSynth([{ start: 60, end: 120 }], 0.4, 'sawtooth', 0.2, 0.08);
+                            game.shakeTimer = 8;
+                        }
+                    } else if (this.state === 'active') {
+                        // 伤害判定：无差别伤害任何未处于完美挡拆状态的玩家 (岩浆烫！)
+                        if (!this.hasHit) {
+                            [game.p1, game.p2].forEach(p => {
+                                const dist = Math.abs(p.x - this.x);
+                                if (dist < (this.width/2 + p.width/2) && p.y + p.height > GROUND_Y - this.height) {
+                                    p.takeDamage(1, game);
+                                }
+                            });
+                            this.hasHit = true;
+                        }
+
+                        // 喷射粒子
+                        game.particles.push(new Particle(
+                            this.x + (Math.random() - 0.5) * this.width,
+                            GROUND_Y - Math.random() * this.height,
+                            (Math.random() - 0.5) * 2,
+                            -Math.random() * 5 - 2,
+                            Math.random() * 6 + 2,
+                            '#ff3d00',
+                            15,
+                            'gravity'
+                        ));
+
+                        if (this.timer >= this.activeTime) {
+                            this.state = 'done';
+                        }
+                    }
+                } else if (this.type === 'falling_icicle') {
+                    if (this.state === 'warning') {
+                        if (this.timer >= this.warningTime) {
+                            this.state = 'active';
+                            this.timer = 0;
+                            this.vy = 2; // 开始下落
+                        }
+                    } else if (this.state === 'active') {
+                        this.vy += 0.3; // 加速度
+                        this.y += this.vy;
+
+                        // 判定砸中玩家
+                        [game.p1, game.p2].forEach(p => {
+                            if (!this.hasHit) {
+                                const hitBoxX = Math.abs(p.x - this.x) < 25;
+                                const hitBoxY = this.y + this.height >= p.y && this.y <= p.y + p.height;
+                                if (hitBoxX && hitBoxY) {
+                                    p.takeDamage(1, game);
+                                    p.freeze(20);
+                                    this.hasHit = true;
+                                    this.state = 'done';
+                                    sound.playBlock(); // 冰砸碎声
+                                }
+                            }
+                        });
+
+                        // 落地判定
+                        if (this.y + this.height >= GROUND_Y) {
+                            this.state = 'done';
+                            sound.playSynth([{ start: 600, end: 300 }], 0.1, 'sine', 0.05, 0.05); // 冰块落地碎裂
+                            // 碎裂粒子
+                            for (let i = 0; i < 6; i++) {
+                                game.particles.push(new Particle(
+                                    this.x,
+                                    GROUND_Y - 5,
+                                    (Math.random() - 0.5) * 4,
+                                    -Math.random() * 3 - 1,
+                                    Math.random() * 3 + 1,
+                                    '#e0f7fa',
+                                    15,
+                                    'gravity'
+                                ));
+                            }
+                        }
+                    }
+                }
+            }
+
+            draw(ctx) {
+                ctx.save();
+                if (this.type === 'lava_geyser') {
+                    if (this.state === 'warning') {
+                        // 地表红色裂纹闪烁
+                        const alpha = 0.3 + Math.sin(this.timer * 0.15) * 0.25;
+                        ctx.fillStyle = `rgba(255, 61, 0, ${alpha})`;
+                        ctx.beginPath();
+                        ctx.ellipse(this.x, GROUND_Y, 25, 6, 0, 0, Math.PI * 2);
+                        ctx.fill();
+
+                        ctx.strokeStyle = '#ff3d00';
+                        ctx.lineWidth = 1.5;
+                        ctx.beginPath();
+                        ctx.ellipse(this.x, GROUND_Y, 15, 4, 0, 0, Math.PI * 2);
+                        ctx.stroke();
+                    } else if (this.state === 'active') {
+                        // 岩浆冲天柱
+                        const grad = ctx.createLinearGradient(this.x - 15, 0, this.x + 15, 0);
+                        grad.addColorStop(0, '#e65100');
+                        grad.addColorStop(0.5, '#ffb74d');
+                        grad.addColorStop(1, '#e65100');
+
+                        ctx.fillStyle = grad;
+                        ctx.beginPath();
+                        ctx.rect(this.x - 15, GROUND_Y - this.height, 30, this.height);
+                        ctx.fill();
+                    }
+                } else if (this.type === 'falling_icicle') {
+                    if (this.state === 'warning') {
+                        // 空中结冰的警示标记 (小蓝光圈在顶棚，并且地面有虚线阴影指示)
+                        const alpha = 0.2 + Math.sin(this.timer * 0.1) * 0.15;
+                        ctx.fillStyle = `rgba(0, 229, 255, ${alpha})`;
+                        ctx.beginPath();
+                        ctx.ellipse(this.x, GROUND_Y, 20, 4, 0, 0, Math.PI * 2);
+                        ctx.fill();
+
+                        // 绘制一把小小的闪烁冰柱挂在头顶
+                        ctx.strokeStyle = 'rgba(0, 229, 255, 0.7)';
+                        ctx.lineWidth = 1;
+                        ctx.beginPath();
+                        ctx.moveTo(this.x - 8, 30);
+                        ctx.lineTo(this.x, 30 + 20);
+                        ctx.lineTo(this.x + 8, 30);
+                        ctx.closePath();
+                        ctx.stroke();
+                    } else if (this.state === 'active') {
+                        // 下落的冰锥
+                        const grad = ctx.createLinearGradient(this.x - 8, 0, this.x + 8, 0);
+                        grad.addColorStop(0, '#0288d1');
+                        grad.addColorStop(0.5, '#b3e5fc');
+                        grad.addColorStop(1, '#0288d1');
+
+                        ctx.fillStyle = grad;
+                        ctx.beginPath();
+                        ctx.moveTo(this.x - 8, this.y);
+                        ctx.lineTo(this.x, this.y + this.height);
+                        ctx.lineTo(this.x + 8, this.y);
+                        ctx.closePath();
+                        ctx.fill();
+                        
+                        ctx.strokeStyle = '#ffffff';
+                        ctx.lineWidth = 1;
+                        ctx.beginPath();
+                        ctx.moveTo(this.x, this.y);
+                        ctx.lineTo(this.x, this.y + this.height);
+                        ctx.stroke();
+                    }
+                }
+                ctx.restore();
+            }
+        }
+
+        // ── 玩家角色类 ──────────────────────────────────────────────────────────────
+        class Player {
+            constructor(id, x, y, avatar, color, secondaryColor) {
+                this.id = id; // 'p1' or 'p2'
+                this.x = x;
+                this.y = y;
+                this.vx = 0;
+                this.vy = 0;
+                this.width = 60;
+                this.height = 90;
+                
+                this.avatar = avatar;
+                this.color = color;
+                this.secondaryColor = secondaryColor;
+
+                // 战斗属性
+                this.hearts = 3;
+                this.isGrounded = false;
+                this.state = 'idle'; // 'idle', 'walk', 'jump', 'block', 'hit', 'defeat', 'victory'
+                this.direction = id === 'p1' ? 1 : -1; // 1 = 右，-1 = 左
+                
+                // 冻结/受击僵直状态
+                this.hitStunTimer = 0;
+                this.freezeTimer = 0;
+                
+                // 技能CD
+                this.specialCd = 0;
+                this.maxSpecialCd = 300; // 5秒 @ 60fps
+                this.normalAttackCd = 0;
+
+                // 卡通浮动动画（用于魔法师 floating）
+                this.animTimer = 0;
+            }
+
+            reset(x, y) {
+                this.x = x;
+                this.y = y;
+                this.vx = 0;
+                this.vy = 0;
+                this.hearts = 3;
+                this.state = 'idle';
+                this.direction = this.id === 'p1' ? 1 : -1;
+                this.hitStunTimer = 0;
+                this.freezeTimer = 0;
+                this.specialCd = 0;
+                this.normalAttackCd = 0;
+            }
+
+            takeDamage(amount, game) {
+                if (this.state === 'defeat') return;
+
+                // 检查是否正在格挡且正对攻击源
+                // 这里我们简化：如果在格挡状态，直接触发格挡免伤
+                if (this.state === 'block' && this.freezeTimer <= 0) {
+                    sound.playBlock();
+                    // 格挡粒子
+                    const px = this.x + this.direction * 30;
+                    for (let i = 0; i < 8; i++) {
+                        game.particles.push(new Particle(
+                            px,
+                            this.y + this.height/2 + (Math.random() - 0.5) * 30,
+                            -this.direction * (Math.random() * 3 + 1),
+                            (Math.random() - 0.5) * 4,
+                            Math.random() * 4 + 2,
+                            this.id === 'p1' ? '#ff9100' : '#80deea',
+                            15
+                        ));
+                    }
+                    // 格挡稍微给一点微弱的后退推力
+                    this.vx = -this.direction * 2;
+                    return;
+                }
+
+                // 扣血
+                this.hearts = Math.max(0, this.hearts - amount);
+                this.state = 'hit';
+                this.hitStunTimer = 20; // 0.3 秒受击僵直
+                
+                sound.playHit();
+                
+                // 受击粒子
+                for (let i = 0; i < 15; i++) {
+                    game.particles.push(new Particle(
+                        this.x + this.width/2,
+                        this.y + this.height/2,
+                        (Math.random() - 0.5) * 10,
+                        -Math.random() * 8 - 2,
+                        Math.random() * 6 + 3,
+                        this.id === 'p1' ? '#ff3d00' : '#00b0ff',
+                        25,
+                        'gravity'
+                    ));
+                }
+
+                // 击退力
+                this.vx = -this.direction * 7;
+                this.vy = -4; // 微弱浮空
+                
+                // 屏幕大震动
+                game.shakeTimer = 12;
+
+                // UI更新
+                game.updateHearts();
+
+                if (this.hearts <= 0) {
+                    this.state = 'defeat';
+                    this.vx = -this.direction * 4;
+                    this.vy = -6;
+                }
+            }
+
+            freeze(duration) {
+                this.freezeTimer = duration;
+                this.vx = 0;
+            }
+
+            update(game) {
+                this.animTimer++;
+                
+                if (this.specialCd > 0) this.specialCd--;
+                if (this.normalAttackCd > 0) this.normalAttackCd--;
+
+                // 处理冰冻
+                if (this.freezeTimer > 0) {
+                    this.freezeTimer--;
+                    this.vx *= 0.5; // 被冻住无法移动
+                    this.state = 'idle'; // 僵立
+                    return;
+                }
+
+                // 处理受击僵直
+                if (this.hitStunTimer > 0) {
+                    this.hitStunTimer--;
+                    // 施加摩擦力减速
+                    this.vx *= FRICTION;
+                    this.y += this.vy;
+                    this.vy += GRAVITY;
+                    
+                    // 地面碰撞
+                    if (this.y + this.height >= GROUND_Y) {
+                        this.y = GROUND_Y - this.height;
+                        this.vy = 0;
+                        this.isGrounded = true;
+                    }
+                    
+                    if (this.hitStunTimer === 0 && this.state !== 'defeat') {
+                        this.state = 'idle';
+                    }
+                    return;
+                }
+
+                // 阵亡状态
+                if (this.state === 'defeat') {
+                    this.y += this.vy;
+                    this.vy += GRAVITY;
+                    this.vx *= 0.95;
+                    this.x += this.vx;
+
+                    if (this.y + this.height >= GROUND_Y) {
+                        this.y = GROUND_Y - this.height;
+                        this.vy = 0;
+                        this.vx = 0;
+                        this.isGrounded = true;
+                    }
+                    return;
+                }
+
+                // 正常移动和动作逻辑
+                this.handleInput(game);
+
+                // 物理计算
+                this.x += this.vx;
+                this.vx *= FRICTION;
+
+                this.y += this.vy;
+                this.vy += GRAVITY;
+
+                // 判定着地
+                if (this.y + this.height >= GROUND_Y) {
+                    this.y = GROUND_Y - this.height;
+                    this.vy = 0;
+                    this.isGrounded = true;
+                } else {
+                    this.isGrounded = false;
+                }
+
+                // 限制屏幕范围
+                if (this.x < 10) {
+                    this.x = 10;
+                    this.vx = 0;
+                }
+                if (this.x + this.width > CANVAS_WIDTH - 10) {
+                    this.x = CANVAS_WIDTH - 10 - this.width;
+                    this.vx = 0;
+                }
+            }
+
+            handleInput(game) {
+                // 自动面向对手
+                const opponent = this.id === 'p1' ? game.p2 : game.p1;
+                if (opponent.state !== 'defeat') {
+                    this.direction = (opponent.x + opponent.width/2 > this.x + this.width/2) ? 1 : -1;
+                }
+
+                let isMoving = false;
+
+                if (this.id === 'p1') {
+                    // P1 (火焰魔法师) 控制
+                    if (keys.s) {
+                        this.state = 'block';
+                        this.vx = 0;
+                        return; // 盾防时不能移动和跳跃
+                    }
+
+                    if (keys.a) {
+                        this.vx = -4.5;
+                        isMoving = true;
+                    }
+                    if (keys.d) {
+                        this.vx = 4.5;
+                        isMoving = true;
+                    }
+                    if (keys.w && this.isGrounded) {
+                        this.vy = -14.5;
+                        this.isGrounded = false;
+                        sound.playJump();
+                        // 跳跃尘土粒子
+                        for (let i = 0; i < 5; i++) {
+                            game.particles.push(new Particle(this.x + this.width/2, GROUND_Y - 5, (Math.random() - 0.5) * 4, -Math.random() * 2, Math.random() * 3 + 2, 'rgba(255,255,255,0.3)', 15));
+                        }
+                    }
+
+                    // P1 普攻: 火球术
+                    if (keys.f && this.normalAttackCd === 0) {
+                        this.normalAttack();
+                        game.fireProjectile(this);
+                    }
+
+                    // P1 特技: 召唤地裂火柱
+                    if (keys.g && this.specialCd === 0) {
+                        this.specialAttack();
+                        game.spawnGroundSpecial(this, opponent.x + opponent.width/2);
+                    }
+                } else {
+                    // P2 (冰霜骑士) 控制
+                    if (keys.ArrowDown) {
+                        this.state = 'block';
+                        this.vx = 0;
+                        return;
+                    }
+
+                    if (keys.ArrowLeft) {
+                        this.vx = -4.2; // 骑士略慢重一些
+                        isMoving = true;
+                    }
+                    if (keys.ArrowRight) {
+                        this.vx = 4.2;
+                        isMoving = true;
+                    }
+                    if (keys.ArrowUp && this.isGrounded) {
+                        this.vy = -13.5; // 跳得稍微低一点
+                        this.isGrounded = false;
+                        sound.playJump();
+                        // 跳跃雪屑粒子
+                        for (let i = 0; i < 5; i++) {
+                            game.particles.push(new Particle(this.x + this.width/2, GROUND_Y - 5, (Math.random() - 0.5) * 4, -Math.random() * 2, Math.random() * 3 + 2, 'rgba(200,240,255,0.4)', 15));
+                        }
+                    }
+
+                    // P2 普攻: 寒冰斩 (带一段刀风)
+                    if (keys.i && this.normalAttackCd === 0) {
+                        this.normalAttack();
+                        game.fireProjectile(this);
+                    }
+
+                    // P2 特技: 极冰突刺
+                    if (keys.o && this.specialCd === 0) {
+                        this.specialAttack();
+                        // 特技以当前骑士站立的X为起点，朝向对方
+                        game.spawnGroundSpecial(this, opponent.x + opponent.width/2);
+                    }
+                }
+
+                // 更新状态名
+                if (!this.isGrounded) {
+                    this.state = 'jump';
+                } else if (isMoving) {
+                    this.state = 'walk';
+                } else {
+                    this.state = 'idle';
+                }
+            }
+
+            normalAttack() {
+                this.normalAttackCd = 25; // 0.4 秒攻击间隔
+                this.state = 'walk'; // 摆出施法动作
+                sound.playFireball();
+            }
+
+            specialAttack() {
+                this.specialCd = this.maxSpecialCd;
+                this.state = 'walk';
+                // 稍微震屏
+                this.vx = -this.direction * 2; // 后坐力
+            }
+
+            draw(ctx) {
+                ctx.save();
+
+                // 冰冻蓝色滤镜
+                if (this.freezeTimer > 0) {
+                    ctx.shadowColor = '#00e5ff';
+                    ctx.shadowBlur = 20;
+                }
+
+                // 绘制角色本体
+                if (this.id === 'p1') {
+                    this.drawFireMage(ctx);
+                } else {
+                    this.drawFrostKnight(ctx);
+                }
+
+                // 绘制血量值头顶指示（可选）
+                
+                // 绘制格挡护盾
+                if (this.state === 'block') {
+                    ctx.shadowBlur = 20;
+                    ctx.shadowColor = this.color;
+                    ctx.fillStyle = this.id === 'p1' ? 'rgba(255, 87, 34, 0.25)' : 'rgba(0, 229, 255, 0.25)';
+                    ctx.strokeStyle = this.color;
+                    ctx.lineWidth = 3;
+                    ctx.beginPath();
+                    
+                    // 火盾是一个火球圈，冰盾是身前的半弧形或矩形
+                    if (this.id === 'p1') {
+                        ctx.arc(this.x + this.width/2, this.y + this.height/2, this.height * 0.6, 0, Math.PI * 2);
+                        ctx.stroke();
+                        ctx.fill();
+                    } else {
+                        // 冰霜冰巨盾
+                        const shieldX = this.direction === 1 ? this.x + this.width + 10 : this.x - 20;
+                        ctx.beginPath();
+                        ctx.rect(shieldX, this.y - 10, 15, this.height + 20);
+                        ctx.stroke();
+                        ctx.fill();
+                    }
+                }
+
+                // 绘制冰冻冰封框
+                if (this.freezeTimer > 0) {
+                    ctx.fillStyle = 'rgba(128, 222, 234, 0.35)';
+                    ctx.strokeStyle = '#00e5ff';
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.rect(this.x - 5, this.y - 5, this.width + 10, this.height + 10);
+                    ctx.fill();
+                    ctx.stroke();
+                    
+                    // 冰刺棱角线
+                    ctx.strokeStyle = '#fff';
+                    ctx.beginPath();
+                    ctx.moveTo(this.x - 5, this.y - 5); ctx.lineTo(this.x + this.width + 5, this.y + this.height + 5);
+                    ctx.moveTo(this.x + this.width + 5, this.y - 5); ctx.lineTo(this.x - 5, this.y + this.height + 5);
+                    ctx.stroke();
+                }
+
+                ctx.restore();
+            }
+
+            // 绘制火焰魔法师
+            drawFireMage(ctx) {
+                const cx = this.x + this.width / 2;
+                // 魔法师离地飘浮高度
+                const floatY = this.state === 'defeat' ? 0 : Math.sin(this.animTimer * 0.08) * 8;
+                const cy = this.y + this.height / 2 + floatY;
+
+                ctx.save();
+                
+                // 受击闪红
+                if (this.hitStunTimer > 0 && Math.floor(this.animTimer / 2) % 2 === 0) {
+                    ctx.filter = 'brightness(2) sepia(1) saturate(100) hue-rotate(-50deg)';
+                }
+
+                // 1. 披风/长袍 (动态摆动)
+                const robeWave = this.state === 'defeat' ? 0 : Math.sin(this.animTimer * 0.1) * 6;
+                const gradRobe = ctx.createLinearGradient(cx, cy - 30, cx, cy + 50);
+                gradRobe.addColorStop(0, '#b71c1c');
+                gradRobe.addColorStop(0.7, '#ff5722');
+                gradRobe.addColorStop(1, '#ff9100');
+
+                ctx.fillStyle = gradRobe;
+                ctx.beginPath();
+                ctx.moveTo(cx - 25, cy - 20);
+                ctx.quadraticCurveTo(cx - 35 + robeWave, cy + 45, cx - 15, cy + 45);
+                ctx.quadraticCurveTo(cx, cy + 35, cx + 15, cy + 45);
+                ctx.quadraticCurveTo(cx + 35 - robeWave, cy + 45, cx + 25, cy - 20);
+                ctx.closePath();
+                ctx.fill();
+
+                // 2. 头部 (兜帽面部全黑，只露出两只发亮的黄色眼睛)
+                ctx.fillStyle = '#1e1e24';
+                ctx.beginPath();
+                ctx.arc(cx, cy - 20, 20, 0, Math.PI * 2);
+                ctx.fill();
+
+                // 发光眼睛
+                ctx.shadowBlur = 8;
+                ctx.shadowColor = '#ffd54f';
+                ctx.fillStyle = '#ffd54f';
+                ctx.beginPath();
+                if (this.direction === 1) {
+                    ctx.ellipse(cx + 4, cy - 22, 4, 2, 0, 0, Math.PI * 2);
+                    ctx.ellipse(cx + 12, cy - 22, 4, 2, 0, 0, Math.PI * 2);
+                } else {
+                    ctx.ellipse(cx - 12, cy - 22, 4, 2, 0, 0, Math.PI * 2);
+                    ctx.ellipse(cx - 4, cy - 22, 4, 2, 0, 0, Math.PI * 2);
+                }
+                ctx.fill();
+                ctx.shadowBlur = 0; // 重置
+
+                // 3. 巫师帽 (大号红黄色圆锥形尖帽)
+                const gradHat = ctx.createLinearGradient(cx - 30, cy - 30, cx + 30, cy - 60);
+                gradHat.addColorStop(0, '#ff3d00');
+                gradHat.addColorStop(1, '#b71c1c');
+                ctx.fillStyle = gradHat;
+
+                ctx.beginPath();
+                ctx.ellipse(cx, cy - 28, 25, 6, 0, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.fillStyle = '#b71c1c';
+                ctx.beginPath();
+                ctx.moveTo(cx - 18, cy - 30);
+                // 尖角向后飘摆
+                const hatTipX = cx - 25 * this.direction + (this.state === 'walk' ? -5 * this.direction : 0);
+                ctx.quadraticCurveTo(cx - 10, cy - 55, hatTipX, cy - 65);
+                ctx.quadraticCurveTo(cx + 10, cy - 50, cx + 18, cy - 30);
+                ctx.closePath();
+                ctx.fill();
+
+                // 帽檐黄色装饰带
+                ctx.strokeStyle = '#ffd54f';
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.ellipse(cx, cy - 29, 20, 3, 0, 0, Math.PI * 2);
+                ctx.stroke();
+
+                // 4. 浮动的魔法手与发光法杖
+                const staffX = cx + 32 * this.direction;
+                const staffY = cy + Math.cos(this.animTimer * 0.08) * 4;
+                
+                // 木制长法杖
+                ctx.strokeStyle = '#5d4037';
+                ctx.lineWidth = 5;
+                ctx.lineCap = 'round';
+                ctx.beginPath();
+                ctx.moveTo(staffX, staffY - 45);
+                ctx.lineTo(staffX + 5 * this.direction, staffY + 35);
+                ctx.stroke();
+
+                // 法杖顶端的发光魔法红宝石
+                ctx.save();
+                const gemPulse = 12 + Math.sin(this.animTimer * 0.15) * 4;
+                ctx.shadowBlur = gemPulse;
+                ctx.shadowColor = '#ff3d00';
+                ctx.fillStyle = '#ff5722';
+                ctx.beginPath();
+                ctx.arc(staffX - 2 * this.direction, staffY - 45, 10, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // 宝石内圈高光
+                ctx.fillStyle = '#fff';
+                ctx.beginPath();
+                ctx.arc(staffX - 4 * this.direction, staffY - 48, 4, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+
+                // 魔法手套 (黄橙色小圆手，漂浮在身体和法杖之间)
+                ctx.fillStyle = '#ffb74d';
+                ctx.beginPath();
+                ctx.arc(cx + 18 * this.direction, cy + 5, 7, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.restore();
+            }
+
+            // 绘制冰霜骑士
+            drawFrostKnight(ctx) {
+                const cx = this.x + this.width / 2;
+                const cy = this.y + this.height / 2;
+                
+                ctx.save();
+
+                // 受击闪蓝
+                if (this.hitStunTimer > 0 && Math.floor(this.animTimer / 2) % 2 === 0) {
+                    ctx.filter = 'brightness(2) sepia(1) saturate(100) hue-rotate(140deg)';
+                }
+
+                // 1. 披风 (深蓝色，飘逸在身后)
+                const capeWave = this.state === 'defeat' ? 0 : Math.sin(this.animTimer * 0.12) * 5;
+                ctx.fillStyle = '#0d47a1';
+                ctx.beginPath();
+                ctx.moveTo(cx - 15 * this.direction, cy - 20);
+                // 披风向面朝反方向飘
+                const capeTipX = cx - 35 * this.direction + capeWave;
+                ctx.quadraticCurveTo(capeTipX, cy + 30, cx - 25 * this.direction, cy + 45);
+                ctx.quadraticCurveTo(cx, cy + 40, cx + 15 * this.direction, cy + 40);
+                ctx.quadraticCurveTo(cx + 5 * this.direction, cy + 10, cx - 5 * this.direction, cy - 20);
+                ctx.fill();
+
+                // 2. 双腿/重铠脚 (行进时有抬腿交替动作)
+                ctx.fillStyle = '#37474f';
+                ctx.strokeStyle = '#90a4ae';
+                ctx.lineWidth = 2;
+                let legL = 40, legR = 40;
+                if (this.state === 'walk') {
+                    legL = 40 + Math.sin(this.animTimer * 0.15) * 6;
+                    legR = 40 - Math.sin(this.animTimer * 0.15) * 6;
+                } else if (this.state === 'defeat') {
+                    legL = 15;
+                    legR = 15;
+                }
+                
+                // 左腿
+                ctx.beginPath();
+                ctx.rect(cx - 18, cy + 5, 12, legL);
+                ctx.fill(); ctx.stroke();
+                
+                // 右腿
+                ctx.beginPath();
+                ctx.rect(cx + 6, cy + 5, 12, legR);
+                ctx.fill(); ctx.stroke();
+
+                // 3. 铠甲躯干 (厚实的银灰色亮铠甲)
+                const gradBody = ctx.createLinearGradient(cx - 20, cy - 25, cx + 20, cy + 15);
+                gradBody.addColorStop(0, '#cfd8dc');
+                gradBody.addColorStop(0.5, '#78909c');
+                gradBody.addColorStop(1, '#455a64');
+                ctx.fillStyle = gradBody;
+                
+                ctx.beginPath();
+                ctx.roundRect(cx - 22, cy - 25, 44, 35, [10, 10, 5, 5]);
+                ctx.fill();
+                ctx.stroke();
+
+                // 胸前雪花印记
+                ctx.strokeStyle = '#00e5ff';
+                ctx.lineWidth = 1.5;
+                ctx.beginPath();
+                ctx.moveTo(cx, cy - 18); ctx.lineTo(cx, cy - 6);
+                ctx.moveTo(cx - 6, cy - 12); ctx.lineTo(cx + 6, cy - 12);
+                ctx.stroke();
+
+                // 4. 肩甲和重拳手
+                ctx.fillStyle = '#b0bec5';
+                // 前肩甲
+                ctx.beginPath();
+                ctx.arc(cx + 18 * this.direction, cy - 22, 10, 0, Math.PI * 2);
+                ctx.fill(); ctx.stroke();
+                
+                // 后肩甲
+                ctx.fillStyle = '#78909c';
+                ctx.beginPath();
+                ctx.arc(cx - 18 * this.direction, cy - 22, 8, 0, Math.PI * 2);
+                ctx.fill(); ctx.stroke();
+
+                // 5. 铠甲头盔 (带横条发光眼缝)
+                ctx.fillStyle = '#cfd8dc';
+                ctx.beginPath();
+                ctx.arc(cx, cy - 35, 16, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.stroke();
+
+                // 头盔顶的红缨/冰缨 (向后摆)
+                ctx.fillStyle = '#00b0ff';
+                ctx.beginPath();
+                ctx.moveTo(cx, cy - 50);
+                ctx.quadraticCurveTo(cx - 15 * this.direction, cy - 58, cx - 22 * this.direction, cy - 45);
+                ctx.quadraticCurveTo(cx - 10 * this.direction, cy - 47, cx, cy - 47);
+                ctx.fill();
+
+                // 发光护目镜眼缝 (冰蓝色)
+                ctx.save();
+                ctx.shadowBlur = 8;
+                ctx.shadowColor = '#00e5ff';
+                ctx.fillStyle = '#00e5ff';
+                ctx.beginPath();
+                if (this.direction === 1) {
+                    ctx.rect(cx - 4, cy - 38, 16, 4);
+                } else {
+                    ctx.rect(cx - 12, cy - 38, 16, 4);
+                }
+                ctx.fill();
+                ctx.restore();
+
+                // 6. 巨型寒冰大剑 (斜跨或手持)
+                ctx.save();
+                // 设定剑的旋转姿态：idle时抗在肩上，攻击时挥出
+                let swordAngle = -0.5 * Math.PI; // 向上竖直
+                let handX = cx + 24 * this.direction;
+                let handY = cy;
+
+                if (this.state === 'walk') {
+                    swordAngle = -0.6 * Math.PI + Math.sin(this.animTimer * 0.1) * 0.1;
+                } else if (this.state === 'defeat') {
+                    // 倒地时剑掉在地上
+                    swordAngle = 0.4 * Math.PI * this.direction;
+                    handX = cx + 20 * this.direction;
+                    handY = cy + 25;
+                }
+
+                // 绘制手持巨剑
+                ctx.translate(handX, handY);
+                ctx.rotate(swordAngle * this.direction);
+
+                // 剑柄
+                ctx.strokeStyle = '#5d4037';
+                ctx.lineWidth = 4;
+                ctx.beginPath();
+                ctx.moveTo(0, 0);
+                ctx.lineTo(0, 15);
+                ctx.stroke();
+
+                // 护手
+                ctx.strokeStyle = '#b0bec5';
+                ctx.lineWidth = 5;
+                ctx.beginPath();
+                ctx.moveTo(-15, 0);
+                ctx.lineTo(15, 0);
+                ctx.stroke();
+
+                // 冰剑身 (宽大，青色渐变，边缘发光)
+                const gradSword = ctx.createLinearGradient(-10, -50, 10, -50);
+                gradSword.addColorStop(0, '#00b0ff');
+                gradSword.addColorStop(0.5, '#e0f7fa');
+                gradSword.addColorStop(1, '#00b0ff');
+
+                ctx.shadowBlur = 12;
+                ctx.shadowColor = '#00e5ff';
+                ctx.fillStyle = gradSword;
+                ctx.strokeStyle = '#80deea';
+                ctx.lineWidth = 1.5;
+                ctx.beginPath();
+                ctx.moveTo(-9, 0);
+                ctx.lineTo(-9, -65);
+                ctx.lineTo(0, -78); // 尖端
+                ctx.lineTo(9, -65);
+                ctx.lineTo(9, 0);
+                ctx.closePath();
+                ctx.fill();
+                ctx.stroke();
+
+                // 剑身反光线
+                ctx.strokeStyle = '#fff';
+                ctx.beginPath();
+                ctx.moveTo(0, 0);
+                ctx.lineTo(0, -70);
+                ctx.stroke();
+
+                ctx.restore();
+
+                // 骑士拳套/重手
+                ctx.fillStyle = '#78909c';
+                ctx.beginPath();
+                ctx.arc(cx + 22 * this.direction, cy + 2, 7, 0, Math.PI * 2);
+                ctx.fill(); ctx.stroke();
+
+                ctx.restore();
+            }
+        }
+
+        // ── 核心对决游戏引擎 ────────────────────────────────────────────────────────
+        class ElementalClash {
+            constructor() {
+                this.canvas = document.getElementById('gameCanvas');
+                this.ctx = this.canvas.getContext('2d');
+                
+                // 玩家
+                this.p1 = new Player('p1', 200, GROUND_Y - 90, '🔥', '#ff5722', '#ffb74d');
+                this.p2 = new Player('p2', 764, GROUND_Y - 90, '❄️', '#00e5ff', '#80deea');
+
+                // 游戏状态
+                this.state = 'START'; // 'START', 'ROUND_INTRO', 'PLAYING', 'ROUND_OVER', 'GAME_OVER'
+                this.currentRound = 1;
+                this.currentStageIdx = 0; // 0 = 城堡, 1 = 火山, 2 = 雪原
+                
+                this.roundTimer = 99;
+                this.timerInterval = null;
+                
+                // 数据累积 (结算面板展示)
+                this.totalHits = 0;
+                
+                // 实体数组
+                this.projectiles = [];
+                this.groundSpecials = [];
+                this.hazards = [];
+                this.particles = [];
+
+                // 视觉修饰
+                this.shakeTimer = 0;
+                
+                // 初始化按钮事件
+                document.getElementById('startBtn').onclick = () => this.startGame();
+                document.getElementById('restartBtn').onclick = () => this.restartMatch();
+                
+                const sBtn = document.getElementById('soundBtn');
+                sBtn.onclick = () => {
+                    sound.muted = !sound.muted;
+                    sound.setMute(sound.muted);
+                    sBtn.innerText = sound.muted ? '🔇' : '🔊';
+                };
+
+                // 雪原雪花/火山火星的背景环境粒子
+                this.bgParticles = [];
+                this.initBgParticles();
+
+                // 挂载全局，供音频同步
+                window.currentGame = this;
+
+                // 启动循环
+                this.tick();
+            }
+
+            initBgParticles() {
+                this.bgParticles = [];
+                // 城堡落尘，火山火星，雪原雪花
+                for (let i = 0; i < 50; i++) {
+                    this.bgParticles.push({
+                        x: Math.random() * CANVAS_WIDTH,
+                        y: Math.random() * CANVAS_HEIGHT,
+                        size: Math.random() * 3 + 1,
+                        vy: Math.random() * 1.5 + 0.5,
+                        vx: (Math.random() - 0.5) * 1,
+                        opacity: Math.random() * 0.5 + 0.2
+                    });
+                }
+            }
+
+            updateBgParticles() {
+                this.bgParticles.forEach(p => {
+                    if (this.currentStageIdx === 0) {
+                        // 城堡: 慢速尘埃
+                        p.y += p.vy * 0.3;
+                        p.x += p.vx * 0.3;
+                    } else if (this.currentStageIdx === 1) {
+                        // 火山: 火星向上飘
+                        p.y -= p.vy * 0.8;
+                        p.x += p.vx * 0.8;
+                    } else {
+                        // 雪原: 雪花倾斜向下落
+                        p.y += p.vy * 1.2;
+                        p.x += (p.vx - 1.0) * 0.8; // 吹北风向左偏
+                    }
+
+                    // 循环出屏
+                    if (p.y > CANVAS_HEIGHT) {
+                        p.y = 0;
+                        p.x = Math.random() * CANVAS_WIDTH;
+                    } else if (p.y < 0) {
+                        p.y = CANVAS_HEIGHT;
+                        p.x = Math.random() * CANVAS_WIDTH;
+                    }
+                    if (p.x > CANVAS_WIDTH) p.x = 0;
+                    if (p.x < 0) p.x = CANVAS_WIDTH;
+                });
+            }
+
+            drawBgParticles() {
+                this.ctx.save();
+                this.bgParticles.forEach(p => {
+                    let color = 'rgba(255,255,255,';
+                    if (this.currentStageIdx === 0) {
+                        color = 'rgba(200,180,220,'; // 城堡紫尘
+                    } else if (this.currentStageIdx === 1) {
+                        color = 'rgba(255,90,0,'; // 火山红火星
+                    } else {
+                        color = 'rgba(224,247,250,'; // 雪原蓝雪
+                    }
+                    
+                    this.ctx.fillStyle = color + p.opacity + ')';
+                    this.ctx.beginPath();
+                    this.ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                    this.ctx.fill();
+                });
+                this.ctx.restore();
+            }
+
+            startGame() {
+                sound.init();
+                sound.playAnnounce();
+                document.getElementById('startScreen').classList.remove('active');
+                
+                this.currentRound = 1;
+                this.p1.score = 0;
+                this.p2.score = 0;
+                this.totalHits = 0;
+                
+                this.resetOrbs();
+                this.startRound();
+            }
+
+            startRound() {
+                // 轮换三个场景
+                this.currentStageIdx = (this.currentRound - 1) % 3;
+                
+                // 更新UI上的场景名称和发光主题
+                const stage = STAGES[this.currentStageIdx];
+                document.getElementById('stageName').innerText = stage.name;
+                
+                const wrapper = document.getElementById('gameWrapper');
+                wrapper.style.borderColor = stage.accentColor;
+                wrapper.style.boxShadow = `0 0 30px rgba(0,0,0,0.8), 0 0 15px ${stage.accentColor}44`;
+
+                // 重置玩家位置和状态
+                this.p1.reset(220, GROUND_Y - 90);
+                this.p2.reset(CANVAS_WIDTH - 220 - 60, GROUND_Y - 90);
+                
+                // 清理实体
+                this.projectiles = [];
+                this.groundSpecials = [];
+                this.hazards = [];
+                this.particles = [];
+                this.initBgParticles();
+
+                this.updateHearts();
+                
+                // 停止老定时器
+                if (this.timerInterval) clearInterval(this.timerInterval);
+
+                // 播放局数通告
+                this.state = 'ROUND_INTRO';
+                const ann = document.getElementById('announcementText');
+                ann.innerText = `ROUND ${this.currentRound}`;
+                ann.className = "round-announcement active round-text";
+                
+                sound.playSynth([{ start: 300, end: 400 }], 0.3, 'sine', 0.2, 0.1);
+
+                setTimeout(() => {
+                    ann.innerText = "FIGHT!";
+                    ann.className = "round-announcement active fight-text";
+                    sound.playSynth([{ start: 450, end: 600 }, { start: 200, end: 500 }], 0.4, 'sawtooth', 0.3, 0.15);
+                    
+                    // 启动计时
+                    this.roundTimer = 99;
+                    document.getElementById('timerText').innerText = this.roundTimer;
+                    this.startTimer();
+                    
+                    this.state = 'PLAYING';
+                    
+                    setTimeout(() => {
+                        ann.classList.remove('active');
+                    }, 800);
+                }, 1800);
+            }
+
+            startTimer() {
+                this.timerInterval = setInterval(() => {
+                    if (this.state === 'PLAYING') {
+                        this.roundTimer--;
+                        document.getElementById('timerText').innerText = this.roundTimer;
+                        
+                        if (this.roundTimer <= 0) {
+                            this.endRound(true); // 时间到
+                        }
+
+                        // 火山场景：随机生成地表岩浆柱
+                        if (this.currentStageIdx === 1 && Math.random() < 0.035 && this.hazards.length < 2) {
+                            const rx = 100 + Math.random() * (CANVAS_WIDTH - 200);
+                            this.hazards.push(new StageHazard('lava_geyser', rx, GROUND_Y));
+                        }
+
+                        // 雪原场景：随机生成掉落冰锥
+                        if (this.currentStageIdx === 2 && Math.random() < 0.045 && this.hazards.length < 3) {
+                            const rx = 100 + Math.random() * (CANVAS_WIDTH - 200);
+                            this.hazards.push(new StageHazard('falling_icicle', rx, 0));
+                        }
+                    }
+                }, 1000);
+            }
+
+            fireProjectile(player) {
+                if (player.id === 'p1') {
+                    // P1: 火球发射
+                    const px = player.x + (player.direction === 1 ? player.width + 10 : -20);
+                    const py = player.y + player.height / 2 + 5;
+                    this.projectiles.push(new Projectile(
+                        'p1', px, py, player.direction * 9, 0, 10, '#ff7043', 1, true
+                    ));
+                    // 火焰枪后座微粒子
+                    for (let i = 0; i < 5; i++) {
+                        this.particles.push(new Particle(px, py, -player.direction * Math.random() * 3, (Math.random() - 0.5) * 3, Math.random() * 3 + 2, '#ff3d00', 15));
+                    }
+                } else {
+                    // P2: 冰弧斩击刀光（同样以射击体实现，但形状在后面绘制略加修饰）
+                    const px = player.x + (player.direction === 1 ? player.width + 10 : -25);
+                    const py = player.y + player.height / 2 - 10;
+                    this.projectiles.push(new Projectile(
+                        'p2', px, py, player.direction * 7.5, 0, 12, '#00b0ff', 1, false
+                    ));
+                    sound.playSlash();
+                    // 砍击雪屑
+                    for (let i = 0; i < 5; i++) {
+                        this.particles.push(new Particle(px, py, -player.direction * Math.random() * 2, (Math.random() - 0.5) * 3, Math.random() * 3 + 2, '#e0f7fa', 12));
+                    }
+                }
+            }
+
+            spawnGroundSpecial(player, targetX) {
+                if (player.id === 'p1') {
+                    this.groundSpecials.push(new GroundSpecial('p1', targetX, 0, true));
+                } else {
+                    // P2 特技冰刺：传出骑士方向，供后续计算刺延伸
+                    this.groundSpecials.push(new GroundSpecial('p2', targetX, player.x + player.width/2, false));
+                }
+            }
+
+            updateHearts() {
+                for (let i = 0; i < 3; i++) {
+                    const h1 = document.getElementById(`p1-heart-${i}`);
+                    const h2 = document.getElementById(`p2-heart-${i}`);
+                    
+                    if (i < this.p1.hearts) h1.classList.remove('lost');
+                    else h1.classList.add('lost');
+                    
+                    if (i < this.p2.hearts) h2.classList.remove('lost');
+                    else h2.classList.add('lost');
+                }
+            }
+
+            resetOrbs() {
+                for (let i = 0; i < 2; i++) {
+                    document.getElementById(`p1-orb-${i}`).classList.remove('won');
+                    document.getElementById(`p2-orb-${i}`).classList.remove('won');
+                }
+            }
+
+            updateOrbs() {
+                for (let i = 0; i < 2; i++) {
+                    const orb1 = document.getElementById(`p1-orb-${i}`);
+                    const orb2 = document.getElementById(`p2-orb-${i}`);
+                    
+                    if (i < this.p1.score) orb1.classList.add('won');
+                    else orb1.classList.remove('won');
+                    
+                    if (i < this.p2.score) orb2.classList.add('won');
+                    else orb2.classList.remove('won');
+                }
+            }
+
+            endRound(isTimeout = false) {
+                if (this.state !== 'PLAYING') return;
+                this.state = 'ROUND_OVER';
+                
+                if (this.timerInterval) clearInterval(this.timerInterval);
+
+                let winner = null;
+                if (isTimeout) {
+                    // 时间到，血多者赢
+                    if (this.p1.hearts > this.p2.hearts) winner = 'p1';
+                    else if (this.p2.hearts > this.p1.hearts) winner = 'p2';
+                } else {
+                    if (this.p1.hearts <= 0) winner = 'p2';
+                    else if (this.p2.hearts <= 0) winner = 'p1';
+                }
+
+                // 播放胜利动画状态
+                if (winner === 'p1') {
+                    this.p1.score++;
+                    this.p1.state = 'victory';
+                } else if (winner === 'p2') {
+                    this.p2.score++;
+                    this.p2.state = 'victory';
+                }
+
+                this.updateOrbs();
+
+                // 播放K.O.字样与声效
+                const ann = document.getElementById('announcementText');
+                ann.innerText = isTimeout ? "TIME UP!" : "K.O.";
+                ann.className = "round-announcement active ko-text";
+                sound.playRoundEnd();
+                
+                this.shakeTimer = 15;
+
+                setTimeout(() => {
+                    ann.classList.remove('active');
+                    
+                    // 检查整场胜负
+                    if (this.p1.score >= 2 || this.p2.score >= 2) {
+                        this.endGame();
+                    } else {
+                        // 准备下一局
+                        this.currentRound++;
+                        this.startRound();
+                    }
+                }, 3000);
+            }
+
+            endGame() {
+                this.state = 'GAME_OVER';
+                sound.playMatchEnd();
+
+                // 展示结算屏幕
+                const screen = document.getElementById('gameOverScreen');
+                const winText = document.getElementById('winnerText');
+                
+                if (this.p1.score >= 2) {
+                    winText.innerText = "烈焰魔法师 荣获胜者！";
+                    winText.className = "winner-title winner-fire";
+                } else {
+                    winText.innerText = "冰霜骑士 荣获胜者！";
+                    winText.className = "winner-title winner-frost";
+                }
+
+                document.getElementById('statRounds').innerText = this.currentRound;
+                document.getElementById('statP1Wins').innerText = this.p1.score;
+                document.getElementById('statP2Wins').innerText = this.p2.score;
+                document.getElementById('statHits').innerText = this.totalHits;
+
+                screen.classList.add('active');
+            }
+
+            restartMatch() {
+                document.getElementById('gameOverScreen').classList.remove('active');
+                this.startGame();
+            }
+
+            // ── 主游戏物理和渲染循环 ──────────────────────────────────────────────────
+            tick() {
+                this.update();
+                this.draw();
+                requestAnimationFrame(() => this.tick());
+            }
+
+            update() {
+                // 更新画面震动
+                if (this.shakeTimer > 0) this.shakeTimer--;
+
+                // 更新环境粒子
+                this.updateBgParticles();
+
+                // 仅在游戏中或结算局动画时更新物理
+                if (this.state === 'PLAYING' || this.state === 'ROUND_OVER') {
+                    this.p1.update(this);
+                    this.p2.update(this);
+
+                    // 限制玩家之间的推挤 (无法穿透)
+                    if (this.p1.state !== 'defeat' && this.p2.state !== 'defeat') {
+                        const dist = Math.abs(this.p1.x - this.p2.x);
+                        const overlap = 45 - dist; // 玩家身形间距
+                        if (overlap > 0) {
+                            const dir = this.p1.x < this.p2.x ? -1 : 1;
+                            this.p1.x += dir * overlap * 0.5;
+                            this.p2.x -= dir * overlap * 0.5;
+                        }
+                    }
+
+                    // 极光雪原场景：风阻模拟 (吹强左风)
+                    if (this.currentStageIdx === 2 && this.state === 'PLAYING') {
+                        // 带来 -0.05 恒定水平风力向左
+                        if (!this.p1.state.includes('block') && this.p1.freezeTimer <= 0) this.p1.vx -= 0.05;
+                        if (!this.p2.state.includes('block') && this.p2.freezeTimer <= 0) this.p2.vx -= 0.05;
+                    }
+
+                    // 更新特投射物
+                    for (let i = this.projectiles.length - 1; i >= 0; i--) {
+                        const proj = this.projectiles[i];
+                        proj.update(this);
+
+                        // 边界检测
+                        if (proj.x < -20 || proj.x > CANVAS_WIDTH + 20 || proj.life <= 0) {
+                            this.projectiles.splice(i, 1);
+                            continue;
+                        }
+
+                        // 对非归属方的玩家碰撞检测
+                        const opponent = proj.owner === 'p1' ? this.p2 : this.p1;
+                        if (opponent.state !== 'defeat') {
+                            const dist = Math.sqrt(Math.pow(proj.x - (opponent.x + opponent.width/2), 2) + Math.pow(proj.y - (opponent.y + opponent.height/2), 2));
+                            if (dist < proj.size + 25) {
+                                // 判定格挡
+                                opponent.takeDamage(proj.damage, this);
+                                this.totalHits++;
+                                this.projectiles.splice(i, 1);
+                            }
+                        }
+                    }
+
+                    // 更新地面特技
+                    for (let i = this.groundSpecials.length - 1; i >= 0; i--) {
+                        const sp = this.groundSpecials[i];
+                        sp.update(this);
+                        if (sp.state === 'done') {
+                            this.groundSpecials.splice(i, 1);
+                        }
+                    }
+
+                    // 更新场景危害物
+                    for (let i = this.hazards.length - 1; i >= 0; i--) {
+                        const hz = this.hazards[i];
+                        hz.update(this);
+                        if (hz.state === 'done') {
+                            this.hazards.splice(i, 1);
+                        }
+                    }
+
+                    // 检查常规血量死局
+                    if (this.state === 'PLAYING') {
+                        if (this.p1.hearts <= 0 || this.p2.hearts <= 0) {
+                            this.endRound(false);
+                        }
+                    }
+                }
+
+                // 更新爆破粒子
+                for (let i = this.particles.length - 1; i >= 0; i--) {
+                    const p = this.particles[i];
+                    p.update();
+                    if (p.life <= 0) {
+                        this.particles.splice(i, 1);
+                    }
+                }
+
+                // 更新技能CD显示
+                this.updateCdUI();
+            }
+
+            updateCdUI() {
+                // P1 特技
+                const p1CdElem = document.getElementById('p1SpecialCd');
+                const p1Skill = document.getElementById('p1SpecialSkill');
+                if (this.p1.specialCd > 0) {
+                    p1Skill.classList.add('on-cooldown');
+                    p1CdElem.innerText = (this.p1.specialCd / 60).toFixed(1);
+                } else {
+                    p1Skill.classList.remove('on-cooldown');
+                }
+
+                // P2 特技
+                const p2CdElem = document.getElementById('p2SpecialCd');
+                const p2Skill = document.getElementById('p2SpecialSkill');
+                if (this.p2.specialCd > 0) {
+                    p2Skill.classList.add('on-cooldown');
+                    p2CdElem.innerText = (this.p2.specialCd / 60).toFixed(1);
+                } else {
+                    p2Skill.classList.remove('on-cooldown');
+                }
+            }
+
+            // ── 绘 图 ──────────────────────────────────────────────────────────────────
+            draw() {
+                // 应用震屏
+                this.ctx.save();
+                if (this.shakeTimer > 0) {
+                    const dx = (Math.random() - 0.5) * 8;
+                    const dy = (Math.random() - 0.5) * 8;
+                    this.ctx.translate(dx, dy);
+                }
+
+                this.ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+
+                // 1. 绘制背景
+                this.drawBackground();
+
+                // 2. 绘制场景环境粒子
+                this.drawBgParticles();
+
+                // 3. 绘制地面特技
+                this.groundSpecials.forEach(sp => sp.draw(this.ctx));
+
+                // 4. 绘制环境障碍物危害
+                this.hazards.forEach(hz => hz.draw(this.ctx));
+
+                // 5. 绘制普通攻击投射物
+                this.projectiles.forEach(proj => proj.draw(this.ctx));
+
+                // 6. 绘制角色
+                this.p1.draw(this.ctx);
+                this.p2.draw(this.ctx);
+
+                // 7. 绘制打斗粒子
+                this.particles.forEach(p => p.draw(this.ctx));
+
+                this.ctx.restore();
+            }
+
+            drawBackground() {
+                const stage = STAGES[this.currentStageIdx];
+                
+                // 天空渐变
+                const gradBg = this.ctx.createLinearGradient(0, 0, 0, CANVAS_HEIGHT);
+                if (this.currentStageIdx === 0) {
+                    // 城堡
+                    gradBg.addColorStop(0, '#0f0c1b');
+                    gradBg.addColorStop(0.5, '#1e1b30');
+                    gradBg.addColorStop(1, '#2c2547');
+                } else if (this.currentStageIdx === 1) {
+                    // 火山
+                    gradBg.addColorStop(0, '#0a0303');
+                    gradBg.addColorStop(0.6, '#1a0505');
+                    gradBg.addColorStop(1, '#2d0c0b');
+                } else {
+                    // 雪原
+                    gradBg.addColorStop(0, '#020b14');
+                    gradBg.addColorStop(0.6, '#061726');
+                    gradBg.addColorStop(1, '#0e2b40');
+                }
+                this.ctx.fillStyle = gradBg;
+                this.ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+
+                // 画特有背景
+                if (this.currentStageIdx === 0) {
+                    this.drawCastleBackground();
+                } else if (this.currentStageIdx === 1) {
+                    this.drawVolcanoBackground();
+                } else {
+                    this.drawSnowyBackground();
+                }
+
+                // 绘制战斗擂台底座地板
+                this.drawGround();
+            }
+
+            drawCastleBackground() {
+                // 月亮
+                this.ctx.save();
+                this.ctx.shadowBlur = 40;
+                this.ctx.shadowColor = '#fffde7';
+                this.ctx.fillStyle = '#fffde7';
+                this.ctx.beginPath();
+                this.ctx.arc(800, 120, 50, 0, Math.PI * 2);
+                this.ctx.fill();
+                this.ctx.restore();
+
+                // 远山和城堡剪影
+                this.ctx.fillStyle = '#110c1c';
+                this.ctx.beginPath();
+                this.ctx.moveTo(0, GROUND_Y);
+                this.ctx.lineTo(200, 300);
+                this.ctx.lineTo(350, 380);
+                this.ctx.lineTo(500, 320);
+                this.ctx.lineTo(750, 260); // 城堡塔楼顶部
+                this.ctx.lineTo(750, GROUND_Y);
+                this.ctx.lineTo(CANVAS_WIDTH, GROUND_Y);
+                this.ctx.lineTo(CANVAS_WIDTH, CANVAS_HEIGHT);
+                this.ctx.lineTo(0, CANVAS_HEIGHT);
+                this.ctx.closePath();
+                this.ctx.fill();
+
+                // 城堡的石砖和尖顶
+                this.ctx.fillStyle = '#1c162b';
+                this.ctx.fillRect(660, 220, 100, 220); // 主塔
+                
+                // 塔顶三角
+                this.ctx.beginPath();
+                this.ctx.moveTo(650, 220);
+                this.ctx.lineTo(710, 150);
+                this.ctx.lineTo(770, 220);
+                this.ctx.closePath();
+                this.ctx.fill();
+
+                // 飘动的红蓝战旗
+                const time = Date.now() * 0.005;
+                const wave = Math.sin(time) * 4;
+                
+                ctx.strokeStyle = '#5d4037';
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.moveTo(710, 150);
+                ctx.lineTo(710, 110);
+                ctx.stroke();
+
+                ctx.fillStyle = '#d32f2f';
+                ctx.beginPath();
+                ctx.moveTo(710, 110);
+                ctx.lineTo(735 + wave, 120);
+                ctx.lineTo(710, 130);
+                ctx.closePath();
+                ctx.fill();
+            }
+
+            drawVolcanoBackground() {
+                // 远方暗红的火山连绵
+                this.ctx.fillStyle = '#140505';
+                this.ctx.beginPath();
+                this.ctx.moveTo(0, GROUND_Y);
+                this.ctx.lineTo(150, 220);
+                this.ctx.lineTo(250, GROUND_Y);
+                this.ctx.lineTo(400, 180);
+                this.ctx.lineTo(500, 280);
+                this.ctx.lineTo(700, 140); // 火山口
+                this.ctx.lineTo(780, 240);
+                this.ctx.lineTo(950, 190);
+                this.ctx.lineTo(CANVAS_WIDTH, GROUND_Y);
+                this.ctx.closePath();
+                this.ctx.fill();
+
+                // 活跃火山口岩浆光辉
+                this.ctx.save();
+                const glow = 20 + Math.sin(Date.now() * 0.01) * 8;
+                this.ctx.shadowBlur = glow;
+                this.ctx.shadowColor = '#ff3d00';
+                this.ctx.fillStyle = '#ff5722';
+                this.ctx.beginPath();
+                this.ctx.ellipse(700, 145, 25, 6, 0, 0, Math.PI * 2);
+                this.ctx.fill();
+                this.ctx.restore();
+
+                // 底部的熔岩海 (流动的红色波浪)
+                const lavaWave = Math.sin(Date.now() * 0.003) * 6;
+                this.ctx.fillStyle = '#b71c1c';
+                this.ctx.fillRect(0, GROUND_Y + 40, CANVAS_WIDTH, CANVAS_HEIGHT - GROUND_Y);
+                
+                this.ctx.fillStyle = '#ff3d00';
+                this.ctx.beginPath();
+                this.ctx.moveTo(0, GROUND_Y + 40);
+                for (let x = 0; x <= CANVAS_WIDTH; x += 40) {
+                    this.ctx.lineTo(x, GROUND_Y + 40 + Math.sin(x*0.02 + Date.now()*0.005) * 5 + lavaWave);
+                }
+                this.ctx.lineTo(CANVAS_WIDTH, CANVAS_HEIGHT);
+                this.ctx.lineTo(0, CANVAS_HEIGHT);
+                this.ctx.closePath();
+                this.ctx.fill();
+            }
+
+            drawSnowyBackground() {
+                // 绘制极光 (贝塞尔曲线渐变)
+                this.ctx.save();
+                const time = Date.now() * 0.001;
+                const waveP1 = Math.sin(time) * 20;
+                const waveP2 = Math.cos(time * 0.8) * 15;
+
+                const auroraGrad = this.ctx.createLinearGradient(0, 50, 0, 250);
+                auroraGrad.addColorStop(0, 'rgba(0, 229, 255, 0.4)');
+                auroraGrad.addColorStop(0.5, 'rgba(76, 175, 80, 0.3)');
+                auroraGrad.addColorStop(1, 'rgba(0,0,0,0)');
+
+                this.ctx.fillStyle = auroraGrad;
+                this.ctx.beginPath();
+                this.ctx.moveTo(0, 100 + waveP1);
+                this.ctx.bezierCurveTo(300, 180 + waveP2, 700, 50 - waveP1, CANVAS_WIDTH, 120 + waveP2);
+                this.ctx.lineTo(CANVAS_WIDTH, 300);
+                this.ctx.lineTo(0, 300);
+                this.ctx.closePath();
+                this.ctx.fill();
+                this.ctx.restore();
+
+                // 雪山和针叶林
+                this.ctx.fillStyle = '#051829';
+                this.ctx.beginPath();
+                this.ctx.moveTo(0, GROUND_Y);
+                this.ctx.lineTo(180, 240);
+                this.ctx.lineTo(340, GROUND_Y);
+                this.ctx.lineTo(600, 180);
+                this.ctx.lineTo(800, GROUND_Y);
+                this.ctx.lineTo(CANVAS_WIDTH, GROUND_Y);
+                this.ctx.closePath();
+                this.ctx.fill();
+
+                // 山顶积雪 (白色)
+                this.ctx.fillStyle = '#eceff1';
+                this.ctx.beginPath();
+                this.ctx.moveTo(180, 240);
+                this.ctx.lineTo(145, 290);
+                this.ctx.lineTo(215, 290);
+                this.ctx.closePath();
+                this.ctx.fill();
+
+                this.ctx.beginPath();
+                this.ctx.moveTo(600, 180);
+                this.ctx.lineTo(550, 250);
+                this.ctx.lineTo(650, 250);
+                this.ctx.closePath();
+                this.ctx.fill();
+            }
+
+            drawGround() {
+                const stage = STAGES[this.currentStageIdx];
+                this.ctx.save();
+
+                if (this.currentStageIdx === 0) {
+                    // 1. 城堡：坚固的青石砖砌地台
+                    this.ctx.fillStyle = '#37474f';
+                    this.ctx.fillRect(0, GROUND_Y, CANVAS_WIDTH, CANVAS_HEIGHT - GROUND_Y);
+
+                    // 砖纹理线
+                    this.ctx.strokeStyle = '#263238';
+                    this.ctx.lineWidth = 2;
+                    for (let y = GROUND_Y; y < CANVAS_HEIGHT; y += 25) {
+                        this.ctx.beginPath();
+                        this.ctx.moveTo(0, y);
+                        this.ctx.lineTo(CANVAS_WIDTH, y);
+                        this.ctx.stroke();
+
+                        // 纵向砖缝
+                        const offset = (y % 50 === 0) ? 40 : 0;
+                        for (let x = offset; x < CANVAS_WIDTH; x += 80) {
+                            this.ctx.beginPath();
+                            this.ctx.moveTo(x, y);
+                            this.ctx.lineTo(x, y + 25);
+                            this.ctx.stroke();
+                        }
+                    }
+
+                    // 地板上缘的金色石条栏
+                    const goldGrad = this.ctx.createLinearGradient(0, GROUND_Y, 0, GROUND_Y + 12);
+                    goldGrad.addColorStop(0, '#ffd54f');
+                    goldGrad.addColorStop(1, '#ff8f00');
+                    this.ctx.fillStyle = goldGrad;
+                    this.ctx.fillRect(0, GROUND_Y, CANVAS_WIDTH, 12);
+
+                } else if (this.currentStageIdx === 1) {
+                    // 2. 火山：有岩浆裂纹的黑曜石地台
+                    this.ctx.fillStyle = '#212121';
+                    this.ctx.fillRect(0, GROUND_Y, CANVAS_WIDTH, 40);
+
+                    // 边缘岩岩石质感
+                    this.ctx.fillStyle = '#0d0d0d';
+                    this.ctx.fillRect(0, GROUND_Y + 40, CANVAS_WIDTH, CANVAS_HEIGHT - (GROUND_Y + 40));
+
+                    // 发光红裂缝线
+                    const pulse = Math.abs(Math.sin(Date.now() * 0.003)) * 0.5 + 0.5;
+                    this.ctx.strokeStyle = `rgba(255, 61, 0, ${pulse})`;
+                    this.ctx.lineWidth = 3;
+                    
+                    // 随机描画三条贯穿地板的裂纹
+                    this.ctx.beginPath();
+                    this.ctx.moveTo(100, GROUND_Y + 5); this.ctx.lineTo(180, GROUND_Y + 25); this.ctx.lineTo(240, GROUND_Y + 38);
+                    this.ctx.moveTo(450, GROUND_Y + 5); this.ctx.lineTo(490, GROUND_Y + 18); this.ctx.lineTo(540, GROUND_Y + 35);
+                    this.ctx.moveTo(780, GROUND_Y + 5); this.ctx.lineTo(820, GROUND_Y + 28); this.ctx.lineTo(910, GROUND_Y + 38);
+                    this.ctx.stroke();
+
+                } else {
+                    // 3. 雪原：白雪皑皑夹杂蓝冰层
+                    const snowGrad = this.ctx.createLinearGradient(0, GROUND_Y, 0, CANVAS_HEIGHT);
+                    snowGrad.addColorStop(0, '#ffffff');
+                    snowGrad.addColorStop(0.2, '#eceff1');
+                    snowGrad.addColorStop(0.8, '#b0bec5');
+                    snowGrad.addColorStop(1, '#90a4ae');
+                    
+                    this.ctx.fillStyle = snowGrad;
+                    this.ctx.fillRect(0, GROUND_Y, CANVAS_WIDTH, CANVAS_HEIGHT - GROUND_Y);
+
+                    // 浅蓝冰晶条纹
+                    this.ctx.strokeStyle = 'rgba(0, 229, 255, 0.25)';
+                    this.ctx.lineWidth = 4;
+                    this.ctx.beginPath();
+                    this.ctx.moveTo(50, GROUND_Y + 30); this.ctx.lineTo(250, GROUND_Y + 50);
+                    this.ctx.moveTo(400, GROUND_Y + 60); this.ctx.lineTo(600, GROUND_Y + 80);
+                    this.ctx.moveTo(700, GROUND_Y + 40); this.ctx.lineTo(950, GROUND_Y + 70);
+                    this.ctx.stroke();
+                }
+
+                this.ctx.restore();
+            }
+        }
+
+        // ── 页面启动入口 ────────────────────────────────────────────────────────────
+        let game = null;
+        window.onload = () => {
+            game = new ElementalClash();
+        };
+
+    </script>
+</body>
+</html>

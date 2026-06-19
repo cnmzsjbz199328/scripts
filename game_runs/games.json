@@ -1,5 +1,18 @@
 [
   {
+    "id": "ElementalClash",
+    "title": "元素对决：冰火争霸",
+    "tagline": "火焰魔法师与冰霜骑士的同屏巅峰对战！",
+    "gameType": "side-scroller",
+    "genre": "BEAT-EM-UP",
+    "accent": "#f97316",
+    "previewBg": "#100804",
+    "icon": "👊",
+    "thumbnail": "ElementalClash/scene/panorama.jpg",
+    "path": "ElementalClash/index.html",
+    "createdAt": "2026-06-18T23:36:00.000Z"
+  },
+  {
     "id": "RoboWarehouse",
     "title": "机器人仓库 (BoxBot Warehouse)",
     "tagline": "推动彩色方块，解开奇妙的工厂仓库谜题！",
