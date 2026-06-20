@@ -1,5 +1,18 @@
 [
   {
+    "id": "DustTown",
+    "title": "尘镇：新警长",
+    "tagline": "一枚警徽，一座烂到根的小镇——你敢不敢把真相钉上法庭的门？",
+    "gameType": "top-down-rpg",
+    "genre": "NARRATIVE-RPG",
+    "accent": "#c9882f",
+    "previewBg": "#2a1a0e",
+    "icon": "⭐",
+    "thumbnail": "DustTown/scene/panorama.png",
+    "path": "DustTown/index.html",
+    "createdAt": "2026-06-21T07:52:00.000Z"
+  },
+  {
     "id": "InkLine",
     "title": "一线：未完成的画",
     "tagline": "我只是一根线，却想亲手画完属于自己的世界。",
