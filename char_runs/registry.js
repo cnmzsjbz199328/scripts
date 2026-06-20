@@ -365,5 +365,43 @@ window.CHAR_REGISTRY = {
       }
     },
     "spritesheet": "DustSheriff/output/spritesheet.webp"
+  },
+  "NinjaShade": {
+    "name": "NinjaShade",
+    "type": "char-sprite-v1",
+    "dimensions": {
+      "width": 1728,
+      "height": 624
+    },
+    "frameSize": {
+      "width": 192,
+      "height": 208
+    },
+    "rows": [
+      "idle",
+      "run",
+      "crouch"
+    ],
+    "animations": {
+      "idle": {
+        "row": 0,
+        "frameCount": 9,
+        "fps": 10,
+        "loop": true
+      },
+      "run": {
+        "row": 1,
+        "frameCount": 9,
+        "fps": 10,
+        "loop": true
+      },
+      "crouch": {
+        "row": 2,
+        "frameCount": 9,
+        "fps": 10,
+        "loop": true
+      }
+    },
+    "spritesheet": "NinjaShade/output/spritesheet.webp"
   }
 };
