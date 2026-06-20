@@ -1,5 +1,18 @@
 [
   {
+    "id": "GeoStorm",
+    "title": "几何风暴：最后的光点",
+    "tagline": "当虚空抹去所有线条，我是这张蓝图上最后亮着的一点。",
+    "gameType": "top-down-action",
+    "genre": "BULLET-DODGE",
+    "accent": "#18c2b0",
+    "previewBg": "#dce8f2",
+    "icon": "🔷",
+    "thumbnail": "GeoStorm/scene/panorama.png",
+    "path": "GeoStorm/index.html",
+    "createdAt": "2026-06-21T08:04:00.000Z"
+  },
+  {
     "id": "ShadowNinja",
     "title": "影忍：将军府之夜",
     "tagline": "月隐于云，影潜于墙——在被发现之前，把挚友带回家。",
