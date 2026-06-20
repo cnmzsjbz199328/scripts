@@ -1,5 +1,18 @@
 [
   {
+    "id": "ShadowNinja",
+    "title": "影忍：将军府之夜",
+    "tagline": "月隐于云，影潜于墙——在被发现之前，把挚友带回家。",
+    "gameType": "side-scroller",
+    "genre": "STEALTH",
+    "accent": "#ffd27a",
+    "previewBg": "#0a0e1a",
+    "icon": "🥷",
+    "thumbnail": "ShadowNinja/scene/panorama.png",
+    "path": "ShadowNinja/index.html",
+    "createdAt": "2026-06-21T07:58:00.000Z"
+  },
+  {
     "id": "DustTown",
     "title": "尘镇：新警长",
     "tagline": "一枚警徽，一座烂到根的小镇——你敢不敢把真相钉上法庭的门？",

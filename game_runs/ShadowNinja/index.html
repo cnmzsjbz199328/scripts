@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>影忍：将军府之夜</title>
+  <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #0b0f19;
+      color: #fff;
+      font-family: 'Segoe UI', monospace;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      overflow: hidden;
+    }
+
+    /* ── game wrapper ── */
+    #game-wrapper {
+      position: relative;
+      border: 3px solid #3b82f6;
+      border-radius: 8px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.6);
+      overflow: hidden;
+    }
+
+    /* ── HUD overlay ── */
+    #hud {
+      display: none;
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      padding: 10px 14px;
+      gap: 18px;
+      flex-direction: row;
+      align-items: center;
+      background: linear-gradient(to bottom, rgba(0,0,0,0.55), transparent);
+      pointer-events: none;
+      z-index: 10;
+      font-size: 15px;
+      user-select: none;
+    }
+
+    #hud-hearts { color: #f87171; letter-spacing: 2px; font-size: 18px; }
+    #hud-score  { color: #fbbf24; }
+    #hud-objective { color: #a5f3fc; flex: 1; text-align: center; }
+    #hud-day    { color: #86efac; margin-left: auto; }
+
+    /* ── shared overlay styles ── */
+    .game-overlay {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 20;
+      background: rgba(8, 12, 24, 0.88);
+      backdrop-filter: blur(3px);
+    }
+
+    .overlay-card {
+      text-align: center;
+      max-width: 520px;
+      padding: 36px 40px;
+      background: rgba(15, 23, 42, 0.95);
+      border: 1px solid #334155;
+      border-radius: 12px;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.5);
+    }
+
+    .overlay-card h2 {
+      font-size: 2rem;
+      margin-bottom: 8px;
+      color: #f1f5f9;
+      letter-spacing: 0.08em;
+    }
+
+    .overlay-card .tagline {
+      font-size: 0.95rem;
+      color: #94a3b8;
+      margin-bottom: 16px;
+      font-style: italic;
+    }
+
+    .overlay-card .story-setting {
+      font-size: 0.88rem;
+      color: #64748b;
+      line-height: 1.6;
+      margin-bottom: 24px;
+    }
+
+    .overlay-card .controls-hint {
+      font-size: 0.78rem;
+      color: #475569;
+      line-height: 1.8;
+      margin-top: 14px;
+    }
+
+    /* ── buttons ── */
+    .game-btn {
+      display: inline-block;
+      padding: 12px 36px;
+      font-size: 1rem;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: transform 0.1s, box-shadow 0.1s;
+    }
+
+    .game-btn:hover  { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(0,0,0,0.4); }
+    .game-btn:active { transform: translateY(0); }
+
+    #start-btn   { background: #2563eb; color: #fff; }
+    #restart-btn { background: #dc2626; color: #fff; }
+
+    /* ── game-over title colours ── */
+    #gameover-title.win  { color: #4ade80; }
+    #gameover-title.lose { color: #f87171; }
+
+    /* ── responsive stage scaling (canvas + HUD scale together) ── */
+    html, body { width: 100%; height: 100%; }
+    #game-wrapper {
+      width: 960px; height: 576px;
+      flex: 0 0 auto;
+      transform-origin: center center;
+    }
+  </style>
+</head>
+<body>
+  <div id="game-wrapper">
+    <div id="game-container"></div>
+
+    <!-- HUD overlay -->
+    <div id="hud">
+      <div id="hud-hearts" title="生命值">♥♥♥</div>
+        <div id="hud-score">门钥: <span id="hud-score-value">0</span></div>
+        <div id="hud-objective"><span id="hud-objective-text">潜行向右，避开光锥，拾取 5 把门钥，抵达牢笼</span></div>
+    </div>
+
+    <!-- Start screen overlay -->
+    <div id="start-screen" class="game-overlay">
+      <div class="overlay-card">
+        <h2>影忍：将军府之夜</h2>
+        <p class="tagline">月隐于云，影潜于墙——在被发现之前，把挚友带回家。</p>
+        <p class="story-setting">战国之夜，山巅的将军府。纸灯笼在回廊间投下摇曳的暖光，巡逻武士的灯笼来回游移，屋脊与立柱在月色下只剩漆黑的轮廓。庭院深深，唯有风铃与远处的更鼓。</p>
+        <button id="start-btn" class="game-btn" onclick="window.__hudStart()">▶ START GAME</button>
+        <p class="controls-hint">
+          Controls: WASD / Arrow Keys to move
+        </p>
+      </div>
+    </div>
+
+    <!-- Game over overlay -->
+    <div id="gameover-screen" class="game-overlay" style="display:none">
+      <div class="overlay-card">
+        <h2 id="gameover-title">GAME OVER</h2>
+        <p id="gameover-message" class="story-setting"></p>
+        <button id="restart-btn" class="game-btn" onclick="location.reload()">↩ RESTART</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    window.GAME_CONFIG  = {
+  "map": { "width": 4800, "height": 540, "tileWidth": 64, "tileHeight": 64 },
+  "player": { "spawn": { "x": 60, "y": 380 }, "speed": 200 },
+  "renderMode": "procedural-silhouette",
+  "note": "Stealth side-scroller. scene/panorama.png is the silhouette manor background; ninja/guards/vision-cones/searchlights/keys drawn procedurally. Crouch (S/Down) to become undetectable in shadow. Player spawns near left world edge with bounds collision for stable verify."
+};
+    window.TILEMAP_DATA = {};
+    window.ENTITIES_DATA = [];
+
+    // Expose GameHUD API before game-logic.js loads
+    window.GameHUD = (function () {
+      let _startCallback = null;
+      let _started = false;
+      let _isPvP = false;
+
+      function showHud() {
+        document.getElementById('hud').style.display = 'flex';
+      }
+
+      // __hudStart must be before return to capture _startCallback and showHud from closure
+      window.__hudStart = function (isPvP = false) {
+        if (_started) return;
+        _started = true;
+        _isPvP = isPvP;
+        document.getElementById('start-screen').style.display = 'none';
+        showHud();
+        if (_startCallback) _startCallback(isPvP);
+      };
+
+      return {
+    setHearts(current, maxHp) {
+      const el = document.getElementById('hud-hearts');
+      if (!el) return;
+      const filled = Math.max(0, Math.min(current, maxHp ?? 3));
+      const empty  = (maxHp ?? 3) - filled;
+      el.textContent = '♥'.repeat(filled) + '♡'.repeat(empty);
+    },
+    setScore(value) {
+      const el = document.getElementById('hud-score-value');
+      if (el) el.textContent = value;
+    },
+    setObjective(text) {
+      const el = document.getElementById('hud-objective-text');
+      if (el) el.textContent = text;
+    },
+
+        onStart(cb) {
+          _startCallback = cb;
+          if (_started) {
+            cb(_isPvP);
+          }
+        },
+
+        showGameOver(win, message) {
+          const overlay = document.getElementById('gameover-screen');
+          const title   = document.getElementById('gameover-title');
+          const msg     = document.getElementById('gameover-message');
+          if (title) title.textContent = win ? '🎉 YOU WIN' : 'GAME OVER';
+          if (msg)   msg.textContent   = message ?? '';
+          if (overlay) overlay.style.display = 'flex';
+          document.getElementById('hud').style.display = 'none';
+        },
+      };
+    })();
+
+    // Wire gameover title colour after DOM is ready
+    const _origShowGameOver = window.GameHUD.showGameOver.bind(window.GameHUD);
+    window.GameHUD.showGameOver = function(win, message) {
+      _origShowGameOver(win, message);
+      const title = document.getElementById('gameover-title');
+      if (title) {
+        title.className = win ? 'win' : 'lose';
+        if (!win) title.textContent = 'GAME OVER';
+      }
+    };
+
+    // Headless autostart trigger for gameplay screenshot capture
+    if (window.location.search.includes('autostart')) {
+      setTimeout(() => {
+        if (window.__hudStart) {
+          const isPvP = window.location.search.includes('pvp');
+          window.__hudStart(isPvP);
+        }
+      }, 300);
+    }
+  </script>
+  <script src="game/game-logic.js"></script>
+  <script>
+    /* Fit the whole stage (canvas + HUD overlays) to the viewport so everything
+       scales as one piece — keeps HUD proportions correct at any screen size. */
+    (function () {
+      var W = 960, H = 576;
+      var wrap = document.getElementById('game-wrapper');
+      function fit() {
+        if (!wrap) return;
+        var s = Math.min(window.innerWidth / W, window.innerHeight / H, 1);
+        wrap.style.transform = 'scale(' + s + ')';
+      }
+      window.addEventListener('resize', fit);
+      window.addEventListener('orientationchange', fit);
+      fit();
+    })();
+  </script>
+</body>
+</html>
