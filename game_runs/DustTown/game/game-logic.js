@@ -1,6 +1,8 @@
-/* DustTown — 尘镇：新警长
- * 西部俯视叙事探索 (western top-down-rpg). scene/panorama.png 作小镇地图，
- * 警长/镇民/打手/对话框程序化绘制。WASD 移动，E 倾听证词，集齐 5 份后入法庭终结卡特帮。
+/* DustTown — 尘镇：新警长（完整管线版）
+ * 西部俯视叙事探索 (western top-down-rpg). scene/panorama.png 作小镇地图。
+ * - 警长：char-sprite 真序列帧 DustSheriff（idle/walk，俯视朝上+移动转向）
+ * - 掩体：material-texture 木箱瓦片（复用 DustOutlawTiles），tilemap obstacles 层+静态碰撞
+ * - 镇民/打手/对话框程序化。WASD 移动，E 倾听证词，集齐 5 份后入法庭终结卡特帮。
  */
 
 const GAME_W = 960;
@@ -31,7 +33,12 @@ const COURT = { x: 1120, y: 160, r: 70 };
 class DustTownScene extends Phaser.Scene {
   constructor() { super('DustTownScene'); }
 
-  preload() { this.load.image('townmap', 'scene/panorama.png'); }
+  preload() {
+    this.load.image('townmap', 'scene/panorama.png');
+    const idx = TILEMAP_DATA.tileIndex || {};
+    for (const [id, name] of Object.entries(idx)) this.load.image(`tile_${id}`, `assets/tiles/${name}.png`);
+    this.load.spritesheet('sheriff', 'assets/sprites/DustSheriff.webp', { frameWidth: 192, frameHeight: 208 });
+  }
 
   create() {
     this.physics.world.setBounds(0, 0, MAP_W, MAP_H);
@@ -40,16 +47,26 @@ class DustTownScene extends Phaser.Scene {
     this._makeTextures();
     this.add.image(0, 0, 'townmap').setOrigin(0, 0).setDisplaySize(MAP_W, MAP_H).setDepth(-100);
 
+    // 木箱掩体（瓦片层 + 碰撞）
+    this.covers = this.physics.add.staticGroup();
+    this._renderTileLayer('obstacles', 8, true);
+
+    // 警长动画
+    this._makeAnims();
+
     // 法庭光圈
     this.courtMark = this.add.circle(COURT.x, COURT.y, COURT.r, 0xe8c98a, 0.18).setDepth(2);
     this.courtFlag = this.add.image(COURT.x, COURT.y, 'court').setDepth(6);
     this.tweens.add({ targets: this.courtMark, scale: 1.25, alpha: 0.3, duration: 1400, yoyo: true, repeat: -1 });
 
-    // 玩家警长（贴左上角出生 + 世界边界碰撞）
-    this.player = this.physics.add.sprite(70, 70, 'sheriff');
+    // 玩家警长（贴左上角出生 + 世界边界碰撞）— 真序列帧精灵
+    this.player = this.physics.add.sprite(70, 70, 'sheriff', 0);
+    this.player.setScale(0.3);
     this.player.setCollideWorldBounds(true);
-    this.player.body.setCircle(12, 4, 6);
+    this.player.body.setSize(64, 64).setOffset(64, 72);
     this.player.setDepth(20);
+    this.player.play('sh_idle');
+    this.physics.add.collider(this.player, this.covers);
 
     // NPC
     this.npcs = this.physics.add.staticGroup();
@@ -67,6 +84,7 @@ class DustTownScene extends Phaser.Scene {
       s.setData('home', { x: t.x, y: t.y }); s.setData('axis', t.axis); s.setData('range', t.range); s.setData('dir', 1);
     });
     this.physics.add.overlap(this.player, this.thugs, this._caught, null, this);
+    this.physics.add.collider(this.thugs, this.covers);
 
     // 对话框（固定于摄像机）
     this._buildDialogue();
@@ -98,14 +116,30 @@ class DustTownScene extends Phaser.Scene {
     }
   }
 
-  _makeTextures() {
-    // 警长（俯视）32x32：深蓝外套 + 星徽
-    let g = this.make.graphics({ x: 0, y: 0, add: false });
-    g.fillStyle(0x2a1c10, 1); g.fillCircle(16, 16, 14);     // 帽檐
-    g.fillStyle(0x394a63, 1); g.fillCircle(16, 16, 9);      // 外套
-    g.fillStyle(0xe8c84a, 1); g.fillCircle(16, 13, 3);      // 警徽
-    g.generateTexture('sheriff', 32, 32); g.destroy();
+  _renderTileLayer(layerName, depth, collision) {
+    const data = (TILEMAP_DATA.layers || {})[layerName];
+    if (!data) return;
+    const W = TILEMAP_DATA.width, TW = TILEMAP_DATA.tileWidth, TH = TILEMAP_DATA.tileHeight;
+    data.forEach((id, i) => {
+      if (!id) return;
+      const x = (i % W) * TW + TW / 2;
+      const y = Math.floor(i / W) * TH + TH / 2;
+      const sp = this.add.image(x, y, `tile_${id}`).setDisplaySize(TW, TH).setDepth(depth);
+      if (collision) { this.covers.add(sp); sp.body.setSize(TW, TH); }
+    });
+  }
 
+  _makeAnims() {
+    const def = (key, row, fps, loop) => {
+      if (this.anims.exists(key)) return;
+      this.anims.create({ key, frames: this.anims.generateFrameNumbers('sheriff', { start: row * 9, end: row * 9 + 8 }), frameRate: fps, repeat: loop ? -1 : 0 });
+    };
+    def('sh_idle', 0, 8, true);
+    def('sh_walk', 1, 12, true);
+  }
+
+  _makeTextures() {
+    let g;
     // 镇民 28x28：朴素棕衣
     g = this.make.graphics({ x: 0, y: 0, add: false });
     g.fillStyle(0x6b5536, 1); g.fillCircle(14, 14, 12);
@@ -197,6 +231,12 @@ class DustTownScene extends Phaser.Scene {
     else if (this.cursors.down.isDown || this.keys.S.isDown) vy = 1;
     const len = Math.hypot(vx, vy) || 1;
     if (!this.invuln) this.player.setVelocity((vx / len) * PLAYER_SPEED, (vy / len) * PLAYER_SPEED);
+    const moving = vx !== 0 || vy !== 0;
+
+    // 朝向移动方向 + 行走/站立动画
+    if (moving) this.player.setRotation(Math.atan2(vy, vx) + Math.PI / 2);
+    const anim = moving ? 'sh_walk' : 'sh_idle';
+    if (!this.player.anims.isPlaying || this.player.anims.currentAnim?.key !== anim) this.player.play(anim, true);
 
     // 打手巡逻
     this.thugs.getChildren().forEach(t => {

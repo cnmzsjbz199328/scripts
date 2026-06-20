@@ -334,5 +334,36 @@ window.CHAR_REGISTRY = {
       }
     },
     "spritesheet": "DustCowboy/output/spritesheet.webp"
+  },
+  "DustSheriff": {
+    "name": "DustSheriff",
+    "type": "char-sprite-v1",
+    "dimensions": {
+      "width": 1728,
+      "height": 416
+    },
+    "frameSize": {
+      "width": 192,
+      "height": 208
+    },
+    "rows": [
+      "idle",
+      "walk"
+    ],
+    "animations": {
+      "idle": {
+        "row": 0,
+        "frameCount": 9,
+        "fps": 10,
+        "loop": true
+      },
+      "walk": {
+        "row": 1,
+        "frameCount": 9,
+        "fps": 10,
+        "loop": true
+      }
+    },
+    "spritesheet": "DustSheriff/output/spritesheet.webp"
   }
 };
