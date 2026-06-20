@@ -296,5 +296,43 @@ window.CHAR_REGISTRY = {
       }
     },
     "spritesheet": "ShadowBoy/output/spritesheet.webp"
+  },
+  "DustCowboy": {
+    "name": "DustCowboy",
+    "type": "char-sprite-v1",
+    "dimensions": {
+      "width": 1728,
+      "height": 624
+    },
+    "frameSize": {
+      "width": 192,
+      "height": 208
+    },
+    "rows": [
+      "idle",
+      "walk",
+      "shoot"
+    ],
+    "animations": {
+      "idle": {
+        "row": 0,
+        "frameCount": 9,
+        "fps": 10,
+        "loop": true
+      },
+      "walk": {
+        "row": 1,
+        "frameCount": 9,
+        "fps": 10,
+        "loop": true
+      },
+      "shoot": {
+        "row": 2,
+        "frameCount": 9,
+        "fps": 10,
+        "loop": true
+      }
+    },
+    "spritesheet": "DustCowboy/output/spritesheet.webp"
   }
 };
