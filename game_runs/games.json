@@ -1,5 +1,18 @@
 [
   {
+    "id": "ShadowLeap",
+    "title": "影跃：迷雾森林",
+    "tagline": "在吞噬光的迷雾里，一个男孩纵身跃向最后的微光。",
+    "gameType": "side-scroller",
+    "genre": "PUZZLE-PLATFORMER",
+    "accent": "#94a3b8",
+    "previewBg": "#0a0e16",
+    "icon": "🌫️",
+    "thumbnail": "ShadowLeap/scene/panorama.png",
+    "path": "ShadowLeap/index.html",
+    "createdAt": "2026-06-21T07:32:00.000Z"
+  },
+  {
     "id": "ElementalClash",
     "title": "元素对决：冰火争霸",
     "tagline": "火焰魔法师与冰霜骑士的同屏巅峰对战！",
