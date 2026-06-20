@@ -1,5 +1,18 @@
 [
   {
+    "id": "InkLine",
+    "title": "一线：未完成的画",
+    "tagline": "我只是一根线，却想亲手画完属于自己的世界。",
+    "gameType": "side-scroller",
+    "genre": "PUZZLE-PLATFORMER",
+    "accent": "#1a1a1a",
+    "previewBg": "#faf6ea",
+    "icon": "✒️",
+    "thumbnail": "InkLine/scene/panorama.png",
+    "path": "InkLine/index.html",
+    "createdAt": "2026-06-21T07:45:00.000Z"
+  },
+  {
     "id": "DustOutlaw",
     "title": "荒尘亡命徒",
     "tagline": "落日染红镇口的尘土，最后一颗子弹该给谁？",
