@@ -1,5 +1,18 @@
 [
   {
+    "id": "DustOutlaw",
+    "title": "荒尘亡命徒",
+    "tagline": "落日染红镇口的尘土，最后一颗子弹该给谁？",
+    "gameType": "top-down-action",
+    "genre": "TWIN-STICK SHOOTER",
+    "accent": "#d9863b",
+    "previewBg": "#2a1a0e",
+    "icon": "🤠",
+    "thumbnail": "DustOutlaw/scene/panorama.png",
+    "path": "DustOutlaw/index.html",
+    "createdAt": "2026-06-21T07:39:00.000Z"
+  },
+  {
     "id": "ShadowLeap",
     "title": "影跃：迷雾森林",
     "tagline": "在吞噬光的迷雾里，一个男孩纵身跃向最后的微光。",
