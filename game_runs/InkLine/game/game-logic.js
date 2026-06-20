@@ -1,39 +1,31 @@
-/* InkLine — 一线：未完成的画
- * 线条平台跳跃 (lineart side-scroller). scene/panorama.png 为米白画纸背景，
- * 平台/墨滴/尖刺/橡皮怪程序化绘制为单色黑线稿。自包含，无外部素材。
+/* InkLine — 一线：未完成的画（完整管线版）
+ * 线条平台跳跃 (lineart side-scroller).
+ * - 角色：程序化多帧 squash 动画墨团（线条风用程序化更可控，真帧动画）
+ * - 地面/平台：tilemap.json solid 层 + 程序化线框瓦片(米白填充黑描边)+ 静态碰撞体
+ * - 背景：scene/panorama.png（米白画纸）
  */
 
 const GAME_W = 960;
 const GAME_H = 540;
-const WORLD_W = 4800;
+const TILE = 64;
+const WORLD_W = (TILEMAP_DATA.width || 75) * TILE;
+const WORLD_H = (TILEMAP_DATA.height || 9) * TILE;
+const FLOOR_TOP = WORLD_H - 2 * TILE;
 
-const FLOOR_TOP = 472;
 const GOAL_SCORE = 10;
 const PLAYER_SPEED = 210;
-const JUMP_V = 500;
+const JUMP_V = 520;
+const INK = 0x1a1a1a;
+const PAPER = 0xfaf6ea;
 
-const INK = 0x1a1a1a;          // 墨黑
-const PAPER = 0xfaf6ea;        // 米白
-
-// 悬浮平台 {x,y,w}
-const PLATFORMS = [
-  { x: 520,  y: 380, w: 150 }, { x: 820, y: 320, w: 140 },
-  { x: 1180, y: 360, w: 160 }, { x: 1520, y: 290, w: 150 },
-  { x: 1900, y: 360, w: 170 }, { x: 2300, y: 320, w: 150 },
-  { x: 2700, y: 360, w: 160 }, { x: 3120, y: 300, w: 150 },
-  { x: 3520, y: 350, w: 170 }, { x: 3960, y: 320, w: 160 },
-];
-// 墨滴
 const DROPS = [
-  { x: 360, y: 420 }, { x: 520, y: 340 }, { x: 820, y: 280 },
-  { x: 1180, y: 320 }, { x: 1520, y: 250 }, { x: 1900, y: 320 },
-  { x: 2300, y: 280 }, { x: 2700, y: 320 }, { x: 3120, y: 260 },
-  { x: 3520, y: 310 }, { x: 3960, y: 280 }, { x: 4300, y: 420 },
+  { x: 360, y: FLOOR_TOP - 60 }, { x: 560, y: 300 }, { x: 820, y: 360 },
+  { x: 1180, y: 320 }, { x: 1500, y: 260 }, { x: 1900, y: 360 },
+  { x: 2300, y: 280 }, { x: 2700, y: 360 }, { x: 3120, y: 260 },
+  { x: 3520, y: 320 }, { x: 3960, y: 300 }, { x: 4300, y: FLOOR_TOP - 60 },
 ];
-// 地面尖刺 x 位置
 const SPIKES = [700, 1350, 2150, 2950, 3700];
-// 橡皮怪 {x, range}
-const ERASERS = [ { x: 1000, range: 180 }, { x: 2400, range: 220 }, { x: 3300, range: 200 } ];
+const ERASERS = [{ x: 1000, range: 180 }, { x: 2400, range: 220 }, { x: 3300, range: 200 }];
 
 class InkLineScene extends Phaser.Scene {
   constructor() { super('InkLineScene'); }
@@ -41,39 +33,33 @@ class InkLineScene extends Phaser.Scene {
   preload() { this.load.image('paper', 'scene/panorama.png'); }
 
   create() {
-    this.physics.world.setBounds(0, 0, WORLD_W, GAME_H + 300);
+    this.physics.world.setBounds(0, 0, WORLD_W, WORLD_H + 200);
     this.cameras.main.setBounds(0, 0, WORLD_W, GAME_H);
 
     this._makeTextures();
 
-    // 背景：米白画纸（视差）
     this.bg = this.add.tileSprite(0, 0, GAME_W, GAME_H, 'paper')
       .setOrigin(0, 0).setScrollFactor(0).setTileScale(GAME_H / 864, GAME_H / 864).setDepth(-100);
 
-    // 地面（连续画纸底线）
+    // 瓦片地面/平台（程序化线框瓦片 + 碰撞）
     this.solids = this.physics.add.staticGroup();
-    const floor = this.add.rectangle(WORLD_W / 2, FLOOR_TOP + 40, WORLD_W, 90, PAPER);
-    floor.setStrokeStyle(3, INK);
-    this.solids.add(floor);
+    this._renderTileLayer('solid', 0, true);
 
-    // 悬浮平台
-    for (const p of PLATFORMS) {
-      const r = this.add.rectangle(p.x, p.y, p.w, 16, PAPER).setStrokeStyle(3, INK);
-      this.solids.add(r);
-    }
+    this._makeAnims();
 
-    // 玩家：黑色弹性墨团（贴近左边界出生，开启世界边界碰撞）
-    this.player = this.physics.add.sprite(60, FLOOR_TOP - 40, 'blob');
+    // 玩家墨团（贴左出生 + 世界边界）— 程序化多帧 squash 动画
+    this.player = this.physics.add.sprite(60, FLOOR_TOP - 40, 'blobf0');
     this.player.setCollideWorldBounds(true);
-    this.player.body.setCircle(13, 1, 1);
+    this.player.body.setCircle(12, 3, 3);
     this.player.setDepth(20);
     this.physics.add.collider(this.player, this.solids);
+    this.player.play('ink_idle');
     this.lastSafeX = 60;
 
     // 墨滴
     this.drops = this.physics.add.group({ allowGravity: false, immovable: true });
     for (const d of DROPS) {
-      const s = this.drops.create(d.x, d.y, 'drop'); s.setDepth(15); s.baseY = d.y;
+      const s = this.drops.create(d.x, d.y, 'drop'); s.setDepth(15);
       this.tweens.add({ targets: s, y: d.y - 10, duration: 1000, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
     }
     this.physics.add.overlap(this.player, this.drops, this._collect, null, this);
@@ -86,7 +72,7 @@ class InkLineScene extends Phaser.Scene {
     }
     this.physics.add.overlap(this.player, this.spikes, this._hit, null, this);
 
-    // 橡皮怪（巡逻）
+    // 橡皮怪
     this.erasers = this.physics.add.group({ allowGravity: false });
     for (const e of ERASERS) {
       const s = this.erasers.create(e.x, FLOOR_TOP - 18, 'eraser');
@@ -96,13 +82,12 @@ class InkLineScene extends Phaser.Scene {
     }
     this.physics.add.overlap(this.player, this.erasers, this._hit, null, this);
 
-    // 终点：画纸尽头的留白光
+    // 终点笔尖
     this.goal = this.physics.add.staticImage(WORLD_W - 120, FLOOR_TOP - 50, 'nib').setDepth(15);
     this.goalGlow = this.add.circle(WORLD_W - 120, FLOOR_TOP - 50, 46, 0x6fd0c8, 0.18).setDepth(14);
     this.tweens.add({ targets: this.goalGlow, scale: 1.3, alpha: 0.34, duration: 1300, yoyo: true, repeat: -1 });
     this.physics.add.overlap(this.player, this.goal, this._reachGoal, null, this);
 
-    // 状态
     this.maxHp = 3; this.hp = 3; this.score = 0;
     this.reachedGoal = false; this.invuln = false;
     this.gameStarted = false; this.gameOver = false;
@@ -124,40 +109,72 @@ class InkLineScene extends Phaser.Scene {
     }
   }
 
-  _makeTextures() {
-    // 墨团 30x30：黑圆 + 两只白眼
-    let g = this.make.graphics({ x: 0, y: 0, add: false });
-    g.fillStyle(INK, 1); g.fillCircle(15, 15, 13);
-    g.fillStyle(0xffffff, 1); g.fillCircle(11, 12, 3); g.fillCircle(19, 12, 3);
-    g.fillStyle(INK, 1); g.fillCircle(11, 12, 1.4); g.fillCircle(19, 12, 1.4);
-    g.generateTexture('blob', 30, 30); g.destroy();
+  _renderTileLayer(layerName, depth, collision) {
+    const data = (TILEMAP_DATA.layers || {})[layerName];
+    if (!data) return;
+    const W = TILEMAP_DATA.width, TW = TILEMAP_DATA.tileWidth, TH = TILEMAP_DATA.tileHeight;
+    data.forEach((id, i) => {
+      if (!id) return;
+      const x = (i % W) * TW + TW / 2;
+      const y = Math.floor(i / W) * TH + TH / 2;
+      const sp = this.add.image(x, y, `tile_${id}`).setDisplaySize(TW, TH).setDepth(depth);
+      if (collision) { this.solids.add(sp); sp.body.setSize(TW, TH); }
+    });
+  }
 
-    // 墨滴 16x18：水滴
+  _makeAnims() {
+    // 程序化帧动画：idle 轻微 squash 呼吸，move 更快弹跳
+    const idle = ['blobf0', 'blobf1', 'blobf2', 'blobf1'];
+    const move = ['blobf0', 'blobf3', 'blobf4', 'blobf3'];
+    if (!this.anims.exists('ink_idle'))
+      this.anims.create({ key: 'ink_idle', frames: idle.map(k => ({ key: k })), frameRate: 5, repeat: -1 });
+    if (!this.anims.exists('ink_move'))
+      this.anims.create({ key: 'ink_move', frames: move.map(k => ({ key: k })), frameRate: 12, repeat: -1 });
+  }
+
+  _makeTextures() {
+    // 线框瓦片 tile_1：米白填充 + 黑描边
+    let g = this.make.graphics({ x: 0, y: 0, add: false });
+    g.fillStyle(PAPER, 1); g.fillRect(0, 0, 64, 64);
+    g.lineStyle(3, INK, 1); g.strokeRect(1, 1, 62, 62);
+    g.lineStyle(1, INK, 0.25); g.beginPath(); g.moveTo(0, 20); g.lineTo(64, 20); g.strokePath();
+    g.generateTexture('tile_1', 64, 64); g.destroy();
+
+    // 墨团 squash 帧 blobf0..4（圆头 + 白眼，不同压扁度）
+    const blob = (key, sx, sy) => {
+      const w = 30, h = 30; const g2 = this.make.graphics({ x: 0, y: 0, add: false });
+      const cx = 15, cy = 16, rx = 13 * sx, ry = 13 * sy;
+      g2.fillStyle(INK, 1); g2.fillEllipse(cx, cy + (13 - ry), rx, ry);
+      g2.fillStyle(0xffffff, 1); g2.fillCircle(cx - 4, cy - 4 + (13 - ry), 3); g2.fillCircle(cx + 4, cy - 4 + (13 - ry), 3);
+      g2.fillStyle(INK, 1); g2.fillCircle(cx - 4, cy - 4 + (13 - ry), 1.3); g2.fillCircle(cx + 4, cy - 4 + (13 - ry), 1.3);
+      g2.generateTexture(key, w, h); g2.destroy();
+    };
+    blob('blobf0', 1.0, 1.0);
+    blob('blobf1', 1.05, 0.95);
+    blob('blobf2', 0.95, 1.05);
+    blob('blobf3', 1.15, 0.82);
+    blob('blobf4', 0.82, 1.18);
+
+    // 墨滴
     g = this.make.graphics({ x: 0, y: 0, add: false });
-    g.fillStyle(INK, 1);
-    g.fillCircle(8, 12, 6);
-    g.fillTriangle(8, 0, 3, 9, 13, 9);
+    g.fillStyle(INK, 1); g.fillCircle(8, 12, 6); g.fillTriangle(8, 0, 3, 9, 13, 9);
     g.fillStyle(0xffffff, 0.7); g.fillCircle(6, 10, 1.6);
     g.generateTexture('drop', 16, 18); g.destroy();
 
-    // 尖刺 36x26：三连黑三角（线稿）
+    // 尖刺
     g = this.make.graphics({ x: 0, y: 0, add: false });
     g.fillStyle(PAPER, 1); g.lineStyle(3, INK, 1);
-    [0, 12, 24].forEach(ox => {
-      g.fillTriangle(ox + 0, 26, ox + 6, 4, ox + 12, 26);
-      g.strokeTriangle(ox + 0, 26, ox + 6, 4, ox + 12, 26);
-    });
+    [0, 12, 24].forEach(ox => { g.fillTriangle(ox, 26, ox + 6, 4, ox + 12, 26); g.strokeTriangle(ox, 26, ox + 6, 4, ox + 12, 26); });
     g.generateTexture('spike', 36, 26); g.destroy();
 
-    // 橡皮怪 38x34：灰色圆角块 + 表情
+    // 橡皮怪
     g = this.make.graphics({ x: 0, y: 0, add: false });
     g.fillStyle(0xc9c4bb, 1); g.lineStyle(3, INK, 1);
     g.fillRoundedRect(2, 2, 34, 30, 6); g.strokeRoundedRect(2, 2, 34, 30, 6);
     g.fillStyle(INK, 1); g.fillRect(10, 12, 5, 6); g.fillRect(23, 12, 5, 6);
-    g.lineStyle(2, INK, 1); g.beginPath(); g.moveTo(12, 24); g.lineTo(26, 24); g.strokePath();
     g.generateTexture('eraser', 38, 34); g.destroy();
 
-    // 终点笔尖 22x70
+    // 笔尖
     g = this.make.graphics({ x: 0, y: 0, add: false });
     g.fillStyle(0x6fd0c8, 1); g.fillCircle(11, 12, 9);
     g.fillStyle(0xffffff, 1); g.fillCircle(11, 12, 4);
@@ -201,7 +218,6 @@ class InkLineScene extends Phaser.Scene {
     this.gameOver = true; this.gameStarted = false; this.player.setVelocity(0, 0);
     window.GameHUD?.showGameOver(true, '最后一滴墨落下，断裂的线条自动连缀成完整的画，米白画纸绽放出第一抹色彩——小墨终于画完了自己的世界。');
   }
-
   _lose() {
     if (this.gameOver) return;
     this.gameOver = true; this.gameStarted = false; this.player.setVelocity(0, 0);
@@ -222,14 +238,17 @@ class InkLineScene extends Phaser.Scene {
     else this.player.setVelocityX(0);
     if (jump && onGround) this.player.setVelocityY(-JUMP_V);
 
-    // 橡皮怪巡逻
+    const moving = left || right || !onGround;
+    const anim = moving ? 'ink_move' : 'ink_idle';
+    if (!this.player.anims.isPlaying || this.player.anims.currentAnim?.key !== anim) this.player.play(anim, true);
+
     this.erasers.getChildren().forEach(e => {
       if (e.x <= e.getData('minX')) e.setVelocityX(60);
       else if (e.x >= e.getData('maxX')) e.setVelocityX(-60);
     });
 
     if (onGround) this.lastSafeX = this.player.x;
-    if (this.player.y > FLOOR_TOP + 200) {
+    if (this.player.y > WORLD_H + 80) {
       this.player.setVelocity(0, 0);
       this.player.setPosition(this.lastSafeX, FLOOR_TOP - 60);
       if (!this.invuln) this._damage(1);
