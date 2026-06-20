@@ -258,5 +258,43 @@ window.CHAR_REGISTRY = {
       }
     },
     "spritesheet": "Botty/output/spritesheet.webp"
+  },
+  "ShadowBoy": {
+    "name": "ShadowBoy",
+    "type": "char-sprite-v1",
+    "dimensions": {
+      "width": 1728,
+      "height": 624
+    },
+    "frameSize": {
+      "width": 192,
+      "height": 208
+    },
+    "rows": [
+      "idle",
+      "run",
+      "jump"
+    ],
+    "animations": {
+      "idle": {
+        "row": 0,
+        "frameCount": 9,
+        "fps": 10,
+        "loop": true
+      },
+      "run": {
+        "row": 1,
+        "frameCount": 9,
+        "fps": 10,
+        "loop": true
+      },
+      "jump": {
+        "row": 2,
+        "frameCount": 9,
+        "fps": 10,
+        "loop": true
+      }
+    },
+    "spritesheet": "ShadowBoy/output/spritesheet.webp"
   }
 };
