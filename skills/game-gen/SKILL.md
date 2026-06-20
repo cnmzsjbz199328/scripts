@@ -28,6 +28,9 @@ description: 从自然语言描述出发，由游戏策划师（Phase 0）生成
 | **ghibli**（默认） | 吉卜力 / ghibli / 动漫 | Studio Ghibli animation style, soft expressive eyes, gentle watercolor-like shading, warm color palette, clean detailed linework, painterly but not photorealistic |
 | **pixel** | 像素 / pixel / 复古 | pixel-ish, chibi, thick dark 1-2px outlines, limited palette, flat cel shading, visible stepped pixel edges |
 | **cartoon** | 卡通 / cartoon | Bold outlines, flat bright colors, western cartoon style, exaggerated expressions, rubber-hose limbs |
+| **silhouette** | 剪影 / silhouette / 影子 | high-contrast silhouette art style, pure solid-black foreground shapes with no interior detail, soft volumetric fog, single dramatic backlight rim, muted desaturated gradient background, moody cinematic LIMBO/INSIDE aesthetic, minimal two-tone palette |
+| **western** | 西部 / western / 牛仔 | spaghetti western art style, sun-bleached desert palette of ochre sepia and dusty burnt-orange, bold graphic flat shapes, weathered wanted-poster aesthetic, dramatic low golden-hour sun, gritty stylized linework, grain texture |
+| **lineart** | 线条 / lineart / 简画 | minimalist line-art style, clean single-weight black outlines on flat warm-cream background, flat single-color fills or no fill, geometric vector look, generous negative space, modern editorial illustration |
 
 ---
 
