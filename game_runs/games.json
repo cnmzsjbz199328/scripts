@@ -1,5 +1,18 @@
 [
   {
+    "id": "ShadowArena",
+    "title": "影斗：剪影格斗场",
+    "tagline": "黎明的天光为幕，四位黑影武者，一场一对一的宿命对决。",
+    "gameType": "side-scroller",
+    "genre": "FIGHTING",
+    "accent": "#e6a23c",
+    "previewBg": "#ffe6b8",
+    "icon": "🥋",
+    "thumbnail": "ShadowArena/assets/svg/stage.svg",
+    "path": "ShadowArena/index.html",
+    "createdAt": "2026-06-21T09:00:00.000Z"
+  },
+  {
     "id": "MoonRonin",
     "title": "月影：屋脊浪人",
     "tagline": "月光为路，飞檐为桥——一个浪人，踏着将军府的屋脊奔向黎明。",
