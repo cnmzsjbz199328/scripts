@@ -138,6 +138,7 @@ interface Probe {
     const t0 = Date.now();
     let prevHp = -1, prevMaxX = 0, stuckTicks = 0;  // prevHp=-1：首帧只记录不计数
     let prevTickX: number | null = null;            // 上一帧 x，用于检测"想动却被墙顶住"
+    let prevTickY: number | null = null;            // 上一帧 y（俯视绕障用）
     let prevScore = -1, isTopdown = false, goalScore = 0;  // 俯视模式：以 score 计进度/卡死
     const stuckLimit = Math.ceil(6000 / tickMs); // ~6s 无进展判卡死（已含计时门合理等待）
 
@@ -179,10 +180,16 @@ interface Probe {
 
       // ── bot 决策 ──
       if (isTopdown) {
-        // 俯视：探针给出建议方向 moveX/moveY(-1..1)，按四向键走位（躲弹+趋目标）
+        // 俯视：探针给建议方向 moveX/moveY(-1..1)，按四向键走位（躲避+趋目标）
+        let mx = P.moveX, my = P.moveY;
+        // 被静态障碍顶住（想动却位置停滞）→ 垂直方向绕行一拍
+        const stalled = prevTickX !== null && prevTickY !== null &&
+          Math.abs(p.x - prevTickX) < 3 && Math.abs(p.y - prevTickY) < 3 && (Math.abs(mx) > 0.3 || Math.abs(my) > 0.3);
+        if (stalled) { const t = mx; mx = -my; my = t; }
         const dz = 0.3;
-        await setKey('ArrowRight', P.moveX > dz); await setKey('ArrowLeft', P.moveX < -dz);
-        await setKey('ArrowDown', P.moveY > dz);  await setKey('ArrowUp', P.moveY < -dz);
+        await setKey('ArrowRight', mx > dz); await setKey('ArrowLeft', mx < -dz);
+        await setKey('ArrowDown', my > dz);  await setKey('ArrowUp', my < -dz);
+        if (P.interact) await tap('e', 70);   // 与 NPC/物件交互（如倾听证词）
         if (P.attack) await tap('j', 60);
       } else {
         // 横版（潜行/平台/跑酷）：朝目标移动 + 跳/蹲/斩/等门
@@ -199,7 +206,7 @@ interface Probe {
         if (P.attack) await tap('j', 60);
       }
 
-      prevTickX = p.x;
+      prevTickX = p.x; prevTickY = p.y;
       await sleep(tickMs);
     }
 
