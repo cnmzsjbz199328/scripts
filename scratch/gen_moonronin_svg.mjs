@@ -23,7 +23,7 @@ function limb(x1, y1, x2, y2, w) {
 // 画一个浪人姿态。参数为各关节角度(度)。facing right。
 function ronin({ bob = 0, lean = 14,
   fThigh = 0, fKnee = 0, bThigh = 0, bKnee = 0,
-  fArm = 0, fElbow = 20, bArm = 0, bElbow = 20 }) {
+  fArm = 0, fElbow = 20, bArm = 0, bElbow = 20, swordDeg = null }) {
   const hipX = 46, hipY = 84 + bob;
   // 躯干（向前微倾）
   const [neckX, neckY] = pt(hipX, hipY, 30, 180 - lean);
@@ -40,9 +40,16 @@ function ronin({ bob = 0, lean = 14,
   const [fHandX, fHandY] = pt(fElX, fElY, 16, fArm - fElbow);
   const [bElX, bElY] = pt(shoulderX, shoulderY, 18, bArm);
   const [bHandX, bHandY] = pt(bElX, bElY, 16, bArm - bElbow);
-  // 背后的刀（自肩斜跨）
-  const [swA0x, swA0y] = pt(shoulderX, shoulderY, 6, 60 - lean);
-  const [swA1x, swA1y] = pt(shoulderX, shoulderY, 40, 200 - lean);
+  // 刀：swordDeg 为 null 时背刀，否则握于前手挥砍
+  let swordLine;
+  if (swordDeg === null) {
+    const [swA0x, swA0y] = pt(shoulderX, shoulderY, 6, 60 - lean);
+    const [swA1x, swA1y] = pt(shoulderX, shoulderY, 40, 200 - lean);
+    swordLine = `<line x1="${swA0x.toFixed(1)}" y1="${swA0y.toFixed(1)}" x2="${swA1x.toFixed(1)}" y2="${swA1y.toFixed(1)}" stroke="${INK}" stroke-width="4" stroke-linecap="round"/>`;
+  } else {
+    const [tipX, tipY] = pt(fHandX, fHandY, 40, swordDeg);
+    swordLine = `<line x1="${fHandX.toFixed(1)}" y1="${fHandY.toFixed(1)}" x2="${tipX.toFixed(1)}" y2="${tipY.toFixed(1)}" stroke="${INK}" stroke-width="4" stroke-linecap="round"/>`;
+  }
 
   return `
   <!-- 后肢/后臂(略浅以分层，仍近黑) -->
@@ -51,7 +58,7 @@ function ronin({ bob = 0, lean = 14,
   ${limb(shoulderX, shoulderY, bElX, bElY, 9)}
   ${limb(bElX, bElY, bHandX, bHandY, 8)}
   <!-- 刀 -->
-  <line x1="${swA0x.toFixed(1)}" y1="${swA0y.toFixed(1)}" x2="${swA1x.toFixed(1)}" y2="${swA1y.toFixed(1)}" stroke="${INK}" stroke-width="4" stroke-linecap="round"/>
+  ${swordLine}
   <!-- 躯干 -->
   <line x1="${hipX}" y1="${hipY.toFixed(1)}" x2="${neckX.toFixed(1)}" y2="${neckY.toFixed(1)}" stroke="${INK}" stroke-width="18" stroke-linecap="round"/>
   <!-- 头 + 头巾尾 -->
@@ -102,6 +109,11 @@ for (let i = 0; i < 6; i++) {
 write('ronin_jump_0.svg', ronin({ bob: 4, lean: 22, fThigh: 30, fKnee: 60, bThigh: 18, bKnee: 60, fArm: -20, fElbow: 30, bArm: -30, bElbow: 20 }));
 write('ronin_jump_1.svg', ronin({ bob: -6, lean: 14, fThigh: 40, fKnee: 70, bThigh: -34, bKnee: 30, fArm: -60, fElbow: 20, bArm: 40, bElbow: 20 }));
 write('ronin_jump_2.svg', ronin({ bob: -2, lean: 16, fThigh: 20, fKnee: 40, bThigh: -20, bKnee: 50, fArm: -30, fElbow: 30, bArm: 20, bElbow: 30 }));
+
+// ── slash（3 帧挥刀：抬刀蓄力 → 前劈 → 收势） ──
+write('ronin_slash_0.svg', ronin({ bob: -1, lean: 10, fThigh: 22, fKnee: 22, bThigh: -26, bKnee: 32, fArm: -75, fElbow: 8, bArm: -20, bElbow: 30, swordDeg: 210 }));
+write('ronin_slash_1.svg', ronin({ bob: 1, lean: 20, fThigh: 26, fKnee: 24, bThigh: -22, bKnee: 30, fArm: 72, fElbow: 6, bArm: 20, bElbow: 25, swordDeg: 78 }));
+write('ronin_slash_2.svg', ronin({ bob: 0, lean: 14, fThigh: 20, fKnee: 20, bThigh: -20, bKnee: 28, fArm: 40, fElbow: 22, bArm: 5, bElbow: 30, swordDeg: 105 }));
 
 // ── 屋脊瓦片 tile_roof（64x64，水平可拼接） ──
 write('tile_roof.svg', `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">

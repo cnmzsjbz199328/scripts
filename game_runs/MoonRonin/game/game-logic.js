@@ -39,6 +39,7 @@ class MoonRoninScene extends Phaser.Scene {
     for (let i = 0; i < 3; i++) this.load.svg(`r_idle_${i}`, `assets/svg/ronin_idle_${i}.svg`, { width: 96, height: 128 });
     for (let i = 0; i < 6; i++) this.load.svg(`r_run_${i}`, `assets/svg/ronin_run_${i}.svg`, { width: 96, height: 128 });
     for (let i = 0; i < 3; i++) this.load.svg(`r_jump_${i}`, `assets/svg/ronin_jump_${i}.svg`, { width: 96, height: 128 });
+    for (let i = 0; i < 3; i++) this.load.svg(`r_slash_${i}`, `assets/svg/ronin_slash_${i}.svg`, { width: 96, height: 128 });
     // 道具 SVG
     this.load.svg('orb', 'assets/svg/orb.svg', { width: 24, height: 24 });
     for (let i = 0; i < 2; i++) this.load.svg(`crow_${i}`, `assets/svg/crow_${i}.svg`, { width: 28, height: 22 });
@@ -92,11 +93,12 @@ class MoonRoninScene extends Phaser.Scene {
     this.endGlow = this.add.rectangle(END_X + 60, GAME_H / 2, 24, GAME_H, 0xffe9a8, 0.12).setDepth(2).setScrollFactor(1);
 
     this.maxHp = 3; this.hp = 3; this.score = 0;
-    this.reachedEnd = false; this.invuln = false;
+    this.reachedEnd = false; this.invuln = false; this.slashUntil = 0;
     this.gameStarted = false; this.gameOver = false;
 
     this.cursors = this.input.keyboard.createCursorKeys();
     this.keys = this.input.keyboard.addKeys('W,A,S,D,SPACE');
+    this.jKey = this.input.keyboard.addKey('J');
     this.cameras.main.startFollow(this.player, true, 0.1, 0.1);
     this.cameras.main.setDeadzone(180, 200);
 
@@ -107,7 +109,7 @@ class MoonRoninScene extends Phaser.Scene {
         this.gameStarted = true;
         window.GameHUD.setHearts(this.hp, this.maxHp);
         window.GameHUD.setScore(this.score);
-        window.GameHUD.setObjective(`踏过屋脊，收集 ${GOAL_SCORE} 缕月光，抵达府墙尽头（已 ${this.score}）`);
+        window.GameHUD.setObjective(`踏过屋脊收集 ${GOAL_SCORE} 缕月光抵达府墙（J 挥刀斩夜枭）（已 ${this.score}）`);
       });
     }
   }
@@ -133,6 +135,7 @@ class MoonRoninScene extends Phaser.Scene {
     mk('ro_idle', ['r_idle_0', 'r_idle_1', 'r_idle_2', 'r_idle_1'], 4, true);
     mk('ro_run', ['r_run_0', 'r_run_1', 'r_run_2', 'r_run_3', 'r_run_4', 'r_run_5'], 14, true);
     mk('ro_jump', ['r_jump_0', 'r_jump_1', 'r_jump_2'], 8, false);
+    mk('ro_slash', ['r_slash_0', 'r_slash_1', 'r_slash_2'], 14, false);
     mk('crow_fly', ['crow_0', 'crow_1'], 6, true);
   }
 
@@ -145,6 +148,25 @@ class MoonRoninScene extends Phaser.Scene {
     window.GameHUD?.setObjective(this.score >= GOAL_SCORE
       ? '月光已聚齐！奔向府墙尽头的光柱 →'
       : `踏过屋脊，收集 ${GOAL_SCORE} 缕月光，抵达府墙尽头（已 ${this.score}）`);
+  }
+
+  _slash(time) {
+    this.slashUntil = time + 360;
+    this.player.play('ro_slash', true);
+    const dir = this.player.flipX ? -1 : 1;
+    // 刀气特效
+    const arc = this.add.arc(this.player.x + dir * 36, this.player.y - 6, 40, dir > 0 ? -60 : 120, dir > 0 ? 60 : 240, false, 0xffe9a8, 0.35).setDepth(25);
+    this.tweens.add({ targets: arc, alpha: 0, scale: 1.3, duration: 220, onComplete: () => arc.destroy() });
+    // 斩落射程内、身前的夜枭
+    this.crows.getChildren().forEach(c => {
+      if (!c.active) return;
+      const dx = c.x - this.player.x;
+      if (Math.sign(dx) === dir && Math.abs(dx) < 80 && Math.abs(c.y - this.player.y) < 70) {
+        const puff = this.add.circle(c.x, c.y, 8, 0x222633, 0.8).setDepth(26);
+        this.tweens.add({ targets: puff, scale: 2.6, alpha: 0, duration: 300, onComplete: () => puff.destroy() });
+        c.destroy();
+      }
+    });
   }
 
   _hitCrow(player, crow) {
@@ -172,7 +194,7 @@ class MoonRoninScene extends Phaser.Scene {
     window.GameHUD?.showGameOver(false, '鹭一脚踏空，黑影坠入深不见底的庭院……密信，终究没能带出府门。');
   }
 
-  update() {
+  update(time) {
     if (this.bg) this.bg.tilePositionX = this.cameras.main.scrollX * 0.3;
     if (!this.gameStarted || this.gameOver) return;
 
@@ -186,11 +208,15 @@ class MoonRoninScene extends Phaser.Scene {
     else this.player.setVelocityX(0);
     if (jump && onGround) this.player.setVelocityY(-JUMP_V);
 
+    // 挥刀（J）
+    if (Phaser.Input.Keyboard.JustDown(this.jKey) && time >= this.slashUntil) this._slash(time);
+
     let anim;
-    if (!onGround) anim = 'ro_jump';
+    if (time < this.slashUntil) anim = 'ro_slash';
+    else if (!onGround) anim = 'ro_jump';
     else if (left || right) anim = 'ro_run';
     else anim = 'ro_idle';
-    if (!this.player.anims.isPlaying || this.player.anims.currentAnim?.key !== anim) this.player.play(anim, true);
+    if (anim !== 'ro_slash' && (!this.player.anims.isPlaying || this.player.anims.currentAnim?.key !== anim)) this.player.play(anim, true);
 
     // 夜枭上下盘旋
     this.crows.getChildren().forEach(c => {
