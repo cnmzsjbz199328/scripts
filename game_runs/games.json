@@ -1,5 +1,18 @@
 [
   {
+    "id": "MoonRonin",
+    "title": "月影：屋脊浪人",
+    "tagline": "月光为路，飞檐为桥——一个浪人，踏着将军府的屋脊奔向黎明。",
+    "gameType": "side-scroller",
+    "genre": "PARKOUR-RUNNER",
+    "accent": "#ffd27a",
+    "previewBg": "#0a0e1a",
+    "icon": "🌙",
+    "thumbnail": "MoonRonin/scene/panorama.png",
+    "path": "MoonRonin/index.html",
+    "createdAt": "2026-06-21T08:30:00.000Z"
+  },
+  {
     "id": "GeoStorm",
     "title": "几何风暴：最后的光点",
     "tagline": "当虚空抹去所有线条，我是这张蓝图上最后亮着的一点。",

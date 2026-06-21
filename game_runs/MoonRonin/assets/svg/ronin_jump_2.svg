@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 128" width="96" height="128">
+  <!-- 后肢/后臂(略浅以分层，仍近黑) -->
+  <line x1="46.0" y1="82.0" x2="37.8" y2="104.6" stroke="#05060c" stroke-width="11" stroke-linecap="round"/>
+  <line x1="37.8" y1="104.6" x2="15.2" y2="112.8" stroke="#05060c" stroke-width="9" stroke-linecap="round"/>
+  <line x1="54.3" y1="57.2" x2="60.4" y2="74.1" stroke="#05060c" stroke-width="9" stroke-linecap="round"/>
+  <line x1="60.4" y1="74.1" x2="57.6" y2="89.8" stroke="#05060c" stroke-width="8" stroke-linecap="round"/>
+  <!-- 刀 -->
+  <line x1="58.4" y1="61.5" x2="51.5" y2="17.3" stroke="#05060c" stroke-width="4" stroke-linecap="round"/>
+  <!-- 躯干 -->
+  <line x1="46" y1="82.0" x2="54.3" y2="53.2" stroke="#05060c" stroke-width="18" stroke-linecap="round"/>
+  <!-- 头 + 头巾尾 -->
+  <circle cx="57.3" cy="42.6" r="10" fill="#05060c"/>
+  <path d="M 57.3 42.6 q -14 -2 -22 6 q 10 -2 18 2 z" fill="#05060c"/>
+  <!-- 前肢/前臂 -->
+  <line x1="46.0" y1="82.0" x2="54.2" y2="104.6" stroke="#05060c" stroke-width="12" stroke-linecap="round"/>
+  <line x1="54.2" y1="104.6" x2="46.0" y2="127.1" stroke="#05060c" stroke-width="10" stroke-linecap="round"/>
+  <line x1="54.3" y1="57.2" x2="45.3" y2="72.8" stroke="#05060c" stroke-width="10" stroke-linecap="round"/>
+  <line x1="45.3" y1="72.8" x2="31.4" y2="80.8" stroke="#05060c" stroke-width="9" stroke-linecap="round"/>
+  </svg>
