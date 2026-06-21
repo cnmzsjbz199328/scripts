@@ -1,30 +1,51 @@
-/* MoonRonin — 月影：屋脊浪人（全 SVG 版）
- * 剪影屋脊跑酷 (silhouette side-scroller). 以 ShadowNinja 夜景全景为风格锚。
- * - 角色序列帧 + 瓦片：全部 SVG（assets/svg/*.svg），Phaser load.svg 栅格化为纹理，
- *   逐帧 SVG 串成 Phaser 动画（idle/run/jump）。
- * - 屋脊瓦片经 tilemap.json solid 层渲染并生成静态碰撞体；段间缺口可坠落。
+/* MoonRonin — 月影：屋脊浪人（短篇完整游戏版）
+ * 剪影屋脊跑酷 (silhouette parkour). 全 SVG（角色逐帧 + 瓦片），以 ShadowNinja 夜景为风格锚。
+ *
+ * demo → 短篇完整游戏的结构升级（与 ShadowNinja 同一套方法）：
+ *  · 开场卡 →【一幕·外院飞檐】学跑跳 →【二幕·中庭高脊】缺口更宽+夜枭 →【三幕·府墙尽头】高潮 → 结局卡
+ *  · 检查点：失足/受击退回本幕起点（满血），死亡预算耗尽才真正失败
+ *  · 叙事卡画布内浮层；月光散落于必经屋脊；夜枭逐幕增多
+ *  · 暴露 window.__probe()/__advanceCard() 供 autoplay 白盒自测（坐标/缺口/夜枭/目标）
  */
 
 const GAME_W = 960;
 const GAME_H = 540;
 const TILE = 64;
-const WORLD_W = (TILEMAP_DATA.width || 80) * TILE;
+const WORLD_W = (TILEMAP_DATA.width || 80) * TILE;   // 5120
 const WORLD_H = (TILEMAP_DATA.height || 9) * TILE;
-
-const GOAL_SCORE = 8;
 const PLAYER_SPEED = 230;
-const JUMP_V = 560;
-const END_X = WORLD_W - 6 * TILE;
+const JUMP_V = 640;   // 跳跃留足余量：缺口/升高屋脊都能宽松越过（对人/ bot 都更可靠）
+const END_X = WORLD_W - 5 * TILE;   // 4800
+const DEATH_BUDGET = 5;
+const SPAWN_Y = 320;
 
-// 月光（屋脊上方，跳跃可及）
-const ORBS = [
-  { x: 300, y: 408 }, { x: 1024, y: 344 }, { x: 1700, y: 408 },
-  { x: 2380, y: 344 }, { x: 3040, y: 280 }, { x: 3712, y: 344 },
-  { x: 4400, y: 408 }, { x: 4960, y: 344 }, { x: 1380, y: 300 }, { x: 2720, y: 300 },
+// 屋脊段（来自 tilemap _segs：[c0,c1,row]）→ x 区间与顶面 y
+const SEGS = (TILEMAP_DATA._segs || []).map(([c0, c1, row]) => ({
+  x0: c0 * TILE, x1: (c1 + 1) * TILE, topY: row * TILE,
+}));
+const segAt = (x) => SEGS.find(s => x >= s.x0 - 4 && x <= s.x1 + 4) || null;
+
+// ── 三幕（沿屋脊推进；startX 落在安全屋脊上）──
+const ACTS = [
+  { name: '外院飞檐', startX: 90,   fog: 0x140d04, fogA: 0.0,
+    intro: ['第一幕 · 外院飞檐',
+      '截获了将军通敌的密信，鹭必须趁夜踏过层层屋脊带它出府。\n← → / A D 奔跑，W / ↑ / 空格 起跳，越过屋脊间的庭院缺口。\n沿途的月光，要在它熄灭前聚齐。'] },
+  { name: '中庭高脊', startX: 2150, fog: 0x06101c, fogA: 0.16,
+    intro: ['第二幕 · 中庭高脊',
+      '屋脊更高，缺口更宽，夜枭开始在庭院上空盘旋。\n看准起跳的边缘，别在半空被夜枭扑中——\nJ 挥刀，可将扑来的夜枭斩落。'] },
+  { name: '府墙尽头', startX: 4190, fog: 0x1a0608, fogA: 0.2,
+    intro: ['第三幕 · 府墙尽头',
+      '最后一段断续飞檐，尽头便是可纵身跃下的府墙。\n月光将尽，夜枭最密。\n聚齐月光，奔过最后的缺口，跃下府墙，把密信带向黎明！'] },
 ];
-// 夜枭（在缺口上空盘旋）
+
+const GOAL_SCORE = 7;
+// 月光：每段屋脊面上 1 缕（必经，奔跑即可拾），共 8 → 目标 7（容错 1）
+const ORBS = SEGS.map(s => ({ x: (s.x0 + s.x1) / 2, y: s.topY - 30 }));
+// 夜枭（盘旋于缺口上空）：逐幕增多
 const CROWS = [
-  { x: 700, y: 300, range: 70 }, { x: 2100, y: 260, range: 90 }, { x: 3450, y: 240, range: 80 },
+  { x: 700,  y: 300, range: 70 },                         // 一幕 1 只
+  { x: 2050, y: 250, range: 90 }, { x: 2760, y: 240, range: 80 },  // 二幕
+  { x: 4120, y: 300, range: 80 }, { x: 4720, y: 250, range: 90 },  // 三幕
 ];
 
 class MoonRoninScene extends Phaser.Scene {
@@ -32,46 +53,40 @@ class MoonRoninScene extends Phaser.Scene {
 
   preload() {
     this.load.image('manor', 'scene/panorama.png');
-    // 瓦片 SVG
     this.load.svg('tile_1', 'assets/svg/tile_roof.svg', { width: 64, height: 64 });
     this.load.svg('tile_2', 'assets/svg/tile_beam.svg', { width: 64, height: 64 });
-    // 角色序列帧 SVG
     for (let i = 0; i < 3; i++) this.load.svg(`r_idle_${i}`, `assets/svg/ronin_idle_${i}.svg`, { width: 164, height: 150 });
     for (let i = 0; i < 6; i++) this.load.svg(`r_run_${i}`, `assets/svg/ronin_run_${i}.svg`, { width: 164, height: 150 });
     for (let i = 0; i < 3; i++) this.load.svg(`r_jump_${i}`, `assets/svg/ronin_jump_${i}.svg`, { width: 164, height: 150 });
     for (let i = 0; i < 3; i++) this.load.svg(`r_slash_${i}`, `assets/svg/ronin_slash_${i}.svg`, { width: 164, height: 150 });
-    // 道具 SVG
     this.load.svg('orb', 'assets/svg/orb.svg', { width: 24, height: 24 });
     for (let i = 0; i < 2; i++) this.load.svg(`crow_${i}`, `assets/svg/crow_${i}.svg`, { width: 28, height: 22 });
   }
 
   create() {
     this.physics.world.setBounds(0, 0, WORLD_W, WORLD_H + 400);
-    this.physics.world.setBoundsCollision(true, true, true, false); // 底部开放 → 缺口可坠落
+    this.physics.world.setBoundsCollision(true, true, true, false);
     this.cameras.main.setBounds(0, 0, WORLD_W, GAME_H);
 
-    // 背景视差（夜景全景）
     this.bg = this.add.tileSprite(0, 0, GAME_W, GAME_H, 'manor')
       .setOrigin(0, 0).setScrollFactor(0).setTileScale(GAME_H / 864, GAME_H / 864).setDepth(-100);
+    this.fog = this.add.rectangle(0, 0, GAME_W, GAME_H, ACTS[0].fog, 0)
+      .setOrigin(0, 0).setScrollFactor(0).setDepth(-50);
 
-    // 屋脊瓦片 + 碰撞
     this.solids = this.physics.add.staticGroup();
     this._renderTileLayer('solid', 0, true);
 
     this._makeAnims();
 
-    // 玩家浪人（贴左出生 + 横向边界）
-    this.player = this.physics.add.sprite(80, 360, 'r_idle_0');
+    this.player = this.physics.add.sprite(ACTS[0].startX, SPAWN_Y, 'r_idle_0');
     this.player.setScale(0.72);
-    // 帧画布带 (-12,-8) 负边距 → 躯干/腿在纹理中约 x40..84、y36..140
     this.player.body.setSize(40, 104).setOffset(40, 36);
     this.player.setCollideWorldBounds(true);
     this.player.setDepth(20);
     this.physics.add.collider(this.player, this.solids);
     this.player.play('ro_idle');
-    this.lastSafeX = 80;
+    this.lastSafeX = ACTS[0].startX;
 
-    // 月光
     this.orbs = this.physics.add.group({ allowGravity: false, immovable: true });
     for (const o of ORBS) {
       const s = this.orbs.create(o.x, o.y, 'orb'); s.setDepth(15);
@@ -80,7 +95,6 @@ class MoonRoninScene extends Phaser.Scene {
     }
     this.physics.add.overlap(this.player, this.orbs, this._collect, null, this);
 
-    // 夜枭
     this.crows = this.physics.add.group({ allowGravity: false });
     for (const c of CROWS) {
       const s = this.crows.create(c.x, c.y, 'crow_0'); s.setDepth(18);
@@ -90,29 +104,84 @@ class MoonRoninScene extends Phaser.Scene {
     }
     this.physics.add.overlap(this.player, this.crows, this._hitCrow, null, this);
 
-    // 终点光柱
-    this.endGlow = this.add.rectangle(END_X + 60, GAME_H / 2, 24, GAME_H, 0xffe9a8, 0.12).setDepth(2).setScrollFactor(1);
+    this.endGlow = this.add.rectangle(END_X + 80, GAME_H / 2, 26, GAME_H, 0xffe9a8, 0.14).setDepth(2);
 
     this.maxHp = 3; this.hp = 3; this.score = 0;
+    this.actIdx = 0; this.deaths = 0;
     this.reachedEnd = false; this.invuln = false; this.slashUntil = 0;
-    this.gameStarted = false; this.gameOver = false;
+    this.gameStarted = false; this.gameOver = false; this.cardActive = false;
 
     this.cursors = this.input.keyboard.createCursorKeys();
-    this.keys = this.input.keyboard.addKeys('W,A,S,D,SPACE');
+    this.kkeys = this.input.keyboard.addKeys('W,A,S,D,SPACE');
     this.jKey = this.input.keyboard.addKey('J');
     this.cameras.main.startFollow(this.player, true, 0.1, 0.1);
     this.cameras.main.setDeadzone(180, 200);
 
-    window.__gameState = { player: this.player };
+    this._buildCardLayer();
+    this._exposeState();
 
     if (window.GameHUD) {
       window.GameHUD.onStart(() => {
-        this.gameStarted = true;
         window.GameHUD.setHearts(this.hp, this.maxHp);
         window.GameHUD.setScore(this.score);
-        window.GameHUD.setObjective(`踏过屋脊收集 ${GOAL_SCORE} 缕月光抵达府墙（J 挥刀斩夜枭）（已 ${this.score}）`);
+        this._showCard('月影 · 屋脊浪人',
+          '密信在怀，府门重重。\n踏过将军府的层层屋脊，越过庭院缺口，聚齐 ' + GOAL_SCORE + ' 缕月光，奔向府墙尽头。\n\n奔跑 ← → / A D    ·    起跳 ↑ / W / 空格    ·    挥刀 J    ·    继续 SPACE',
+          () => this._enterAct(0, true));
       });
     }
+  }
+
+  // ── 叙事卡浮层（与 ShadowNinja 同构）──
+  _buildCardLayer() {
+    this.cardBg = this.add.rectangle(0, 0, GAME_W, GAME_H, 0x05070d, 0.9)
+      .setOrigin(0, 0).setScrollFactor(0).setDepth(200).setVisible(false);
+    this.cardTitle = this.add.text(GAME_W / 2, 170, '', { fontFamily: 'Segoe UI, sans-serif', fontSize: '30px', color: '#ffe9a8', align: 'center', fontStyle: 'bold' }).setOrigin(0.5).setScrollFactor(0).setDepth(201).setVisible(false);
+    this.cardBody = this.add.text(GAME_W / 2, 300, '', { fontFamily: 'Segoe UI, sans-serif', fontSize: '18px', color: '#cbd5e1', align: 'center', lineSpacing: 10, wordWrap: { width: 720 } }).setOrigin(0.5).setScrollFactor(0).setDepth(201).setVisible(false);
+    this.cardHint = this.add.text(GAME_W / 2, 470, '— 按 SPACE 继续 —', { fontFamily: 'Segoe UI, sans-serif', fontSize: '14px', color: '#64748b' }).setOrigin(0.5).setScrollFactor(0).setDepth(201).setVisible(false);
+  }
+
+  _showCard(title, body, cb) {
+    this.cardActive = true; this._pendingCardCb = cb;
+    this.player.setVelocity(0, 0);
+    this.cardTitle.setText(title); this.cardBody.setText(body);
+    [this.cardBg, this.cardTitle, this.cardBody, this.cardHint].forEach(o => o.setVisible(true));
+    this.input.keyboard.once('keydown-SPACE', () => this._advanceCard());
+    this.input.keyboard.once('keydown-ENTER', () => this._advanceCard());
+    this.input.once('pointerdown', () => this._advanceCard());
+  }
+
+  _advanceCard() {
+    if (!this.cardActive) return;
+    this.cardActive = false;
+    [this.cardBg, this.cardTitle, this.cardBody, this.cardHint].forEach(o => o.setVisible(false));
+    const cb = this._pendingCardCb; this._pendingCardCb = null;
+    if (cb) cb();
+  }
+
+  _enterAct(idx, isStart) {
+    this.actIdx = idx;
+    const act = ACTS[idx];
+    this.checkpointX = act.startX;
+    this.hp = this.maxHp;
+    if (isStart) this.gameStarted = true;
+    this.player.setVelocity(0, 0);
+    this.player.setPosition(act.startX, SPAWN_Y);
+    this.lastSafeX = act.startX;
+    this.invuln = true; this.player.setAlpha(0.5);
+    this.time.delayedCall(700, () => { this.invuln = false; this.player.setAlpha(1); });
+    this.tweens.add({ targets: this.fog, fillAlpha: act.fogA, duration: 600 });
+    this.fog.setFillStyle(act.fog, this.fog.fillAlpha);
+    window.GameHUD?.setHearts(this.hp, this.maxHp);
+    this._updateObjective();
+    this.cameras.main.flash(300, 255, 233, 168, false);
+  }
+
+  _updateObjective() {
+    const act = ACTS[this.actIdx];
+    const tail = this.score >= GOAL_SCORE
+      ? '月光已聚齐 → 奔向府墙尽头的光柱，跃下！'
+      : `踏屋脊越缺口，聚月光（${this.score}/${GOAL_SCORE}）`;
+    window.GameHUD?.setObjective(`【第${'一二三'[this.actIdx]}幕·${act.name}】 ${tail}`);
   }
 
   _renderTileLayer(layerName, depth, collision) {
@@ -141,24 +210,20 @@ class MoonRoninScene extends Phaser.Scene {
   }
 
   _collect(player, orb) {
-    if (!this.gameStarted || this.gameOver) return;
+    if (!this.gameStarted || this.gameOver || this.cardActive) return;
     orb.destroy(); this.score++;
     window.GameHUD?.setScore(this.score);
     const f = this.add.circle(orb.x, orb.y, 6, 0xffe9a8, 0.9).setDepth(30);
     this.tweens.add({ targets: f, scale: 3.5, alpha: 0, duration: 350, onComplete: () => f.destroy() });
-    window.GameHUD?.setObjective(this.score >= GOAL_SCORE
-      ? '月光已聚齐！奔向府墙尽头的光柱 →'
-      : `踏过屋脊，收集 ${GOAL_SCORE} 缕月光，抵达府墙尽头（已 ${this.score}）`);
+    this._updateObjective();
   }
 
   _slash(time) {
     this.slashUntil = time + 360;
     this.player.play('ro_slash', true);
     const dir = this.player.flipX ? -1 : 1;
-    // 刀气特效
     const arc = this.add.arc(this.player.x + dir * 36, this.player.y - 6, 40, dir > 0 ? -60 : 120, dir > 0 ? 60 : 240, false, 0xffe9a8, 0.35).setDepth(25);
     this.tweens.add({ targets: arc, alpha: 0, scale: 1.3, duration: 220, onComplete: () => arc.destroy() });
-    // 斩落射程内、身前的夜枭
     this.crows.getChildren().forEach(c => {
       if (!c.active) return;
       const dx = c.x - this.player.x;
@@ -171,45 +236,55 @@ class MoonRoninScene extends Phaser.Scene {
   }
 
   _hitCrow(player, crow) {
-    if (!this.gameStarted || this.gameOver || this.invuln) return;
-    this._damage(1);
+    if (!this.gameStarted || this.gameOver || this.invuln || this.cardActive) return;
     const dir = this.player.x < crow.x ? -1 : 1;
     this.player.setVelocity(150 * dir, -220);
+    this._damage(1);
   }
 
   _damage(n) {
+    if (this.invuln || this.gameOver || this.cardActive) return;
     this.hp = Math.max(0, this.hp - n);
     window.GameHUD?.setHearts(this.hp, this.maxHp);
-    this.invuln = true; this.player.setAlpha(0.4);
-    this.time.delayedCall(850, () => { this.invuln = false; this.player.setAlpha(1); });
-    if (this.hp <= 0) this._lose();
+    if (this.hp <= 0) {
+      this.deaths++;
+      if (this.deaths >= DEATH_BUDGET) { this._lose(); return; }
+      this._showCard('坠 落',
+        `黑影没入庭院的深暗……鹭翻身攀回飞檐。\n（第 ${this.deaths}/${DEATH_BUDGET} 次失手，退回本幕起点重来）`,
+        () => this._enterAct(this.actIdx, false));
+    } else {
+      this.invuln = true; this.player.setAlpha(0.4);
+      this.time.delayedCall(850, () => { this.invuln = false; this.player.setAlpha(1); });
+    }
   }
 
   _win() {
     this.gameOver = true; this.gameStarted = false; this.player.setVelocity(0, 0);
-    window.GameHUD?.showGameOver(true, '最后一道飞檐被踏过，鹭纵身跃下府墙，密信紧贴胸口。晨曦微露，黑色的身影没入山雾——将军的阴谋，终将大白于天下。');
+    this._showCard('黎明 · 出府',
+      '最后一道飞檐被踏过，鹭纵身跃下府墙，密信紧贴胸口。\n晨曦微露，黑色的身影没入山雾——\n将军的阴谋，终将大白于天下。',
+      () => window.GameHUD?.showGameOver(true, '密信带出府门，阴谋终将大白于天下。'));
   }
+
   _lose() {
     if (this.gameOver) return;
     this.gameOver = true; this.gameStarted = false; this.player.setVelocity(0, 0);
-    window.GameHUD?.showGameOver(false, '鹭一脚踏空，黑影坠入深不见底的庭院……密信，终究没能带出府门。');
+    window.GameHUD?.showGameOver(false, '一次次失足坠入深院……密信，终究没能带出府门。');
   }
 
   update(time) {
     if (this.bg) this.bg.tilePositionX = this.cameras.main.scrollX * 0.3;
-    if (!this.gameStarted || this.gameOver) return;
+    if (this.cardActive || !this.gameStarted || this.gameOver) return;
 
     const onGround = this.player.body.blocked.down || this.player.body.touching.down;
-    const left = this.cursors.left.isDown || this.keys.A.isDown;
-    const right = this.cursors.right.isDown || this.keys.D.isDown;
-    const jump = this.cursors.up.isDown || this.keys.W.isDown || this.keys.SPACE.isDown;
+    const left = this.cursors.left.isDown || this.kkeys.A.isDown;
+    const right = this.cursors.right.isDown || this.kkeys.D.isDown;
+    const jump = this.cursors.up.isDown || this.kkeys.W.isDown || this.kkeys.SPACE.isDown;
 
     if (left) { this.player.setVelocityX(-PLAYER_SPEED); this.player.setFlipX(true); }
     else if (right) { this.player.setVelocityX(PLAYER_SPEED); this.player.setFlipX(false); }
     else this.player.setVelocityX(0);
     if (jump && onGround) this.player.setVelocityY(-JUMP_V);
 
-    // 挥刀（J）
     if (Phaser.Input.Keyboard.JustDown(this.jKey) && time >= this.slashUntil) this._slash(time);
 
     let anim;
@@ -217,9 +292,8 @@ class MoonRoninScene extends Phaser.Scene {
     else if (!onGround) anim = 'ro_jump';
     else if (left || right) anim = 'ro_run';
     else anim = 'ro_idle';
-    if (anim !== 'ro_slash' && (!this.player.anims.isPlaying || this.player.anims.currentAnim?.key !== anim)) this.player.play(anim, true);
+    if (anim !== 'ro_slash' && this.player.anims.currentAnim?.key !== anim) this.player.play(anim, true);
 
-    // 夜枭上下盘旋
     this.crows.getChildren().forEach(c => {
       const home = c.getData('home'), range = c.getData('range');
       let dir = c.getData('dir');
@@ -229,11 +303,20 @@ class MoonRoninScene extends Phaser.Scene {
 
     if (onGround) this.lastSafeX = this.player.x;
 
-    // 坠入缺口 → 扣体力并回到上一处屋脊
+    // 幕推进
+    const nextIdx = this.actIdx + 1;
+    if (nextIdx < ACTS.length && this.player.x >= ACTS[nextIdx].startX) {
+      const act = ACTS[nextIdx];
+      this.gameStarted = false;
+      this._showCard(act.intro[0], act.intro[1], () => this._enterAct(nextIdx, true));
+      return;
+    }
+
+    // 坠入缺口
     if (this.player.y > WORLD_H + 120) {
       this.player.setVelocity(0, 0);
-      this.player.setPosition(this.lastSafeX, 360);
-      if (!this.invuln) this._damage(1);
+      this.player.setPosition(this.lastSafeX, SPAWN_Y);
+      this._damage(1);
     }
 
     // 抵达府墙尽头
@@ -241,6 +324,50 @@ class MoonRoninScene extends Phaser.Scene {
       if (this.score >= GOAL_SCORE) { this.reachedEnd = true; this._win(); }
       else window.GameHUD?.setObjective(`府墙还需 ${GOAL_SCORE - this.score} 缕月光才能跃下`);
     }
+  }
+
+  // ── 暴露状态给 verify / autoplay ──
+  _exposeState() {
+    const self = this;
+    window.__gameState = { player: this.player };
+    const nextGoalX = () => {
+      if (self.score < GOAL_SCORE) {
+        // 只追"明确在前方"的月光，绝不回头（回头会在错过的月光旁来回抖动卡死）
+        let best = END_X, bestD = Infinity;
+        self.orbs.getChildren().forEach(o => { if (o.active) { const d = o.x - self.player.x; if (d > 20 && d < bestD) { bestD = d; best = o.x; } } });
+        return best;
+      }
+      return END_X;
+    };
+    // 前方临近缺口边缘 → 需要起跳
+    const needJump = () => {
+      const p = self.player;
+      const onGround = p.body.blocked.down || p.body.touching.down;
+      if (!onGround) return false;
+      const seg = segAt(p.x);
+      if (!seg) return false;
+      const isLast = seg.x1 >= SEGS[SEGS.length - 1].x1 - 1;
+      return !isLast && (seg.x1 - p.x) < 120;   // 距右缘 <120px 提前起跳，留足越缺口余量
+    };
+    // 身前有夜枭在斩程内 → 攻击
+    const attack = () => {
+      const p = self.player, dir = p.flipX ? -1 : 1;
+      return self.crows.getChildren().some(c => c.active && Math.sign(c.x - p.x) === dir && Math.abs(c.x - p.x) < 95 && Math.abs(c.y - p.y) < 75);
+    };
+    window.__probe = () => {
+      const p = self.player;
+      const onGround = p.body.blocked.down || p.body.touching.down;
+      return {
+        x: p.x, y: p.y, vx: p.body.velocity.x, onGround,
+        hp: self.hp, maxHp: self.maxHp, act: self.actIdx, score: self.score, goalScore: GOAL_SCORE,
+        deaths: self.deaths, deathBudget: DEATH_BUDGET,
+        won: self.gameOver && self.reachedEnd, lost: self.gameOver && !self.reachedEnd,
+        cardActive: self.cardActive, started: self.gameStarted,
+        nextGoalX: nextGoalX(), worldW: WORLD_W, endX: END_X,
+        needJump: needJump(), attack: attack(),
+      };
+    };
+    window.__advanceCard = () => self._advanceCard();
   }
 }
 

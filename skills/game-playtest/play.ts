@@ -116,13 +116,14 @@ interface Probe {
     const probe = async (): Promise<Probe | null> => page.evaluate(() => (window as any).__probe?.() ?? null);
     const advanceCard = async () => page.evaluate(() => (window as any).__advanceCard?.());
 
-    // 持键状态管理
+    // 持键状态管理 + 点按（跳跃/攻击）
     const held: Record<string, boolean> = {};
     const setKey = async (key: string, want: boolean) => {
       if (want === !!held[key]) return;
       held[key] = want;
       if (want) await page.keyboard.down(key); else await page.keyboard.up(key);
     };
+    const tap = async (key: string, ms = 80) => { await page.keyboard.down(key); await sleep(ms); await page.keyboard.up(key); };
 
     const t0 = Date.now();
     let prevHp = -1, prevMaxX = 0, stuckTicks = 0;  // prevHp=-1：首帧只记录不计数
@@ -157,12 +158,20 @@ interface Probe {
       if (p.x > prevMaxX + 4) { prevMaxX = p.x; stuckTicks = 0; } else stuckTicks++;
       if (stuckTicks > stuckLimit) { metrics.result = 'stuck'; metrics.stuck = true; metrics.notes.push(`坐标在 ~3.5s 内无前进（x≈${p.x.toFixed(0)}），疑似设计死锁或难度墙`); break; }
 
-      // ── bot 决策 ──
-      // 前方有关闭的计时门 → 停下等待开启（不能一路狂奔）
-      const waitGate = (p as any).gateWaitX != null;
-      await setKey('ArrowRight', !waitGate);
-      // 危险时蹲伏（= 隐身）——等门时若身处光照内同样要蹲，否则站着会被发现
-      await setKey('ArrowDown', p.dangerNow || p.dangerAhead);
+      // ── bot 决策（通用：按探针语义提示驱动键位，兼容潜行/平台/跑酷等）──
+      const P = p as any;
+      const goal = P.nextGoalX;
+      const wantRight = goal != null ? goal > p.x + 8 : true;   // 默认朝目标/向右
+      const wantLeft  = goal != null ? goal < p.x - 8 : false;
+      const waitGate = P.gateWaitX != null;                    // 计时门关闭→停下等待
+      await setKey('ArrowRight', !waitGate && wantRight);
+      await setKey('ArrowLeft',  !waitGate && wantLeft);
+      // 蹲伏（潜行隐身 / crouch 提示）
+      await setKey('ArrowDown', !!(p.dangerNow || p.dangerAhead || P.crouch));
+      // 跳跃（跨缺口 / 够高处）：点按，落地后才会再次起跳
+      if (!waitGate && P.needJump && p.onGround) await tap('ArrowUp', 90);
+      // 攻击（斩击身前敌人）
+      if (P.attack) await tap('j', 60);
 
       await sleep(tickMs);
     }
