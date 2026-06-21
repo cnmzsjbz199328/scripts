@@ -100,7 +100,12 @@ interface Probe {
 
   try {
     browser = await chromium.launch({ headless: true });
-    context = await browser.newContext({ viewport: { width: 960, height: 576 }, recordVideo: { dir: outDir, size: { width: 960, height: 576 } } });
+    // 高清录制：1920×1152 视口/视频，并强制游戏 wrapper 放大 2× 填满（页面 fit() 默认封顶 1×）。
+    // 画布按 2× 显示，HUD/剧情卡为 DOM、在 2× 下文字锐利。转 mp4 时不要再缩小。
+    context = await browser.newContext({
+      viewport: { width: 1920, height: 1152 },
+      recordVideo: { dir: outDir, size: { width: 1920, height: 1152 } },
+    });
     const page = await context.newPage();
     page.on('pageerror', (e: any) => pageErrors.push(e.message));
     page.on('console', (m: any) => { if (m.type() === 'error') pageErrors.push(m.text()); });
@@ -108,6 +113,11 @@ interface Probe {
     await page.goto(url, { waitUntil: 'load', timeout: 20000 });
     await page.waitForSelector('canvas', { timeout: 8000 });
     await sleep(600);
+    // 强制 wrapper 放大 2× 填满 1920×1152 视口（页面 fit() 封顶 1×，且无 resize 不会复位）
+    await page.evaluate(() => {
+      const w = document.getElementById('game-wrapper');
+      if (w) { w.style.transformOrigin = 'center center'; w.style.transform = 'scale(2)'; }
+    });
 
     // 开始游戏
     await page.evaluate(() => { (window as any).__hudStart?.(); });
@@ -127,6 +137,7 @@ interface Probe {
 
     const t0 = Date.now();
     let prevHp = -1, prevMaxX = 0, stuckTicks = 0;  // prevHp=-1：首帧只记录不计数
+    let prevTickX: number | null = null;            // 上一帧 x，用于检测"想动却被墙顶住"
     const stuckLimit = Math.ceil(6000 / tickMs); // ~6s 无进展判卡死（已含计时门合理等待）
 
     while ((Date.now() - t0) / 1000 < maxSeconds) {
@@ -168,11 +179,16 @@ interface Probe {
       await setKey('ArrowLeft',  !waitGate && wantLeft);
       // 蹲伏（潜行隐身 / crouch 提示）
       await setKey('ArrowDown', !!(p.dangerNow || p.dangerAhead || P.crouch));
-      // 跳跃（跨缺口 / 够高处）：点按，落地后才会再次起跳
-      if (!waitGate && P.needJump && p.onGround) await tap('ArrowUp', 90);
+      // 被墙/台阶顶住：想移动却位置几乎不前进（注意 Arcade 受阻时 velocity 仍是设定值，
+      // 必须用"位置是否推进"判断，不能用 vx）→ 起跳尝试翻越（通用解卡）
+      const wantMove = wantRight || wantLeft;
+      const wallStuck = wantMove && p.onGround && prevTickX !== null && Math.abs(p.x - prevTickX) < 4;
+      // 跳跃（跨缺口 / 够高处 / 翻台阶）：点按，落地后才会再次起跳
+      if (!waitGate && p.onGround && (P.needJump || wallStuck)) await tap('ArrowUp', 90);
       // 攻击（斩击身前敌人）
       if (P.attack) await tap('j', 60);
 
+      prevTickX = p.x;
       await sleep(tickMs);
     }
 

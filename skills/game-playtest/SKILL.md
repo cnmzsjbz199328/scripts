@@ -25,11 +25,13 @@ npx tsx skills/game-playtest/play.ts <GameName> [--seconds=90] [--tick=70] [--ou
 产物写入 `game_runs/<Game>/playtest/`:`playthrough.webm`、`final.png`,及 stdout 的指标 JSON。
 退出码:**0 = bot 通关,1 = 未通关(失败/超时/卡死),2 = 用法/找不到游戏**。
 
-转可分享格式(需 ffmpeg):
+转可分享格式(需 ffmpeg)。录制是 2× 高清(1920×1152)源——下采样到 1280×768(720p+,
+由 2× 超采样→比原生 1280 更锐),crf 21:
 ```bash
 cd game_runs/<Game>/playtest
-ffmpeg -y -i playthrough.webm -vf "scale=720:-2" -c:v libx264 -pix_fmt yuv420p -crf 24 -movflags +faststart playthrough.mp4
-# 注意:全长 gif 体积巨大(43s≈23MB),优先 mp4;要 gif 就截高光片段
+ffmpeg -y -i playthrough.webm -vf "scale=1280:-2" -c:v libx264 -pix_fmt yuv420p -crf 21 -preset slow -movflags +faststart playthrough.mp4
+# 截帧同样下采样到 1280：ffmpeg -y -ss <t> -i playthrough.webm -vf scale=1280:-2 -vframes 1 frame.png
+# 注意:线条/高细节场景码率高(可能 5-8MB)；纯剪影小很多。转完删 webm(体积大)。优先 mp4，不要全长 gif。
 ```
 
 ---
