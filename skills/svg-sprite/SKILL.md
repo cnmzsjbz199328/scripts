@@ -1,0 +1,142 @@
+---
+name: svg-sprite
+description: 用参数化骨骼 + 逐帧 SVG 序列帧为剪影/几何/线条风格游戏制作角色与物件动画。零图像额度、强可控、不切割。作为 char-sprite（AI 绿幕图集）的平行替代轨道。适用于 LIMBO 剪影、火柴人、线条、几何抽象等扁平风格。
+---
+
+# SVG Sprite Skill
+
+为**扁平风格**（剪影 / 几何 / 线条 / 抽象）游戏制作序列帧动画。每帧是一张
+独立 SVG，由参数化骨骼按"绝对关节角度"渲染；`load.svg` 栅格化为纹理后用
+Phaser anim 播放。**不生成 AI 图、不切割图集**——稳定、零额度、逐帧可控。
+
+在 **MoonRonin**（屋脊浪人）与 **ShadowArena**（剪影格斗，4 角色 ×8 动作 ×136 帧）
+两款游戏验证通过（L0/L1/L2 全绿）。
+
+复用库：[rig.mjs](rig.mjs) —— `pt / line / circle / poly / svg / humanoid / mergePose / lerpPose / tween / writeFrames`。
+
+---
+
+## 何时用 SVG，何时用 AI（决策矩阵）
+
+| 材质特征 | 选择 | 理由 |
+|----------|------|------|
+| 纯色剪影、几何形、线条、可参数化的姿态 | **SVG（本 skill）** | 矢量精确、零额度、逐帧可控、无切割风险 |
+| 写实/有机的复杂运动、需要纹理与光影的插画 | **AI**（[char-sprite](../char-sprite/SKILL.md)） | 多帧有机运动与质感是 AI 的强项 |
+| 无缝平铺纹理 | [material-texture](../material-texture/SKILL.md) | 专用管线 |
+| 静态背景全景 | AI（game-gen scene） | 一次性、风格统一 |
+
+> 经验：剪影/几何类**优先 SVG**。AI 网格图还要 chroma-key + 连通域切割，
+> 既耗额度又有"棍体被裁一截"这类切割风险（见 char-sprite 的网格切割）。SVG 逐帧从源头规避。
+
+---
+
+## 五条核心原则（都是踩坑得来的）
+
+1. **逐帧独立 SVG，绝不切割**：每帧一个 `<id>_<act>_<i>.svg`。需要几帧画几帧，
+   想改单帧就改单帧。彻底避开图集切割误差。
+
+2. **绝对关节角度，统一约定 `0=下 / 90=前(+x) / 180=上`**：
+   `pt(x,y,len,deg)` 沿该方向伸出骨节。用世界绝对角而非相对父骨骼角——
+   摆姿态时数值直接可读（`fUp:90` 就是手臂水平前指），调试快。
+
+3. **viewBox 必须留动作边距**：挥刀、高扫踢、受击后仰会让肢体/武器伸出站立
+   包围盒。viewBox 过紧 → 裁切（MoonRonin `preview_slash` 棍体被截的 bug）。
+   四周各留 1~2 个肢节长度。**所有帧共用同一 viewBox**，保证 Phaser 里对齐不抖。
+
+4. **招式 = 关键帧序列，不是单帧**：动作要"飘逸"靠的是
+   **预备(anticipation) → 发力(strike) → 过头(overshoot/follow-through) → 收招(recover)**。
+   单帧定格必然呆板。攻击类 5~6 帧、循环类（idle/walk）4~6 帧。
+   稀疏关键帧可用 `tween()` 补间出顺滑过渡帧。
+
+5. **飘逸特效在运行时叠加**（非烘进 SVG）：残影拖尾（afterimage，半透蓝 tint 淡出）、
+   武器弧光（crescent arc）、前冲步（lunge step）。这些在 game-logic.js 里做，便于和命中窗口对齐。
+
+---
+
+## 工作流
+
+```bash
+# 1. 写生成器（import rig.mjs），定义角色参数 + 关键帧序列 → 输出逐帧 SVG
+node scratch/gen_<game>_svg.mjs
+#    产物：game_runs/<Game>/assets/svg/<id>_<act>_<i>.svg + 投射物/舞台.svg
+
+# 2. 预览校验 viewBox 不裁切（把若干帧并排栅格化成一张 png 目检）
+node scratch/preview_seq.mjs   # 用 sharp/resvg 合成，确认四肢/武器未被截
+
+# 3. game-logic.js 里 load.svg 逐帧 → anims.create；接入 ACT 时序表与命中窗口
+# 4. assemble + game-verify（L0/L1/L2）
+```
+
+生成器骨架：
+
+```js
+import fs from 'fs'; import path from 'path';
+import { pt, line, circle, svg, humanoid, mergePose, tween, writeFrames } from '../skills/svg-sprite/rig.mjs';
+
+const OUT = 'game_runs/MyGame/assets/svg';
+const VB = { x: -52, y: -20, w: 236, h: 188 };          // 留足动作边距
+const CHARS = { samurai: { limbW: 11, torsoW: 18, torsoLen: 32, headR: 9 } };
+
+// 基础站姿 + 局部覆盖
+const G = { lean: 6, bob: 0, fThigh: 12, fShin: 4, bThigh: -12, bShin: -4, fUp: 58, fFore: 128, bUp: 54, bFore: 124 };
+const m = o => mergePose(G, o);
+
+const SEQ = {
+  idle:  [m({}), m({ bob: -2, fFore: 133 }), m({ bob: -3 }), m({ bob: -1 })],
+  punch: [m({}),                                   // 架势
+          m({ lean: -3, fUp: 38, fFore: 60 }),     // 预备：收拳后引
+          m({ lean: 20, fUp: 92, fFore: 92 }),     // 发力：伸直爆发
+          m({ lean: 23, fUp: 97, fFore: 97 }),     // 过头：略过靶点
+          m({ lean: 12, fUp: 72, fFore: 118 })],   // 收招
+};
+
+const render = (c) => (p) => svg(VB, humanoid(c, p, {
+  extras: (j, p) => ({ front: line(j.fHx, j.fHy, ...pt(j.fHx, j.fHy, 46, p.fFore), 4) }), // 沿前臂的刀
+}));
+
+for (const [id, c] of Object.entries(CHARS))
+  for (const [act, frames] of Object.entries(SEQ))
+    writeFrames(fs, path, OUT, id, act, frames, render(c));
+```
+
+---
+
+## Phaser 集成（game-logic.js）
+
+逐帧 `load.svg` 时**显式传 width/height = viewBox 的 w/h**（否则按 100×100 默认栅格化失真）：
+
+```js
+// preload —— 每个动作的每一帧各 load 一次
+ACT = { idle:{n:4,fps:6,loop:true}, punch:{n:5,fps:14,loop:false,atkFrom:2,atkTo:3}, /*...*/ };
+for (const id of Object.keys(CHARS))
+  for (const [act, a] of Object.entries(ACT))
+    for (let i = 0; i < a.n; i++)
+      this.load.svg(`${id}_${act}_${i}`, `assets/svg/${id}_${act}_${i}.svg`, { width: 236, height: 188 });
+
+// create —— 由帧纹理键拼成动画
+for (const id of Object.keys(CHARS))
+  for (const [act, a] of Object.entries(ACT))
+    this.anims.create({
+      key: `${id}_${act}`,
+      frames: Array.from({ length: a.n }, (_, i) => ({ key: `${id}_${act}_${i}` })),
+      frameRate: a.fps, repeat: a.loop ? -1 : 0,
+    });
+```
+
+要点：
+- **命中窗口**用 `atkFrom/atkTo` 帧序号界定（仅在"发力/过头"帧判定伤害），靠 `sprite.anims.currentFrame.index` 读当前帧。
+- **物理体**固定大小、用 `setOffset` 对齐躯干，**别**随帧变化（四肢伸缩会让自动体抖动 / 误判）。
+- **左右朝向**用 `setFlipX`；攻击距离/朝向判定按 flip 取符号。
+- **L2 verify**：贴边出生 + `setCollideWorldBounds(true)` 防左右键位移精确抵消的假阴性；并把可控角色挂到 `window.__gameState.player` 供移动断言。
+
+---
+
+## 已沉淀的可复用部件
+
+| 部件 | 出处 | 复用方式 |
+|------|------|----------|
+| 人形骨骼 `humanoid()` | ShadowArena 4 角色共用 | 调 `limbW/torsoW/headR` 即变体；`extras` 挂武器/头饰/披风/肚腩 |
+| 关键帧序列 idle/walk/punch/kick/block/hurt/special/ko | ShadowArena `SEQ` | 直接抄改角度即得新角色动作 |
+| 投射物 shuriken / qiwave | ShadowArena | `poly` / radialGradient 几何件 |
+| 明亮黎明舞台 stage.svg | ShadowArena | 渐变天空 + 远山 + 石台，剪影读得清 |
+| 屋脊/瓦片纯 SVG 平铺 | MoonRonin | 瓦片也走 SVG，配 tilemap 无 tileIndex 碰撞 |
