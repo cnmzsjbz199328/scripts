@@ -72,11 +72,16 @@ function ronin({ bob = 0, lean = 14,
   `;
 }
 
+// 浪人帧画布：带负边距，确保挥刀刀尖(可达 x≈-3 与 x≈128)不被裁切
+const VB = { x: -12, y: -8, w: 164, h: 150 };
 function svg(inner) {
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}">${inner}</svg>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${VB.x} ${VB.y} ${VB.w} ${VB.h}" width="${VB.w}" height="${VB.h}">${inner}</svg>`;
 }
-function write(name, inner) {
+function write(name, inner) {          // 浪人序列帧（自动套帧画布）
   fs.writeFileSync(path.join(OUT, name), svg(inner));
+}
+function raw(name, full) {             // 瓦片/道具（已是完整 <svg>，原样写入）
+  fs.writeFileSync(path.join(OUT, name), full);
 }
 
 // ── idle（3 帧轻微呼吸 + 站立持刀） ──
@@ -116,7 +121,7 @@ write('ronin_slash_1.svg', ronin({ bob: 1, lean: 20, fThigh: 26, fKnee: 24, bThi
 write('ronin_slash_2.svg', ronin({ bob: 0, lean: 14, fThigh: 20, fKnee: 20, bThigh: -20, bKnee: 28, fArm: 40, fElbow: 22, bArm: 5, bElbow: 30, swordDeg: 105 }));
 
 // ── 屋脊瓦片 tile_roof（64x64，水平可拼接） ──
-write('tile_roof.svg', `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+raw('tile_roof.svg', `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
   <rect x="0" y="20" width="64" height="44" fill="${INK}"/>
   <path d="M -2 22 Q 32 8 66 22 L 66 30 L -2 30 Z" fill="#04050a"/>
   <line x1="0" y1="30" x2="64" y2="30" stroke="#10131f" stroke-width="1.5" opacity="0.7"/>
@@ -128,7 +133,7 @@ write('tile_roof.svg', `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 
 </svg>`);
 
 // ── 支撑梁瓦片 tile_beam（64x64，屋脊下方填充/碰撞） ──
-write('tile_beam.svg', `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+raw('tile_beam.svg', `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
   <rect x="0" y="0" width="64" height="64" fill="#04050a"/>
   <g stroke="#0b0e16" stroke-width="2" opacity="0.7">
     <line x1="16" y1="0" x2="16" y2="64"/><line x1="48" y1="0" x2="48" y2="64"/>
@@ -137,7 +142,7 @@ write('tile_beam.svg', `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 
 </svg>`);
 
 // ── 月光 orb（24x24，暖色辉光） ──
-write('orb.svg', `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24">
+raw('orb.svg', `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24">
   <defs><radialGradient id="g" cx="50%" cy="50%" r="50%">
     <stop offset="0%" stop-color="#fffbe8"/><stop offset="45%" stop-color="#ffe9a8"/>
     <stop offset="100%" stop-color="#ffd27a" stop-opacity="0"/></radialGradient></defs>
@@ -156,8 +161,8 @@ function crow(wingUp) {
   <path d="M 16 12 Q 24 ${wy} 27 ${wy + 2} Q 22 13 16 13 Z" fill="${INK}"/>
 </svg>`;
 }
-write('crow_0.svg', crow(true));
-write('crow_1.svg', crow(false));
+raw('crow_0.svg', crow(true));
+raw('crow_1.svg', crow(false));
 
 console.log('MoonRonin SVG 资产已生成：', fs.readdirSync(OUT).length, '个文件');
 console.log(fs.readdirSync(OUT).join(', '));

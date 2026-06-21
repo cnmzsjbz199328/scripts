@@ -36,10 +36,10 @@ class MoonRoninScene extends Phaser.Scene {
     this.load.svg('tile_1', 'assets/svg/tile_roof.svg', { width: 64, height: 64 });
     this.load.svg('tile_2', 'assets/svg/tile_beam.svg', { width: 64, height: 64 });
     // 角色序列帧 SVG
-    for (let i = 0; i < 3; i++) this.load.svg(`r_idle_${i}`, `assets/svg/ronin_idle_${i}.svg`, { width: 96, height: 128 });
-    for (let i = 0; i < 6; i++) this.load.svg(`r_run_${i}`, `assets/svg/ronin_run_${i}.svg`, { width: 96, height: 128 });
-    for (let i = 0; i < 3; i++) this.load.svg(`r_jump_${i}`, `assets/svg/ronin_jump_${i}.svg`, { width: 96, height: 128 });
-    for (let i = 0; i < 3; i++) this.load.svg(`r_slash_${i}`, `assets/svg/ronin_slash_${i}.svg`, { width: 96, height: 128 });
+    for (let i = 0; i < 3; i++) this.load.svg(`r_idle_${i}`, `assets/svg/ronin_idle_${i}.svg`, { width: 164, height: 150 });
+    for (let i = 0; i < 6; i++) this.load.svg(`r_run_${i}`, `assets/svg/ronin_run_${i}.svg`, { width: 164, height: 150 });
+    for (let i = 0; i < 3; i++) this.load.svg(`r_jump_${i}`, `assets/svg/ronin_jump_${i}.svg`, { width: 164, height: 150 });
+    for (let i = 0; i < 3; i++) this.load.svg(`r_slash_${i}`, `assets/svg/ronin_slash_${i}.svg`, { width: 164, height: 150 });
     // 道具 SVG
     this.load.svg('orb', 'assets/svg/orb.svg', { width: 24, height: 24 });
     for (let i = 0; i < 2; i++) this.load.svg(`crow_${i}`, `assets/svg/crow_${i}.svg`, { width: 28, height: 22 });
@@ -63,7 +63,8 @@ class MoonRoninScene extends Phaser.Scene {
     // 玩家浪人（贴左出生 + 横向边界）
     this.player = this.physics.add.sprite(80, 360, 'r_idle_0');
     this.player.setScale(0.72);
-    this.player.body.setSize(40, 96).setOffset(28, 28);
+    // 帧画布带 (-12,-8) 负边距 → 躯干/腿在纹理中约 x40..84、y36..140
+    this.player.body.setSize(40, 104).setOffset(40, 36);
     this.player.setCollideWorldBounds(true);
     this.player.setDepth(20);
     this.physics.add.collider(this.player, this.solids);

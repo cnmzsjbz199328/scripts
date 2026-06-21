@@ -1,7 +1,7 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 128" width="96" height="128"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 28 22" width="28" height="22">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 28 22" width="28" height="22">
   <ellipse cx="14" cy="13" rx="6" ry="4" fill="#05060c"/>
   <circle cx="20" cy="11" r="3" fill="#05060c"/>
   <polygon points="22,10 27,8 23,12" fill="#05060c"/>
   <path d="M 12 12 Q 4 14 1 16 Q 6 13 12 13 Z" fill="#05060c"/>
   <path d="M 16 12 Q 24 14 27 16 Q 22 13 16 13 Z" fill="#05060c"/>
-</svg></svg>
+</svg>
