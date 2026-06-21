@@ -126,7 +126,7 @@ interface Probe {
 
     const t0 = Date.now();
     let prevHp = -1, prevMaxX = 0, stuckTicks = 0;  // prevHp=-1：首帧只记录不计数
-    const stuckLimit = Math.ceil(3500 / tickMs); // ~3.5s 无进展判卡死
+    const stuckLimit = Math.ceil(6000 / tickMs); // ~6s 无进展判卡死（已含计时门合理等待）
 
     while ((Date.now() - t0) / 1000 < maxSeconds) {
       const p = await probe();
@@ -157,8 +157,11 @@ interface Probe {
       if (p.x > prevMaxX + 4) { prevMaxX = p.x; stuckTicks = 0; } else stuckTicks++;
       if (stuckTicks > stuckLimit) { metrics.result = 'stuck'; metrics.stuck = true; metrics.notes.push(`坐标在 ~3.5s 内无前进（x≈${p.x.toFixed(0)}），疑似设计死锁或难度墙`); break; }
 
-      // ── bot 决策：一路向右；危险时蹲伏（= 隐身）──
-      await setKey('ArrowRight', true);
+      // ── bot 决策 ──
+      // 前方有关闭的计时门 → 停下等待开启（不能一路狂奔）
+      const waitGate = (p as any).gateWaitX != null;
+      await setKey('ArrowRight', !waitGate);
+      // 危险时蹲伏（= 隐身）——等门时若身处光照内同样要蹲，否则站着会被发现
       await setKey('ArrowDown', p.dangerNow || p.dangerAhead);
 
       await sleep(tickMs);

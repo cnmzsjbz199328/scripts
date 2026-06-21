@@ -6,9 +6,10 @@
  *  · 检查点：被照中退回本幕起点（满血），不从头来；死亡预算耗尽才真正失败
  *  · 每幕彩色雾气叠层区分氛围（暖灯笼 / 冷探照 / 红火盆）
  *  · 剧情卡为画布内浮层，自包含
- *  · 暴露 window.__probe() 供 autoplay 白盒自测（坐标/血量/幕/目标/危险判定）
+ *  · 玩法纵深：计时铁闸(逼迫卡节奏，绝不夹人) + 屋脊平台(纵向掩体) + 救人后警报逃脱高潮(师弟跟随)
+ *  · 暴露 window.__probe()/__advanceCard() 供 autoplay 白盒自测（坐标/血量/幕/目标/危险/铁闸）
  *
- * 角色：char-sprite 真序列帧 NinjaShade（idle/run/crouch）。地面 tilemap solid + 程序化近黑瓦片。
+ * 角色：逐帧 SVG（svg-sprite rig，姿态可控的剪影忍者，优雅低姿潜行）。地面 tilemap solid + 程序化近黑瓦片。
  */
 
 const GAME_W = 960;
@@ -17,13 +18,20 @@ const TILE = 64;
 const WORLD_W = (TILEMAP_DATA.width || 75) * TILE;   // 4800
 const WORLD_H = (TILEMAP_DATA.height || 9) * TILE;    // 576
 const FLOOR_TOP = WORLD_H - 2 * TILE;                 // 448
-const SPAWN_Y = FLOOR_TOP - 40;
+// 出生点须高于地面，让角色体自由下落、干净落在瓦片顶面；
+// 若出生时已嵌入地面，堆叠瓦片会把体卡到行间缝隙、横向被瓦片侧面挡死。
+const SPAWN_Y = FLOOR_TOP - 60;
 
 const PLAYER_SPEED = 200;
 const CROUCH_SPEED = 95;
 const JUMP_V = 480;
 const WARM = 0xffd27a;
 const DEATH_BUDGET = 5;   // 死亡预算（耗尽才真正失败），检查点让每幕重来更友好
+
+// 忍者 SVG 帧（须与 scratch/gen_ninja_svg.mjs 的 VB / 帧数一致）
+const NJ_VB = { w: 178, h: 190 };
+const NJ_FRAMES = { idle: 5, run: 6, crouch: 5, jump: 3, hurt: 3 };
+const NJ_SCALE = 0.62;
 
 // ── 三幕定义（沿同一横向世界推进）────────────────────────────
 // startX：本幕检查点（被照中退回此处）；fog：本幕氛围色叠层
@@ -41,27 +49,45 @@ const ACTS = [
 
 const GOAL_SCORE = 5;
 
-// 巡逻守卫（带所属幕，用于氛围；逻辑相同）
+// 巡逻守卫（灯笼光锥，蹲伏可避）
 const GUARDS = [
-  { x: 900,  range: 210 },                       // 一幕：单个，教学
-  { x: 2000, range: 230 }, { x: 2750, range: 200 }, // 二幕
-  { x: 3600, range: 210 }, { x: 4250, range: 190 }, // 三幕
+  { x: 900,  range: 210 },                        // 一幕：单个，教学
+  { x: 2050, range: 230 }, { x: 2850, range: 200 }, // 二幕
+  { x: 3650, range: 200 }, { x: 4250, range: 170 }, // 三幕
 ];
-// 望楼探照灯（扫射光柱）：二幕起出现
-const LIGHTS = [1850, 2900, 3950, 4500];
-// 门钥（5 把，分布三幕）
+// 望楼探照灯（扫射光柱，蹲伏可避）：二幕起
+const LIGHTS = [1900, 2950, 3850];
+// 门钥（5 把必拾，均在牢笼之前）
 const KEYS = [
-  { x: 700,  y: SPAWN_Y }, { x: 1950, y: SPAWN_Y }, { x: 2600, y: SPAWN_Y },
-  { x: 3750, y: SPAWN_Y }, { x: 4400, y: SPAWN_Y },
+  { x: 650,  y: SPAWN_Y }, { x: 1450, y: SPAWN_Y }, { x: 2500, y: SPAWN_Y },
+  { x: 3300, y: SPAWN_Y }, { x: 3950, y: SPAWN_Y },
 ];
-const CELL_X = WORLD_W - 110;
+// 计时铁闸（周期开合，逼迫卡节奏等待——令"一路狂奔"行不通）。
+// 开窗均 >=1.4s，保证停在门前的玩家/ bot 总能在一个开窗内稳过，绝不软锁。
+const GATES = [
+  { x: 1250, period: 2900, open: 1050, phase: 0 },
+  { x: 2350, period: 3000, open: 1050, phase: 1400 },
+  { x: 2900, period: 2800, open: 1000, phase: 700 },
+  { x: 3550, period: 3000, open: 1050, phase: 1900 },
+  { x: 4450, period: 2800, open: 1150, phase: 300 },  // 逃脱段
+];
+// 屋脊平台（剪影屋顶，可跳上作掩体；附 1 把可选奖励钥匙）
+const PLATFORMS = [
+  { x: 1700, y: FLOOR_TOP - 96,  w: 240 },
+  { x: 3050, y: FLOOR_TOP - 116, w: 220 },
+];
+const CELL_X = 4150;            // 牢笼：集齐钥匙后到此救出师弟
+const EXIT_X = WORLD_W - 60;    // 府门：救人后冲到此处逃离（高潮）
 
 class ShadowNinjaScene extends Phaser.Scene {
   constructor() { super('ShadowNinjaScene'); }
 
   preload() {
     this.load.image('manor', 'scene/panorama.png');
-    this.load.spritesheet('ninja', 'assets/sprites/NinjaShade.webp', { frameWidth: 192, frameHeight: 208 });
+    // 忍者改用逐帧 SVG（svg-sprite rig，姿态可控、剪影风统一）
+    for (const [act, n] of Object.entries(NJ_FRAMES))
+      for (let i = 0; i < n; i++)
+        this.load.svg(`nj_${act}_${i}`, `assets/svg/nj_${act}_${i}.svg`, { width: NJ_VB.w, height: NJ_VB.h });
   }
 
   create() {
@@ -84,9 +110,9 @@ class ShadowNinjaScene extends Phaser.Scene {
     this._makeAnims();
 
     // 玩家忍者（贴左出生 + 世界边界）
-    this.player = this.physics.add.sprite(ACTS[0].startX, SPAWN_Y, 'ninja', 0);
-    this.player.setScale(0.42);
-    this.player.body.setSize(70, 150).setOffset(60, 55);
+    this.player = this.physics.add.sprite(ACTS[0].startX, SPAWN_Y, 'nj_idle_0');
+    this.player.setScale(NJ_SCALE);
+    this.player.body.setSize(46, 110).setOffset(66, 62);  // 包住站立图形，脚底≈帧底
     this.player.setCollideWorldBounds(true);
     this.player.setDepth(20);
     this.physics.add.collider(this.player, this.solids);
@@ -113,14 +139,45 @@ class ShadowNinjaScene extends Phaser.Scene {
     this.lights = LIGHTS.map((lx, i) => ({ x: lx, phase: i * 1.3 }));
     this.coneGfx = this.add.graphics().setDepth(9);
 
-    // 牢笼（终点）
+    // 屋脊平台（可跳上的掩体）
+    this.platforms = this.physics.add.staticGroup();
+    for (const pf of PLATFORMS) {
+      const img = this.platforms.create(pf.x, pf.y, 'rooftop').setDepth(12);
+      img.setDisplaySize(pf.w, 48).refreshBody();
+    }
+    this.physics.add.collider(this.player, this.platforms);
+    // 平台上的可选奖励钥匙（bot 不取，纯人类奖励）
+    const bonus = this.keys2.create(PLATFORMS[0].x, PLATFORMS[0].y - 34, 'key').setDepth(15);
+    bonus.setData('bonus', true);
+    this.tweens.add({ targets: bonus, y: bonus.y - 8, duration: 900, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
+
+    // 计时铁闸（周期开合的栅栏，逼迫卡节奏）
+    this.gates = this.physics.add.staticGroup();
+    this.gateList = GATES.map(gd => {
+      const img = this.gates.create(gd.x, FLOOR_TOP - 67, 'gate').setDepth(14);
+      img.refreshBody();
+      return Object.assign({ img, openNow: false, isOpen: false }, gd);
+    });
+    this.physics.add.collider(this.player, this.gates);
+
+    // 牢笼（救人点）
     this.goal = this.physics.add.staticImage(CELL_X, FLOOR_TOP - 36, 'cell').setDepth(15);
     this.physics.add.overlap(this.player, this.goal, this._reachCell, null, this);
+
+    // 府门（逃脱终点，救人后才出现/生效）
+    this.exit = this.physics.add.staticImage(EXIT_X, FLOOR_TOP - 50, 'cell').setDepth(15)
+      .setTint(0x9ec5ff).setVisible(false);
+    this.physics.add.overlap(this.player, this.exit, this._reachExit, null, this);
+
+    // 师弟跟随影（救出后陪伴，纯装饰）
+    this.friend = this.add.sprite(0, 0, 'nj_idle_0').setScale(NJ_SCALE).setDepth(19)
+      .setAlpha(0).setTint(0x2a3a52);
 
     // 状态
     this.maxHp = 3; this.hp = 3; this.score = 0;
     this.actIdx = 0; this.deaths = 0;
     this.reachedCell = false; this.invuln = false; this.crouch = false;
+    this.rescued = false; this.escaping = false; this.escaped = false;
     this.gameStarted = false; this.gameOver = false; this.cardActive = false;
 
     this.cursors = this.input.keyboard.createCursorKeys();
@@ -197,12 +254,27 @@ class ShadowNinjaScene extends Phaser.Scene {
   }
 
   _updateObjective() {
+    if (this.escaping) { window.GameHUD?.setObjective('⚠ 警报大作！带师弟趁铁闸冲向府门逃离 →'); return; }
     const act = ACTS[this.actIdx];
-    const left = GOAL_SCORE - this.score;
     const tail = this.score >= GOAL_SCORE
       ? '门钥已集齐 → 潜抵尽头的牢笼救出师弟'
-      : `拾取门钥（${this.score}/${GOAL_SCORE}），蹲伏避开光照`;
+      : `拾取门钥（${this.score}/${GOAL_SCORE}），蹲伏避光、卡准铁闸节奏`;
     window.GameHUD?.setObjective(`【第${'一二三'[this.actIdx]}幕·${act.name}】 ${tail}`);
+  }
+
+  _updateGates(time) {
+    const px = this.player.x;
+    for (const g of this.gateList) {
+      const timed = ((time + g.phase) % g.period) < g.open;  // 计时开窗
+      const inDoorway = Math.abs(px - g.x) < 36;             // 玩家正在门口
+      // 只有计时才能"开"；"关"在玩家离开门口前延迟——闸门绝不夹人/软锁，
+      // 但关闭中的闸门仍实打实阻挡（计时挑战保留）。
+      if (timed) g.isOpen = true;
+      else if (!inDoorway) g.isOpen = false;
+      g.openNow = g.isOpen;
+      g.img.body.enable = !g.isOpen;
+      g.img.setAlpha(g.isOpen ? 0.12 : 1);
+    }
   }
 
   _renderTileLayer(layerName, depth, collision) {
@@ -219,13 +291,17 @@ class ShadowNinjaScene extends Phaser.Scene {
   }
 
   _makeAnims() {
-    const def = (key, row, fps, loop) => {
+    const def = (act, fps, loop) => {
+      const key = `nj_${act}`;
       if (this.anims.exists(key)) return;
-      this.anims.create({ key, frames: this.anims.generateFrameNumbers('ninja', { start: row * 9, end: row * 9 + 8 }), frameRate: fps, repeat: loop ? -1 : 0 });
+      const frames = Array.from({ length: NJ_FRAMES[act] }, (_, i) => ({ key: `nj_${act}_${i}` }));
+      this.anims.create({ key, frames, frameRate: fps, repeat: loop ? -1 : 0 });
     };
-    def('nj_idle', 0, 8, true);
-    def('nj_run', 1, 14, true);
-    def('nj_crouch', 2, 8, true);
+    def('idle', 7, true);
+    def('run', 14, true);
+    def('crouch', 7, true);
+    def('jump', 8, false);
+    def('hurt', 12, false);
   }
 
   _makeTextures() {
@@ -256,6 +332,22 @@ class ShadowNinjaScene extends Phaser.Scene {
     for (let i = 0; i <= 48; i += 12) { g.beginPath(); g.moveTo(6 + i, 8); g.lineTo(6 + i, 64); g.strokePath(); }
     g.fillStyle(WARM, 0.7); g.fillCircle(30, 40, 6);
     g.generateTexture('cell', 60, 70); g.destroy();
+
+    // 计时铁闸（栅栏剪影）
+    g = this.make.graphics({ x: 0, y: 0, add: false });
+    g.fillStyle(0x0a0c12, 1); g.fillRect(0, 0, 22, 134);
+    g.fillStyle(0x171c27, 1);
+    g.fillRect(0, 0, 22, 10); g.fillRect(0, 64, 22, 8);
+    for (let i = 3; i < 22; i += 7) g.fillRect(i, 8, 3, 122);
+    g.generateTexture('gate', 22, 134); g.destroy();
+
+    // 屋脊（坡顶剪影，128×48）
+    g = this.make.graphics({ x: 0, y: 0, add: false });
+    g.fillStyle(0x05060c, 1);
+    g.fillRect(0, 16, 128, 32);
+    g.beginPath(); g.moveTo(0, 16); g.lineTo(64, 0); g.lineTo(128, 16); g.closePath(); g.fillPath();
+    g.fillStyle(0x10131f, 1); g.fillRect(0, 14, 128, 4);
+    g.generateTexture('rooftop', 128, 48); g.destroy();
   }
 
   _collect(player, key) {
@@ -290,15 +382,35 @@ class ShadowNinjaScene extends Phaser.Scene {
   }
 
   _reachCell() {
-    if (!this.gameStarted || this.gameOver || this.reachedCell || this.cardActive) return;
-    if (this.score >= GOAL_SCORE) { this.reachedCell = true; this._win(); }
+    if (!this.gameStarted || this.gameOver || this.rescued || this.cardActive) return;
+    if (this.score >= GOAL_SCORE) this._startEscape();
     else window.GameHUD?.setObjective(`牢锁还需 ${GOAL_SCORE - this.score} 把门钥`);
   }
 
+  // 高潮：救出师弟 → 警报 → 限时逃向府门
+  _startEscape() {
+    this.rescued = true; this.reachedCell = true;
+    this.friend.setAlpha(0.85).setPosition(this.player.x - 34, this.player.y);
+    this.exit.setVisible(true);
+    this._showCard('救出师弟！',
+      '铁锁应声而开，师弟跌出牢笼。\n开锁声惊动了守卫——警钟骤响，整座将军府正在苏醒！\n趁铁闸尚能穿过，带他冲向府门，逃离这里！',
+      () => {
+        this.escaping = true; this.gameStarted = true; this._updateObjective();
+        this.cameras.main.shake(400, 0.012);
+        // 警报：逃脱段增设扫射探照灯（蹲伏可避），避开铁闸候门点以免不公
+        this.lights.push({ x: 4180, phase: 0.4 }, { x: 4620, phase: 1.2 });
+      });
+  }
+
+  _reachExit() {
+    if (!this.escaping || this.gameOver || this.cardActive) return;
+    this._win();
+  }
+
   _win() {
-    this.gameOver = true; this.gameStarted = false; this.player.setVelocity(0, 0);
+    this.gameOver = true; this.escaped = true; this.gameStarted = false; this.player.setVelocity(0, 0);
     this._showCard('归 家',
-      '最后一道铁锁应声而开，师弟重获自由。\n两道黑影翻上屋脊，融入夜色，将军府的灯火在身后渐渐远去——\n师兄弟，平安归家。',
+      '两道黑影翻出府门，融入夜色，将军府的灯火在身后渐渐远去——\n师兄弟，平安归家。',
       () => window.GameHUD?.showGameOver(true, '师弟重获自由，师兄弟平安归家。'));
   }
 
@@ -311,6 +423,8 @@ class ShadowNinjaScene extends Phaser.Scene {
   update(time) {
     if (this.bg) this.bg.tilePositionX = this.cameras.main.scrollX * 0.3;
     this._drawCones(time);
+    if (this.gateList) this._updateGates(time);
+    if (this.rescued) this._followFriend();
     if (this.cardActive || !this.gameStarted || this.gameOver) return;
 
     const onGround = this.player.body.blocked.down || this.player.body.touching.down;
@@ -327,10 +441,11 @@ class ShadowNinjaScene extends Phaser.Scene {
     if (jump && onGround) this.player.setVelocityY(-JUMP_V);
 
     let anim;
-    if (this.crouch) anim = 'nj_crouch';
+    if (!onGround) anim = 'nj_jump';
+    else if (this.crouch) anim = 'nj_crouch';
     else if (left || right) anim = 'nj_run';
     else anim = 'nj_idle';
-    if (!this.player.anims.isPlaying || this.player.anims.currentAnim?.key !== anim) this.player.play(anim, true);
+    if (this.player.anims.currentAnim?.key !== anim) this.player.play(anim, true);
 
     this.guards.forEach(s => {
       let dir = s.getData('dir');
@@ -353,7 +468,16 @@ class ShadowNinjaScene extends Phaser.Scene {
     }
   }
 
-  // 给定世界坐标在 time 时刻是否处于任一光锥/光柱内
+  _followFriend() {
+    const f = this.friend, p = this.player;
+    const tx = p.x - (p.flipX ? -36 : 36);
+    f.x += (tx - f.x) * 0.16; f.y += (p.y - f.y) * 0.22;
+    f.setFlipX(p.flipX);
+    const key = p.anims.currentAnim?.key || 'nj_idle';
+    if (f.anims.currentAnim?.key !== key) f.play(key, true);
+  }
+
+  // 给定世界坐标在 time 时刻是否处于任一光锥/光柱内（蹲伏可避）
   _dangerAt(px, py, time) {
     for (const s of this.guards) if (this._coneHit(s, px, py)) return true;
     for (const l of this.lights) if (this._beamHit(l, time, px, py)) return true;
@@ -394,27 +518,40 @@ class ShadowNinjaScene extends Phaser.Scene {
     window.__gameState = { player: this.player };
     // 下一目标 x：未集齐则最近未拾门钥，否则牢笼
     const nextGoalX = () => {
+      if (self.escaping) return EXIT_X;
       if (self.score < GOAL_SCORE) {
         let best = CELL_X, bestD = Infinity;
-        self.keys2.getChildren().forEach(k => { if (k.active) { const d = k.x - self.player.x; if (d > -20 && d < bestD) { bestD = d; best = k.x; } } });
+        self.keys2.getChildren().forEach(k => {
+          if (k.active && !k.getData('bonus')) { const d = k.x - self.player.x; if (d > -20 && d < bestD) { bestD = d; best = k.x; } }
+        });
         return best;
       }
       return CELL_X;
     };
+    // 前方是否有"关闭中的铁闸"挡路（bot 据此停下等待开启）
+    const gateWaitX = () => {
+      if (!self.gateList) return null;
+      for (const g of self.gateList) {
+        const d = g.x - self.player.x;
+        if (d > 6 && d < 170 && !g.openNow) return g.x;
+      }
+      return null;
+    };
     window.__probe = () => {
       const p = self.player, t = self.time.now;
       const onGround = p.body.blocked.down || p.body.touching.down;
-      const dir = p.flipX ? -1 : 1;
       return {
         x: p.x, y: p.y, vx: p.body.velocity.x, onGround,
         hp: self.hp, maxHp: self.maxHp, act: self.actIdx, score: self.score, goalScore: GOAL_SCORE,
         deaths: self.deaths, deathBudget: DEATH_BUDGET,
-        won: self.gameOver && self.reachedCell, lost: self.gameOver && !self.reachedCell,
+        won: self.gameOver && self.escaped, lost: self.gameOver && !self.escaped,
         cardActive: self.cardActive, started: self.gameStarted,
-        nextGoalX: nextGoalX(), worldW: WORLD_W, cellX: CELL_X,
+        rescued: self.rescued, escaping: self.escaping,
+        nextGoalX: nextGoalX(), worldW: WORLD_W, cellX: CELL_X, exitX: EXIT_X,
         // 站立时此刻是否危险 / 前方一步是否危险（蹲伏可免）
         dangerNow: self._dangerAt(p.x, p.y, t),
         dangerAhead: self._dangerAt(p.x + 90, p.y, t) || self._dangerAt(p.x + 160, p.y, t),
+        gateWaitX: gateWaitX(),   // 非 null = 前方铁闸关闭，应停下等待
       };
     };
     window.__advanceCard = () => self._advanceCard();
