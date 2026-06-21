@@ -231,6 +231,8 @@ interface Probe {
   } finally {
     if (browser) await browser.close();
     srv.close();
+    // 清理 Playwright 残留的 page@*.webm（error 路径不会改名 → 否则会污染目录/被误提交）
+    try { for (const f of fs.readdirSync(outDir)) if (/^page@.*\.webm$/.test(f)) fs.unlinkSync(path.join(outDir, f)); } catch { /* ignore */ }
   }
 
   const json = JSON.stringify(metrics, null, 2);
