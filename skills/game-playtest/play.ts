@@ -138,11 +138,13 @@ interface Probe {
     const t0 = Date.now();
     let prevHp = -1, prevMaxX = 0, stuckTicks = 0;  // prevHp=-1：首帧只记录不计数
     let prevTickX: number | null = null;            // 上一帧 x，用于检测"想动却被墙顶住"
+    let prevScore = -1, isTopdown = false, goalScore = 0;  // 俯视模式：以 score 计进度/卡死
     const stuckLimit = Math.ceil(6000 / tickMs); // ~6s 无进展判卡死（已含计时门合理等待）
 
     while ((Date.now() - t0) / 1000 < maxSeconds) {
       const p = await probe();
       if (!p) { await sleep(tickMs); continue; }
+      const P = p as any;
 
       // 剧情卡：推进
       if (p.cardActive) {
@@ -165,28 +167,37 @@ interface Probe {
       metrics.finalScore = p.score; metrics.hpRemaining = p.hp; metrics.deaths = p.deaths;
       metrics.maxX = Math.max(metrics.maxX, p.x);
 
-      // 卡死检测
-      if (p.x > prevMaxX + 4) { prevMaxX = p.x; stuckTicks = 0; } else stuckTicks++;
-      if (stuckTicks > stuckLimit) { metrics.result = 'stuck'; metrics.stuck = true; metrics.notes.push(`坐标在 ~3.5s 内无前进（x≈${p.x.toFixed(0)}），疑似设计死锁或难度墙`); break; }
+      // 卡死检测：横版按 x 推进；俯视按 score 推进（走位不单调，x 无意义）
+      isTopdown = (P.moveX !== undefined); goalScore = p.goalScore || goalScore;
+      if (isTopdown) {
+        if (p.score > prevScore) { prevScore = p.score; stuckTicks = 0; } else stuckTicks++;
+        if (stuckTicks > Math.ceil(20000 / tickMs)) { metrics.result = 'stuck'; metrics.stuck = true; metrics.notes.push(`~20s 内 score 无增长（${p.score}/${p.goalScore}），疑似难度过高/不可达`); break; }
+      } else {
+        if (p.x > prevMaxX + 4) { prevMaxX = p.x; stuckTicks = 0; } else stuckTicks++;
+        if (stuckTicks > stuckLimit) { metrics.result = 'stuck'; metrics.stuck = true; metrics.notes.push(`坐标在 ~6s 内无前进（x≈${p.x.toFixed(0)}），疑似设计死锁或难度墙`); break; }
+      }
 
-      // ── bot 决策（通用：按探针语义提示驱动键位，兼容潜行/平台/跑酷等）──
-      const P = p as any;
-      const goal = P.nextGoalX;
-      const wantRight = goal != null ? goal > p.x + 8 : true;   // 默认朝目标/向右
-      const wantLeft  = goal != null ? goal < p.x - 8 : false;
-      const waitGate = P.gateWaitX != null;                    // 计时门关闭→停下等待
-      await setKey('ArrowRight', !waitGate && wantRight);
-      await setKey('ArrowLeft',  !waitGate && wantLeft);
-      // 蹲伏（潜行隐身 / crouch 提示）
-      await setKey('ArrowDown', !!(p.dangerNow || p.dangerAhead || P.crouch));
-      // 被墙/台阶顶住：想移动却位置几乎不前进（注意 Arcade 受阻时 velocity 仍是设定值，
-      // 必须用"位置是否推进"判断，不能用 vx）→ 起跳尝试翻越（通用解卡）
-      const wantMove = wantRight || wantLeft;
-      const wallStuck = wantMove && p.onGround && prevTickX !== null && Math.abs(p.x - prevTickX) < 4;
-      // 跳跃（跨缺口 / 够高处 / 翻台阶）：点按，落地后才会再次起跳
-      if (!waitGate && p.onGround && (P.needJump || wallStuck)) await tap('ArrowUp', 90);
-      // 攻击（斩击身前敌人）
-      if (P.attack) await tap('j', 60);
+      // ── bot 决策 ──
+      if (isTopdown) {
+        // 俯视：探针给出建议方向 moveX/moveY(-1..1)，按四向键走位（躲弹+趋目标）
+        const dz = 0.3;
+        await setKey('ArrowRight', P.moveX > dz); await setKey('ArrowLeft', P.moveX < -dz);
+        await setKey('ArrowDown', P.moveY > dz);  await setKey('ArrowUp', P.moveY < -dz);
+        if (P.attack) await tap('j', 60);
+      } else {
+        // 横版（潜行/平台/跑酷）：朝目标移动 + 跳/蹲/斩/等门
+        const goal = P.nextGoalX;
+        const wantRight = goal != null ? goal > p.x + 8 : true;
+        const wantLeft  = goal != null ? goal < p.x - 8 : false;
+        const waitGate = P.gateWaitX != null;
+        await setKey('ArrowRight', !waitGate && wantRight);
+        await setKey('ArrowLeft',  !waitGate && wantLeft);
+        await setKey('ArrowDown', !!(p.dangerNow || p.dangerAhead || P.crouch));
+        // 被墙/台阶顶住：想移动却位置几乎不前进(Arcade 受阻时 velocity 仍是设定值，须按位置判断)→ 起跳
+        const wallStuck = (wantRight || wantLeft) && p.onGround && prevTickX !== null && Math.abs(p.x - prevTickX) < 4;
+        if (!waitGate && p.onGround && (P.needJump || wallStuck)) await tap('ArrowUp', 90);
+        if (P.attack) await tap('j', 60);
+      }
 
       prevTickX = p.x;
       await sleep(tickMs);
@@ -198,7 +209,9 @@ interface Probe {
     await sleep(metrics.result === 'win' ? 1600 : 400); // 结局多录一会
 
     metrics.durationSec = +((Date.now() - t0) / 1000).toFixed(1);
-    metrics.progressPct = Math.round(100 * metrics.maxX / (await page.evaluate(() => (window as any).__probe?.()?.cellX ?? 4690)));
+    metrics.progressPct = isTopdown
+      ? Math.round(100 * metrics.finalScore / (goalScore || metrics.finalScore || 1))
+      : Math.round(100 * metrics.maxX / (await page.evaluate(() => (window as any).__probe?.()?.cellX ?? 4690)));
     metrics.runtimeErrors = [...new Set(pageErrors)].slice(0, 8);
 
     // 收尾：保存最终截图 + 视频
