@@ -1,9 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
-    <!-- Pole -->
-    <line x1="36" y1="120" x2="36" y2="16" stroke="#0d111d" stroke-width="5" stroke-linecap="round" />
-    <circle cx="36" cy="14" r="4" fill="#6b7280" />
-    <!-- Flag Body -->
-    <path d="M 36,24 C 50,21 64,25.717051193329187 78,27.969977489801337 C 92,27.84318319772312 94,27.84318319772312 94,27.84318319772312 L 94,67.84318319772312 C 94,67.84318319772312 92,67.84318319772312 78,67.96997748980134 C 64,65.71705119332918 50,61 36,64 Z" fill="#ef4444" stroke="#0d111d" stroke-width="2" />
-    <!-- Star on Flag (silhouette decoration) -->
-    <polygon points="50,38 53,44 60,45 55,49 57,56 50,52 43,56 45,49 40,45 47,44" fill="#ffffff" />
-  </svg>
