@@ -23,7 +23,7 @@ const ACT = {
   kick: { n: 11, fps: 30, loop: false, dur: 360, from: 150, to: 280, lunge: 60 },
   block: { n: 2, fps: 3, loop: true },
   hurt: { n: 3, fps: 14, loop: false, dur: 230 },
-  special: { n: 6, fps: 15, loop: false, dur: 440 },
+  special: { n: 12, fps: 26, loop: false, dur: 460 },
   ko: { n: 3, fps: 8, loop: false },
 };
 const FRAME_W = 236, FRAME_H = 188, SCALE = 0.62;

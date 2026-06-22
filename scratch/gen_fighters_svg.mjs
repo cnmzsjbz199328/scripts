@@ -118,15 +118,17 @@ SEQ.hurt = [
   m({ lean: -26, bob: -2, fThigh: -10, fShin: -28, bThigh: 22, bShin: 10, fUp: -38, fFore: -12, bUp: -50, bFore: -24 }),
   m({ lean: -8, fUp: 30, fFore: 110, bUp: 30, bFore: 116 }),
 ];
-// special：架势→深蓄力(后引)→聚气→爆发前推→过头→收势（6 帧）
-SEQ.special = [
-  m({}),
-  m({ lean: -12, bob: 1, fThigh: 18, bThigh: -26, bShin: -12, fUp: -42, fFore: -18, bUp: -52, bFore: -26 }),
-  m({ lean: -16, bob: 2, fUp: -30, fFore: 4, bUp: -40, bFore: -8 }),
-  m({ lean: 18, fThigh: 26, fShin: 12, bThigh: -22, bShin: -10, fUp: 90, fFore: 90, bUp: 84, bFore: 84 }),
-  m({ lean: 22, bob: -1, fUp: 95, fFore: 95, bUp: 89, bFore: 89 }),
-  m({ lean: 12, fUp: 74, fFore: 118, bUp: 60, bFore: 120 }),
+// special：双手聚气→爆发前推，按 refs/special/ 木偶定格帧校角(burst/overshoot 已镜像回面朝左)。
+//   力学要点：聚气深蓄(重心后坐深屈、双臂收腰) → 大弓步前刺+双臂齐推平直(后腿蹬直抬跟、超大位移)
+//   → 惯性过头双臂打直；fFore/bFore 滞后上臂=双掌甩出；favoring 让聚气慢、爆发急。
+const SPECIAL_KEYS = [
+  m({}),                                                                                                                      // 架势
+  m({ lean: -10, bob: 2, fThigh: 14, fShin: 4, bThigh: -22, bShin: -40, fUp: 25, fFore: 80, bUp: 25, bFore: 80, hipDx: -6 }), // 聚气深蓄：重心后坐深屈、双臂收拢至腰侧、掌心微捧
+  m({ lean: 24, bob: 3, fThigh: 38, fShin: 2, bThigh: -36, bShin: -28, fUp: 88, fFore: 90, bUp: 86, bFore: 90, hipDx: 14 }),  // 爆发前推：大弓步前刺、后腿蹬直抬跟、双臂齐推平直
+  m({ lean: 27, bob: 4, fThigh: 40, fShin: 4, bThigh: -38, bShin: -30, fUp: 92, fFore: 96, bUp: 90, bFore: 94, hipDx: 16 }),  // 过头：双臂打直略过、前膝深屈吸冲、躯干前倾极限
+  m({ lean: 10, fThigh: 16, fShin: 6, bThigh: -14, bShin: -6, fUp: 60, fFore: 120, bUp: 58, bFore: 122, hipDx: 2 }),          // 收势：回架势、重心回中
 ];
+SEQ.special = stagger(tween(SPECIAL_KEYS, [5, 2, 1, 3], { ease: ease.smooth }), { fFore: 1, bFore: 1 });
 // ko：3 帧（踉跄→后倒→倒地）
 SEQ.ko = [
   m({ lean: -28, bob: 2, fThigh: -16, fShin: -8, bThigh: 18, bShin: 6, fUp: -40, fFore: -20, bUp: -50, bFore: -28 }),
