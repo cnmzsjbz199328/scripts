@@ -58,6 +58,30 @@ Phaser anim 播放。**不生成 AI 图、不切割图集**——稳定、零额
 
 ---
 
+## 选用：AI 木偶参考图校准关节角（治"角度凭猜"）
+
+凭经验摆关节角，容易系统性出错（最典型：**护手摆太低**，动作立刻显假）。这时用
+AI 出**绿幕木偶定格帧**当力学参考，由人读图反推 rig 角度——AI 只做参考，**不进游戏资产**。
+在 ShadowArena 的 punch/kick/special 三招验证（参考资产存 `game_runs/<Game>/refs/<招>/`）。
+
+**流程**（每招只需 3 张图）：
+1. 让 agy 出 **3 张单极限帧**：预备(anticipation) / 命中(contact) / 过头(follow-through)。
+   每张一个姿态，**别让 AI 出连续序列**（时序一致性是 AI 的死穴，中间帧让 `tween` 补）。
+2. 提示词锁死可比性（缺一不可）：`wooden artist's mannequin, full body, pure left-side
+   profile view, orthographic flat lighting, centered, chroma green #00b140`，且三张都带
+   `same mannequin, same left-side profile, same camera`。**纯侧视**才能 1:1 读角度（透视会在肢长上撒谎）；
+   **木偶**去掉服装噪声；**全身居中留空**防高踢/长武器顶出画框。
+3. 人读图 → 翻成 rig 角度（0下/90前/180上），填进 `<ACT>_KEYS` 稀疏关键帧，
+   再 `stagger(tween(KEYS, [favoring], {ease}))`。
+4. 出接触表目检 + 真游戏连拍验证（见下方工具），通过再提交。
+
+**两条铁律**（三轮都踩到）：
+- **AI 必翻面**：3 张孤立帧里总有 1~2 张左右朝向被翻转。读角度前先目检，把翻了的**镜像**回统一朝向。
+- **AI 给力学、不给坐标**：参考图的价值是*高度/后倾角/弓步深度/支撑腿承重*这些猜不准的力学；
+  精确角度仍须人把关，别直接抄 AI 文档给的数字。
+
+---
+
 ## 工作流
 
 ```bash
@@ -65,11 +89,14 @@ Phaser anim 播放。**不生成 AI 图、不切割图集**——稳定、零额
 node scratch/gen_<game>_svg.mjs
 #    产物：game_runs/<Game>/assets/svg/<id>_<act>_<i>.svg + 投射物/舞台.svg
 
-# 2. 预览校验 viewBox 不裁切（把若干帧并排栅格化成一张 png 目检）
-node scratch/preview_seq.mjs   # 用 sharp/resvg 合成，确认四肢/武器未被截
+# 2. 出接触表目检：把某招全帧并排栅格化成一张 png，确认动作连贯 + viewBox 不裁切
+node scratch/sheet.mjs <act> <char1,char2>   # sharp 合成 scratch/sheet_<act>_<char>.png
 
 # 3. game-logic.js 里 load.svg 逐帧 → anims.create；接入 ACT 时序表与命中窗口
-# 4. assemble + game-verify（L0/L1/L2）
+#    改帧数后只需同步 ACT.<act>.n（命中/投射物用 ms 制时不受帧数影响）
+# 4. 真游戏连拍验证：进场触发该招、动作期内连拍，确认渲染正常无报错
+node scratch/shot_punch.mjs <KeyJ|KeyK|KeyL>   # playwright；见 [[phaser-playtest-input]] 两坑
+# 5. assemble + game-verify（L0/L1/L2）
 ```
 
 生成器骨架：
@@ -142,6 +169,8 @@ for (const id of Object.keys(CHARS))
 |------|------|----------|
 | 人形骨骼 `humanoid()` | ShadowArena 4 角色共用 | 调 `limbW/torsoW/headR` 即变体；`extras` 挂武器/头饰/披风/肚腩 |
 | 关键帧序列 idle/walk/punch/kick/block/hurt/special/ko | ShadowArena `SEQ` | 直接抄改角度即得新角色动作 |
+| punch/kick/special **参考校角版**关键帧 + jab/kick/thrust 木偶参考图 | ShadowArena `SEQ` + `refs/` | 攻击招的高位护手/后倾/弓步力学已校准，抄改即用 |
+| 接触表 `sheet.mjs` / 真游戏连拍 `shot_punch.mjs` | ShadowArena | 传 `<act>` / `<招式键>` 即复用，验任意招式 |
 | 投射物 shuriken / qiwave | ShadowArena | `poly` / radialGradient 几何件 |
 | 明亮黎明舞台 stage.svg | ShadowArena | 渐变天空 + 远山 + 石台，剪影读得清 |
 | 屋脊/瓦片纯 SVG 平铺 | MoonRonin | 瓦片也走 SVG，配 tilemap 无 tileIndex 碰撞 |
