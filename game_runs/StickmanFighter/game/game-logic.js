@@ -214,6 +214,30 @@ class MainScene extends Phaser.Scene {
     if (!window.GameHUD) {
       this.gameStarted = true;
     }
+
+    // ── game-playtest 探针（横版格斗：逼近最近敌人/Boss 出拳 J）──
+    window.__probe = () => {
+      const pl = this.player;
+      if (!pl || !pl.body) return null;
+      const live = this.enemies.getChildren().filter(e => e.active && !e.isDead);
+      let best = null, bd = 1e9;
+      for (const e of live) { const d = Math.abs(e.x - pl.x); if (d < bd) { bd = d; best = e; } }
+      const goalX = best ? best.x : pl.x;
+      const inRange = best && bd < 80 && Math.abs(best.y - pl.y) < 70;
+      // 俯视模式上报（moveX 仅左右逼近，moveY=0）→ playtest 用 score 而非 x 位移判卡死，
+      // 避免"原地对打不前进"被误判；score=击杀数随击败递增。
+      const mx = best ? Math.sign(goalX - pl.x) : 0;   // 始终朝敌人，保持朝向，出拳才命中
+      return {
+        x: pl.x, y: pl.y, vx: pl.body.velocity.x, onGround: pl.body.onFloor(),
+        hp: Math.ceil(this.hearts), maxHp: 3, score: this.enemiesDefeated || 0, goalScore: 999,
+        act: 1, deaths: 0, deathBudget: 1,
+        won: !!this.bossDefeated, lost: this.hearts <= 0,
+        cardActive: false, started: this.gameStarted,
+        nextGoalX: goalX, worldW: 960, cellX: 960,
+        moveX: mx, moveY: 0, attack: !!inRange,
+        dangerNow: false, dangerAhead: false,
+      };
+    };
   }
 
   showFightBanner(lines, duration = 3000, callback = null) {
