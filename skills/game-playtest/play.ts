@@ -197,12 +197,21 @@ interface Probe {
         const wantRight = goal != null ? goal > p.x + 8 : true;
         const wantLeft  = goal != null ? goal < p.x - 8 : false;
         const waitGate = P.gateWaitX != null;
-        await setKey('ArrowRight', !waitGate && wantRight);
-        await setKey('ArrowLeft',  !waitGate && wantLeft);
-        await setKey('ArrowDown', !!(p.dangerNow || p.dangerAhead || P.crouch));
-        // 被墙/台阶顶住：想移动却位置几乎不前进(Arcade 受阻时 velocity 仍是设定值，须按位置判断)→ 起跳
-        const wallStuck = (wantRight || wantLeft) && p.onGround && prevTickX !== null && Math.abs(p.x - prevTickX) < 4;
-        if (!waitGate && p.onGround && (P.needJump || wallStuck)) await tap('ArrowUp', 90);
+        // 起身够钥机制（如 ShadowNinja）：对准高悬门钥且当前安全 → 起身（必要时跳）拾取；
+        // 否则照常匍匐避光前进。P.atKey 不存在的游戏走原逻辑。
+        const reaching = !!P.atKey && !p.dangerNow;
+        if (reaching) {
+          await setKey('ArrowLeft', false); await setKey('ArrowRight', false);
+          await setKey('ArrowDown', false);                            // 起身才够得着
+          if (P.keyNeedJump && p.onGround) await tap('ArrowUp', 100);  // 高悬钥须跳取
+        } else {
+          await setKey('ArrowRight', !waitGate && wantRight);
+          await setKey('ArrowLeft',  !waitGate && wantLeft);
+          await setKey('ArrowDown', !!(p.dangerNow || p.dangerAhead || P.crouch));
+          // 被墙/台阶顶住：想移动却位置几乎不前进(Arcade 受阻时 velocity 仍是设定值，须按位置判断)→ 起跳
+          const wallStuck = (wantRight || wantLeft) && p.onGround && prevTickX !== null && Math.abs(p.x - prevTickX) < 4;
+          if (!waitGate && p.onGround && (P.needJump || wallStuck)) await tap('ArrowUp', 90);
+        }
         if (P.attack) await tap('j', 60);
       }
 

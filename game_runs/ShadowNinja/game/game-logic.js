@@ -25,6 +25,12 @@ const SPAWN_Y = FLOOR_TOP - 60;
 const PLAYER_SPEED = 200;
 const CROUCH_SPEED = 95;
 const JUMP_V = 480;
+// 站立 / 匍匐两套碰撞体（共享同一脚底，切换不抬高/下沉精灵，避免抖动）
+const BODY_STAND = { w: 46, h: 110, ox: 66, oy: 62 };  // 站立：体高，够得着门钥
+const BODY_PRONE = { w: 46, h: 30,  ox: 66, oy: 142 }; // 匍匐：体极矮、贴地，够不着高处门钥
+// 门钥悬挂高度：匍匐时够不着，须站起 / 跳起
+const KEY_STAND_Y = 398;  // 站立可取
+const KEY_JUMP_Y  = 330;  // 须跳起才取
 const WARM = 0xffd27a;
 const DEATH_BUDGET = 5;   // 死亡预算（耗尽才真正失败），检查点让每幕重来更友好
 
@@ -38,10 +44,10 @@ const NJ_SCALE = 0.62;
 const ACTS = [
   { name: '外院回廊', startX: 60,   fog: 0x1a0f05, fogA: 0.0,
     intro: ['第一幕 · 外院回廊',
-      '纸灯笼在回廊间投下摇曳的暖光，一名武士提灯定线巡逻。\n月隐于云——按住 S / ↓ 蹲入阴影，灯笼的光锥便照不穿你的身形。\n趁光锥扫开的间隙，向右潜行。'] },
+      '纸灯笼在回廊间投下摇曳的暖光，一名武士提灯定线巡逻。\n月隐于云——按住 S / ↓ 匍匐贴地，灯笼的光锥便照不穿你伏低的身形。\n但门钥悬在高处：待武士转身、光锥扫开，起身一把取下，随即重新伏低。'] },
   { name: '中庭望楼', startX: 1500, fog: 0x06121e, fogA: 0.18,
     intro: ['第二幕 · 中庭望楼',
-      '望楼上的探照灯笼开始来回扫射，光柱与立柱的阴影交错。\n守卫更密了。看准光柱扫过的节奏，蹲伏穿过——\n沿途的门钥，是打开最深处那道铁锁的唯一指望。'] },
+      '望楼上的探照灯笼开始来回扫射，光柱与立柱的阴影交错。\n守卫更密了。看准光柱扫过的节奏，匍匐穿行；取高处门钥时须起身、甚至纵身跳起，动作要快。\n它们是打开最深处那道铁锁的唯一指望。'] },
   { name: '内牢深处', startX: 3150, fog: 0x1e0606, fogA: 0.22,
     intro: ['第三幕 · 内牢深处',
       '火盆的幽光映着铁栅，这里守备最密。\n师弟就关在尽头的牢笼里。\n集齐门钥，避开最后的光网，潜抵牢前——把他带回家。'] },
@@ -57,10 +63,14 @@ const GUARDS = [
 ];
 // 望楼探照灯（扫射光柱，蹲伏可避）：二幕起
 const LIGHTS = [1900, 2950, 3850];
-// 门钥（5 把必拾，均在牢笼之前）
+// 门钥（5 把必拾，均在牢笼之前）。均悬于高处——匍匐够不着，须趁安全间隙起身/跳起。
+// 刻意置于守卫光锥 / 探照光柱覆盖处：起身即暴露，必须卡准光照扫开的节奏。
 const KEYS = [
-  { x: 650,  y: SPAWN_Y }, { x: 1450, y: SPAWN_Y }, { x: 2500, y: SPAWN_Y },
-  { x: 3300, y: SPAWN_Y }, { x: 3950, y: SPAWN_Y },
+  { x: 860,  y: KEY_STAND_Y },              // 一幕：武士灯笼旁，待其转身、起身速取（教学）
+  { x: 1900, y: KEY_STAND_Y },              // 二幕：探照光柱下，趁扫开间隙起身
+  { x: 2850, y: KEY_JUMP_Y, jump: true },   // 二幕：高悬铁闸前，须跳起够取
+  { x: 3650, y: KEY_STAND_Y },              // 三幕：守卫巡线上起身取
+  { x: 3850, y: KEY_JUMP_Y, jump: true },   // 三幕高潮：光网下纵身跃取
 ];
 // 计时铁闸（周期开合，逼迫卡节奏等待——令"一路狂奔"行不通）。
 // 开窗均 >=1.4s，保证停在门前的玩家/ bot 总能在一个开窗内稳过，绝不软锁。
@@ -112,7 +122,8 @@ class ShadowNinjaScene extends Phaser.Scene {
     // 玩家忍者（贴左出生 + 世界边界）
     this.player = this.physics.add.sprite(ACTS[0].startX, SPAWN_Y, 'nj_idle_0');
     this.player.setScale(NJ_SCALE);
-    this.player.body.setSize(46, 110).setOffset(66, 62);  // 包住站立图形，脚底≈帧底
+    this.player.body.setSize(BODY_STAND.w, BODY_STAND.h).setOffset(BODY_STAND.ox, BODY_STAND.oy); // 站立体，脚底≈帧底
+    this._postureProne = false;
     this.player.setCollideWorldBounds(true);
     this.player.setDepth(20);
     this.physics.add.collider(this.player, this.solids);
@@ -122,6 +133,7 @@ class ShadowNinjaScene extends Phaser.Scene {
     this.keys2 = this.physics.add.group({ allowGravity: false, immovable: true });
     for (const k of KEYS) {
       const s = this.keys2.create(k.x, k.y, 'key'); s.setDepth(15);
+      s.setData('jump', !!k.jump);
       this.tweens.add({ targets: s, y: k.y - 8, duration: 900, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
     }
     this.physics.add.overlap(this.player, this.keys2, this._collect, null, this);
@@ -194,7 +206,7 @@ class ShadowNinjaScene extends Phaser.Scene {
         window.GameHUD.setScore(this.score);
         // 开场卡：进入第一幕
         this._showCard('影忍 · 将军府之夜',
-          '今夜，是救出师弟的唯一机会。\n潜行向右，蹲伏避开一切光照，集齐 ' + GOAL_SCORE + ' 把门钥，直抵最深处的牢笼。\n\n移动 ← → / A D    ·    蹲伏 ↓ / S    ·    继续 SPACE',
+          '今夜，是救出师弟的唯一机会。\n按住 ↓/S 匍匐前进，可隐于光照之下——但身姿太低，够不着高悬的门钥。\n须趁光照扫开的间隙起身、甚至纵身跳起，才能取下门钥。集齐 ' + GOAL_SCORE + ' 把，直抵牢笼。\n\n移动 ← → / A D   ·   匍匐 ↓ / S   ·   起跳 ↑ / W / SPACE   ·   继续 SPACE',
           () => this._enterAct(0, true));
       });
     }
@@ -258,7 +270,7 @@ class ShadowNinjaScene extends Phaser.Scene {
     const act = ACTS[this.actIdx];
     const tail = this.score >= GOAL_SCORE
       ? '门钥已集齐 → 潜抵尽头的牢笼救出师弟'
-      : `拾取门钥（${this.score}/${GOAL_SCORE}），蹲伏避光、卡准铁闸节奏`;
+      : `拾门钥（${this.score}/${GOAL_SCORE}）：匍匐避光潜行，趁安全间隙起身/跳起取钥`;
     window.GameHUD?.setObjective(`【第${'一二三'[this.actIdx]}幕·${act.name}】 ${tail}`);
   }
 
@@ -429,6 +441,7 @@ class ShadowNinjaScene extends Phaser.Scene {
 
     const onGround = this.player.body.blocked.down || this.player.body.touching.down;
     this.crouch = (this.cursors.down.isDown || this.kkeys.S.isDown) && onGround;
+    this._applyPosture(this.crouch);
 
     const spd = this.crouch ? CROUCH_SPEED : PLAYER_SPEED;
     const left = this.cursors.left.isDown || this.kkeys.A.isDown;
@@ -466,6 +479,14 @@ class ShadowNinjaScene extends Phaser.Scene {
     if (!this.crouch && !this.invuln) {
       if (this._dangerAt(this.player.x, this.player.y, time)) this._spotted();
     }
+  }
+
+  // 站立 / 匍匐碰撞体切换（共享脚底，不抖动）。匍匐体极矮 → 够不着高处门钥。
+  _applyPosture(prone) {
+    if (prone === this._postureProne) return;
+    this._postureProne = prone;
+    const b = prone ? BODY_PRONE : BODY_STAND;
+    this.player.body.setSize(b.w, b.h).setOffset(b.ox, b.oy);
   }
 
   _followFriend() {
@@ -516,17 +537,23 @@ class ShadowNinjaScene extends Phaser.Scene {
   _exposeState() {
     const self = this;
     window.__gameState = { player: this.player };
+    // 最近的必拾门钥（未集齐时），bot 据此对位、起身/跳起拾取
+    const nearestKey = () => {
+      if (self.score >= GOAL_SCORE) return null;
+      let best = null, bestD = Infinity;
+      self.keys2.getChildren().forEach(k => {
+        if (k.active && !k.getData('bonus')) {
+          const d = k.x - self.player.x;
+          if (d > -24 && Math.abs(d) < bestD) { bestD = Math.abs(d); best = k; }
+        }
+      });
+      return best;
+    };
     // 下一目标 x：未集齐则最近未拾门钥，否则牢笼
     const nextGoalX = () => {
       if (self.escaping) return EXIT_X;
-      if (self.score < GOAL_SCORE) {
-        let best = CELL_X, bestD = Infinity;
-        self.keys2.getChildren().forEach(k => {
-          if (k.active && !k.getData('bonus')) { const d = k.x - self.player.x; if (d > -20 && d < bestD) { bestD = d; best = k.x; } }
-        });
-        return best;
-      }
-      return CELL_X;
+      const k = nearestKey();
+      return k ? k.x : CELL_X;
     };
     // 前方是否有"关闭中的铁闸"挡路（bot 据此停下等待开启）
     const gateWaitX = () => {
@@ -540,6 +567,7 @@ class ShadowNinjaScene extends Phaser.Scene {
     window.__probe = () => {
       const p = self.player, t = self.time.now;
       const onGround = p.body.blocked.down || p.body.touching.down;
+      const nk = nearestKey();
       return {
         x: p.x, y: p.y, vx: p.body.velocity.x, onGround,
         hp: self.hp, maxHp: self.maxHp, act: self.actIdx, score: self.score, goalScore: GOAL_SCORE,
@@ -552,6 +580,11 @@ class ShadowNinjaScene extends Phaser.Scene {
         dangerNow: self._dangerAt(p.x, p.y, t),
         dangerAhead: self._dangerAt(p.x + 90, p.y, t) || self._dangerAt(p.x + 160, p.y, t),
         gateWaitX: gateWaitX(),   // 非 null = 前方铁闸关闭，应停下等待
+        crouch: self.crouch,
+        // 起身够钥机制：匍匐够不着高悬门钥，须对位后趁安全间隙起身/跳起拾取
+        keyX: nk ? nk.x : null,
+        keyNeedJump: nk ? !!nk.getData('jump') : false,
+        atKey: nk ? Math.abs(nk.x - p.x) < 16 : false,  // 已对准门钥正下方
       };
     };
     window.__advanceCard = () => self._advanceCard();

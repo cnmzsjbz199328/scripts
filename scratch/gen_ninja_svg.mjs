@@ -74,20 +74,28 @@ SEQ.run = Array.from({ length: 6 }, (_, i) => {
   });
 });
 
-// crouch / sneak：优雅低姿潜行——髋下沉、屈膝、躯干压低前倾、前手贴地引导、平滑爬行循环（5 帧）
+// crouch / prone：匍匐前进——躯干压成近水平贴地、双臂前伸划行、双腿向后拖曳交替蹬地（5 帧爬行循环）
+// 设计意图（玩法）：匍匐时人极矮，够不着高处的门钥；要拾钥须在安全间隙起身/跳起。
 const C = {
-  lean: 30, drop: 16, scarf: 1,
-  fThigh: 46, fShin: -26, bThigh: -32, bShin: 12,
-  fUp: 104, fFore: 96, bUp: 70, bFore: 150,
+  lean: 82, drop: 44, scarf: 1,
+  // 腿向后拖曳贴地（≈ -90 即正后方），一屈一伸交替爬行
+  fThigh: -68, fShin: -118, bThigh: -96, bShin: -84,
+  // 双臂前伸贴地划行
+  fUp: 96, fFore: 92, bUp: 116, bFore: 86,
 };
 const c = (o) => mergePose(m(C), o);
-SEQ.crouch = [
-  c({ bob: 0, fThigh: 46, fShin: -26, bThigh: -32, bShin: 12, scarf: 1 }),
-  c({ bob: -1, fThigh: 52, fShin: -20, bThigh: -38, bShin: 18, fUp: 108, fFore: 100, scarf: 2 }),
-  c({ bob: -1.5, fThigh: 56, fShin: -14, bThigh: -42, bShin: 22, fUp: 110, fFore: 104, scarf: 2 }),
-  c({ bob: -1, fThigh: 50, fShin: -22, bThigh: -36, bShin: 16, fUp: 106, fFore: 98, scarf: 1 }),
-  c({ bob: 0, fThigh: 46, fShin: -26, bThigh: -32, bShin: 12, fUp: 104, fFore: 96, scarf: 1 }),
-];
+SEQ.crouch = Array.from({ length: 5 }, (_, i) => {
+  const t = i / 5 * Math.PI * 2;
+  const s = Math.sin(t);
+  return c({
+    bob: 1.5 * Math.abs(Math.cos(t)),       // 贴地起伏（极小）
+    fThigh: -68 - 12 * s, fShin: -118 + 10 * s,  // 双腿交替推蹬
+    bThigh: -96 + 12 * s, bShin: -84 - 10 * s,
+    fUp: 96 + 8 * s, fFore: 92 + 10 * s,    // 双臂交替前划
+    bUp: 116 - 8 * s, bFore: 86 - 10 * s,
+    scarf: 1 + s,
+  });
+});
 
 // jump：蹬地蓄力 → 腾空收腿 → 顶点舒展（3 帧；脚可离地）
 SEQ.jump = [
