@@ -64,6 +64,28 @@ class ShadowArenaScene extends Phaser.Scene {
     this.projectiles = this.physics.add.group({ allowGravity: false });
     this._buildSelect();
     if (window.GameHUD) window.GameHUD.onStart(() => {});
+
+    // ── game-playtest 探针（俯视模式上报；select 阶段自动选人开打；fight 阶段逼近出拳）──
+    window.__probe = () => {
+      if (this.phase === 'select') {
+        this._selectConfirm();   // 逐 tick 推进：先选 P1，再选 P2 → 开打
+        return { x: 0, y: 0, vx: 0, onGround: true, hp: 1, maxHp: 1, score: 0, goalScore: 1, act: 0, deaths: 0, deathBudget: 1, won: false, lost: false, cardActive: false, started: false, nextGoalX: 0, worldW: GAME_W, cellX: GAME_W, moveX: 0, moveY: 0, attack: false, dangerNow: false, dangerAhead: false };
+      }
+      const a = this.p1, e = this.p2;
+      if (!a || !e) return null;
+      const sp = a.sprite, dx = e.sprite.x - sp.x, dist = Math.abs(dx);
+      const inRange = dist < (a.def.reach + 6);
+      return {
+        x: sp.x, y: sp.y, vx: sp.body.velocity.x, onGround: sp.body.blocked.down,
+        hp: a.hp, maxHp: a.maxHp, score: (e.maxHp - e.hp), goalScore: e.maxHp,
+        act: 1, deaths: 0, deathBudget: 1,
+        won: !!this._won, lost: !!this._lost,
+        cardActive: false, started: this.phase === 'fight',
+        nextGoalX: e.sprite.x, worldW: GAME_W, cellX: GAME_W,
+        moveX: inRange ? 0 : Math.sign(dx), moveY: 0, attack: inRange,
+        dangerNow: false, dangerAhead: false,
+      };
+    };
   }
 
   // ─────────── 选人 ───────────
@@ -243,6 +265,7 @@ class ShadowArenaScene extends Phaser.Scene {
     loser.sprite.play(`${loser.id}_ko`, true); loser.sprite.setVelocityX(0);
     this.phase = 'over';
     const win = loser === this.p2;
+    if (win) this._won = true; else this._lost = true;
     this.time.delayedCall(950, () => {
       window.GameHUD?.showGameOver(win,
         win ? `${CHARS[this.p1.id].name} 击败了 ${CHARS[this.p2.id].name}！晨光大盛，胜者的黑影在金色天光中挺立。`
