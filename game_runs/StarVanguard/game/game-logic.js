@@ -603,6 +603,48 @@ class MainScene extends Phaser.Scene {
 
     // Make screen flash red on init to prompt user action
     this.cameras.main.flash(500, 0, 10, 30);
+
+    // ── game-playtest 探针（俯视射击：自动开火，bot 只需走位闪避）──
+    window.__probe = () => {
+      const pl = this.player;
+      if (!pl || !pl.body) return null;
+      const W = this.scale.width, H = this.scale.height;
+      const threats = [];
+      const add = grp => grp && grp.getChildren().forEach(o => { if (o.active) threats.push(o); });
+      add(this.asteroids); add(this.enemies); add(this.enemyBullets);
+      let mx = 0, my = 0;
+      for (const o of threats) {
+        const dx = pl.x - o.x, dy = pl.y - o.y, d = Math.hypot(dx, dy) || 1;
+        if (d < 170) { const w = (170 - d) / 170; mx += (dx / d) * w; my += (dy / d) * w; }
+      }
+      // 水平对齐最近敌机/陨石，让直射 autofire 打得中（不对齐就永远清不掉敌人）
+      let aim = null, ad = 1e9;
+      const aimGrp = (this.enemies && this.enemies.countActive(true)) ? this.enemies : this.asteroids;
+      aimGrp && aimGrp.getChildren().forEach(o => { if (o.active && o.y < pl.y) { const d = Math.abs(o.x - pl.x); if (d < ad) { ad = d; aim = o; } } });
+      if (aim) mx += Math.max(-0.7, Math.min(0.7, (aim.x - pl.x) / 120));
+      // 留在屏幕下半区，远离边界
+      my += (H * 0.72 - pl.y) / H * 0.6;
+      const m = 60;
+      if (pl.x < m) mx += 1; if (pl.x > W - m) mx -= 1;
+      if (pl.y < m) my += 1; if (pl.y > H - m) my -= 1;
+      const L = Math.hypot(mx, my); if (L > 0.05) { mx /= L; my /= L; } else { mx = my = 0; }
+      const bhp = this.boss ? (this.boss.hp ?? this.boss.getData?.('hp') ?? 0) : 0;
+      this._bossMaxHp = Math.max(this._bossMaxHp || 0, bhp);
+      const prog = (this.bossSpawned ? 100000 : 0) + (this.levelScore || 0) * 2000
+        + (this.crystalsCollected || 0) * 100 + (this._bossMaxHp ? (this._bossMaxHp - bhp) * 80 : 0);
+      this._prog = Math.max(this._prog || 0, prog);
+      const danger = threats.some(o => Math.hypot(pl.x - o.x, pl.y - o.y) < 70);
+      return {
+        x: pl.x, y: pl.y, vx: pl.body.velocity.x, onGround: true,
+        hp: this.playerHp, maxHp: 3, score: this._prog, goalScore: 1e9,
+        act: this.bossSpawned ? 3 : 1, deaths: 0, deathBudget: 1,
+        won: !!this._won, lost: !!this._lost,
+        cardActive: false, started: this.gameStarted,
+        nextGoalX: pl.x, worldW: W, cellX: W,
+        moveX: mx, moveY: my, attack: false,
+        dangerNow: danger, dangerAhead: danger,
+      };
+    };
   }
 
   update(time, delta) {
@@ -1644,6 +1686,7 @@ class MainScene extends Phaser.Scene {
   triggerGameOver(win) {
     if (this.gameOverTriggered) return;
     this.gameOverTriggered = true;
+    if (win) this._won = true; else this._lost = true;
     this.physics.pause();
     this.stopLaserHum();
 
