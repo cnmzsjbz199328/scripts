@@ -1,0 +1,301 @@
+{
+  "generator": "skills/svg-ambient/ambient.mjs",
+  "note": "机读索引。frames/fps/layer/motionType 为默认值；palette/params 列可调键。",
+  "viewBox": "0 0 128 128",
+  "elements": [
+    {
+      "name": "windmill",
+      "frames": 6,
+      "fps": 8,
+      "layer": "structure",
+      "motionType": "loop",
+      "anchor": "center",
+      "scalable": true,
+      "palette": [
+        "blade",
+        "hub",
+        "stand",
+        "pin"
+      ],
+      "params": []
+    },
+    {
+      "name": "tree",
+      "frames": 6,
+      "fps": 8,
+      "layer": "ground",
+      "motionType": "loop",
+      "anchor": "center",
+      "scalable": true,
+      "palette": [
+        "trunk",
+        "f1",
+        "f2",
+        "f3"
+      ],
+      "params": []
+    },
+    {
+      "name": "streetlight",
+      "frames": 4,
+      "fps": 8,
+      "layer": "structure",
+      "motionType": "flicker",
+      "anchor": "center",
+      "scalable": true,
+      "palette": [
+        "stand",
+        "bulb",
+        "glow"
+      ],
+      "params": []
+    },
+    {
+      "name": "campfire",
+      "frames": 6,
+      "fps": 8,
+      "layer": "ground",
+      "motionType": "loop",
+      "anchor": "center",
+      "scalable": true,
+      "palette": [
+        "log",
+        "outer",
+        "inner",
+        "core"
+      ],
+      "params": []
+    },
+    {
+      "name": "flag",
+      "frames": 8,
+      "fps": 8,
+      "layer": "structure",
+      "motionType": "loop",
+      "anchor": "center",
+      "scalable": true,
+      "palette": [
+        "pole",
+        "knob",
+        "cloth",
+        "outline",
+        "emblem"
+      ],
+      "params": []
+    },
+    {
+      "name": "rain",
+      "frames": 4,
+      "fps": 8,
+      "layer": "weather",
+      "motionType": "particle",
+      "anchor": "center",
+      "scalable": true,
+      "palette": [
+        "drop"
+      ],
+      "params": []
+    },
+    {
+      "name": "snow",
+      "frames": 6,
+      "fps": 8,
+      "layer": "weather",
+      "motionType": "particle",
+      "anchor": "center",
+      "scalable": true,
+      "palette": [
+        "flake"
+      ],
+      "params": []
+    },
+    {
+      "name": "cloud",
+      "frames": 8,
+      "fps": 8,
+      "layer": "sky",
+      "motionType": "particle",
+      "anchor": "center",
+      "scalable": true,
+      "palette": [
+        "cloud"
+      ],
+      "params": []
+    },
+    {
+      "name": "wave",
+      "frames": 6,
+      "fps": 8,
+      "layer": "ground",
+      "motionType": "loop",
+      "anchor": "center",
+      "scalable": true,
+      "palette": [
+        "back",
+        "front"
+      ],
+      "params": []
+    },
+    {
+      "name": "star",
+      "frames": 4,
+      "fps": 8,
+      "layer": "sky",
+      "motionType": "flicker",
+      "anchor": "center",
+      "scalable": true,
+      "palette": [
+        "a",
+        "b"
+      ],
+      "params": []
+    },
+    {
+      "name": "leaf",
+      "frames": 6,
+      "fps": 8,
+      "layer": "foreground",
+      "motionType": "particle",
+      "anchor": "center",
+      "scalable": true,
+      "palette": [
+        "a",
+        "b",
+        "vein"
+      ],
+      "params": []
+    },
+    {
+      "name": "smoke",
+      "frames": 6,
+      "fps": 8,
+      "layer": "mid",
+      "motionType": "particle",
+      "anchor": "center",
+      "scalable": true,
+      "palette": [
+        "chimney",
+        "cap",
+        "smoke"
+      ],
+      "params": []
+    },
+    {
+      "name": "bird",
+      "frames": 4,
+      "fps": 8,
+      "layer": "sky",
+      "motionType": "loop",
+      "anchor": "center",
+      "scalable": true,
+      "palette": [
+        "body"
+      ],
+      "params": []
+    },
+    {
+      "name": "neon",
+      "frames": 4,
+      "fps": 8,
+      "layer": "structure",
+      "motionType": "flicker",
+      "anchor": "center",
+      "scalable": true,
+      "palette": [
+        "board",
+        "frame",
+        "on",
+        "off"
+      ],
+      "params": [
+        "word"
+      ]
+    },
+    {
+      "name": "ray",
+      "frames": 6,
+      "fps": 8,
+      "layer": "sky",
+      "motionType": "loop",
+      "anchor": "center",
+      "scalable": true,
+      "palette": [
+        "orb",
+        "ray"
+      ],
+      "params": []
+    },
+    {
+      "name": "bubble",
+      "frames": 6,
+      "fps": 8,
+      "layer": "foreground",
+      "motionType": "particle",
+      "anchor": "center",
+      "scalable": true,
+      "palette": [
+        "rim",
+        "spark"
+      ],
+      "params": []
+    },
+    {
+      "name": "lighthouse",
+      "frames": 8,
+      "fps": 8,
+      "layer": "structure",
+      "motionType": "sweep",
+      "anchor": "center",
+      "scalable": true,
+      "palette": [
+        "base",
+        "room",
+        "bulb",
+        "beam"
+      ],
+      "params": []
+    },
+    {
+      "name": "drip",
+      "frames": 8,
+      "fps": 8,
+      "layer": "foreground",
+      "motionType": "sequence",
+      "anchor": "center",
+      "scalable": true,
+      "palette": [
+        "water"
+      ],
+      "params": []
+    },
+    {
+      "name": "waterfall",
+      "frames": 6,
+      "fps": 8,
+      "layer": "mid",
+      "motionType": "loop",
+      "anchor": "center",
+      "scalable": true,
+      "palette": [
+        "rock",
+        "ledge",
+        "water",
+        "splash"
+      ],
+      "params": []
+    },
+    {
+      "name": "wind",
+      "frames": 4,
+      "fps": 8,
+      "layer": "mid",
+      "motionType": "loop",
+      "anchor": "center",
+      "scalable": true,
+      "palette": [
+        "trail"
+      ],
+      "params": []
+    }
+  ]
+}
