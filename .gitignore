@@ -36,5 +36,9 @@ game_runs/**/*.json
 # ...except game-verify's transient interaction screenshots
 game_runs/**/verify-screenshot.png
 
+# scratch/ is a generator workspace — track .mjs/.ts/.js sources, ignore rendered artifacts
+scratch/*.png
+scratch/*.webp
+
 # AI tool workspaces
 .gemini/
