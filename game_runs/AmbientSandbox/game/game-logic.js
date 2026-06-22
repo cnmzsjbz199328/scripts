@@ -76,9 +76,13 @@ class AmbientSandboxScene extends Phaser.Scene {
     this.load.image('tile_grass_base', 'assets/tiles/grass_base.png');
     this.load.image('tile_fence_base', 'assets/tiles/fence_base.png');
 
-    // 2. 加载主角精灵
-    this.load.json('char_Hero', 'assets/sprites/Hero.json');
-    this.load.image('texture_Hero', 'assets/sprites/Hero.webp');
+    // 2. 加载主角精灵 (逐帧 SVG 代替 AI 精灵图，实现完美步态)
+    const heroAnims = { idle: 5, run: 6, jump: 3 };
+    Object.entries(heroAnims).forEach(([act, n]) => {
+      for (let i = 0; i < n; i++) {
+        this.load.svg(`hero_${act}_${i}`, `assets/svg/hero_${act}_${i}.svg`, { width: 178, height: 190 });
+      }
+    });
 
     // 3. 加载 20 种环境氛围的所有帧 SVG
     AMBIENT_ELEMENTS.forEach(el => {
@@ -92,29 +96,16 @@ class AmbientSandboxScene extends Phaser.Scene {
     // A. 停止 Phaser 的默认输入捕获，避免它拦截 DOM 控件输入
     this.input.keyboard.target = window;
 
-    // B. 创建主角动画 (从 char_Hero.json 动态构建)
-    const charData = this.cache.json.get('char_Hero');
-    if (charData && charData.animations) {
-      const tex = this.textures.get('texture_Hero');
-      const w = charData.frameSize.width;
-      const h = charData.frameSize.height;
-      const cols = charData.dimensions.width / w;
-      
-      this.textures.addSpriteSheet('Hero_sheet', tex.getSourceImage(), { frameWidth: w, frameHeight: h });
-
-      Object.entries(charData.animations).forEach(([key, anim]) => {
-        const frames = Array.from({ length: anim.frameCount }, (_, i) => ({
-          key: 'Hero_sheet',
-          frame: anim.row * cols + i
-        }));
-        this.anims.create({
-          key: `hero_${key}`,
-          frames: frames,
-          frameRate: anim.fps,
-          repeat: anim.loop ? -1 : 0
-        });
+    // B. 创建主角动画 (逐帧 SVG 代替 AI 精灵图)
+    const heroAnims = { idle: 5, run: 6, jump: 3 };
+    Object.entries(heroAnims).forEach(([act, n]) => {
+      this.anims.create({
+        key: `hero_${act}`,
+        frames: Array.from({ length: n }, (_, i) => ({ key: `hero_${act}_${i}` })),
+        frameRate: 10,
+        repeat: act === 'jump' ? 0 : -1
       });
-    }
+    });
 
     // C. 铺设地面 (ground 层与 objects 层边界碰撞)
     this.collidables = this.physics.add.staticGroup();
@@ -132,8 +123,8 @@ class AmbientSandboxScene extends Phaser.Scene {
     // F. 放置主角并开启摄像机跟随
     const spawnX = GAME_CONFIG.player?.spawn?.x ?? 640;
     const spawnY = GAME_CONFIG.player?.spawn?.y ?? 480;
-    this.player = this.physics.add.sprite(spawnX, spawnY, 'Hero_sheet', 0);
-    this.player.setDisplaySize(96, 104);
+    this.player = this.physics.add.sprite(spawnX, spawnY, 'hero_idle_0');
+    this.player.setDisplaySize(96, 102);
     this.player.setCollideWorldBounds(true);
     this.physics.add.collider(this.player, this.collidables);
 
