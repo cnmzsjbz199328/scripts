@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+    <!-- Logs -->
+    <line x1="40" y1="110" x2="88" y2="100" stroke="#0d111d" stroke-width="8" stroke-linecap="round" />
+    <line x1="88" y1="110" x2="40" y2="100" stroke="#0d111d" stroke-width="8" stroke-linecap="round" />
+    <!-- Outer Flame -->
+    <path d="M 44,104 C 36,90 48,80.39230484541326 64,30 C 80,80.39230484541326 92,90 84,104 Z" fill="#f97316" opacity="0.8" />
+    <!-- Inner Flame -->
+    <path d="M 52,104 C 46,94 54,85 64,50 C 74,85 82,94 76,104 Z" fill="#eab308" opacity="0.9" />
+    <!-- Fire Core -->
+    <path d="M 58,104 C 54,98 58,82.10920812007254 64,70 C 70,82.10920812007254 74,98 70,104 Z" fill="#ffffff" />
+  </svg>

@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+    <!-- Chimney -->
+    <rect x="44" y="100" width="12" height="28" fill="#0d111d" />
+    <rect x="42" y="96" width="16" height="6" fill="#1e293b" />
+    <!-- Smoke puffs -->
+    <circle cx="56.9" cy="73.3" r="9.3" fill="#94a3b8" opacity="0.40" />
+    <circle cx="43.2" cy="46.9" r="14.6" fill="#94a3b8" opacity="0.20" />
+    <circle cx="49.7" cy="20.5" r="19.9" fill="#94a3b8" opacity="0.00" />
+  </svg>

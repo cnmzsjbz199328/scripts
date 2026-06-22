@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+    <!-- Star 1 -->
+    <polygon points="30,22 32,30 30,38 28,30" fill="#ffffff" />
+    <polygon points="22,30 30,32 38,30 30,28" fill="#ffffff" />
+    
+    <!-- Star 2 -->
+    <polygon points="90,41 92,45 90,49 88,45" fill="#fef08a" />
+    <polygon points="86,45 90,47 94,45 90,43" fill="#fef08a" />
+
+    <!-- Star 3 -->
+    <polygon points="60,74 62,80 60,86 58,80" fill="#ffffff" />
+    <polygon points="54,80 60,82 66,80 60,78" fill="#ffffff" />
+  </svg>

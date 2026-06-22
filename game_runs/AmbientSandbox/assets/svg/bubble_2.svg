@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+    <g stroke="#ffffff" stroke-width="1" fill="none">
+      <!-- Bubble 1 -->
+      <circle cx="34.72789228047704" cy="74" r="6" opacity="0.5" />
+      <circle cx="32.72789228047704" cy="72" r="1.5" fill="#fff" stroke="none" />
+      
+      <!-- Bubble 2 -->
+      <circle cx="62.33541265381143" cy="43.199999999999996" r="10" opacity="0.4" />
+      <circle cx="59.33541265381143" cy="40.199999999999996" r="2" fill="#fff" stroke="none" />
+
+      <!-- Bubble 3 -->
+      <circle cx="93.72959251407622" cy="71.2" r="8" opacity="0.6" />
+      <circle cx="91.72959251407622" cy="69.2" r="2" fill="#fff" stroke="none" />
+    </g>
+  </svg>

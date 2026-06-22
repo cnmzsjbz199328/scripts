@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+    <!-- Trunk with sway -->
+    <path d="M 60,128 L 68,128 L 65,64 L 63,64 Z" fill="#0d111d" />
+    <!-- Branches -->
+    <line x1="64" y1="80" x2="48" y2="65" stroke="#0d111d" stroke-width="4" stroke-linecap="round" />
+    <line x1="64" y1="75" x2="80" y2="60" stroke="#0d111d" stroke-width="4" stroke-linecap="round" />
+    <!-- Foliage circles -->
+    <circle cx="64" cy="45" r="28" fill="#111827" />
+    <circle cx="45" cy="55" r="20" fill="#1f2937" />
+    <circle cx="83" cy="50" r="22" fill="#374151" />
+  </svg>

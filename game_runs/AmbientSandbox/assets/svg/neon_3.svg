@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+    <!-- Board -->
+    <rect x="24" y="38" width="80" height="52" rx="6" fill="#020617" stroke="#1e293b" stroke-width="4" />
+    <!-- Neon Border -->
+    <rect x="28" y="42" width="72" height="44" rx="4" fill="none" stroke="#4c0519" stroke-width="3" filter="url(#neon-glow)" />
+    <!-- Neon Text "LIVE" -->
+    <text x="64" y="70" font-family="'Impact', monospace" font-size="20" font-weight="bold" text-anchor="middle" fill="#4c0519" style="text-shadow: 0 0 5px transparent, 0 0 10px transparent">LIVE</text>
+    <defs>
+      <filter id="neon-glow" x="-20%" y="-20%" width="140%" height="140%">
+        <feGaussianBlur stdDeviation="3" result="blur" />
+        <feMerge>
+          <feMergeNode in="blur" />
+          <feMergeNode in="SourceGraphic" />
+        </feMerge>
+      </filter>
+    </defs>
+  </svg>

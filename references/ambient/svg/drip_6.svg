@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+      <!-- Inner and outer concentric ripples -->
+      <ellipse cx="64" cy="110" rx="30" ry="9" fill="none" stroke="#38bdf8" stroke-width="2" opacity="0.4" />
+      <ellipse cx="64" cy="110" rx="20" ry="6" fill="none" stroke="#38bdf8" stroke-width="1" opacity="0.24" />
+    </svg>

@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+    <!-- Light Cone -->
+    <polygon points="64,40 74.6,129.4 125.1,106.1" fill="url(#light-glow)" opacity="0.6" />
+    <!-- Lighthouse Base -->
+    <polygon points="56,128 72,128 66,48 62,48" fill="#0c101b" />
+    <!-- Light room and cap -->
+    <rect x="58" y="40" width="12" height="8" fill="#1e293b" />
+    <polygon points="56,40 72,40 64,30" fill="#0c101b" />
+    <!-- Lens bulb -->
+    <circle cx="64" cy="44" r="3" fill="#ffffff" />
+    <defs>
+      <linearGradient id="light-glow" x1="50%" y1="0%" x2="50%" y2="100%">
+        <stop offset="0%" stop-color="#fff" stop-opacity="1" />
+        <stop offset="100%" stop-color="#38bdf8" stop-opacity="0" />
+      </linearGradient>
+    </defs>
+  </svg>
