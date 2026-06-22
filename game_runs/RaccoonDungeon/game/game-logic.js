@@ -140,6 +140,38 @@ class MainScene extends Phaser.Scene {
 
     // Floor Display Text Banner
     this.showFloorBanner(`第 ${this.currentLevel} 层：${this.getFloorName(this.currentLevel)}`);
+
+    // ── game-playtest 探针（俯视：朝最近敌人/激活传送门移动 + 近战）──
+    window.__probe = () => {
+      const pl = this.player;
+      if (!pl || !pl.body) return null;
+      const enemies = this.enemiesGroup.getChildren().filter(e => e.active);
+      let tx, ty, atk = false;
+      if (enemies.length) {
+        let best = null, bd = 1e9;
+        for (const e of enemies) { const d = Math.hypot(e.x - pl.x, e.y - pl.y); if (d < bd) { bd = d; best = e; } }
+        tx = best.x; ty = best.y; atk = bd < 95;            // 近战范围 80，进 95 就开砍（持续朝敌人保持朝向）
+      } else if (this.portalActive) {
+        const p = this.portalGroup.getChildren()[0];
+        if (p) { tx = p.x; ty = p.y; }
+      }
+      let mx = 0, my = 0, dist = 9999;
+      if (tx !== undefined) { const dx = tx - pl.x, dy = ty - pl.y; dist = Math.hypot(dx, dy) || 1; mx = dx / dist; my = dy / dist; }
+      // 单调递增进度：关卡基线 + 击杀 + 接近目标（避免跨房间赶路被误判卡死）
+      const base = (this.currentLevel - 1) * 5000 + this.enemiesKilled * 300 + (1200 - Math.min(1200, dist));
+      this._prog = Math.max(this._prog || 0, base);
+      const score = this._prog;
+      return {
+        x: pl.x, y: pl.y, vx: pl.body.velocity.x, onGround: true,
+        hp: this.playerHp, maxHp: this.maxHp, score, goalScore: 5000,
+        act: this.currentLevel, deaths: 0, deathBudget: 1,
+        won: !!this._won, lost: !!this._lost,
+        cardActive: false, started: this.gameStarted,
+        nextGoalX: tx !== undefined ? tx : pl.x, worldW: 99999, cellX: 99999,
+        moveX: mx, moveY: my, attack: atk,
+        dangerNow: false, dangerAhead: false,
+      };
+    };
   }
 
   update(time, delta) {
@@ -1440,6 +1472,7 @@ class MainScene extends Phaser.Scene {
   // -------------------------------------------------------------
   handleGameOver(win) {
     this.gameStarted = false;
+    if (win) this._won = true; else this._lost = true;
     if (this.player && this.player.body) this.player.body.setVelocity(0);
 
     if (win) {

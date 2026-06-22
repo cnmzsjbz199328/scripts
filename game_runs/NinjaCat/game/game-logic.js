@@ -148,6 +148,43 @@ class MainScene extends Phaser.Scene {
 
     // Load first level
     this.loadLevel(this.currentLevel);
+
+    // ── game-playtest 探针：暴露 bot 决策所需状态（横版模式：不设 moveX）──
+    window.__probe = () => {
+      const pl = this.player;
+      if (!pl || !pl.body) return null;
+      const onGround = pl.body.blocked.down;
+      const door = this.doorSprite;
+      const fwd = door ? Math.sign(door.x - pl.x) || 1 : 1;   // 通往终点的方向（通常向右）
+      const coins = this.coinsGroup.getChildren().filter(c => c.active);
+      // 只考虑「朝终点方向、且双跳够得到高度」的金币，避免在头顶够不到的币上来回卡死
+      let best = null, bd = 1e9;
+      for (const c of coins) {
+        if ((c.x - pl.x) * fwd < -40) continue;          // 不往回捡
+        if (c.y < pl.y - 230) continue;                   // 超出双跳高度，放弃
+        const d = Math.hypot(c.x - pl.x, (c.y - pl.y) * 0.6); if (d < bd) { bd = d; best = c; }
+      }
+      const goalX = best ? best.x : (door ? door.x : pl.x + 200);
+      const tgtY = best ? best.y : (door ? door.y : pl.y);
+      const dir = goalX > pl.x ? 1 : -1;
+      const enemies = this.enemiesGroup.getChildren().filter(o => o.active);
+      const spikes = this.spikeBallsGroup.getChildren().filter(o => o.active);
+      const near = (arr, rx, ry) => arr.some(o => Math.abs(o.x - pl.x) < rx && Math.abs(o.y - pl.y) < ry);
+      const ahead = (arr, rx, ry) => arr.some(o => (o.x - pl.x) * dir > -10 && Math.abs(o.x - pl.x) < rx && Math.abs(o.y - pl.y) < ry);
+      const dangerNow = near(enemies, 52, 70) || near(spikes, 52, 60);
+      const dangerAhead = ahead(enemies, 120, 80) || ahead(spikes, 95, 95);
+      // 目标在上方 / 前方有敌或刺 → 起跳（平台跳跃 & 踩头击破）
+      const needJump = onGround && ((tgtY < pl.y - 45) || dangerAhead);
+      return {
+        x: pl.x, y: pl.y, vx: pl.body.velocity.x, onGround,
+        hp: this.hearts, maxHp: 3, score: this.score, goalScore: 100,
+        act: this.currentLevel, deaths: 0, deathBudget: 3,
+        won: !!this._won, lost: !!this._lost,
+        cardActive: false, started: this.gameStarted,
+        nextGoalX: goalX, worldW: 9999, cellX: door ? door.x : 4690,
+        dangerNow, dangerAhead, needJump,
+      };
+    };
   }
 
   createCharAnimations(charName, metaKey, sheetKey) {
@@ -369,6 +406,7 @@ class MainScene extends Phaser.Scene {
     // ─── PITS AND DEATH CHECK ───
     if (this.player.y > 640 + 80) {
       this.gameStarted = false;
+      this._lost = true;
       this.player.setVelocity(0, 0);
       window.GameHUD?.showGameOver(false, '小爪失足掉入了无底深渊……');
     }
@@ -420,6 +458,7 @@ class MainScene extends Phaser.Scene {
 
     if (this.hearts <= 0) {
       this.gameStarted = false;
+      this._lost = true;
       this.player.setVelocity(0, 0);
       this.player.setTint(0xff0000);
       window.GameHUD?.showGameOver(false, '生命值归零，猫咪忍者小爪倒下了……');
@@ -454,6 +493,7 @@ class MainScene extends Phaser.Scene {
     if (this.currentLevel === 3) {
       this.gameStarted = false;
       if (this.score >= 100) {
+        this._won = true;
         window.GameHUD?.showGameOver(true,
           '🏆 猫咪忍者传奇！\n\n' +
           `小爪收集了 ${this.score} 枚金币，\n` +

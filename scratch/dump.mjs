@@ -1,0 +1,17 @@
+import { chromium } from 'playwright-core';
+import http from 'http'; import fs from 'fs'; import path from 'path';
+const GAME=process.argv[2], EXPR=process.argv[3];
+const ROOT=path.resolve('game_runs');
+const MIME={'.html':'text/html','.js':'text/javascript','.json':'application/json','.png':'image/png','.svg':'image/svg+xml','.jpg':'image/jpeg','.webp':'image/webp','.css':'text/css'};
+const srv=http.createServer((q,s)=>{let f=path.join(ROOT,decodeURIComponent(q.url.split('?')[0]));try{const d=fs.readFileSync(f);s.writeHead(200,{'content-type':MIME[path.extname(f)]||'application/octet-stream'});s.end(d);}catch{s.writeHead(404);s.end('x');}});
+await new Promise(r=>srv.listen(0,r)); const P=srv.address().port;
+const b=await chromium.launch({channel:'chrome',headless:true}).catch(()=>chromium.launch({headless:true}));
+const pg=await b.newPage({viewport:{width:960,height:600}});
+pg.on('pageerror',e=>console.log('PAGEERR',e.message));
+await pg.goto(`http://localhost:${P}/${GAME}/index.html`,{waitUntil:'networkidle'});
+await pg.waitForTimeout(1000);
+await pg.evaluate(()=>{window.__hudStart?.();});
+await pg.waitForTimeout(2500);
+const out=await pg.evaluate(EXPR);
+console.log(JSON.stringify(out,null,2));
+await b.close(); srv.close();

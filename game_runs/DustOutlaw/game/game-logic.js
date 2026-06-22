@@ -82,6 +82,35 @@ class DustOutlawScene extends Phaser.Scene {
         window.GameHUD.setObjective(`清空响尾蛇帮：击倒 ${WIN_SCORE} 名亡命徒（已 ${this.score}）`);
       });
     }
+
+    // ── game-playtest 探针（俯视模式：给 moveX/moveY 走位建议 + 持续开火）──
+    window.__probe = () => {
+      const pl = this.player;
+      if (!pl || !pl.body) return null;
+      const enemies = this.enemies.getChildren().filter(e => e.active);
+      const ebullets = this.enemyBullets.getChildren().filter(b => b.active);
+      let mx = 0, my = 0;
+      // 远离附近敌人（反平方权重）
+      for (const e of enemies) { const dx = pl.x - e.x, dy = pl.y - e.y, d = Math.hypot(dx, dy) || 1; if (d < 380) { mx += (dx / d) * (380 - d) / 380; my += (dy / d) * (380 - d) / 380; } }
+      // 急闪附近子弹
+      for (const b of ebullets) { const dx = pl.x - b.x, dy = pl.y - b.y, d = Math.hypot(dx, dy) || 1; if (d < 130) { mx += (dx / d) * 2.5; my += (dy / d) * 2.5; } }
+      // 远离边界、回到地图中心
+      const m = 150;
+      if (pl.x < m) mx += 1.2; if (pl.x > MAP_W - m) mx -= 1.2;
+      if (pl.y < m) my += 1.2; if (pl.y > MAP_H - m) my -= 1.2;
+      const L = Math.hypot(mx, my); if (L > 0.05) { mx /= L; my /= L; } else { mx = my = 0; }
+      const danger = ebullets.some(b => Math.hypot(pl.x - b.x, pl.y - b.y) < 90) || enemies.some(e => Math.hypot(pl.x - e.x, pl.y - e.y) < 70);
+      return {
+        x: pl.x, y: pl.y, vx: pl.body.velocity.x, onGround: true,
+        hp: this.hp, maxHp: this.maxHp, score: this.score, goalScore: WIN_SCORE,
+        act: 1, deaths: 0, deathBudget: 1,
+        won: !!this._won, lost: !!this._lost,
+        cardActive: false, started: this.gameStarted,
+        nextGoalX: pl.x, worldW: MAP_W, cellX: MAP_W,
+        moveX: mx, moveY: my, attack: true,
+        dangerNow: danger, dangerAhead: danger,
+      };
+    };
   }
 
   _renderTileLayer(layerName, depth, collision) {
@@ -194,12 +223,12 @@ class DustOutlawScene extends Phaser.Scene {
   }
 
   _win() {
-    this.gameOver = true; this.gameStarted = false; this.player.setVelocity(0, 0); this.spawnTimer.remove();
+    this.gameOver = true; this._won = true; this.gameStarted = false; this.player.setVelocity(0, 0); this.spawnTimer.remove();
     window.GameHUD?.showGameOver(true, '尘埃落定，最后一名枪手倒地。科尔拾起兄弟的怀表，翻身上马，背影消失在被落日烧红的荒野尽头——公道，已经讨回。');
   }
   _lose() {
     if (this.gameOver) return;
-    this.gameOver = true; this.gameStarted = false; this.player.setVelocity(0, 0); this.spawnTimer.remove();
+    this.gameOver = true; this._lost = true; this.gameStarted = false; this.player.setVelocity(0, 0); this.spawnTimer.remove();
     window.GameHUD?.showGameOver(false, '科尔倒在了红石镇的尘土里，怀表滑落在血色的落日下……');
   }
 
