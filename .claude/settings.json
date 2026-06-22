@@ -1,7 +1,9 @@
 {
   "permissions": {
     "allow": [
-      "Bash(git commit -m ' *)"
+      "WebFetch(domain:community.openai.com)",
+      "Bash(git commit -m ' *)",
+      "Bash(agy --dangerously-skip-permissions:*)"
     ]
   }
 }
