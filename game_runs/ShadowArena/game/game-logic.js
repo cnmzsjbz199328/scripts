@@ -19,7 +19,7 @@ const ROSTER = ['samurai', 'ninja', 'monk', 'brawler'];
 const ACT = {
   idle: { n: 4, fps: 4, loop: true },
   walk: { n: 6, fps: 10, loop: true },
-  punch: { n: 5, fps: 22, loop: false, dur: 250, from: 90, to: 210, lunge: 120 },
+  punch: { n: 11, fps: 34, loop: false, dur: 330, from: 110, to: 215, lunge: 120 },
   kick: { n: 5, fps: 16, loop: false, dur: 330, from: 130, to: 270, lunge: 60 },
   block: { n: 2, fps: 3, loop: true },
   hurt: { n: 3, fps: 14, loop: false, dur: 230 },

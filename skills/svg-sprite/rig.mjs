@@ -5,7 +5,7 @@
  * 招式 = 关键帧数组（预备→发力→过头→收招）。在 MoonRonin / ShadowArena 验证。
  *
  * 用法（Node 生成器里 import）：
- *   import { rad, pt, line, circle, svg, mergePose, lerpPose, tween, writeFrames } from '../../skills/svg-sprite/rig.mjs';
+ *   import { rad, pt, line, circle, svg, mergePose, lerpPose, tween, stagger, ease, writeFrames } from '../../skills/svg-sprite/rig.mjs';
  *
  * 角度约定（关键！全项目统一）：0=向下，90=向前/+x，180=向上。
  *   pt(x,y,len,deg) 从 (x,y) 出发、长 len、朝 deg 方向，返回末端 [x2,y2]。
@@ -42,6 +42,16 @@ export const mergePose = (base, override = {}) => ({ ...base, ...override });
 
 const lerp = (a, b, t) => a + (b - a) * t;
 
+/** 缓动函数库 t∈[0,1]→[0,1]。配 tween 用，治"匀速补间=僵硬"。 */
+export const ease = {
+  linear: t => t,
+  smooth: t => t * t * (3 - 2 * t),   // smoothstep，默认
+  in:     t => t * t,                 // 慢引：蓄力段
+  out:    t => 1 - (1 - t) * (1 - t), // 急出：发力后段
+  snap:   t => t * t * t,             // 久蓄突爆
+  back:   t => t * t * (2.7 * t - 1.7), // 略回拉再出（预备感）
+};
+
 /** 线性插值两个姿态对象（同名数值键）。用于在关键帧之间补间出更顺滑的过渡帧 */
 export function lerpPose(a, b, t) {
   const out = { ...a };
@@ -53,19 +63,44 @@ export function lerpPose(a, b, t) {
 
 /**
  * 把"稀疏关键帧数组"补间成"密集播放帧数组"。
- * keys = [pose0, pose1, ...]，每段插 steps 帧（含起点，不含终点），尾帧补上。
- * ease：缓动函数 t∈[0,1]→[0,1]，默认平滑 smoothstep。loop=true 时首尾也补间。
+ * keys = [pose0, pose1, ...]，每段插帧（含起点，不含终点），尾帧补上。
+ * steps：每段插帧数。可为单一数字（各段相同），或 **数组**（逐段不同帧数）——
+ *   用数组实现 favoring：如 tween([prep,contact,follow],[6,1]) = 蓄力慢(6帧)→命中急(1帧)。
+ *   某段 steps<=1 时该段不插值，仅保留起点关键帧。
+ * ease：缓动函数 t∈[0,1]→[0,1]（见 ease 库），默认 smoothstep。loop=true 时首尾也补间。
  */
 export function tween(keys, steps = 3, { loop = false, ease = t => t * t * (3 - 2 * t) } = {}) {
-  if (keys.length < 2 || steps <= 1) return keys.slice();
+  if (keys.length < 2) return keys.slice();
   const segEnd = loop ? keys.length : keys.length - 1;
+  const stepsAt = i => Array.isArray(steps) ? (steps[i] ?? 1) : steps;
   const out = [];
   for (let i = 0; i < segEnd; i++) {
+    const n = stepsAt(i);
     const a = keys[i], b = keys[(i + 1) % keys.length];
-    for (let s = 0; s < steps; s++) out.push(lerpPose(a, b, ease(s / steps)));
+    if (n <= 1) { out.push({ ...a }); continue; }
+    for (let s = 0; s < n; s++) out.push(lerpPose(a, b, ease(s / n)));
   }
   if (!loop) out.push(keys[keys.length - 1]);
   return out;
+}
+
+/**
+ * 关节滞后（stagger / overlap / drag）——治"所有关节同时到位=没有鞭打"。
+ * 把指定关节的"取值时间线"整体后移 delay 帧，制造动力链先后：
+ *   髋先转 → 躯干 → 上臂 → 前臂 → 拳 最后甩到。
+ * 在 tween 出的密集帧上用。delays = { fFore: 1, fUp: 0, lean: 0, ... }（帧数）。
+ * 返回新帧数组，不改原数组。
+ */
+export function stagger(frames, delays = {}) {
+  return frames.map((_, i) => {
+    const out = { ...frames[i] };
+    for (const [k, d] of Object.entries(delays)) {
+      if (!d) continue;
+      const src = frames[Math.max(0, i - d)];
+      if (typeof src[k] === 'number') out[k] = src[k];
+    }
+    return out;
+  });
 }
 
 /**
@@ -84,12 +119,13 @@ export function writeFrames(fs, path, dir, id, act, frames, render) {
  *
  * c: { limbW, torsoW, torsoLen, headR, ink? }
  * p（角度，0下/90前/180上）: lean, bob, fThigh,fShin,bThigh,bShin, fUp,fFore,bUp,bFore
+ *   重心位移：hipDx（髋部水平前冲/后撤，治"原地僵硬挥手"），bob（髋部上下，含下蹲）。
  * opts.extras(j) 可在关节坐标 j 上追加武器/头饰/披风等部件。
  */
 export function humanoid(c, p, opts = {}) {
   const ink = c.ink || '#0a0c12';
   const bob = p.bob || 0, lean = p.lean || 0;
-  const hipX = opts.hipX ?? 52, hipY = (opts.hipY ?? 92) + bob;
+  const hipX = (opts.hipX ?? 52) + (p.hipDx || 0), hipY = (opts.hipY ?? 92) + bob;
   const [neckX, neckY] = pt(hipX, hipY, c.torsoLen, 180 - lean);
   const shX = neckX, shY = neckY + 4;
   const [headX, headY] = pt(neckX, neckY, c.headR + 3, 180 - lean);

@@ -6,6 +6,7 @@
  */
 import fs from 'fs';
 import path from 'path';
+import { tween, stagger, ease } from '../skills/svg-sprite/rig.mjs';
 
 const OUT = 'game_runs/ShadowArena/assets/svg';
 fs.mkdirSync(OUT, { recursive: true });
@@ -28,7 +29,7 @@ const CHARS = {
 
 function fighter(c, p) {
   const bob = p.bob || 0, lean = p.lean || 0;
-  const hipX = 52, hipY = 92 + bob;
+  const hipX = 52 + (p.hipDx || 0), hipY = 92 + bob;
   const [neckX, neckY] = pt(hipX, hipY, c.torsoLen, 180 - lean);
   const shX = neckX, shY = neckY + 4;
   const [headX, headY] = pt(neckX, neckY, c.headR + 3, 180 - lean);
@@ -82,14 +83,17 @@ SEQ.walk = Array.from({ length: 6 }, (_, i) => {
   const bShin = bThigh - 36 * Math.max(0, Math.sin(t + Math.PI + 1.0));
   return m({ lean: 8, bob: -Math.abs(Math.cos(t)) * 3, fThigh, fShin, bThigh, bShin, fFore: 128 - 6 * Math.sin(t), bFore: 124 + 6 * Math.sin(t) });
 });
-// punch：架势→收拳蓄力→爆发伸直→过头→收招（5 帧）
-SEQ.punch = [
-  m({}),
-  m({ lean: -3, bob: 1, fThigh: 10, bThigh: -16, bShin: -8, fUp: 38, fFore: 60, bUp: 62, bFore: 132 }),
-  m({ lean: 20, fThigh: 24, fShin: 9, bThigh: -24, bShin: -10, fUp: 92, fFore: 92, bUp: 48, bFore: 118 }),
-  m({ lean: 23, bob: -1, fThigh: 26, fShin: 10, bThigh: -24, bShin: -10, fUp: 97, fFore: 97, bUp: 46, bFore: 116 }),
-  m({ lean: 12, fUp: 72, fFore: 118, bUp: 54, bFore: 122 }),
+// punch：三件套重做版——稀疏极限帧 → favoring 补间 → 关节滞后(鞭打)
+//   治僵硬：hipDx 重心后坐→前冲；逐段帧数让"蓄力慢/命中急"；fFore 滞后上臂=甩拳。
+const PUNCH_KEYS = [
+  m({}),                                                                                  // 架势
+  m({ lean: -4, bob: 1, fThigh: 10, bThigh: -16, bShin: -8, fUp: 36, fFore: 56, bUp: 64, bFore: 134, hipDx: -5 }), // 预备：收拳后引、重心后坐、髋蓄
+  m({ lean: 22, fThigh: 26, fShin: 10, bThigh: -26, bShin: -12, fUp: 94, fFore: 96, bUp: 46, bFore: 116, hipDx: 10 }), // 命中：伸直爆发、重心前冲
+  m({ lean: 25, bob: -1, fThigh: 28, fShin: 11, bThigh: -26, bShin: -12, fUp: 99, fFore: 100, bUp: 44, bFore: 114, hipDx: 13 }), // 过头：略过靶点
+  m({ lean: 10, fUp: 70, fFore: 120, bUp: 54, bFore: 122, hipDx: 3 }),                     // 收招：回架势、重心回中
 ];
+// 逐段帧数 [蓄4慢, 发力2急, 过头1, 收招3] + smoothstep；再让前/后臂滞后 1 帧 = 鞭打
+SEQ.punch = stagger(tween(PUNCH_KEYS, [4, 2, 1, 3], { ease: ease.smooth }), { fFore: 1, bFore: 1 });
 // kick：架势→提膝蓄力→高扫踢出→过头→收腿（5 帧）
 SEQ.kick = [
   m({}),

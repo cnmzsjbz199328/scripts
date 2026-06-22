@@ -12,7 +12,7 @@ Phaser anim 播放。**不生成 AI 图、不切割图集**——稳定、零额
 在 **MoonRonin**（屋脊浪人）与 **ShadowArena**（剪影格斗，4 角色 ×8 动作 ×136 帧）
 两款游戏验证通过（L0/L1/L2 全绿）。
 
-复用库：[rig.mjs](rig.mjs) —— `pt / line / circle / poly / svg / humanoid / mergePose / lerpPose / tween / writeFrames`。
+复用库：[rig.mjs](rig.mjs) —— `pt / line / circle / poly / svg / humanoid / mergePose / lerpPose / tween / stagger / ease / writeFrames`。
 
 ---
 
@@ -47,6 +47,11 @@ Phaser anim 播放。**不生成 AI 图、不切割图集**——稳定、零额
    **预备(anticipation) → 发力(strike) → 过头(overshoot/follow-through) → 收招(recover)**。
    单帧定格必然呆板。攻击类 5~6 帧、循环类（idle/walk）4~6 帧。
    稀疏关键帧可用 `tween()` 补间出顺滑过渡帧。
+
+   **治僵硬三件套（光摆对角度还不够，这三项是结构性的）**：
+   - **重心位移 `hipDx`**：髋部水平前冲/后撤。出拳/踢腿不是"原地挥手"，是重心从后坐打到前压。`bob` 管上下（含下蹲蓄力）。
+   - **关节滞后 `stagger(frames, {fFore:2, fUp:1})`**：动力链有先后——髋先转→躯干→上臂→前臂→拳最后甩到。所有关节同帧到位 = 没有鞭打。在 `tween` 后的密集帧上叠。
+   - **favoring 节奏**：`tween(keys, [6,1], {ease: ease.in})` —— 逐段帧数 + 缓动，蓄力慢、命中急。匀速补间本身就是僵硬源。`ease` 库：`in/out/snap/back/smooth`。
 
 5. **飘逸特效在运行时叠加**（非烘进 SVG）：残影拖尾（afterimage，半透蓝 tint 淡出）、
    武器弧光（crescent arc）、前冲步（lunge step）。这些在 game-logic.js 里做，便于和命中窗口对齐。
