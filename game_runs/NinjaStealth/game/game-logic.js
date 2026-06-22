@@ -265,6 +265,34 @@ class MainScene extends Phaser.Scene {
     } else {
       this.gameStarted = true;
     }
+
+    // ── game-playtest 探针（俯视潜入：集齐3卷轴→奔出口，强避守卫，贴身刺杀）──
+    window.__probe = () => {
+      const pl = this.player;
+      if (!pl || !pl.body) return null;
+      const scrolls = this.scrolls.getChildren().filter(s => s.active);
+      let tx, ty;
+      if ((this.levelScrolls || 0) < 3 && scrolls.length) {
+        let b = null, bd = 1e9; for (const s of scrolls) { const d = Math.hypot(s.x - pl.x, s.y - pl.y); if (d < bd) { bd = d; b = s; } } tx = b.x; ty = b.y;
+      } else if (this.exitPos) { tx = this.exitPos.x; ty = this.exitPos.y; }
+      let mx = 0, my = 0, dist = 9999;
+      if (tx !== undefined) { const dx = tx - pl.x, dy = ty - pl.y; dist = Math.hypot(dx, dy) || 1; mx = dx / dist; my = dy / dist; }
+      let gnear = 1e9;
+      this.guards.getChildren().forEach(g => { if (!g.active) return; const dx = pl.x - g.x, dy = pl.y - g.y, d = Math.hypot(dx, dy) || 1; gnear = Math.min(gnear, d); if (d < 160) { const w = (160 - d) / 160 * 2.2; mx += dx / d * w; my += dy / d * w; } });
+      const L = Math.hypot(mx, my); if (L > 0.05) { mx /= L; my /= L; } else { mx = my = 0; }
+      const base = (this.currentLevel - 1) * 3000 + (this.levelScrolls || 0) * 600 + (1000 - Math.min(1000, dist));
+      this._prog = Math.max(this._prog || 0, base);
+      return {
+        x: pl.x, y: pl.y, vx: pl.body.velocity.x, onGround: true,
+        hp: this.playerHp, maxHp: 3, score: this._prog, goalScore: 9000,
+        act: this.currentLevel, deaths: 0, deathBudget: 1,
+        won: !!this._won, lost: !!this._lost,
+        cardActive: false, started: this.gameStarted,
+        nextGoalX: tx !== undefined ? tx : pl.x, worldW: 99999, cellX: 99999,
+        moveX: mx, moveY: my, attack: gnear < 46,
+        dangerNow: gnear < 90, dangerAhead: gnear < 140,
+      };
+    };
   }
 
   // Small non-blocking toast for item pickups — does not dim the screen or pause gameplay
@@ -1149,6 +1177,7 @@ class MainScene extends Phaser.Scene {
 
   gameOver(win) {
     this.gameStarted = false;
+    if (win) this._won = true; else this._lost = true;
     this.player.body.setVelocity(0, 0);
 
     if (win) {
