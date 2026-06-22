@@ -203,6 +203,33 @@ class MainScene extends Phaser.Scene {
     if (!window.GameHUD) {
       this.gameStarted = true;
     }
+
+    // ── game-playtest 探针（俯视：前进自动，bot 转向避障+吃电池；score 用距离进度防误判）──
+    window.__probe = () => {
+      const pl = this.player;
+      if (!pl || !pl.body) return null;
+      const aheadOf = o => o.active && o.y < pl.y && (pl.y - o.y) < 520;
+      let steer = 0;
+      // 避开前方路障/静态障碍（前瞻放大以应对高速）
+      const avoid = grp => grp && grp.getChildren().forEach(o => { if (aheadOf(o)) { const dxn = pl.x - o.x; if (Math.abs(dxn) < 130) steer += Math.sign(dxn || 1) * (1 - Math.abs(dxn) / 130) * 2.6; } });
+      avoid(this.roadblocks); avoid(this.obstaclesGroup);
+      // 顺路吃最近电池（凑够能量 200 才算赢）
+      let bn = null, bd = 1e9;
+      this.batteries && this.batteries.getChildren().forEach(b => { if (aheadOf(b)) { const d = Math.hypot(b.x - pl.x, b.y - pl.y); if (d < bd) { bd = d; bn = b; } } });
+      if (bn && Math.abs(steer) < 1.2) steer += Math.max(-1, Math.min(1, (bn.x - pl.x) / 130)) * 0.8;
+      const mx = Math.max(-1, Math.min(1, steer));
+      const prog = 600 - (this.distanceLeft ?? 600);
+      return {
+        x: pl.x, y: pl.y, vx: pl.body.velocity.x, onGround: true,
+        hp: this.hearts ?? 3, maxHp: 3, score: prog, goalScore: 600,
+        act: 1, deaths: 0, deathBudget: 3,
+        won: !!this._won, lost: !!this._lost,
+        cardActive: false, started: this.gameStarted,
+        nextGoalX: bn ? bn.x : pl.x, worldW: 99999, cellX: 99999,
+        moveX: mx, moveY: 0, attack: false,
+        dangerNow: false, dangerAhead: Math.abs(steer) > 0.5,
+      };
+    };
   }
 
   renderTileLayer(layerName, layerConfig) {
@@ -549,6 +576,7 @@ class MainScene extends Phaser.Scene {
 
   triggerGameOver(isWin, endingText) {
     if (this.victoryShown || this.defeatShown) return;
+    if (isWin) this._won = true; else this._lost = true;
     if (isWin) {
       this.victoryShown = true;
     } else {
