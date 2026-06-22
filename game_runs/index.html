@@ -158,6 +158,13 @@
       background-size: cover; background-position: center;
       transition: opacity .4s ease;
     }
+    /* Looping muted gameplay clip shown as the live preview (above poster, below iframe). */
+    .stage-pvideo {
+      position: absolute; inset: 0; z-index: 1;
+      width: 100%; height: 100%; object-fit: cover;
+      opacity: 0; transition: opacity .4s ease;
+    }
+    .stage-pvideo.show { opacity: 1; }
     .stage-iframe {
       position: absolute; top: 0; left: 0;
       width: 960px; height: 576px;
@@ -231,9 +238,14 @@
       box-shadow: 0 0 0 1px var(--pa, var(--accent)), 0 10px 26px -10px var(--pa, var(--accent));
     }
     .picker-thumb {
+      position: relative; overflow: hidden;
       width: 100%; aspect-ratio: 5/3;
       background-size: cover; background-position: center;
       background-color: var(--ppbg, #040810);
+    }
+    .picker-thumb .pthumb-vid {
+      position: absolute; inset: 0;
+      width: 100%; height: 100%; object-fit: cover;
     }
     .picker-label { padding: 8px 11px 11px; }
     .picker-genre {
@@ -977,6 +989,7 @@
           <div class="stage-frame is-loading">
             <div class="stage-placeholder" aria-hidden="true"></div>
             <div class="stage-poster" aria-hidden="true"></div>
+            <video class="stage-pvideo" muted loop playsinline preload="metadata" aria-hidden="true"></video>
             <iframe class="stage-iframe"
                     title="游戏预览"
                     sandbox="allow-scripts allow-same-origin"
@@ -998,6 +1011,7 @@
     els.frame   = root.querySelector('.stage-frame');
     els.iframe  = root.querySelector('.stage-iframe');
     els.poster  = root.querySelector('.stage-poster');
+    els.pvideo  = root.querySelector('.stage-pvideo');
     els.icon    = root.querySelector('.stage-placeholder');
     els.genre   = root.querySelector('.stage-genre');
     els.title   = root.querySelector('.stage-title');
@@ -1037,8 +1051,10 @@
     btn.setAttribute('aria-label', `预览 ${g.title}`);
     const thumb = g.thumbnail
       ? ` style="background-image:url('./${esc(g.thumbnail)}')"` : '';
+    const thumbVid = g.previewVideo
+      ? `<video class="pthumb-vid" src="./${esc(g.previewVideo)}" muted loop playsinline autoplay preload="metadata"></video>` : '';
     btn.innerHTML = `
-      <span class="picker-thumb"${thumb} aria-hidden="true"></span>
+      <span class="picker-thumb"${thumb} aria-hidden="true">${thumbVid}</span>
       <span class="picker-label">
         <span class="picker-genre">${esc(g.genre || '')}</span>
         <span class="picker-title">${esc(g.title)}</span>
@@ -1069,6 +1085,16 @@
     els.browser.style.setProperty('--a',   g.accent);
     els.browser.style.setProperty('--pbg', g.previewBg);
     els.poster.style.backgroundImage = g.thumbnail ? `url('./${esc(g.thumbnail)}')` : '';
+    // Looping gameplay clip as the stage preview; falls back to the static poster.
+    if (g.previewVideo) {
+      els.pvideo.src = `./${esc(g.previewVideo)}`;
+      els.pvideo.classList.add('show');
+      els.pvideo.play().catch(() => {});
+    } else {
+      els.pvideo.pause();
+      els.pvideo.removeAttribute('src');
+      els.pvideo.classList.remove('show');
+    }
     els.icon.textContent = g.icon || '';
     setMeta(g);
 

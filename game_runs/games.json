@@ -10,7 +10,8 @@
     "icon": "🥋",
     "thumbnail": "ShadowArena/assets/svg/stage.svg",
     "path": "ShadowArena/index.html",
-    "createdAt": "2026-06-21T09:00:00.000Z"
+    "createdAt": "2026-06-21T09:00:00.000Z",
+    "previewVideo": "ShadowArena/preview.mp4"
   },
   {
     "id": "MoonRonin",
@@ -22,6 +23,7 @@
     "previewBg": "#0a0e1a",
     "icon": "🌙",
     "thumbnail": "MoonRonin/scene/panorama.png",
+    "previewVideo": "MoonRonin/preview.mp4",
     "path": "MoonRonin/index.html",
     "createdAt": "2026-06-21T08:30:00.000Z"
   },
@@ -35,6 +37,7 @@
     "previewBg": "#dce8f2",
     "icon": "🔷",
     "thumbnail": "GeoStorm/scene/panorama.png",
+    "previewVideo": "GeoStorm/preview.mp4",
     "path": "GeoStorm/index.html",
     "createdAt": "2026-06-21T08:04:00.000Z"
   },
@@ -48,6 +51,7 @@
     "previewBg": "#0a0e1a",
     "icon": "🥷",
     "thumbnail": "ShadowNinja/scene/panorama.png",
+    "previewVideo": "ShadowNinja/preview.mp4",
     "path": "ShadowNinja/index.html",
     "createdAt": "2026-06-21T07:58:00.000Z"
   },
@@ -61,6 +65,7 @@
     "previewBg": "#2a1a0e",
     "icon": "⭐",
     "thumbnail": "DustTown/scene/panorama.png",
+    "previewVideo": "DustTown/preview.mp4",
     "path": "DustTown/index.html",
     "createdAt": "2026-06-21T07:52:00.000Z"
   },
@@ -74,6 +79,7 @@
     "previewBg": "#faf6ea",
     "icon": "✒️",
     "thumbnail": "InkLine/scene/panorama.png",
+    "previewVideo": "InkLine/preview.mp4",
     "path": "InkLine/index.html",
     "createdAt": "2026-06-21T07:45:00.000Z"
   },
@@ -88,7 +94,8 @@
     "icon": "🤠",
     "thumbnail": "DustOutlaw/scene/panorama.png",
     "path": "DustOutlaw/index.html",
-    "createdAt": "2026-06-21T07:39:00.000Z"
+    "createdAt": "2026-06-21T07:39:00.000Z",
+    "previewVideo": "DustOutlaw/preview.mp4"
   },
   {
     "id": "ShadowLeap",
@@ -100,6 +107,7 @@
     "previewBg": "#0a0e16",
     "icon": "🌫️",
     "thumbnail": "ShadowLeap/scene/panorama.png",
+    "previewVideo": "ShadowLeap/preview.mp4",
     "path": "ShadowLeap/index.html",
     "createdAt": "2026-06-21T07:32:00.000Z"
   },
@@ -114,7 +122,8 @@
     "icon": "👊",
     "thumbnail": "ElementalClash/scene/panorama.jpg",
     "path": "ElementalClash/index.html",
-    "createdAt": "2026-06-18T23:36:00.000Z"
+    "createdAt": "2026-06-18T23:36:00.000Z",
+    "previewVideo": "ElementalClash/preview.mp4"
   },
   {
     "id": "RoboWarehouse",
@@ -127,7 +136,8 @@
     "icon": "🌾",
     "thumbnail": "RoboWarehouse/scene/panorama.png",
     "path": "RoboWarehouse/index.html",
-    "createdAt": "2026-06-16T18:19:51.015Z"
+    "createdAt": "2026-06-16T18:19:51.015Z",
+    "previewVideo": "RoboWarehouse/preview.mp4"
   },
   {
     "id": "StarVanguard",
@@ -140,7 +150,8 @@
     "icon": "🏎️",
     "thumbnail": "StarVanguard/scene/establishing_shot.jpg",
     "path": "StarVanguard/index.html",
-    "createdAt": "2026-06-16T18:19:08.316Z"
+    "createdAt": "2026-06-16T18:19:08.316Z",
+    "previewVideo": "StarVanguard/preview.mp4"
   },
   {
     "id": "NinjaStealth",
@@ -153,7 +164,8 @@
     "icon": "🏎️",
     "thumbnail": "NinjaStealth/scene/establishing_shot.jpg",
     "path": "NinjaStealth/index.html",
-    "createdAt": "2026-06-16T18:13:13.675Z"
+    "createdAt": "2026-06-16T18:13:13.675Z",
+    "previewVideo": "NinjaStealth/preview.mp4"
   },
   {
     "id": "MermaidPrincess",
@@ -166,7 +178,8 @@
     "icon": "👊",
     "thumbnail": "MermaidPrincess/scene/panorama.jpg",
     "path": "MermaidPrincess/index.html",
-    "createdAt": "2026-06-16T18:13:10.638Z"
+    "createdAt": "2026-06-16T18:13:10.638Z",
+    "previewVideo": "MermaidPrincess/preview.mp4"
   },
   {
     "id": "NinjaCat",
@@ -179,7 +192,8 @@
     "icon": "👊",
     "thumbnail": "NinjaCat/scene/panorama.jpg",
     "path": "NinjaCat/index.html",
-    "createdAt": "2026-06-16T14:44:45.305Z"
+    "createdAt": "2026-06-16T14:44:45.305Z",
+    "previewVideo": "NinjaCat/preview.mp4"
   },
   {
     "id": "RaccoonDungeon",
@@ -192,7 +206,8 @@
     "icon": "🏎️",
     "thumbnail": "RaccoonDungeon/scene/raccoon_dungeon_panorama_1781620650483.jpg",
     "path": "RaccoonDungeon/index.html",
-    "createdAt": "2026-06-16T14:36:34.211Z"
+    "createdAt": "2026-06-16T14:36:34.211Z",
+    "previewVideo": "RaccoonDungeon/preview.mp4"
   },
   {
     "id": "PokePixel",
@@ -205,7 +220,8 @@
     "icon": "🌾",
     "thumbnail": null,
     "path": "PokePixel/index.html",
-    "createdAt": "2026-06-16T14:25:13.837Z"
+    "createdAt": "2026-06-16T14:25:13.837Z",
+    "previewVideo": "PokePixel/preview.mp4"
   },
   {
     "id": "NeonTowerDefense",
@@ -218,7 +234,8 @@
     "icon": "🏎️",
     "thumbnail": "NeonTowerDefense/scene/neon_td_panorama.png",
     "path": "NeonTowerDefense/index.html",
-    "createdAt": "2026-06-16T01:16:45.507Z"
+    "createdAt": "2026-06-16T01:16:45.507Z",
+    "previewVideo": "NeonTowerDefense/preview.mp4"
   },
   {
     "id": "StickmanFighter",
@@ -231,7 +248,8 @@
     "icon": "👊",
     "thumbnail": "StickmanFighter/scene/stickman_panorama.png",
     "path": "StickmanFighter/index.html",
-    "createdAt": "2026-06-15T23:56:52.000Z"
+    "createdAt": "2026-06-15T23:56:52.000Z",
+    "previewVideo": "StickmanFighter/preview.mp4"
   },
   {
     "id": "NeonRacer",
@@ -244,7 +262,8 @@
     "icon": "🏎️",
     "thumbnail": null,
     "path": "NeonRacer/index.html",
-    "createdAt": "2026-06-15T11:51:57.000Z"
+    "createdAt": "2026-06-15T11:51:57.000Z",
+    "previewVideo": "NeonRacer/preview.mp4"
   },
   {
     "id": "PixelFarm",
@@ -257,6 +276,7 @@
     "icon": "🌾",
     "thumbnail": "PixelFarm/screenshot.png",
     "path": "PixelFarm/index.html",
-    "createdAt": "2026-06-15T06:55:34.349Z"
+    "createdAt": "2026-06-15T06:55:34.349Z",
+    "previewVideo": "PixelFarm/preview.mp4"
   }
 ]

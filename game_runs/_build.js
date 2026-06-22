@@ -96,6 +96,10 @@ for (const entry of entries) {
     if (rootImg) thumbnail = `${entry.name}/${rootImg}`;
   }
 
+  // Looping gameplay clip (preview.mp4 in game root) → animated preview in the hub.
+  const previewVideo = fs.existsSync(path.join(gameDir, 'preview.mp4'))
+    ? `${entry.name}/preview.mp4` : null;
+
   games.push({
     id:        entry.name,
     title:     gdd?.title   || htmlMeta.title   || entry.name,
@@ -106,6 +110,7 @@ for (const entry of entries) {
     previewBg: genreMeta.previewBg,
     icon:      genreMeta.icon,
     thumbnail,
+    previewVideo,
     path:      `${entry.name}/index.html`,
     createdAt: manifest?.created_at ?? null,
   });
