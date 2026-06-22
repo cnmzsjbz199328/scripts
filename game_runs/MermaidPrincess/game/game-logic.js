@@ -169,6 +169,41 @@ class MainScene extends Phaser.Scene {
 
     // Load first level
     this.loadLevel(this.currentLevel);
+
+    // ── game-playtest 探针（自由游泳→俯视模式：朝最近珍珠游、避敌/避险，集满或无珍珠则奔门）──
+    window.__probe = () => {
+      const pl = this.player;
+      if (!pl || !pl.body) return null;
+      const pearls = this.pearlsGroup.getChildren().filter(c => c.active);
+      const door = this.doorSprite;
+      let tx, ty;
+      if (pearls.length) {
+        let best = null, bd = 1e9;
+        for (const c of pearls) { const d = Math.hypot(c.x - pl.x, c.y - pl.y); if (d < bd) { bd = d; best = c; } }
+        tx = best.x; ty = best.y;
+      } else if (door) { tx = door.x; ty = door.y; }
+      // 先算避险斥力（敌人/浮动尖刺），半径大、权重高——存活优先于追珍珠
+      let rx = 0, ry = 0;
+      const repel = arr => arr.forEach(o => { if (!o.active) return; const dx = pl.x - o.x, dy = pl.y - o.y, d = Math.hypot(dx, dy) || 1; if (d < 140) { const w = (140 - d) / 140 * 3.0; rx += (dx / d) * w; ry += (dy / d) * w; } });
+      repel(this.enemiesGroup.getChildren()); repel(this.hazardsGroup.getChildren());
+      const threatened = Math.hypot(rx, ry) > 0.4;
+      let mx = rx, my = ry;
+      // 没有迫近威胁时才去追最近珍珠/门
+      if (!threatened && tx !== undefined) { const dx = tx - pl.x, dy = ty - pl.y, d = Math.hypot(dx, dy) || 1; mx += dx / d; my += dy / d; }
+      const L = Math.hypot(mx, my); if (L > 0.05) { mx /= L; my /= L; } else { mx = my = 0; }
+      const danger = this.enemiesGroup.getChildren().some(o => o.active && Math.hypot(pl.x - o.x, pl.y - o.y) < 60)
+        || this.hazardsGroup.getChildren().some(o => o.active && Math.hypot(pl.x - o.x, pl.y - o.y) < 60);
+      return {
+        x: pl.x, y: pl.y, vx: pl.body.velocity.x, onGround: true,
+        hp: this.hearts, maxHp: 3, score: this.score, goalScore: 100,
+        act: this.currentLevel, deaths: 0, deathBudget: 3,
+        won: !!this._won, lost: !!this._lost,
+        cardActive: false, started: this.gameStarted,
+        nextGoalX: tx !== undefined ? tx : pl.x, worldW: 3200, cellX: door ? door.x : 3100,
+        moveX: mx, moveY: my, attack: false,
+        dangerNow: danger, dangerAhead: danger,
+      };
+    };
   }
 
   createCharAnimations(charName, metaKey, sheetKey) {
@@ -453,6 +488,7 @@ class MainScene extends Phaser.Scene {
     // ─── ABYSS CHECK ───
     if (this.player.y > 640 + 80) {
       this.gameStarted = false;
+      this._lost = true;
       this.player.setVelocity(0, 0);
       window.GameHUD?.showGameOver(false, '爱丽儿公主失足沉入了无底的黑暗深渊……');
     }
@@ -511,6 +547,7 @@ class MainScene extends Phaser.Scene {
 
     if (this.hearts <= 0) {
       this.gameStarted = false;
+      this._lost = true;
       this.player.setVelocity(0, 0);
       this.player.setTint(0xff5555);
       window.GameHUD?.showGameOver(false, '爱丽儿公主精疲力竭，在深海中陷入了沉睡……');
@@ -598,6 +635,7 @@ class MainScene extends Phaser.Scene {
   triggerWinGame() {
     if (this.victoryShown) return;
     this.victoryShown = true;
+    this._won = true;
     this.gameStarted = false;
     this.player.setVelocity(0, 0);
     window.GameHUD?.showGameOver(true,
