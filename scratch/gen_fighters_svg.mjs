@@ -96,14 +96,17 @@ const PUNCH_KEYS = [
 ];
 // 逐段帧数 [蓄4慢, 发力2急, 过头1, 收招3] + smoothstep；再让前/后臂滞后 1 帧 = 鞭打
 SEQ.punch = stagger(tween(PUNCH_KEYS, [4, 2, 1, 3], { ease: ease.smooth }), { fFore: 1, bFore: 1 });
-// kick：架势→提膝蓄力→高扫踢出→过头→收腿（5 帧）
-SEQ.kick = [
-  m({}),
-  m({ lean: -2, fThigh: 38, fShin: 84, bThigh: -12, fUp: 34, fFore: 96, bUp: -8, bFore: 52 }),
-  m({ lean: -10, fThigh: 76, fShin: 90, bThigh: -16, bShin: -8, fUp: 22, fFore: 90, bUp: -26, bFore: 38 }),
-  m({ lean: -12, fThigh: 84, fShin: 96, bThigh: -16, bShin: -8, fUp: 20, fFore: 88, bUp: -30, bFore: 34 }),
-  m({ lean: 2, fThigh: 18, fShin: 6, fUp: 44, fFore: 112, bUp: 44, bFore: 120 }),
+// kick：高扫踢，按 refs/kick/ 木偶定格帧校角(overshoot 已镜像回面朝左)。
+//   力学要点：提膝深折(膝贴胸/小腿折收) → 鞭腿弹直到高位(踢腿~125°) → 惯性过头更高且膝微折；
+//   上身大幅后倾(lean 负)配平高踢；支撑腿(b)蹬直锁定；fShin 滞后 fThigh = 小腿鞭打。
+const KICK_KEYS = [
+  m({}),                                                                                                            // 架势
+  m({ lean: 6, fThigh: 96, fShin: 28, bThigh: -4, bShin: -2, fUp: 55, fFore: 150, bUp: 55, bFore: 150, hipDx: -2 }),// 提膝：膝高贴胸、小腿折收、护手收拢
+  m({ lean: -32, fThigh: 124, fShin: 126, bThigh: -8, bShin: -3, fUp: 70, fFore: 86, bUp: 30, bFore: 60, hipDx: 3, bob: -2 }),  // 命中：鞭腿弹直到高位、上身后倾配平、双臂展开
+  m({ lean: -36, fThigh: 138, fShin: 128, bThigh: -10, bShin: -4, fUp: 68, fFore: 82, bUp: 28, bFore: 58, hipDx: 2, bob: -2 }), // 过头：越过目标线更高、膝开始微折回收
+  m({ lean: 4, fThigh: 22, fShin: 8, bThigh: -12, bShin: -4, fUp: 58, fFore: 140, bUp: 52, bFore: 146, hipDx: 0 }), // 收招：落腿回架势
 ];
+SEQ.kick = stagger(tween(KICK_KEYS, [4, 2, 1, 3], { ease: ease.smooth }), { fShin: 1, fFore: 1 });
 // block：2 帧（沉身格挡微沉）
 SEQ.block = [
   m({ bob: 2, fUp: 72, fFore: 150, bUp: 70, bFore: 146, fThigh: 14, fShin: 8, bThigh: -14, bShin: -8 }),

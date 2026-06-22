@@ -20,7 +20,7 @@ const ACT = {
   idle: { n: 4, fps: 4, loop: true },
   walk: { n: 6, fps: 10, loop: true },
   punch: { n: 11, fps: 34, loop: false, dur: 330, from: 110, to: 215, lunge: 120 },
-  kick: { n: 5, fps: 16, loop: false, dur: 330, from: 130, to: 270, lunge: 60 },
+  kick: { n: 11, fps: 30, loop: false, dur: 360, from: 150, to: 280, lunge: 60 },
   block: { n: 2, fps: 3, loop: true },
   hurt: { n: 3, fps: 14, loop: false, dur: 230 },
   special: { n: 6, fps: 15, loop: false, dur: 440 },
