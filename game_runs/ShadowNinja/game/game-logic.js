@@ -39,6 +39,12 @@ const NJ_VB = { w: 178, h: 190 };
 const NJ_FRAMES = { idle: 5, run: 6, crouch: 5, jump: 3, hurt: 3 };
 const NJ_SCALE = 0.62;
 
+// 环境帧（svg-ambient skill 生成，须与 scratch/gen_shadowninja_ambient.mjs 一致）
+const AMB_FRAMES = { cloud: 8, campfire: 6, flag: 8 };
+// 火盆（暖光点）与破幡（灰旗）沿世界横向的投放点
+const BRAZIERS = [520, 1560, 3200, 3700];
+const BANNERS = [340, 1340, 2700, 3980];
+
 // ── 三幕定义（沿同一横向世界推进）────────────────────────────
 // startX：本幕检查点（被照中退回此处）；fog：本幕氛围色叠层
 const ACTS = [
@@ -98,6 +104,10 @@ class ShadowNinjaScene extends Phaser.Scene {
     for (const [act, n] of Object.entries(NJ_FRAMES))
       for (let i = 0; i < n; i++)
         this.load.svg(`nj_${act}_${i}`, `assets/svg/nj_${act}_${i}.svg`, { width: NJ_VB.w, height: NJ_VB.h });
+    // 环境元素：svg-ambient skill 生成的逐帧 SVG（流云/火盆/破幡），构建产物随包自带
+    for (const [name, n] of Object.entries(AMB_FRAMES))
+      for (let i = 0; i < n; i++)
+        this.load.svg(`amb_${name}_${i}`, `assets/svg/amb_${name}_${i}.svg`, { width: 128, height: 128 });
   }
 
   create() {
@@ -118,6 +128,7 @@ class ShadowNinjaScene extends Phaser.Scene {
     this._renderTileLayer('solid', 0, true);
 
     this._makeAnims();
+    this._addAmbient();
 
     // 玩家忍者（贴左出生 + 世界边界）
     this.player = this.physics.add.sprite(ACTS[0].startX, SPAWN_Y, 'nj_idle_0');
@@ -314,6 +325,40 @@ class ShadowNinjaScene extends Phaser.Scene {
     def('crouch', 7, true);
     def('jump', 8, false);
     def('hurt', 12, false);
+    // 环境动画（svg-ambient）
+    const ambDef = (name, fps) => {
+      const key = `amb_${name}`;
+      if (this.anims.exists(key)) return;
+      const frames = Array.from({ length: AMB_FRAMES[name] }, (_, i) => ({ key: `amb_${name}_${i}` }));
+      this.anims.create({ key, frames, frameRate: fps, repeat: -1 });
+    };
+    ambDef('cloud', 6);
+    ambDef('campfire', 10);
+    ambDef('flag', 8);
+  }
+
+  // ── 环境装饰层（svg-ambient skill 验证：跨游戏复用同一份工厂）──────────
+  // 纯装饰、无物理、不入 __probe，不影响玩法与白盒自测。
+  _addAmbient() {
+    // 流云：夜空慢漂，视差滚动（多片错相位铺满世界宽）
+    for (let i = 0; i < 6; i++) {
+      const c = this.add.sprite(i * (WORLD_W / 6) + 80, 70 + (i % 3) * 34, 'amb_cloud_0')
+        .setScrollFactor(0.3).setDepth(-70).setAlpha(0.5).setDisplaySize(260, 260);
+      c.play('amb_cloud'); c.anims.setProgress((i / 6));
+    }
+    // 火盆：地面暖光点 + 叠一圈暖色辉光圆
+    for (const x of BRAZIERS) {
+      this.add.circle(x, FLOOR_TOP - 40, 46, WARM, 0.06).setDepth(6);
+      const fire = this.add.sprite(x, FLOOR_TOP - 24, 'amb_campfire_0')
+        .setDepth(11).setDisplaySize(72, 72);
+      fire.play('amb_campfire'); fire.anims.setProgress(Math.random());
+    }
+    // 破幡：高悬灰旗，随风飘
+    for (const x of BANNERS) {
+      const fl = this.add.sprite(x, FLOOR_TOP - 150, 'amb_flag_0')
+        .setDepth(11).setDisplaySize(96, 96).setAlpha(0.9);
+      fl.play('amb_flag'); fl.anims.setProgress(Math.random());
+    }
   }
 
   _makeTextures() {
