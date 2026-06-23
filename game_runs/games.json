@@ -14,6 +14,20 @@
     "createdAt": "2026-06-24T00:00:00.000Z"
   },
   {
+    "id": "InkMechanics",
+    "title": "墨水力学：蓝图实验室",
+    "tagline": "一张物理草图，一滴墨水——发射出去，让线条替我接住它。",
+    "gameType": "puzzle",
+    "genre": "PUZZLE",
+    "accent": "#fbbf24",
+    "previewBg": "#141000",
+    "icon": "🧩",
+    "thumbnail": "InkMechanics/scene/panorama.png",
+    "previewVideo": "InkMechanics/preview.mp4",
+    "path": "InkMechanics/index.html",
+    "createdAt": "2026-06-24T00:00:00.000Z"
+  },
+  {
     "id": "ShadowArena",
     "title": "影斗：剪影格斗场",
     "tagline": "黎明的天光为幕，四位黑影武者，一场一对一的宿命对决。",

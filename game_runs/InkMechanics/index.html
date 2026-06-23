@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>墨水力学：蓝图实验室</title>
+  <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #0b0f19;
+      color: #fff;
+      font-family: 'Segoe UI', monospace;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      overflow: hidden;
+    }
+
+    #game-wrapper {
+      position: relative;
+      border: 3px solid #2f6fb0;
+      border-radius: 8px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.6);
+      overflow: hidden;
+    }
+
+    #hud {
+      display: none;
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      padding: 10px 14px;
+      gap: 18px;
+      flex-direction: row;
+      align-items: center;
+      background: linear-gradient(to bottom, rgba(0,0,0,0.4), transparent);
+      pointer-events: none;
+      z-index: 10;
+      font-size: 15px;
+      user-select: none;
+    }
+
+    #hud-hearts { color: #2f6fb0; letter-spacing: 2px; font-size: 18px; text-shadow: 0 1px 2px rgba(255,255,255,0.5); }
+    #hud-score  { color: #1f3a5f; font-weight: 700; text-shadow: 0 1px 2px rgba(255,255,255,0.5); }
+    #hud-objective { color: #21384f; flex: 1; text-align: center; font-weight: 600; text-shadow: 0 1px 2px rgba(255,255,255,0.6); }
+
+    .game-overlay {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 20;
+      background: rgba(238, 242, 246, 0.93);
+      backdrop-filter: blur(3px);
+    }
+
+    .overlay-card {
+      text-align: center;
+      max-width: 560px;
+      padding: 36px 40px;
+      background: #fbfdff;
+      border: 2px solid #21384f;
+      border-radius: 12px;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.22);
+    }
+
+    .overlay-card h2 { font-size: 2rem; margin-bottom: 8px; color: #21384f; letter-spacing: 0.06em; }
+    .overlay-card .tagline { font-size: 0.95rem; color: #2f6fb0; margin-bottom: 16px; font-style: italic; }
+    .overlay-card .story-setting { font-size: 0.88rem; color: #51647a; line-height: 1.6; margin-bottom: 24px; }
+    .overlay-card .controls-hint { font-size: 0.78rem; color: #7a8aa0; line-height: 1.8; margin-top: 14px; }
+
+    .game-btn {
+      display: inline-block;
+      padding: 12px 36px;
+      font-size: 1rem;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: transform 0.1s, box-shadow 0.1s;
+    }
+    .game-btn:hover  { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(0,0,0,0.2); }
+    .game-btn:active { transform: translateY(0); }
+
+    #start-btn   { background: #2f6fb0; color: #fff; }
+    #restart-btn { background: #c0524a; color: #fff; }
+
+    #gameover-title.win  { color: #2f6fb0; }
+    #gameover-title.lose { color: #c0524a; }
+
+    html, body { width: 100%; height: 100%; }
+    #game-wrapper { width: 960px; height: 576px; flex: 0 0 auto; transform-origin: center center; }
+  </style>
+</head>
+<body>
+  <div id="game-wrapper">
+    <div id="game-container"></div>
+
+    <div id="hud">
+      <div id="hud-hearts" title="本关剩余发射机会">◆◆◆◆</div>
+      <div id="hud-score">通关: <span id="hud-score-value">0</span></div>
+      <div id="hud-objective"><span id="hud-objective-text">调角度与力度，把墨水发射进墨井</span></div>
+    </div>
+
+    <div id="start-screen" class="game-overlay">
+      <div class="overlay-card">
+        <h2>墨水力学：蓝图实验室</h2>
+        <p class="tagline">一张物理草图，一滴墨水——发射出去，让线条替我接住它。</p>
+        <p class="story-setting">一间画在蓝图纸上的几何物理实验室：圆形弹板、可转动的杠杆、导轨与墨井，都是单色墨线的力学示意图。发射一滴蓝墨水，让它沿真实物理滑行、碰撞、反弹，落进每一关的墨井。</p>
+        <button id="start-btn" class="game-btn" onclick="window.__hudStart()">▶ START GAME</button>
+        <p class="controls-hint">
+          ← → / A D 调角度 ·　↑ ↓ / W S 调力度 ·　空格 / J 发射
+        </p>
+      </div>
+    </div>
+
+    <div id="gameover-screen" class="game-overlay" style="display:none">
+      <div class="overlay-card">
+        <h2 id="gameover-title">GAME OVER</h2>
+        <p id="gameover-message" class="story-setting"></p>
+        <button id="restart-btn" class="game-btn" onclick="location.reload()">↩ RESTART</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    window.GAME_CONFIG  = {
+      "map": { "width": 960, "height": 540, "tileWidth": 64, "tileHeight": 64 },
+      "player": { "spawn": { "x": 90, "y": 270 }, "speed": 0 },
+      "renderMode": "procedural-lineart", "engine": "phaser-matter"
+    };
+    window.TILEMAP_DATA = { "width": 15, "height": 9, "tileWidth": 64, "tileHeight": 64, "tileIndex": {}, "layers": { "obstacles": [] } };
+    window.ENTITIES_DATA = [];
+
+    window.GameHUD = (function () {
+      let _startCallback = null;
+      let _started = false;
+      let _isPvP = false;
+
+      function showHud() { document.getElementById('hud').style.display = 'flex'; }
+
+      window.__hudStart = function (isPvP = false) {
+        if (_started) return;
+        _started = true;
+        _isPvP = isPvP;
+        document.getElementById('start-screen').style.display = 'none';
+        showHud();
+        if (_startCallback) _startCallback(isPvP);
+      };
+
+      return {
+        setHearts(current, maxHp) {
+          const el = document.getElementById('hud-hearts');
+          if (!el) return;
+          const filled = Math.max(0, Math.min(current, maxHp ?? 4));
+          const empty  = (maxHp ?? 4) - filled;
+          el.textContent = '◆'.repeat(filled) + '◇'.repeat(empty);
+        },
+        setScore(value) {
+          const el = document.getElementById('hud-score-value');
+          if (el) el.textContent = value;
+        },
+        setObjective(text) {
+          const el = document.getElementById('hud-objective-text');
+          if (el) el.textContent = text;
+        },
+        onStart(cb) { _startCallback = cb; if (_started) cb(_isPvP); },
+        showGameOver(win, message) {
+          const overlay = document.getElementById('gameover-screen');
+          const title   = document.getElementById('gameover-title');
+          const msg     = document.getElementById('gameover-message');
+          if (title) title.textContent = win ? '🎉 YOU WIN' : 'GAME OVER';
+          if (msg)   msg.textContent   = message ?? '';
+          if (overlay) overlay.style.display = 'flex';
+          document.getElementById('hud').style.display = 'none';
+        },
+      };
+    })();
+
+    const _origShowGameOver = window.GameHUD.showGameOver.bind(window.GameHUD);
+    window.GameHUD.showGameOver = function(win, message) {
+      _origShowGameOver(win, message);
+      const title = document.getElementById('gameover-title');
+      if (title) {
+        title.className = win ? 'win' : 'lose';
+        if (!win) title.textContent = 'GAME OVER';
+      }
+    };
+
+    if (window.location.search.includes('autostart')) {
+      setTimeout(() => { if (window.__hudStart) window.__hudStart(); }, 300);
+    }
+  </script>
+  <script src="game/game-logic.js"></script>
+  <script>
+    (function () {
+      var W = 960, H = 576;
+      var wrap = document.getElementById('game-wrapper');
+      function fit() {
+        if (!wrap) return;
+        var s = Math.min(window.innerWidth / W, window.innerHeight / H, 1);
+        wrap.style.transform = 'scale(' + s + ')';
+      }
+      window.addEventListener('resize', fit);
+      window.addEventListener('orientationchange', fit);
+      fit();
+    })();
+  </script>
+</body>
+</html>
