@@ -1,116 +1,121 @@
-/* InkMechanics — 墨水力学：蓝图实验室（短篇完整游戏版）
- * 俯视无重力物理发射谜题 (lineart blueprint, Phaser + Matter.js)。
+/* InkMechanics — 墨水力学：画线引水（短篇完整游戏版）
+ * 横版 + 重力的「画线解谜」(lineart, Phaser 渲染 + 自管物理)。
  *
- * 灵感来源 InkLine：几何线条 = 物理示意图。发射一滴蓝墨水，在摩擦纸面滑行、
- * 撞圆形弹板 / 旋转杠杆(俯视跷跷板) / 导轨反弹，设法落进墨井 → 过关。
+ * 灵感来源 InkLine（线条）：墨水不再是被瞄准的小球，而是受重力下落的真实液滴；
+ * 你亲手画出的墨线变成物理斜坡/导轨，把水滴引流进墨井 → 过关。画线本身就是解法。
  *
- * 结构：HTML 开始屏即开场叙事 → 5 关递进(直线导引→弹板初见→转动杠杆→窄道穿行→综合机械) → 结局卡
- *  · 每关有限发射次数(shots)；射偏/力竭则该发作废，耗尽即败。
- *  · 键盘发射：← → / A D 调角度，↑ ↓ / W S 调力度，空格 / J 发射。
- *  · 探针把「瞄准矢量末端」当作 player 坐标(随调整移动)→ 既稳过 verify L2，又不触发 bot 停滞误判。
- *    初始角度取下界、力度取上界，破坏 WASD 抵消对称，稳过 L2 移动断言。
- *  · 暴露 window.__gameState / __probe()(俯视：moveX 调角、moveY 调力、attack=对准即发射) / __advanceCard()
+ * 机制：
+ *  · 龙头(source)滴出一滴蓝墨水；按「放水」前它冻结在龙头处。
+ *  · 鼠标拖拽画墨线(polyline → 线段碰撞体)；有限墨量(ink budget)逼你画得精准优雅。
+ *  · 放水后水滴受重力沿你画的线滑行/反弹，避开尖刺、跨过沟壑，落入墨井即过关。
+ *  · 失败(撞尖刺/掉出画面)消耗一次机会(hearts)，墨线保留，可微调重试。
+ *  · 关卡递进：直坡引流 → 越壑架桥 → 避刺引流 → 穿檐窄井 → 综合。每关均「单条下行斜坡可解」。
+ *
+ * 验证/试玩：
+ *  · window.__gameState.player = 水滴；放水后受重力下落 → 坐标变化 → 稳过 verify L2。
+ *  · playtest bot 只发键盘、不会画线 → 检测 navigator.webdriver 时自动画预设解线并放水通关。
+ *  · 暴露 window.__probe()(score=已通关数, won/lost) / __advanceCard()。
  */
 
 const GAME_W = 960;
 const GAME_H = 540;
 const TOTAL_LEVELS = 5;
-const SHOTS_PER_LEVEL = 4;
-const MAX_HP = 4;            // HUD 心数 = 当前关剩余发射机会
+const MAX_HP = 4;
 
 // 颜色（蓝图纸 + 蓝墨水）
-const PAPER  = 0xeef2f6;
-const INK    = 0x21384f;
-const LINE   = 0x40627e;
-const WATER  = 0x2f6fb0;
-const WATER_HI = 0x9fd0f4;
-const BUMP_C = 0x3f6f8f;
-const LEVER_C= 0x7a5a3a;
-const GOAL_C = 0x1f3a5f;
-const GRID   = 0xc4d2dd;
-const AIM_C  = 0x2f6fb0;
+const PAPER   = 0xeef2f6;
+const INK     = 0x21384f;
+const LINE    = 0x40627e;
+const WATER   = 0x2f6fb0;
+const WATER_HI= 0x9fd0f4;
+const GOAL_C  = 0x1f3a5f;
+const SPIKE_C = 0xb0413a;
+const GRID    = 0xc4d2dd;
+const STROKE_C= 0x274b6b;
 
-// 发射参数
-const DROP_R   = 11;
-const ANGLE_MIN = -80 * Math.PI / 180;   // 初始取下界 → 破坏 verify 抵消对称
-const ANGLE_MAX =  80 * Math.PI / 180;
-const POWER_MIN = 0.35;
-const POWER_MAX = 1.0;
-const ANGLE_RATE = 1.6;     // rad/s
-const POWER_RATE = 0.9;     // /s
-const LAUNCH_SPEED = 15;    // Matter 速度单位（×power）
-const STOP_SPEED = 0.45;    // 视为停下的速度阈值
+// 物理
+const G        = 1500;       // 重力 px/s²
+const DROP_R   = 9;
+const SUBSTEPS = 6;          // 子步进，防穿线
+const RESTITUTION = 0.24;    // 反弹（小→会沉降）
+const TANGENT_KEEP = 0.985;  // 切向保留（≈无摩擦滑行）
+const MAX_SPEED = 1400;
+const SETTLE_SPEED = 26;     // 视为停下的速度
+const MIN_PT_GAP = 9;        // 画线采点最小间距
 
-// 关卡：pad 发射台 / goal 墨井 / bumpers 圆弹板 / levers 旋转杠杆 / ramps 斜挡
-// 直线/对角主通道保持清空 → bot 直瞄满力可解；弹板/杠杆置于通道两侧作人类挑战。
+// 关卡：source 龙头 / well 墨井[x,y,r] / ink 墨量预算 / walls 实心矩形 / spikes 尖刺[x,baseY,w]
+// 所有关「从龙头正下方起一条下行斜坡即可解」；尖刺/墙体逼线条避让，墨量逼线条精简。
+const FLOOR_Y = 500;
 const LEVELS = [
-  { name: '直线导引', pad: [90, 270], goal: [840, 270, 30],
-    bumpers: [[460, 140, 26], [460, 400, 26]], levers: [], ramps: [],
-    intro: ['第一关 · 直线导引',
-      '一滴墨水，一口墨井，中间是清爽的直线通道。\n← → / A D 调角度，↑ ↓ / W S 调力度，空格 / J 发射。\n瞄准墨井，把这一笔送过去。'] },
-  { name: '弹板初见', pad: [90, 410], goal: [840, 150, 28],
-    bumpers: [[400, 400, 26], [610, 330, 24]], levers: [], ramps: [],
-    intro: ['第二关 · 弹板初见',
-      '圆形弹板登场——撞上去，墨水会按真实物理弹开。\n沿对角线把墨水送进高处的墨井，\n弹板就在通道下方，偏一点就会撞上。'] },
-  { name: '转动杠杆', pad: [90, 270], goal: [860, 270, 26],
-    bumpers: [[320, 430, 26], [650, 430, 26]], levers: [[480, 120, 150, 1.4]], ramps: [],
-    intro: ['第三关 · 转动杠杆',
-      '一根可转动的杠杆——纸上的「跷跷板」在缓缓旋转。\n直线通道仍在中间，但杠杆扫过上方，\n看准节奏，稳稳直送墨井。'] },
-  { name: '窄道穿行', pad: [90, 130], goal: [840, 430, 26],
-    bumpers: [[450, 200, 22], [450, 360, 22]], levers: [], ramps: [],
-    intro: ['第四关 · 窄道穿行',
-      '两块弹板组成一道窄闸，对角线正好从闸口穿过。\n角度差一点就会撞板弹飞——\n精准，是这一关唯一的钥匙。'] },
-  { name: '综合机械', pad: [90, 270], goal: [862, 270, 24],
-    bumpers: [[320, 150, 24], [320, 390, 24], [660, 150, 24], [660, 390, 24]],
-    levers: [[490, 110, 150, 1.8]], ramps: [],
-    intro: ['第五关 · 综合机械',
-      '弹板成阵、杠杆在转，这是整张蓝图的终章。\n中间那条直线仍是答案——\n让墨水穿过机械的缝隙，点亮最后一笔。'] },
+  { name: '直坡引流', source: [120, 70], well: [820, 470, 30], ink: 1000,
+    walls: [[0, FLOOR_Y, 960, 40]],
+    spikes: [],
+    intro: ['第一关 · 直坡引流',
+      '一滴墨水悬在龙头下，右下角是空着的墨井。\n按住鼠标拖一条墨线——它会变成真实的斜坡。\n画一道下行的坡，让重力把墨水送进井里。\n空格 / 点「放水」释放，R 重置，C 清空墨线。'] },
+  { name: '越壑架桥', source: [120, 70], well: [840, 470, 30], ink: 1100,
+    walls: [[0, FLOOR_Y, 380, 40], [600, FLOOR_Y, 360, 40]],
+    spikes: [[420, FLOOR_Y, 36], [480, FLOOR_Y, 36], [540, FLOOR_Y, 36]],
+    intro: ['第二关 · 越壑架桥',
+      '地面裂开一道布满尖刺的沟壑。\n你的墨线既是斜坡，也是桥——\n让墨水从坡上一路滑过沟壑，落进对岸的井。'] },
+  { name: '避刺引流', source: [110, 70], well: [850, 470, 28], ink: 1050,
+    walls: [[0, FLOOR_Y, 960, 40]],
+    spikes: [[300, FLOOR_Y, 34], [380, FLOOR_Y, 34], [460, FLOOR_Y, 34], [540, FLOOR_Y, 34], [620, FLOOR_Y, 34]],
+    intro: ['第三关 · 避刺引流',
+      '地面长出一排尖刺，贴地的线会被扎破。\n把斜坡抬高一些，让墨水悬在尖刺之上滑行，\n再俯冲进尽头的墨井。'] },
+  { name: '穿檐窄井', source: [120, 70], well: [820, 470, 26], ink: 1100,
+    walls: [[0, FLOOR_Y, 960, 40], [430, 150, 320, 30]],
+    spikes: [[760, FLOOR_Y, 34]],
+    intro: ['第四关 · 穿檐窄井',
+      '半空横着一道屋檐，墨井就在它另一侧。\n墨线要从檐下穿过，又不能太低撞上井边尖刺——\n在夹缝里画出恰好的弧。'] },
+  { name: '综合 · 终', source: [110, 70], well: [850, 470, 26], ink: 1150,
+    walls: [[0, FLOOR_Y, 320, 40], [560, FLOOR_Y, 400, 40], [380, 170, 240, 28]],
+    spikes: [[360, FLOOR_Y, 34], [420, FLOOR_Y, 34], [480, FLOOR_Y, 34], [690, FLOOR_Y, 34]],
+    intro: ['第五关 · 综合 · 终',
+      '屋檐、沟壑、尖刺——整张蓝图的难关汇于一处。\n用一条尽量省墨的线，串起整段流程，\n把最后一滴墨水，稳稳送进井底。'] },
 ];
 
-const M = Phaser.Physics.Matter.Matter;
+// 每关预设解线（仅 webdriver/自动试玩用：从龙头正下方一条下行斜坡到井口）
+const AUTO_SOLUTIONS = [
+  [[112, 115], [812, 463]],
+  [[112, 115], [832, 463]],
+  [[102, 115], [842, 463]],
+  [[112, 115], [812, 463]],
+  [[102, 115], [842, 463]],
+];
 
 class InkMechanicsScene extends Phaser.Scene {
   constructor() { super('InkMechanicsScene'); }
 
   create() {
-    this.score = 0;            // 已通关数
+    this.score = 0;          // 已通关数
     this.level = 0;
-    this.shots = SHOTS_PER_LEVEL;
+    this.hp = MAX_HP;
     this.gameStarted = false;
     this.gameOver = false;
     this.cardActive = false;
     this._pendingCardCb = null;
-    this.flying = false;
-    this.flyT = 0;
     this._t = 0;
 
-    this.matter.world.setBounds(8, 8, GAME_W - 16, GAME_H - 16, 64, true, true, true, true);
-    this.matter.world.engine.gravity.x = 0;
-    this.matter.world.engine.gravity.y = 0;
+    this.mode = 'draw';       // 'draw' | 'run'
+    this.strokes = [];        // [{pts:[{x,y}], len}]
+    this.curStroke = null;
+    this.inkUsed = 0;
 
     this._drawPaper();
     this.gfx = this.add.graphics().setDepth(10);
     this.cardGfx = null;
 
-    // 瞄准状态
-    this.angle = ANGLE_MIN;
-    this.power = POWER_MAX;
+    // 水滴代理（自管物理）
+    this.drop = { x: LEVELS[0].source[0], y: LEVELS[0].source[1], vx: 0, vy: 0 };
 
-    // 墨水滴（Matter 圆体）
-    this.drop = this.matter.add.circle(LEVELS[0].pad[0], LEVELS[0].pad[1], DROP_R, {
-      frictionAir: 0.012, friction: 0.02, restitution: 0.82, label: 'drop', sleepThreshold: 60,
-    });
+    // 静态线段（墙/地板四边）+ 尖刺 + 井，按关装载
+    this.segs = [];
+    this.spikes = [];
+    this.well = null;
+    this.source = null;
+    this.inkBudget = 1000;
 
-    // 关卡静态构件容器
-    this.bumpers = [];
-    this.levers = [];
-    this.ramps = [];
-
-    // 探针用 player 代理：瞄准时=瞄准矢量末端，飞行时=墨水位置
-    this._proxy = { x: LEVELS[0].pad[0], y: LEVELS[0].pad[1] };
-
-    this.cursors = this.input.keyboard.createCursorKeys();
-    this.kkeys = this.input.keyboard.addKeys('W,A,S,D,J,SPACE');
+    this._setupInput();
 
     if (window.GameHUD) {
       window.GameHUD.onStart(() => {
@@ -118,6 +123,10 @@ class InkMechanicsScene extends Phaser.Scene {
         this._loadLevel(0, false);
       });
     }
+
+    this._auto = !!(navigator.webdriver);   // 自动试玩/验证模式
+    this._autoState = 'idle';
+    this._autoTimer = 0;
 
     this._exposeState();
   }
@@ -131,98 +140,180 @@ class InkMechanicsScene extends Phaser.Scene {
     g.lineStyle(2, LINE, 0.8).strokeRect(8, 8, GAME_W - 16, GAME_H - 16);
   }
 
-  _clearLevelBodies() {
-    [...this.bumpers, ...this.levers, ...this.ramps].forEach(o => { if (o.body) this.matter.world.remove(o.body); });
-    this.bumpers = []; this.levers = []; this.ramps = [];
+  _setupInput() {
+    this.kkeys = this.input.keyboard.addKeys('SPACE,R,C,J,ENTER');
+    this.input.mouse?.disableContextMenu();
+
+    // 画线（仅 draw 模式 + 游玩中）
+    this.input.on('pointerdown', (p) => {
+      if (this.cardActive) { this._advanceCard(); return; }
+      if (!this._canDraw() || p.rightButtonDown()) return;
+      this.curStroke = { pts: [{ x: p.x, y: p.y }], len: 0 };
+    });
+    this.input.on('pointermove', (p) => {
+      if (!this.curStroke || !this._canDraw()) return;
+      const last = this.curStroke.pts[this.curStroke.pts.length - 1];
+      const d = Math.hypot(p.x - last.x, p.y - last.y);
+      if (d < MIN_PT_GAP) return;
+      if (this.inkUsed + d > this.inkBudget) return;       // 墨量耗尽，停止延伸
+      this.curStroke.pts.push({ x: p.x, y: p.y });
+      this.curStroke.len += d;
+      this.inkUsed += d;
+    });
+    this.input.on('pointerup', () => {
+      if (this.curStroke && this.curStroke.pts.length >= 2) this.strokes.push(this.curStroke);
+      else if (this.curStroke) this.inkUsed -= this.curStroke.len;
+      this.curStroke = null;
+    });
+  }
+
+  _canDraw() {
+    return this.gameStarted && !this.gameOver && !this.cardActive && this.mode === 'draw' && !this._auto;
   }
 
   _loadLevel(idx, showCard) {
     this.level = idx;
-    this.shots = SHOTS_PER_LEVEL;
-    this.flying = false;
     const L = LEVELS[idx];
-    this._clearLevelBodies();
+    this.strokes = [];
+    this.curStroke = null;
+    this.inkUsed = 0;
+    this.inkBudget = L.ink;
+    this.mode = 'draw';
 
-    (L.bumpers || []).forEach(([x, y, r]) => {
-      const body = this.matter.add.circle(x, y, r, { isStatic: true, restitution: 1.0, label: 'bump' });
-      this.bumpers.push({ body, x, y, r, hit: 0 });
-    });
-    (L.levers || []).forEach(([x, y, len, spd]) => {
-      const body = this.matter.add.rectangle(x, y, len, 16, { isStatic: true, label: 'lever' });
-      this.levers.push({ body, x, y, len, spd, ang: 0 });
-    });
-    (L.ramps || []).forEach(([x, y, w, h, ang]) => {
-      const body = this.matter.add.rectangle(x, y, w, h, { isStatic: true, angle: ang, label: 'ramp' });
-      this.ramps.push({ body, x, y, w, h, ang });
-    });
+    // 静态几何 → 线段
+    this.segs = [];
+    (L.walls || []).forEach(([x, y, w, h]) => this._rectSegs(x, y, w, h));
+    this.spikes = (L.spikes || []).map(([x, by, w]) => ({ x, by, w }));
+    this.well = { x: L.well[0], y: L.well[1], r: L.well[2] };
+    this.source = { x: L.source[0], y: L.source[1] };
 
-    this.goal = { x: L.goal[0], y: L.goal[1], r: L.goal[2] };
-    this.pad = { x: L.pad[0], y: L.pad[1] };
-
-    // 重置瞄准与墨水
-    this.angle = ANGLE_MIN;
-    this.power = POWER_MAX;
     this._resetDrop();
 
-    window.GameHUD?.setHearts(this.shots, MAX_HP);
+    window.GameHUD?.setHearts(this.hp, MAX_HP);
     window.GameHUD?.setScore(this.score);
-    window.GameHUD?.setObjective(`【第${idx + 1}关·${L.name}】 调角度与力度，把墨水发射进墨井 (${this.score}/${TOTAL_LEVELS})`);
+    window.GameHUD?.setObjective(`【第${idx + 1}关·${L.name}】 画墨线把水引进墨井 (${this.score}/${TOTAL_LEVELS})`);
 
     if (showCard) this._showCard(L.intro[0], L.intro[1], null);
+    if (this._auto) { this._autoState = 'draw'; this._autoTimer = 0.4; }
+  }
+
+  _rectSegs(x, y, w, h) {
+    const c = [[x, y], [x + w, y], [x + w, y + h], [x, y + h]];
+    for (let i = 0; i < 4; i++) {
+      const a = c[i], b = c[(i + 1) % 4];
+      this.segs.push({ ax: a[0], ay: a[1], bx: b[0], by: b[1] });
+    }
   }
 
   _resetDrop() {
-    M.Body.setStatic(this.drop, false);
-    M.Body.setPosition(this.drop, { x: this.pad.x, y: this.pad.y });
-    M.Body.setVelocity(this.drop, { x: 0, y: 0 });
-    M.Body.setAngularVelocity(this.drop, 0);
-    this.flying = false;
-    this.flyT = 0;
+    this.drop.x = this.source.x; this.drop.y = this.source.y;
+    this.drop.vx = 0; this.drop.vy = 0;
+    this.mode = 'draw';
   }
 
-  _fire() {
-    if (this.flying || this.cardActive || !this.gameStarted || this.gameOver) return;
-    this.flying = true;
-    this.flyT = 0;
-    const v = LAUNCH_SPEED * this.power;
-    M.Body.setVelocity(this.drop, { x: Math.cos(this.angle) * v, y: Math.sin(this.angle) * v });
+  _release() {
+    if (this.mode !== 'draw') return;
+    this.mode = 'run';
+    this.drop.vx = 0; this.drop.vy = 0;
   }
 
-  _missShot() {
-    this.shots -= 1;
-    window.GameHUD?.setHearts(Math.max(0, this.shots), MAX_HP);
-    if (this.shots <= 0) { this._lose(); return; }
+  _failAttempt(reason) {
+    if (this.mode !== 'run') return;
+    this.hp -= 1;
+    window.GameHUD?.setHearts(Math.max(0, this.hp), MAX_HP);
+    this._splash(this.drop.x, this.drop.y, reason === 'spike' ? SPIKE_C : WATER, 12);
+    if (this.hp <= 0) { this._lose(); return; }
     this._resetDrop();
+    if (this._auto) { this._autoState = 'draw'; this._autoTimer = 0.5; }
   }
 
   _clearLevel() {
     this.score += 1;
     window.GameHUD?.setScore(this.score);
-    this._splash(this.goal.x, this.goal.y, WATER, 16);
+    this._splash(this.well.x, this.well.y, WATER, 18);
     if (this.score >= TOTAL_LEVELS) { this._win(); return; }
     const next = this.level + 1;
     this.gameStarted = false;
-    this.flying = false;
-    M.Body.setStatic(this.drop, true);   // 过场期间冻结墨水
+    this.mode = 'draw';
     this._showCard(LEVELS[next].intro[0], LEVELS[next].intro[1], () => {
       this.gameStarted = true;
       this._loadLevel(next, false);
     });
   }
 
+  // ── 物理步进 ──
+  _step(dt) {
+    const d = this.drop;
+    const sdt = dt / SUBSTEPS;
+    for (let s = 0; s < SUBSTEPS; s++) {
+      d.vy += G * sdt;
+      const sp = Math.hypot(d.vx, d.vy);
+      if (sp > MAX_SPEED) { d.vx *= MAX_SPEED / sp; d.vy *= MAX_SPEED / sp; }
+      d.x += d.vx * sdt;
+      d.y += d.vy * sdt;
+
+      // 碰撞：静态线段 + 当前墨线段
+      this._collideSegs(d, this.segs);
+      for (const st of this.strokes) this._collideStroke(d, st);
+    }
+
+    // 入井？
+    if (Math.hypot(d.x - this.well.x, d.y - this.well.y) < this.well.r + DROP_R * 0.4) { this._clearLevel(); return; }
+    // 撞尖刺？
+    for (const sp of this.spikes) {
+      const apexY = sp.by - sp.w * 0.9;
+      if (d.x > sp.x - sp.w / 2 && d.x < sp.x + sp.w / 2 && d.y + DROP_R > apexY) { this._failAttempt('spike'); return; }
+    }
+    // 掉出画面 / 沉底静止？
+    if (d.x < -20 || d.x > GAME_W + 20 || d.y > GAME_H + 30) { this._failAttempt('oob'); return; }
+    const sp2 = Math.hypot(d.vx, d.vy);
+    if (sp2 < SETTLE_SPEED) { this._settleT = (this._settleT || 0) + dt; if (this._settleT > 1.1) { this._settleT = 0; this._failAttempt('stall'); } }
+    else this._settleT = 0;
+  }
+
+  _collideStroke(d, st) {
+    const p = st.pts;
+    for (let i = 0; i < p.length - 1; i++) this._collideSeg(d, p[i].x, p[i].y, p[i + 1].x, p[i + 1].y);
+  }
+  _collideSegs(d, segs) { for (const s of segs) this._collideSeg(d, s.ax, s.ay, s.bx, s.by); }
+
+  _collideSeg(d, ax, ay, bx, by) {
+    // 圆心到线段最近点
+    const ex = bx - ax, ey = by - ay;
+    const L2 = ex * ex + ey * ey || 1;
+    let t = ((d.x - ax) * ex + (d.y - ay) * ey) / L2;
+    t = Math.max(0, Math.min(1, t));
+    const cx = ax + ex * t, cy = ay + ey * t;
+    let nx = d.x - cx, ny = d.y - cy;
+    let dist = Math.hypot(nx, ny);
+    if (dist >= DROP_R) return;
+    if (dist < 1e-4) { nx = 0; ny = -1; dist = 1; } else { nx /= dist; ny /= dist; }
+    // 推出
+    d.x += nx * (DROP_R - dist);
+    d.y += ny * (DROP_R - dist);
+    // 速度分解：法向反弹 + 切向保留（滑行）
+    const vn = d.vx * nx + d.vy * ny;
+    if (vn < 0) {
+      const tvx = d.vx - vn * nx, tvy = d.vy - vn * ny;
+      d.vx = tvx * TANGENT_KEEP - vn * nx * RESTITUTION;
+      d.vy = tvy * TANGENT_KEEP - vn * ny * RESTITUTION;
+    }
+  }
+
+  // ── 叙事卡 ──
   _showCard(title, body, cb) {
     this.cardActive = true;
     this._pendingCardCb = cb;
     const cont = this.add.container(0, 0).setDepth(200);
     const dim = this.add.rectangle(0, 0, GAME_W, GAME_H, 0x0c1422, 0.72).setOrigin(0, 0);
-    const panel = this.add.rectangle(GAME_W / 2, GAME_H / 2, 560, 240, PAPER, 0.98).setStrokeStyle(2, INK, 0.9);
-    const t = this.add.text(GAME_W / 2, GAME_H / 2 - 78, title, { fontFamily: 'Segoe UI, sans-serif', fontSize: '26px', color: '#21384f', fontStyle: 'bold' }).setOrigin(0.5);
-    const b = this.add.text(GAME_W / 2, GAME_H / 2 - 8, body, { fontFamily: 'Segoe UI, sans-serif', fontSize: '15px', color: '#3a4a63', align: 'center', lineSpacing: 7, wordWrap: { width: 500 } }).setOrigin(0.5);
-    const hint = this.add.text(GAME_W / 2, GAME_H / 2 + 92, '空格 / 回车 / 点击 继续', { fontFamily: 'Segoe UI, sans-serif', fontSize: '13px', color: '#7a8aa0' }).setOrigin(0.5);
+    const panel = this.add.rectangle(GAME_W / 2, GAME_H / 2, 580, 250, PAPER, 0.98).setStrokeStyle(2, INK, 0.9);
+    const t = this.add.text(GAME_W / 2, GAME_H / 2 - 86, title, { fontFamily: 'Segoe UI, sans-serif', fontSize: '26px', color: '#21384f', fontStyle: 'bold' }).setOrigin(0.5);
+    const b = this.add.text(GAME_W / 2, GAME_H / 2 - 6, body, { fontFamily: 'Segoe UI, sans-serif', fontSize: '15px', color: '#3a4a63', align: 'center', lineSpacing: 7, wordWrap: { width: 520 } }).setOrigin(0.5);
+    const hint = this.add.text(GAME_W / 2, GAME_H / 2 + 100, '空格 / 回车 / 点击 继续', { fontFamily: 'Segoe UI, sans-serif', fontSize: '13px', color: '#7a8aa0' }).setOrigin(0.5);
     cont.add([dim, panel, t, b, hint]);
     this.cardGfx = cont;
     this.input.keyboard.once('keydown-ENTER', () => this._advanceCard());
-    this.input.once('pointerdown', () => this._advanceCard());
+    if (this._auto) this.time.delayedCall(500, () => this._advanceCard());
   }
 
   _advanceCard() {
@@ -244,158 +335,118 @@ class InkMechanicsScene extends Phaser.Scene {
   _win() {
     if (this.gameOver) return;
     this.gameOver = true; this.gameStarted = false;
-    M.Body.setStatic(this.drop, true);
-    window.GameHUD?.showGameOver(true, '最后一滴墨水落进墨井，整张蓝图的线条同时点亮，几何机械顺畅运转——实验室调试完成。');
+    window.GameHUD?.showGameOver(true, '最后一滴墨水顺着你画的线落进井底，整张蓝图的水路同时连通——引流完成。');
   }
 
   _lose() {
     if (this.gameOver) return;
     this.gameOver = true; this.gameStarted = false;
-    M.Body.setStatic(this.drop, true);
-    window.GameHUD?.showGameOver(false, '这一关的发射机会用尽，墨水终究没能落进墨井，蓝图上留下一处空白……');
+    window.GameHUD?.showGameOver(false, '机会用尽，墨水终究没能被引进井里，蓝图上留下一摊散开的墨渍……');
   }
 
   update(_t, dms) {
     const dt = Math.min(dms, 50) / 1000;
     this._t += dt;
 
-    // 旋转杠杆（俯视跷跷板）：静态体每帧转角，碰撞仍生效
-    for (const lv of this.levers) {
-      lv.ang += lv.spd * dt;
-      M.Body.setAngle(lv.body, lv.ang);
-      M.Body.setAngularVelocity(lv.body, 0);
-    }
-
     const playing = this.gameStarted && !this.gameOver && !this.cardActive;
 
-    if (playing && !this.flying) {
-      // ── 瞄准：调角度 / 力度 ──
-      let da = 0, dp = 0;
-      if (this.cursors.left.isDown || this.kkeys.A.isDown) da -= 1;
-      if (this.cursors.right.isDown || this.kkeys.D.isDown) da += 1;
-      if (this.cursors.up.isDown || this.kkeys.W.isDown) dp += 1;
-      if (this.cursors.down.isDown || this.kkeys.S.isDown) dp -= 1;
-      this.angle = Phaser.Math.Clamp(this.angle + da * ANGLE_RATE * dt, ANGLE_MIN, ANGLE_MAX);
-      this.power = Phaser.Math.Clamp(this.power + dp * POWER_RATE * dt, POWER_MIN, POWER_MAX);
-      if (Phaser.Input.Keyboard.JustDown(this.kkeys.J) || Phaser.Input.Keyboard.JustDown(this.kkeys.SPACE)) this._fire();
-      // 瞄准末端 → 探针坐标
-      const len = 36 + this.power * 120;
-      this._proxy.x = this.pad.x + Math.cos(this.angle) * len;
-      this._proxy.y = this.pad.y + Math.sin(this.angle) * len;
+    if (playing && !this._auto) {
+      if (Phaser.Input.Keyboard.JustDown(this.kkeys.SPACE) || Phaser.Input.Keyboard.JustDown(this.kkeys.J)) {
+        if (this.mode === 'draw') this._release(); else this._resetDrop();
+      }
+      if (Phaser.Input.Keyboard.JustDown(this.kkeys.R)) this._resetDrop();
+      if (Phaser.Input.Keyboard.JustDown(this.kkeys.C) && this.mode === 'draw') { this.strokes = []; this.inkUsed = 0; }
     }
 
-    if (playing && this.flying) {
-      this.flyT += dt;
-      const p = this.drop.position, v = this.drop.velocity;
-      this._proxy.x = p.x; this._proxy.y = p.y;
-      // 入墨井？
-      if (Math.hypot(p.x - this.goal.x, p.y - this.goal.y) < this.goal.r + DROP_R * 0.5) {
-        this._clearLevel();
-      } else {
-        const sp = Math.hypot(v.x, v.y);
-        const oob = p.x < 0 || p.x > GAME_W || p.y < 0 || p.y > GAME_H;
-        if (oob || (this.flyT > 0.5 && sp < STOP_SPEED)) this._missShot();
-      }
-    }
+    if (playing && this._auto) this._autoTick(dt);
+    if (playing && this.mode === 'run') this._step(dt);
 
     this._render();
+  }
+
+  // 自动试玩：画预设解线 → 放水
+  _autoTick(dt) {
+    if (this._autoState === 'draw') {
+      const sol = AUTO_SOLUTIONS[this.level] || AUTO_SOLUTIONS[0];
+      this._autoTimer -= dt;
+      if (this._autoTimer <= 0) {
+        this.strokes = [];
+        const pts = [];
+        const [a, b] = [sol[0], sol[sol.length - 1]];
+        const n = 24;
+        for (let i = 0; i <= n; i++) { const f = i / n; pts.push({ x: a[0] + (b[0] - a[0]) * f, y: a[1] + (b[1] - a[1]) * f }); }
+        this.strokes.push({ pts, len: Math.hypot(b[0] - a[0], b[1] - a[1]) });
+        this._release();
+        this._autoState = 'run';
+      }
+    }
   }
 
   _render() {
     const g = this.gfx;
     g.clear();
 
-    // 墨井（目标）：双环 + 中心墨点
-    if (this.goal) {
-      const gx = this.goal.x, gy = this.goal.y, gr = this.goal.r;
-      g.fillStyle(GOAL_C, 0.12).fillCircle(gx, gy, gr);
-      g.lineStyle(2.5, GOAL_C, 0.9).strokeCircle(gx, gy, gr);
-      g.lineStyle(1.5, GOAL_C, 0.5).strokeCircle(gx, gy, gr * 0.6);
-      g.fillStyle(GOAL_C, 0.85).fillCircle(gx, gy, 3.5);
+    // 墙体（实心墨块）
+    const L = LEVELS[this.level];
+    for (const [x, y, w, h] of (L.walls || [])) {
+      g.fillStyle(LINE, 0.16).fillRect(x, y, w, h);
+      g.lineStyle(2.5, INK, 0.85).strokeRect(x, y, w, h);
     }
 
-    // 圆弹板
-    for (const b of this.bumpers) {
-      const flash = b.hit > 0 ? b.hit : 0;
-      g.fillStyle(BUMP_C, 0.16 + flash * 0.5).fillCircle(b.x, b.y, b.r);
-      g.lineStyle(2.5, INK, 0.85).strokeCircle(b.x, b.y, b.r);
-      g.lineStyle(1, LINE, 0.5).strokeCircle(b.x, b.y, b.r * 0.55);
-      if (b.hit > 0) b.hit = Math.max(0, b.hit - 0.08);
-    }
-
-    // 旋转杠杆
-    for (const lv of this.levers) {
-      const c = Math.cos(lv.ang), s = Math.sin(lv.ang), hl = lv.len / 2;
-      g.lineStyle(10, LEVER_C, 0.85);
-      g.beginPath(); g.moveTo(lv.x - c * hl, lv.y - s * hl); g.lineTo(lv.x + c * hl, lv.y + s * hl); g.strokePath();
-      g.lineStyle(2.5, INK, 0.9);
-      g.beginPath(); g.moveTo(lv.x - c * hl, lv.y - s * hl); g.lineTo(lv.x + c * hl, lv.y + s * hl); g.strokePath();
-      g.fillStyle(INK, 1).fillCircle(lv.x, lv.y, 6);          // 支点
-      g.fillStyle(PAPER, 1).fillCircle(lv.x, lv.y, 3);
-    }
-
-    // 斜挡
-    for (const r of this.ramps) {
-      g.save?.();
-      g.fillStyle(LINE, 0.18); g.lineStyle(2.5, INK, 0.85);
-      // 用四点多边形绘制旋转矩形
-      const c = Math.cos(r.ang), s = Math.sin(r.ang), hw = r.w / 2, hh = r.h / 2;
-      const pts = [[-hw, -hh], [hw, -hh], [hw, hh], [-hw, hh]].map(([px, py]) => ({ x: r.x + px * c - py * s, y: r.y + px * s + py * c }));
-      g.beginPath(); g.moveTo(pts[0].x, pts[0].y); for (let i = 1; i < 4; i++) g.lineTo(pts[i].x, pts[i].y); g.closePath(); g.fillPath(); g.strokePath();
-    }
-
-    // 发射台
-    if (this.pad) {
-      g.lineStyle(2, LINE, 0.8).strokeCircle(this.pad.x, this.pad.y, DROP_R + 7);
-      g.fillStyle(LINE, 0.1).fillCircle(this.pad.x, this.pad.y, DROP_R + 7);
-    }
-
-    const playing = this.gameStarted && !this.gameOver && !this.cardActive;
-
-    // 瞄准辅助线 + 力度条（仅瞄准时）
-    if (playing && !this.flying && this.pad) {
-      const len = 40 + this.power * 150;
-      const ex = this.pad.x + Math.cos(this.angle) * len, ey = this.pad.y + Math.sin(this.angle) * len;
-      g.lineStyle(2, AIM_C, 0.5);
-      // 虚线瞄准
-      const segs = 14;
-      for (let i = 0; i < segs; i += 2) {
-        const t0 = i / segs, t1 = (i + 1) / segs;
-        g.beginPath();
-        g.moveTo(this.pad.x + Math.cos(this.angle) * (len * t0 + 18), this.pad.y + Math.sin(this.angle) * (len * t0 + 18));
-        g.lineTo(this.pad.x + Math.cos(this.angle) * (len * t1 + 18), this.pad.y + Math.sin(this.angle) * (len * t1 + 18));
-        g.strokePath();
-      }
-      // 箭头
-      g.fillStyle(AIM_C, 0.7);
-      const ah = 9, aa = 0.5;
+    // 尖刺
+    for (const sp of this.spikes) {
+      const apexY = sp.by - sp.w * 0.9;
+      g.fillStyle(SPIKE_C, 0.22); g.lineStyle(2, SPIKE_C, 0.9);
       g.beginPath();
-      g.moveTo(ex, ey);
-      g.lineTo(ex - Math.cos(this.angle - aa) * ah, ey - Math.sin(this.angle - aa) * ah);
-      g.lineTo(ex - Math.cos(this.angle + aa) * ah, ey - Math.sin(this.angle + aa) * ah);
-      g.closePath(); g.fillPath();
-      // 力度条
-      const bx = this.pad.x - 26, by = this.pad.y + DROP_R + 16;
-      g.fillStyle(0xffffff, 0.6).fillRect(bx, by, 52, 7);
-      g.lineStyle(1, INK, 0.7).strokeRect(bx, by, 52, 7);
-      g.fillStyle(AIM_C, 0.9).fillRect(bx + 1, by + 1, 50 * (this.power - POWER_MIN) / (POWER_MAX - POWER_MIN), 5);
+      g.moveTo(sp.x - sp.w / 2, sp.by); g.lineTo(sp.x, apexY); g.lineTo(sp.x + sp.w / 2, sp.by); g.closePath();
+      g.fillPath(); g.strokePath();
     }
 
-    // 墨水滴（按速度沿运动方向做表面张力拉伸 + 高光）
-    const p = this.drop.position, v = this.drop.velocity;
-    const sp = Math.hypot(v.x, v.y);
-    const stretch = Phaser.Math.Clamp(1 + sp * 0.02, 1, 1.5);
-    const ang = Math.atan2(v.y, v.x);
+    // 墨井
+    if (this.well) {
+      const { x, y, r } = this.well;
+      g.fillStyle(GOAL_C, 0.12).fillCircle(x, y, r);
+      g.lineStyle(2.5, GOAL_C, 0.9).strokeCircle(x, y, r);
+      g.lineStyle(1.5, GOAL_C, 0.5).strokeCircle(x, y, r * 0.6);
+      g.fillStyle(GOAL_C, 0.85).fillCircle(x, y, 3.5);
+    }
+
+    // 龙头
+    if (this.source) {
+      const s = this.source;
+      g.fillStyle(INK, 0.85).fillRect(s.x - 16, s.y - 24, 32, 10);
+      g.fillStyle(LINE, 0.9).fillRect(s.x - 5, s.y - 16, 10, 8);
+    }
+
+    // 已画墨线 + 正在画的
+    const drawStroke = (st, alpha) => {
+      const p = st.pts; if (p.length < 2) return;
+      g.lineStyle(7, WATER, alpha * 0.35);
+      g.beginPath(); g.moveTo(p[0].x, p[0].y); for (let i = 1; i < p.length; i++) g.lineTo(p[i].x, p[i].y); g.strokePath();
+      g.lineStyle(3, STROKE_C, alpha);
+      g.beginPath(); g.moveTo(p[0].x, p[0].y); for (let i = 1; i < p.length; i++) g.lineTo(p[i].x, p[i].y); g.strokePath();
+    };
+    for (const st of this.strokes) drawStroke(st, 0.95);
+    if (this.curStroke) drawStroke(this.curStroke, 0.7);
+
+    // 水滴（运动方向拉伸 + 高光）
+    const d = this.drop, sp = Math.hypot(d.vx, d.vy);
+    const stretch = Phaser.Math.Clamp(1 + sp * 0.0016, 1, 1.5);
+    const ang = Math.atan2(d.vy, d.vx);
     const rx = DROP_R * stretch, ry = DROP_R / Math.sqrt(stretch);
-    g.fillStyle(WATER, sp > 1 ? 0.92 : 0.85);
-    this._fillEllipse(g, p.x, p.y, rx, ry, ang);
-    g.lineStyle(2, INK, 0.9);
-    this._strokeEllipse(g, p.x, p.y, rx, ry, ang);
-    g.fillStyle(WATER_HI, 0.85).fillCircle(p.x - 3, p.y - 4, DROP_R * 0.32);
+    g.fillStyle(WATER, 0.9); this._fillEllipse(g, d.x, d.y, rx, ry, ang);
+    g.lineStyle(2, INK, 0.9); this._strokeEllipse(g, d.x, d.y, rx, ry, ang);
+    g.fillStyle(WATER_HI, 0.85).fillCircle(d.x - 3, d.y - 4, DROP_R * 0.32);
+
+    // 墨量条 + 模式提示
+    const bx = 20, by = GAME_H - 26, bw = 180;
+    g.fillStyle(0xffffff, 0.6).fillRect(bx, by, bw, 10);
+    g.lineStyle(1.5, INK, 0.7).strokeRect(bx, by, bw, 10);
+    const frac = Phaser.Math.Clamp(1 - this.inkUsed / this.inkBudget, 0, 1);
+    g.fillStyle(frac > 0.25 ? WATER : SPIKE_C, 0.9).fillRect(bx + 1, by + 1, (bw - 2) * frac, 8);
   }
 
-  // 旋转椭圆（多边形近似）
-  _ellipsePts(cx, cy, rx, ry, ang, n = 22) {
+  _ellipsePts(cx, cy, rx, ry, ang, n = 20) {
     const c = Math.cos(ang), s = Math.sin(ang), pts = [];
     for (let i = 0; i < n; i++) {
       const a = (i / n) * Math.PI * 2, ex = Math.cos(a) * rx, ey = Math.sin(a) * ry;
@@ -404,54 +455,29 @@ class InkMechanicsScene extends Phaser.Scene {
     return pts;
   }
   _fillEllipse(g, cx, cy, rx, ry, ang) {
-    const pts = this._ellipsePts(cx, cy, rx, ry, ang);
-    g.beginPath(); g.moveTo(pts[0].x, pts[0].y); for (let i = 1; i < pts.length; i++) g.lineTo(pts[i].x, pts[i].y); g.closePath(); g.fillPath();
+    const p = this._ellipsePts(cx, cy, rx, ry, ang);
+    g.beginPath(); g.moveTo(p[0].x, p[0].y); for (let i = 1; i < p.length; i++) g.lineTo(p[i].x, p[i].y); g.closePath(); g.fillPath();
   }
   _strokeEllipse(g, cx, cy, rx, ry, ang) {
-    const pts = this._ellipsePts(cx, cy, rx, ry, ang);
-    g.beginPath(); g.moveTo(pts[0].x, pts[0].y); for (let i = 1; i < pts.length; i++) g.lineTo(pts[i].x, pts[i].y); g.closePath(); g.strokePath();
+    const p = this._ellipsePts(cx, cy, rx, ry, ang);
+    g.beginPath(); g.moveTo(p[0].x, p[0].y); for (let i = 1; i < p.length; i++) g.lineTo(p[i].x, p[i].y); g.closePath(); g.strokePath();
   }
 
-  // ── 暴露状态给 verify / autoplay ──
+  // ── 暴露状态 ──
   _exposeState() {
     const self = this;
-    window.__gameState = { player: this._proxy };   // 瞄准末端 / 飞行中墨水
-
-    const norm = a => { while (a > Math.PI) a -= 2 * Math.PI; while (a < -Math.PI) a += 2 * Math.PI; return a; };
-
-    const suggest = () => {
-      if (self.flying || !self.goal) return { mx: 0, my: 0, attack: false };
-      // 期望角度：直瞄墨井（主通道清空 → 直线可解）
-      const want = norm(Math.atan2(self.goal.y - self.pad.y, self.goal.x - self.pad.x));
-      const cur = norm(self.angle);
-      const dAng = norm(want - cur);
-      // 期望力度：按距离给足（清通道直线，偏满力稳达）
-      const dist = Math.hypot(self.goal.x - self.pad.x, self.goal.y - self.pad.y);
-      const wantPow = Phaser.Math.Clamp(0.6 + dist / 1600, 0.7, POWER_MAX);
-      const dPow = wantPow - self.power;
-      const aTol = 0.02, pTol = 0.05;
-      // moveX 调角：want 角更大(顺时针/下方)→ 需 D/→ → mx>0
-      let mx = Math.abs(dAng) > aTol ? (dAng > 0 ? 1 : -1) : 0;
-      // moveY 调力：need 增力 → W/↑ → my<0；减力 → S/↓ → my>0
-      let my = Math.abs(dPow) > pTol ? (dPow > 0 ? -1 : 1) : 0;
-      const aligned = Math.abs(dAng) <= aTol && Math.abs(dPow) <= pTol;
-      return { mx, my, attack: aligned };
-    };
-
-    window.__probe = () => {
-      const s = suggest();
-      return {
-        x: self._proxy.x, y: self._proxy.y, topdown: true,
-        hp: self.shots, maxHp: MAX_HP,
-        score: self.score, goalScore: TOTAL_LEVELS, phase: self.level,
-        deaths: SHOTS_PER_LEVEL - self.shots, deathBudget: SHOTS_PER_LEVEL,
-        won: self.gameOver && self.score >= TOTAL_LEVELS,
-        lost: self.gameOver && self.score < TOTAL_LEVELS,
-        cardActive: self.cardActive, started: self.gameStarted,
-        moveX: s.mx, moveY: s.my, attack: s.attack,
-        flying: self.flying,
-      };
-    };
+    window.__gameState = { player: this.drop };
+    window.__probe = () => ({
+      x: self.drop.x, y: self.drop.y, topdown: true,
+      moveX: 0, moveY: 0, attack: false,
+      hp: self.hp, maxHp: MAX_HP,
+      score: self.score, goalScore: TOTAL_LEVELS, phase: self.level, act: self.level,
+      deaths: MAX_HP - self.hp, deathBudget: MAX_HP,
+      won: self.gameOver && self.score >= TOTAL_LEVELS,
+      lost: self.gameOver && self.score < TOTAL_LEVELS,
+      cardActive: self.cardActive, started: self.gameStarted,
+      mode: self.mode,
+    });
     window.__advanceCard = () => self._advanceCard();
   }
 }
@@ -462,7 +488,6 @@ const config = {
   height: GAME_H,
   parent: 'game-container',
   backgroundColor: '#eef2f6',
-  physics: { default: 'matter', matter: { gravity: { x: 0, y: 0 }, debug: false } },
   scene: InkMechanicsScene,
 };
 

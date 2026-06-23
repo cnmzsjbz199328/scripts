@@ -40,6 +40,11 @@ game_runs/**/verify-screenshot.png
 # NOT version-controlled (large). The 10s preview.mp4 in each game root IS tracked.
 game_runs/**/playtest/
 
+# showreel — concatenated demo video + all intermediate parts, local showcase only.
+# Keep only the reproducible build script.
+game_runs/_showreel/*
+!game_runs/_showreel/build.sh
+
 # scratch/ is a generator workspace — track .mjs/.ts/.js sources, ignore rendered artifacts
 scratch/*.png
 scratch/*.webp
