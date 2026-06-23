@@ -333,11 +333,36 @@ game_runs/<GameName>/game/
 - 按 `game-config.json layers[]` 顺序渲染各瓦片层，碰撞层自动生成静态物理体
 - **图层深度与 Y-sort**（见下方《图层与深度规范》，违反导致角色穿模）
 - 角色加载（使用 `char.json` 中的动画定义）
-- 键盘控制（← → / WASD 移动，Z 工具，X 睡眠，E 交互）
+- 键盘控制（← → / WASD 移动，Z 工具，X 睡眠，E 交互）——**注册方式必须遵守下方《玩家输入键注册规范》**
 - 动态物体循环播放（使用 `object.json` 中的 fps/loop 参数）
 - 摄像机跟随玩家
 - **胜利/失败检测**（基于 GDD `winCondition.trigger` / `loseCondition.trigger`）
 - **HUD 通信**（通过 `window.GameHUD` API 更新界面，见下）
+
+---
+
+#### 玩家输入键注册规范（必须遵守，违反导致移动端动作按钮静默消失）
+
+移动端 `play.html` 的虚拟手柄**没有**固定按键表——它在加载游戏后**正则扫描 `game-logic.js` 源码**，自动为每个用到的键生成屏幕按钮（方向键归 D-pad，其余归动作按钮）。因此玩家输入键**只准**用下面两种写法之一注册，扫描器只认这两种：
+
+```js
+// 写法 A：addKey + KeyCodes（单键）
+this.keyJump = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
+
+// 写法 B：addKeys 字符串简写（多键，逗号分隔，键名大写）
+this.keys = this.input.keyboard.addKeys('W,A,S,D,J,K,L,SPACE,ENTER');
+
+// 方向移动可用 createCursorKeys()；cursors.space / cursors.shift 也会被扫到
+this.cursors = this.input.keyboard.createCursorKeys();
+```
+
+**禁止**以下写法——它们绕过扫描器，按钮会**静默缺失**（不报错、game-verify 也不拦，人工目视极易漏）：
+
+- `addKeys({ jump: 'SPACE' })` 对象形式
+- `this.input.keyboard.on('keydown-J', …)` 事件字符串
+- 运行时拼接键名（如 `addKey(someVar)`）
+
+> 失败模式是**静默**的：键名拼成动态变量或换成上述形式后，桌面端键盘照常能用，唯独移动端那颗按钮不出现。所以这是**硬约束**，不是建议。键名必须是 `play.html` 的 `KC` 表认识的字面量（A–Z、0–9、SPACE、ENTER、SHIFT、方向键）。新增超出该表的键，需同时扩 `play.html` 的 `KC` 表。
 
 ---
 
