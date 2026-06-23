@@ -1,115 +1,143 @@
 [
   {
+    "id": "Coalesce",
+    "title": "聚水成珠：水量洞穴",
+    "tagline": "水量就是力量——何时聚大、何时挤小，是穿过这座洞穴的唯一办法。",
+    "gameType": "platformer",
+    "genre": "PLATFORMER",
+    "accent": "#2f6fb0",
+    "previewBg": "#0c1422",
+    "icon": "💧",
+    "thumbnail": "Coalesce/scene/panorama.png",
+    "previewVideo": "Coalesce/preview.mp4",
+    "path": "Coalesce/index.html",
+    "createdAt": "2026-06-24T00:00:00.000Z"
+  },
+  {
+    "id": "InkMechanics",
+    "title": "墨水力学：画线引水",
+    "tagline": "墨水会下落——亲手画一条线，让重力替你把它引进井里。",
+    "gameType": "puzzle",
+    "genre": "PUZZLE",
+    "accent": "#2f6fb0",
+    "previewBg": "#0c1422",
+    "icon": "🖋️",
+    "thumbnail": "InkMechanics/scene/panorama.png",
+    "previewVideo": "InkMechanics/preview.mp4",
+    "path": "InkMechanics/index.html",
+    "createdAt": "2026-06-24T00:00:00.000Z"
+  },
+  {
     "id": "ShadowArena",
     "title": "影斗：剪影格斗场",
     "tagline": "黎明的天光为幕，四位黑影武者，一场一对一的宿命对决。",
     "gameType": "side-scroller",
-    "genre": "FIGHTING",
-    "accent": "#e6a23c",
-    "previewBg": "#ffe6b8",
-    "icon": "🥋",
-    "thumbnail": "ShadowArena/assets/svg/stage.svg",
+    "genre": "BEAT-EM-UP",
+    "accent": "#f97316",
+    "previewBg": "#100804",
+    "icon": "👊",
+    "thumbnail": null,
+    "previewVideo": "ShadowArena/preview.mp4",
     "path": "ShadowArena/index.html",
-    "createdAt": "2026-06-21T09:00:00.000Z",
-    "previewVideo": "ShadowArena/preview.mp4"
+    "createdAt": "2026-06-21T08:00:46.897Z"
   },
   {
     "id": "MoonRonin",
     "title": "月影：屋脊浪人",
     "tagline": "月光为路，飞檐为桥——一个浪人，踏着将军府的屋脊奔向黎明。",
     "gameType": "side-scroller",
-    "genre": "PARKOUR-RUNNER",
-    "accent": "#ffd27a",
-    "previewBg": "#0a0e1a",
-    "icon": "🌙",
+    "genre": "BEAT-EM-UP",
+    "accent": "#f97316",
+    "previewBg": "#100804",
+    "icon": "👊",
     "thumbnail": "MoonRonin/scene/panorama.png",
     "previewVideo": "MoonRonin/preview.mp4",
     "path": "MoonRonin/index.html",
-    "createdAt": "2026-06-21T08:30:00.000Z"
+    "createdAt": "2026-06-21T01:02:01.157Z"
   },
   {
     "id": "GeoStorm",
     "title": "几何风暴：最后的光点",
     "tagline": "当虚空抹去所有线条，我是这张蓝图上最后亮着的一点。",
     "gameType": "top-down-action",
-    "genre": "BULLET-DODGE",
-    "accent": "#18c2b0",
-    "previewBg": "#dce8f2",
-    "icon": "🔷",
+    "genre": "ACTION",
+    "accent": "#00e5ff",
+    "previewBg": "#020c14",
+    "icon": "🏎️",
     "thumbnail": "GeoStorm/scene/panorama.png",
     "previewVideo": "GeoStorm/preview.mp4",
     "path": "GeoStorm/index.html",
-    "createdAt": "2026-06-21T08:04:00.000Z"
+    "createdAt": "2026-06-20T22:28:42.066Z"
   },
   {
     "id": "ShadowNinja",
     "title": "影忍：将军府之夜",
     "tagline": "月隐于云，影潜于墙——在被发现之前，把挚友带回家。",
     "gameType": "side-scroller",
-    "genre": "STEALTH",
-    "accent": "#ffd27a",
-    "previewBg": "#0a0e1a",
-    "icon": "🥷",
+    "genre": "BEAT-EM-UP",
+    "accent": "#f97316",
+    "previewBg": "#100804",
+    "icon": "👊",
     "thumbnail": "ShadowNinja/scene/panorama.png",
     "previewVideo": "ShadowNinja/preview.mp4",
     "path": "ShadowNinja/index.html",
-    "createdAt": "2026-06-21T07:58:00.000Z"
+    "createdAt": "2026-06-20T22:24:08.209Z"
   },
   {
     "id": "DustTown",
     "title": "尘镇：新警长",
     "tagline": "一枚警徽，一座烂到根的小镇——你敢不敢把真相钉上法庭的门？",
     "gameType": "top-down-rpg",
-    "genre": "NARRATIVE-RPG",
-    "accent": "#c9882f",
-    "previewBg": "#2a1a0e",
-    "icon": "⭐",
+    "genre": "RPG / SIM",
+    "accent": "#4ade80",
+    "previewBg": "#041008",
+    "icon": "🌾",
     "thumbnail": "DustTown/scene/panorama.png",
     "previewVideo": "DustTown/preview.mp4",
     "path": "DustTown/index.html",
-    "createdAt": "2026-06-21T07:52:00.000Z"
+    "createdAt": "2026-06-20T22:19:57.625Z"
   },
   {
     "id": "InkLine",
     "title": "一线：未完成的画",
     "tagline": "我只是一根线，却想亲手画完属于自己的世界。",
     "gameType": "side-scroller",
-    "genre": "PUZZLE-PLATFORMER",
-    "accent": "#1a1a1a",
-    "previewBg": "#faf6ea",
-    "icon": "✒️",
+    "genre": "BEAT-EM-UP",
+    "accent": "#f97316",
+    "previewBg": "#100804",
+    "icon": "👊",
     "thumbnail": "InkLine/scene/panorama.png",
     "previewVideo": "InkLine/preview.mp4",
     "path": "InkLine/index.html",
-    "createdAt": "2026-06-21T07:45:00.000Z"
+    "createdAt": "2026-06-20T22:12:36.671Z"
   },
   {
     "id": "DustOutlaw",
     "title": "荒尘亡命徒",
     "tagline": "落日染红镇口的尘土，最后一颗子弹该给谁？",
     "gameType": "top-down-action",
-    "genre": "TWIN-STICK SHOOTER",
-    "accent": "#d9863b",
-    "previewBg": "#2a1a0e",
-    "icon": "🤠",
+    "genre": "ACTION",
+    "accent": "#00e5ff",
+    "previewBg": "#020c14",
+    "icon": "🏎️",
     "thumbnail": "DustOutlaw/scene/panorama.png",
+    "previewVideo": "DustOutlaw/preview.mp4",
     "path": "DustOutlaw/index.html",
-    "createdAt": "2026-06-21T07:39:00.000Z",
-    "previewVideo": "DustOutlaw/preview.mp4"
+    "createdAt": "2026-06-20T22:07:50.881Z"
   },
   {
     "id": "ShadowLeap",
     "title": "影跃：迷雾森林",
     "tagline": "在吞噬光的迷雾里，一个男孩纵身跃向最后的微光。",
     "gameType": "side-scroller",
-    "genre": "PUZZLE-PLATFORMER",
-    "accent": "#94a3b8",
-    "previewBg": "#0a0e16",
-    "icon": "🌫️",
+    "genre": "BEAT-EM-UP",
+    "accent": "#f97316",
+    "previewBg": "#100804",
+    "icon": "👊",
     "thumbnail": "ShadowLeap/scene/panorama.png",
     "previewVideo": "ShadowLeap/preview.mp4",
     "path": "ShadowLeap/index.html",
-    "createdAt": "2026-06-21T07:32:00.000Z"
+    "createdAt": "2026-06-20T15:06:59.033Z"
   },
   {
     "id": "ElementalClash",
@@ -121,9 +149,9 @@
     "previewBg": "#100804",
     "icon": "👊",
     "thumbnail": "ElementalClash/scene/panorama.jpg",
+    "previewVideo": "ElementalClash/preview.mp4",
     "path": "ElementalClash/index.html",
-    "createdAt": "2026-06-18T23:36:00.000Z",
-    "previewVideo": "ElementalClash/preview.mp4"
+    "createdAt": "2026-06-18T23:36:00.000Z"
   },
   {
     "id": "RoboWarehouse",
@@ -135,9 +163,9 @@
     "previewBg": "#041008",
     "icon": "🌾",
     "thumbnail": "RoboWarehouse/scene/panorama.png",
+    "previewVideo": "RoboWarehouse/preview.mp4",
     "path": "RoboWarehouse/index.html",
-    "createdAt": "2026-06-16T18:19:51.015Z",
-    "previewVideo": "RoboWarehouse/preview.mp4"
+    "createdAt": "2026-06-16T18:19:51.015Z"
   },
   {
     "id": "StarVanguard",
@@ -149,9 +177,9 @@
     "previewBg": "#020c14",
     "icon": "🏎️",
     "thumbnail": "StarVanguard/scene/establishing_shot.jpg",
+    "previewVideo": "StarVanguard/preview.mp4",
     "path": "StarVanguard/index.html",
-    "createdAt": "2026-06-16T18:19:08.316Z",
-    "previewVideo": "StarVanguard/preview.mp4"
+    "createdAt": "2026-06-16T18:19:08.316Z"
   },
   {
     "id": "NinjaStealth",
@@ -163,9 +191,9 @@
     "previewBg": "#020c14",
     "icon": "🏎️",
     "thumbnail": "NinjaStealth/scene/establishing_shot.jpg",
+    "previewVideo": "NinjaStealth/preview.mp4",
     "path": "NinjaStealth/index.html",
-    "createdAt": "2026-06-16T18:13:13.675Z",
-    "previewVideo": "NinjaStealth/preview.mp4"
+    "createdAt": "2026-06-16T18:13:13.675Z"
   },
   {
     "id": "MermaidPrincess",
@@ -177,9 +205,9 @@
     "previewBg": "#100804",
     "icon": "👊",
     "thumbnail": "MermaidPrincess/scene/panorama.jpg",
+    "previewVideo": "MermaidPrincess/preview.mp4",
     "path": "MermaidPrincess/index.html",
-    "createdAt": "2026-06-16T18:13:10.638Z",
-    "previewVideo": "MermaidPrincess/preview.mp4"
+    "createdAt": "2026-06-16T18:13:10.638Z"
   },
   {
     "id": "NinjaCat",
@@ -191,9 +219,9 @@
     "previewBg": "#100804",
     "icon": "👊",
     "thumbnail": "NinjaCat/scene/panorama.jpg",
+    "previewVideo": "NinjaCat/preview.mp4",
     "path": "NinjaCat/index.html",
-    "createdAt": "2026-06-16T14:44:45.305Z",
-    "previewVideo": "NinjaCat/preview.mp4"
+    "createdAt": "2026-06-16T14:44:45.305Z"
   },
   {
     "id": "RaccoonDungeon",
@@ -205,9 +233,9 @@
     "previewBg": "#020c14",
     "icon": "🏎️",
     "thumbnail": "RaccoonDungeon/scene/raccoon_dungeon_panorama_1781620650483.jpg",
+    "previewVideo": "RaccoonDungeon/preview.mp4",
     "path": "RaccoonDungeon/index.html",
-    "createdAt": "2026-06-16T14:36:34.211Z",
-    "previewVideo": "RaccoonDungeon/preview.mp4"
+    "createdAt": "2026-06-16T14:36:34.211Z"
   },
   {
     "id": "PokePixel",
@@ -219,9 +247,9 @@
     "previewBg": "#041008",
     "icon": "🌾",
     "thumbnail": null,
+    "previewVideo": "PokePixel/preview.mp4",
     "path": "PokePixel/index.html",
-    "createdAt": "2026-06-16T14:25:13.837Z",
-    "previewVideo": "PokePixel/preview.mp4"
+    "createdAt": "2026-06-16T14:25:13.837Z"
   },
   {
     "id": "NeonTowerDefense",
@@ -233,9 +261,9 @@
     "previewBg": "#020c14",
     "icon": "🏎️",
     "thumbnail": "NeonTowerDefense/scene/neon_td_panorama.png",
+    "previewVideo": "NeonTowerDefense/preview.mp4",
     "path": "NeonTowerDefense/index.html",
-    "createdAt": "2026-06-16T01:16:45.507Z",
-    "previewVideo": "NeonTowerDefense/preview.mp4"
+    "createdAt": "2026-06-16T01:16:45.507Z"
   },
   {
     "id": "StickmanFighter",
@@ -247,9 +275,9 @@
     "previewBg": "#100804",
     "icon": "👊",
     "thumbnail": "StickmanFighter/scene/stickman_panorama.png",
+    "previewVideo": "StickmanFighter/preview.mp4",
     "path": "StickmanFighter/index.html",
-    "createdAt": "2026-06-15T23:56:52.000Z",
-    "previewVideo": "StickmanFighter/preview.mp4"
+    "createdAt": "2026-06-15T23:56:52.000Z"
   },
   {
     "id": "NeonRacer",
@@ -261,9 +289,9 @@
     "previewBg": "#020c14",
     "icon": "🏎️",
     "thumbnail": null,
+    "previewVideo": "NeonRacer/preview.mp4",
     "path": "NeonRacer/index.html",
-    "createdAt": "2026-06-15T11:51:57.000Z",
-    "previewVideo": "NeonRacer/preview.mp4"
+    "createdAt": "2026-06-15T11:51:57.000Z"
   },
   {
     "id": "PixelFarm",
@@ -275,8 +303,8 @@
     "previewBg": "#041008",
     "icon": "🌾",
     "thumbnail": "PixelFarm/screenshot.png",
+    "previewVideo": "PixelFarm/preview.mp4",
     "path": "PixelFarm/index.html",
-    "createdAt": "2026-06-15T06:55:34.349Z",
-    "previewVideo": "PixelFarm/preview.mp4"
+    "createdAt": "2026-06-15T06:55:34.349Z"
   }
 ]
