@@ -2652,9 +2652,14 @@
 
             // ── 主游戏物理和渲染循环 ──────────────────────────────────────────────────
             tick() {
-                this.update();
-                this.draw();
+                // 先排程下一帧，保证即使本帧 update/draw 抛异常，循环也不会停摆假死
                 requestAnimationFrame(() => this.tick());
+                try {
+                    this.update();
+                    this.draw();
+                } catch (err) {
+                    console.error('[ElementalClash] 帧渲染异常，已跳过本帧：', err);
+                }
             }
 
             update() {
@@ -2887,21 +2892,21 @@
                 // 飘动的红蓝战旗
                 const time = Date.now() * 0.005;
                 const wave = Math.sin(time) * 4;
-                
-                ctx.strokeStyle = '#5d4037';
-                ctx.lineWidth = 3;
-                ctx.beginPath();
-                ctx.moveTo(710, 150);
-                ctx.lineTo(710, 110);
-                ctx.stroke();
 
-                ctx.fillStyle = '#d32f2f';
-                ctx.beginPath();
-                ctx.moveTo(710, 110);
-                ctx.lineTo(735 + wave, 120);
-                ctx.lineTo(710, 130);
-                ctx.closePath();
-                ctx.fill();
+                this.ctx.strokeStyle = '#5d4037';
+                this.ctx.lineWidth = 3;
+                this.ctx.beginPath();
+                this.ctx.moveTo(710, 150);
+                this.ctx.lineTo(710, 110);
+                this.ctx.stroke();
+
+                this.ctx.fillStyle = '#d32f2f';
+                this.ctx.beginPath();
+                this.ctx.moveTo(710, 110);
+                this.ctx.lineTo(735 + wave, 120);
+                this.ctx.lineTo(710, 130);
+                this.ctx.closePath();
+                this.ctx.fill();
             }
 
             drawVolcanoBackground() {
