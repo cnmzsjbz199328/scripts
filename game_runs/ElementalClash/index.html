@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>元素对决：冰火争霸 (Elemental Clash: Fire & Ice)</title>
     <meta name="description" content="一款卡通风格的双人对战格斗游戏，火焰魔法师与冰霜骑士同屏竞技，在城堡擂台、火山熔岩台、极光雪原三个场景轮流对战，采用三局两胜制。">
+    <!-- 移动端动作键：本作为内联裸 Canvas，play.html 扫不到 game-logic.js，靠此 meta 生成攻击(I)/特技(O)按钮；移动/跳跃/格挡由 D-pad 的 WASD+方向键覆盖 -->
+    <meta name="mobile-keys" content="I,O">
     <!-- 引入 Orbitron 字体用于科技感/游戏UI，ZCOOL KuaiLe 用于中文标题 -->
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=ZCOOL+KuaiLe&family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
     <style>
@@ -446,7 +448,38 @@
             transition: all 0.4s cubic-bezier(0.165, 0.84, 0.44, 1);
             position: relative;
             overflow: hidden;
+            cursor: pointer;
         }
+
+        /* 选中的角色卡 */
+        .char-card.fire.selected {
+            transform: translateY(-8px);
+            border-color: var(--fire-color);
+            box-shadow: 0 0 0 2px var(--fire-color), 0 15px 35px rgba(255, 87, 34, 0.3);
+        }
+        .char-card.frost.selected {
+            transform: translateY(-8px);
+            border-color: var(--frost-color);
+            box-shadow: 0 0 0 2px var(--frost-color), 0 15px 35px rgba(0, 229, 255, 0.3);
+        }
+        .char-card .pick-tag {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            font-size: 10px;
+            font-weight: 800;
+            letter-spacing: 1px;
+            padding: 3px 8px;
+            border-radius: 10px;
+            background: rgba(255,255,255,0.1);
+            color: #fff;
+            opacity: 0;
+            transition: opacity 0.3s;
+            z-index: 2;
+        }
+        .char-card.selected .pick-tag { opacity: 1; }
+        .char-card.fire.selected .pick-tag { background: var(--fire-color); }
+        .char-card.frost.selected .pick-tag { background: var(--frost-color); }
 
         .char-card::before {
             content: '';
@@ -705,7 +738,7 @@
                 <div class="player-panel p1">
                     <div class="avatar" title="火焰魔法师">🔥</div>
                     <div class="player-info">
-                        <div class="player-name">烈焰魔法师 (P1)</div>
+                        <div class="player-name" id="p1Name">烈焰魔法师 (P1)</div>
                         <div class="hearts-container" id="p1Hearts">
                             <div class="heart" id="p1-heart-0"></div>
                             <div class="heart" id="p1-heart-1"></div>
@@ -735,7 +768,7 @@
                 <div class="player-panel p2">
                     <div class="avatar" title="冰霜骑士">❄️</div>
                     <div class="player-info">
-                        <div class="player-name">(P2) 冰霜骑士</div>
+                        <div class="player-name" id="p2Name">(P2) 冰霜骑士</div>
                         <div class="hearts-container" id="p2Hearts">
                             <div class="heart" id="p2-heart-0"></div>
                             <div class="heart" id="p2-heart-1"></div>
@@ -792,9 +825,12 @@
                 <p class="game-subtitle">Elemental Clash: Fire & Ice</p>
             </div>
 
+            <p class="game-subtitle" id="pickHint" style="font-size:13px;letter-spacing:3px;margin-bottom:18px;color:#a78bfa;">点击选择你的角色 · 另一名将由电脑（困难）操控</p>
+
             <div class="character-showcase">
                 <!-- 火焰魔法师 -->
-                <div class="char-card fire">
+                <div class="char-card fire selected" id="cardFire">
+                    <div class="pick-tag">你的角色</div>
                     <div class="char-avatar">🔥</div>
                     <h3 class="char-name">烈焰魔法师 (P1)</h3>
                     <p class="char-desc">掌控火焰的远程法师。火球飞行迅速，特技能在对手脚下召唤熔岩火柱。</p>
@@ -808,7 +844,8 @@
                 </div>
 
                 <!-- 冰霜骑士 -->
-                <div class="char-card frost">
+                <div class="char-card frost" id="cardFrost">
+                    <div class="pick-tag">你的角色</div>
                     <div class="char-avatar">❄️</div>
                     <h3 class="char-name">冰霜骑士 (P2)</h3>
                     <p class="char-desc">身披重甲的冰雪守卫。冰刀斩击带出刀光，特技能向前方地面放出多段极冰冰刺。</p>
@@ -1090,8 +1127,9 @@
 
         // 输入系统
         const keys = {
-            a: false, d: false, w: false, s: false, f: false, g: false, // P1
-            ArrowLeft: false, ArrowRight: false, ArrowUp: false, ArrowDown: false, i: false, o: false // P2
+            a: false, d: false, w: false, s: false,                       // P1 移动/跳/格挡 (WASD)
+            ArrowLeft: false, ArrowRight: false, ArrowUp: false, ArrowDown: false, // P2 移动/跳/格挡 (方向键)
+            i: false, o: false                                            // 攻击/特技（被操控角色通用）
         };
 
         window.addEventListener('keydown', e => {
@@ -1643,7 +1681,11 @@
                 this.isGrounded = false;
                 this.state = 'idle'; // 'idle', 'walk', 'jump', 'block', 'hit', 'defeat', 'victory'
                 this.direction = id === 'p1' ? 1 : -1; // 1 = 右，-1 = 左
-                
+
+                // 控制方式：false = 玩家键盘控制，true = 电脑 AI 控制
+                this.isAI = false;
+                this.aiStrafeDir = 0; // AI 在最佳距离内的小幅左右走位方向
+
                 // 冻结/受击僵直状态
                 this.hitStunTimer = 0;
                 this.freezeTimer = 0;
@@ -1829,7 +1871,11 @@
 
                 let isMoving = false;
 
-                if (this.id === 'p1') {
+                if (this.isAI) {
+                    // 电脑 AI 接管，不读键盘
+                    if (this.aiAct(game, opponent)) return; // 返回 true 表示已进入格挡，跳过下方状态结算
+                    isMoving = this._aiMoving;
+                } else if (this.id === 'p1') {
                     // P1 (火焰魔法师) 控制
                     if (keys.s) {
                         this.state = 'block';
@@ -1855,14 +1901,14 @@
                         }
                     }
 
-                    // P1 普攻: 火球术
-                    if (keys.f && this.normalAttackCd === 0) {
+                    // P1 普攻: 火球术（统一攻击键 i）
+                    if (keys.i && this.normalAttackCd === 0) {
                         this.normalAttack();
                         game.fireProjectile(this);
                     }
 
-                    // P1 特技: 召唤地裂火柱
-                    if (keys.g && this.specialCd === 0) {
+                    // P1 特技: 召唤地裂火柱（统一特技键 o）
+                    if (keys.o && this.specialCd === 0) {
                         this.specialAttack();
                         game.spawnGroundSpecial(this, opponent.x + opponent.width/2);
                     }
@@ -1892,13 +1938,13 @@
                         }
                     }
 
-                    // P2 普攻: 寒冰斩 (带一段刀风)
+                    // P2 普攻: 寒冰斩 (带一段刀风)（统一攻击键 i）
                     if (keys.i && this.normalAttackCd === 0) {
                         this.normalAttack();
                         game.fireProjectile(this);
                     }
 
-                    // P2 特技: 极冰突刺
+                    // P2 特技: 极冰突刺（统一特技键 o）
                     if (keys.o && this.specialCd === 0) {
                         this.specialAttack();
                         // 特技以当前骑士站立的X为起点，朝向对方
@@ -1927,6 +1973,97 @@
                 this.state = 'walk';
                 // 稍微震屏
                 this.vx = -this.direction * 2; // 后坐力
+            }
+
+            // AI 跳跃（复刻玩家跳跃的手感与粒子/音效）
+            aiJump(game) {
+                if (!this.isGrounded) return;
+                this.vy = this.id === 'p1' ? -14.5 : -13.5;
+                this.isGrounded = false;
+                sound.playJump();
+                const col = this.id === 'p1' ? 'rgba(255,255,255,0.3)' : 'rgba(200,240,255,0.4)';
+                for (let i = 0; i < 5; i++) {
+                    game.particles.push(new Particle(this.x + this.width/2, GROUND_Y - 5, (Math.random() - 0.5) * 4, -Math.random() * 2, Math.random() * 3 + 2, col, 15));
+                }
+            }
+
+            // 困难 AI：保持距离、躲弹/格挡、积极普攻与放特技压制
+            // 返回 true 表示本帧进入格挡（让 handleInput 跳过状态结算）
+            aiAct(game, opponent) {
+                this._aiMoving = false;
+                const myCx = this.x + this.width / 2;
+                const oppCx = opponent.x + opponent.width / 2;
+                const dx = oppCx - myCx;
+                const adist = Math.abs(dx);
+                const dir = dx > 0 ? 1 : -1;
+                const moveSpeed = this.id === 'p1' ? 4.5 : 4.2;
+
+                // 对手已倒下：不必再行动
+                if (opponent.state === 'defeat') return false;
+
+                // ── 1. 应对来袭投射物：近距离则跳过或格挡 ──
+                let threat = null, threatDist = Infinity;
+                for (const proj of game.projectiles) {
+                    if (proj.owner === this.id) continue;
+                    const towardMe = (proj.x < myCx && proj.vx > 0) || (proj.x > myCx && proj.vx < 0);
+                    if (!towardMe) continue;
+                    const atHeight = proj.y > this.y - 15 && proj.y < this.y + this.height + 15;
+                    const pd = Math.abs(proj.x - myCx);
+                    if (atHeight && pd < threatDist) { threat = proj; threatDist = pd; }
+                }
+                if (threat && threatDist < 175) {
+                    // 困难 AI：一半概率跳跃闪避，一半概率举盾硬抗
+                    if (this.isGrounded && Math.random() < 0.5) {
+                        this.aiJump(game);
+                    } else {
+                        this.state = 'block';
+                        this.vx = 0;
+                        return true;
+                    }
+                }
+
+                // ── 2. 躲避地面特技（火柱预警 / 冰刺逼近）──
+                for (const sp of game.groundSpecials) {
+                    if (sp.owner === this.id) continue;
+                    if (sp.isFire) {
+                        // 火柱预警阶段：若站在落点附近，立刻横向逃离
+                        if (sp.state === 'warning' && Math.abs(myCx - sp.targetX) < 95) {
+                            this.vx = (myCx < sp.targetX ? -1 : 1) * moveSpeed;
+                            this._aiMoving = true;
+                            return false;
+                        }
+                    } else if (sp.state === 'active' && this.isGrounded && Math.random() < 0.35) {
+                        // 冰刺正在逼近：尝试跳起躲过
+                        this.aiJump(game);
+                    }
+                }
+
+                // ── 3. 间距控制：保持远程射击的最佳距离 ──
+                const idealMin = 240, idealMax = 380;
+                if (adist > idealMax) {
+                    this.vx = dir * moveSpeed; this._aiMoving = true;        // 太远，逼近
+                } else if (adist < idealMin) {
+                    this.vx = -dir * moveSpeed; this._aiMoving = true;       // 太近，拉开
+                } else {
+                    // 处于最佳区间：偶尔小幅走位增加不可预测性
+                    if (Math.random() < 0.02) this.aiStrafeDir = (Math.random() < 0.5 ? 1 : -1);
+                    if (this.aiStrafeDir) { this.vx = this.aiStrafeDir * moveSpeed * 0.6; this._aiMoving = true; }
+                }
+
+                // 偶发随机跳跃，难以被预判
+                if (this.isGrounded && Math.random() < 0.012) this.aiJump(game);
+
+                // ── 4. 攻击：高频普攻 + 见机放特技压制 ──
+                const aligned = Math.abs((opponent.y + opponent.height / 2) - (this.y + this.height / 2)) < 85;
+                if (this.normalAttackCd === 0 && aligned && Math.random() < 0.55) {
+                    this.normalAttack();
+                    game.fireProjectile(this);
+                }
+                if (this.specialCd === 0 && adist > 100 && adist < 450 && Math.random() < 0.09) {
+                    this.specialAttack();
+                    game.spawnGroundSpecial(this, oppCx);
+                }
+                return false;
             }
 
             draw(ctx) {
@@ -2324,6 +2461,23 @@
                 // 视觉修饰
                 this.shakeTimer = 0;
                 
+                // 玩家所选角色：'p1' = 火焰魔法师，'p2' = 冰霜骑士（默认火）
+                this.humanChar = 'p1';
+
+                // 角色选择卡点击
+                const cardFire = document.getElementById('cardFire');
+                const cardFrost = document.getElementById('cardFrost');
+                cardFire.onclick = () => {
+                    this.humanChar = 'p1';
+                    cardFire.classList.add('selected');
+                    cardFrost.classList.remove('selected');
+                };
+                cardFrost.onclick = () => {
+                    this.humanChar = 'p2';
+                    cardFrost.classList.add('selected');
+                    cardFire.classList.remove('selected');
+                };
+
                 // 初始化按钮事件
                 document.getElementById('startBtn').onclick = () => this.startGame();
                 document.getElementById('restartBtn').onclick = () => this.restartMatch();
@@ -2414,7 +2568,15 @@
                 sound.init();
                 sound.playAnnounce();
                 document.getElementById('startScreen').classList.remove('active');
-                
+
+                // 按所选角色分配控制权：玩家选谁就操控谁，另一名交给电脑 AI
+                this.p1.isAI = (this.humanChar !== 'p1');
+                this.p2.isAI = (this.humanChar !== 'p2');
+
+                // HUD 名字标注谁是你、谁是电脑
+                document.getElementById('p1Name').innerText = this.p1.isAI ? '烈焰魔法师 🤖电脑' : '烈焰魔法师 (你)';
+                document.getElementById('p2Name').innerText = this.p2.isAI ? '🤖电脑 冰霜骑士' : '(你) 冰霜骑士';
+
                 this.currentRound = 1;
                 this.p1.score = 0;
                 this.p2.score = 0;
