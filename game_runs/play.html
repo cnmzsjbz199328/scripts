@@ -323,6 +323,18 @@
         if (KC[name] && !DPAD_EXCLUDE.has(name)) seen.add(name);
       }
 
+      // Primary-b: addKeys('W,A,S,D,J,K,L,SPACE,ENTER') string shorthand.
+      // Several games register keys this way instead of KeyCodes.X, so the
+      // regex above misses them and their action buttons silently vanish
+      // (e.g. ShadowArena J/K/L, DustOutlaw J, the SPACE-jump platformers).
+      const ak = /addKeys\s*\(\s*['"`]([^'"`]+)['"`]/g;
+      while ((m = ak.exec(text)) !== null) {
+        m[1].split(',').forEach(raw => {
+          const name = raw.trim().toUpperCase();
+          if (KC[name] && !DPAD_EXCLUDE.has(name)) seen.add(name);
+        });
+      }
+
       // Secondary: implicit keys from createCursorKeys()
       if (/cursors\.space\b/.test(text) && !seen.has('SPACE')) seen.add('SPACE');
       if (/cursors\.shift\b/.test(text) && !seen.has('SHIFT')) seen.add('SHIFT');
