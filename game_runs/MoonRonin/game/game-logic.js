@@ -19,6 +19,13 @@ const END_X = WORLD_W - 5 * TILE;   // 4800
 const DEATH_BUDGET = 5;
 const SPAWN_Y = 320;
 
+// ── 月光视界（月光越多，照亮的世界越大）──
+// 暗幕只盖在背景全景上（深度 -50，介于 bg -100 与瓦片 0 之间）：
+// 脚下屋脊 / 月光 / 夜枭 / 鹭 永远清晰可读，仅远景庙宇剪影被夜色吞没。
+const LIGHT_MIN = 210;       // 下限：零月光时也照亮脚下与前方落点，保证公平
+const LIGHT_PER_ORB = 26;    // 每拾一缕月光，光晕半径增长
+const LIGHT_BIAS = 70;       // 光晕朝奔跑方向前倾，多看前路
+
 // 屋脊段（来自 tilemap _segs：[c0,c1,row]）→ x 区间与顶面 y
 const SEGS = (TILEMAP_DATA._segs || []).map(([c0, c1, row]) => ({
   x0: c0 * TILE, x1: (c1 + 1) * TILE, topY: row * TILE,
@@ -27,13 +34,13 @@ const segAt = (x) => SEGS.find(s => x >= s.x0 - 4 && x <= s.x1 + 4) || null;
 
 // ── 三幕（沿屋脊推进；startX 落在安全屋脊上）──
 const ACTS = [
-  { name: '外院飞檐', startX: 90,   fog: 0x140d04, fogA: 0.0,
+  { name: '外院飞檐', startX: 90,   fog: 0x140d04, fogA: 0.5,
     intro: ['第一幕 · 外院飞檐',
       '截获了将军通敌的密信，鹭必须趁夜踏过层层屋脊带它出府。\n← → / A D 奔跑，W / ↑ / 空格 起跳，越过屋脊间的庭院缺口。\n沿途的月光，要在它熄灭前聚齐。'] },
-  { name: '中庭高脊', startX: 2150, fog: 0x06101c, fogA: 0.16,
+  { name: '中庭高脊', startX: 2150, fog: 0x06101c, fogA: 0.68,
     intro: ['第二幕 · 中庭高脊',
       '屋脊更高，缺口更宽，夜枭开始在庭院上空盘旋。\n看准起跳的边缘，别在半空被夜枭扑中——\nJ 挥刀，可将扑来的夜枭斩落。'] },
-  { name: '府墙尽头', startX: 4190, fog: 0x1a0608, fogA: 0.2,
+  { name: '府墙尽头', startX: 4190, fog: 0x1a0608, fogA: 0.82,
     intro: ['第三幕 · 府墙尽头',
       '最后一段断续飞檐，尽头便是可纵身跃下的府墙。\n月光将尽，夜枭最密。\n聚齐月光，奔过最后的缺口，跃下府墙，把密信带向黎明！'] },
 ];
@@ -70,8 +77,16 @@ class MoonRoninScene extends Phaser.Scene {
 
     this.bg = this.add.tileSprite(0, 0, GAME_W, GAME_H, 'manor')
       .setOrigin(0, 0).setScrollFactor(0).setTileScale(GAME_H / 864, GAME_H / 864).setDepth(-100);
+    // 夜色暗幕（盖在全景背景上）+ 跟随鹭的月光晕（反相位图遮罩在暗幕上挖洞）
     this.fog = this.add.rectangle(0, 0, GAME_W, GAME_H, ACTS[0].fog, 0)
       .setOrigin(0, 0).setScrollFactor(0).setDepth(-50);
+    this._makeLightTexture();
+    this.light = this.add.image(GAME_W / 2, GAME_H / 2, 'moonlight')
+      .setScrollFactor(0).setVisible(false);
+    this._lightR = LIGHT_MIN; this._lightPulse = 1;
+    const lightMask = this.light.createBitmapMask();
+    lightMask.invertAlpha = true;   // 光晕处擦除暗幕 → 露出背后的庙宇剪影
+    this.fog.setMask(lightMask);
 
     this.solids = this.physics.add.staticGroup();
     this._renderTileLayer('solid', 0, true);
@@ -197,6 +212,32 @@ class MoonRoninScene extends Phaser.Scene {
     });
   }
 
+  // 月光晕的放射状渐变笔刷（中心白→边缘透明，软边）
+  _makeLightTexture() {
+    if (this.textures.exists('moonlight')) return;
+    const S = 256, tex = this.textures.createCanvas('moonlight', S, S);
+    const ctx = tex.getContext();
+    const g = ctx.createRadialGradient(S / 2, S / 2, 0, S / 2, S / 2, S / 2);
+    g.addColorStop(0.0, 'rgba(255,255,255,1)');
+    g.addColorStop(0.55, 'rgba(255,255,255,0.85)');
+    g.addColorStop(1.0, 'rgba(255,255,255,0)');
+    ctx.fillStyle = g; ctx.fillRect(0, 0, S, S);
+    tex.refresh();
+  }
+
+  // 光晕跟随鹭、随月光数平滑变大、朝奔跑方向前倾
+  _updateLight() {
+    if (!this.light) return;
+    const cam = this.cameras.main;
+    const dir = this.player.flipX ? -1 : 1;
+    const sx = this.player.x - cam.scrollX + LIGHT_BIAS * dir;
+    const sy = this.player.y - cam.scrollY - 6;
+    const targetR = LIGHT_MIN + this.score * LIGHT_PER_ORB;
+    this._lightR += (targetR - this._lightR) * 0.08;   // 缓动，月光入手时柔和扩张
+    const d = this._lightR * 2 * 1.7 * this._lightPulse;  // 1.7：补偿渐变软边，使可视半径≈_lightR
+    this.light.setPosition(sx, sy).setDisplaySize(d, d);
+  }
+
   _makeAnims() {
     const mk = (key, keys, fps, loop) => {
       if (this.anims.exists(key)) return;
@@ -215,6 +256,8 @@ class MoonRoninScene extends Phaser.Scene {
     window.GameHUD?.setScore(this.score);
     const f = this.add.circle(orb.x, orb.y, 6, 0xffe9a8, 0.9).setDepth(30);
     this.tweens.add({ targets: f, scale: 3.5, alpha: 0, duration: 350, onComplete: () => f.destroy() });
+    // 月光入手：光晕短暂涨溢，世界豁然开朗一瞬
+    this.tweens.add({ targets: this, _lightPulse: 1.22, duration: 160, yoyo: true, ease: 'Quad.out' });
     this._updateObjective();
   }
 
@@ -273,6 +316,7 @@ class MoonRoninScene extends Phaser.Scene {
 
   update(time) {
     if (this.bg) this.bg.tilePositionX = this.cameras.main.scrollX * 0.3;
+    this._updateLight();
     if (this.cardActive || !this.gameStarted || this.gameOver) return;
 
     const onGround = this.player.body.blocked.down || this.player.body.touching.down;
