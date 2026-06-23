@@ -174,6 +174,7 @@ class InkMechanicsScene extends Phaser.Scene {
   _loadLevel(idx, showCard) {
     this.level = idx;
     const L = LEVELS[idx];
+    this.hp = MAX_HP;          // 每关重置发射机会（HUD 标注「本关剩余」，按关给予容错）
     this.strokes = [];
     this.curStroke = null;
     this.inkUsed = 0;
@@ -258,7 +259,7 @@ class InkMechanicsScene extends Phaser.Scene {
     }
 
     // 入井？
-    if (Math.hypot(d.x - this.well.x, d.y - this.well.y) < this.well.r + DROP_R * 0.4) { this._clearLevel(); return; }
+    if (Math.hypot(d.x - this.well.x, d.y - this.well.y) < this.well.r + DROP_R) { this._clearLevel(); return; }
     // 撞尖刺？
     for (const sp of this.spikes) {
       const apexY = sp.by - sp.w * 0.9;
@@ -267,7 +268,7 @@ class InkMechanicsScene extends Phaser.Scene {
     // 掉出画面 / 沉底静止？
     if (d.x < -20 || d.x > GAME_W + 20 || d.y > GAME_H + 30) { this._failAttempt('oob'); return; }
     const sp2 = Math.hypot(d.vx, d.vy);
-    if (sp2 < SETTLE_SPEED) { this._settleT = (this._settleT || 0) + dt; if (this._settleT > 1.1) { this._settleT = 0; this._failAttempt('stall'); } }
+    if (sp2 < SETTLE_SPEED) { this._settleT = (this._settleT || 0) + dt; if (this._settleT > 1.4) { this._settleT = 0; this._failAttempt('stall'); } }
     else this._settleT = 0;
   }
 
@@ -312,6 +313,7 @@ class InkMechanicsScene extends Phaser.Scene {
     const hint = this.add.text(GAME_W / 2, GAME_H / 2 + 100, '空格 / 回车 / 点击 继续', { fontFamily: 'Segoe UI, sans-serif', fontSize: '13px', color: '#7a8aa0' }).setOrigin(0.5);
     cont.add([dim, panel, t, b, hint]);
     this.cardGfx = cont;
+    this.input.keyboard.once('keydown-SPACE', () => this._advanceCard());
     this.input.keyboard.once('keydown-ENTER', () => this._advanceCard());
     if (this._auto) this.time.delayedCall(500, () => this._advanceCard());
   }
@@ -319,6 +321,7 @@ class InkMechanicsScene extends Phaser.Scene {
   _advanceCard() {
     if (!this.cardActive) return;
     this.cardActive = false;
+    this._suppressRelease = true;   // 吞掉这一帧的 SPACE：翻卡的按键不应顺手把水放掉
     if (this.cardGfx) { this.cardGfx.destroy(); this.cardGfx = null; }
     const cb = this._pendingCardCb; this._pendingCardCb = null;
     if (cb) cb();
@@ -351,12 +354,14 @@ class InkMechanicsScene extends Phaser.Scene {
     const playing = this.gameStarted && !this.gameOver && !this.cardActive;
 
     if (playing && !this._auto) {
-      if (Phaser.Input.Keyboard.JustDown(this.kkeys.SPACE) || Phaser.Input.Keyboard.JustDown(this.kkeys.J)) {
+      const releasePressed = Phaser.Input.Keyboard.JustDown(this.kkeys.SPACE) || Phaser.Input.Keyboard.JustDown(this.kkeys.J);
+      if (releasePressed && !this._suppressRelease) {
         if (this.mode === 'draw') this._release(); else this._resetDrop();
       }
       if (Phaser.Input.Keyboard.JustDown(this.kkeys.R)) this._resetDrop();
       if (Phaser.Input.Keyboard.JustDown(this.kkeys.C) && this.mode === 'draw') { this.strokes = []; this.inkUsed = 0; }
     }
+    this._suppressRelease = false;
 
     if (playing && this._auto) this._autoTick(dt);
     if (playing && this.mode === 'run') this._step(dt);

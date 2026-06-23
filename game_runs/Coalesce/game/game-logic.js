@@ -46,6 +46,9 @@ const MIN_R    = 11;
 const MAX_R    = 40;
 const BREAK_R  = 24;         // 大于此半径可撞开裂纹堤坝
 const SHRINK_RATE = 9;       // 挤水速率（每秒减少的水量）
+const COYOTE   = 0.09;       // 离地后仍可起跳的宽限（手感）
+const JUMP_BUF = 0.10;       // 落地前预输入缓冲（手感）
+const JUMP_CUT = 0.45;       // 松开跳跃键时上升速度衰减 → 可变跳高（短按矮跳）
 
 // 关卡几何（top-left x,y,w,h）。三区：学跳 → 钻缝 → 聚水撞坝。
 const PLATFORMS = [
@@ -80,6 +83,12 @@ const HAZARDS = [
 
 const CHECKPOINTS = [80, 740, 1260, 1900];
 
+// 自动试玩：跳跃区间为[起跳→落地]全程，跨越沟壑/水洼时持续按住跳——
+// 配合可变跳高（松键即矮跳），bot 必须按住整段才能拿到完整跳弧。
+const AUTO_JUMP_ZONES = [[520, 660], [800, 930], [1680, 1820], [2100, 2230]];
+const AUTO_SLIT = [1080, 1260];   // 窄缝：挤小钻过
+const inZone = (x, zones) => zones.some(([a, b]) => x > a && x < b);
+
 // 三段叙事（按 x 推进触发）
 const ACTS = [
   { x: 0,    name: '渗流浅滩', intro: ['第一段 · 渗流浅滩',
@@ -106,6 +115,7 @@ class CoalesceScene extends Phaser.Scene {
     this._pendingCardCb = null;
     this._t = 0;
     this.checkpoint = CHECKPOINTS[0];
+    this._coyote = 0; this._jumpBuf = 0; this._jumpHeld = false;
 
     this._drawWorld();
     this.gfx = this.add.graphics().setDepth(10);
@@ -244,12 +254,17 @@ class CoalesceScene extends Phaser.Scene {
     this.hp -= 1;
     window.GameHUD?.setHearts(Math.max(0, this.hp), MAX_HP);
     this._splash(this.player.x, this.player.y, reason === 'murky' ? ROCK : WATER, 14);
-    this._setVol(this.vol - 2);
     if (this.hp <= 0) { this._lose(); return; }
     this.invuln = 1.1;
-    // 回检查点
-    this.player.x = this.checkpoint; this.player.y = FLOOR_Y - 60;
-    this.player.vx = 0; this.player.vy = 0;
+    if (reason === 'fall') {
+      // 掉出世界：回最近检查点（位置已丢失，必须重置）
+      this.player.x = this.checkpoint; this.player.y = FLOOR_Y - 60;
+      this.player.vx = 0; this.player.vy = 0;
+    } else {
+      // 浊墨：原地弹开 + 略失水量，但不夺走前进进度（无瞬移惩罚）
+      this._setVol(this.vol - 1);
+      this.player.vy = -480; this.player.vx = 0;
+    }
   }
 
   _win() {
@@ -288,7 +303,19 @@ class CoalesceScene extends Phaser.Scene {
 
     const p = this.player;
     p.vx = (right ? MOVE_SPD : 0) - (left ? MOVE_SPD : 0);
-    if (up && p.onGround) { p.vy = -(Phaser.Math.Clamp(720 - p.r * 7, 360, 600)); p.onGround = false; }
+
+    // 起跳：coyote 宽限 + 落地前缓冲 + 可变跳高（越小跳越高，短按矮跳）
+    const jumpPressed = up && !this._jumpHeld;
+    const jumpReleased = !up && this._jumpHeld;
+    this._jumpHeld = up;
+    this._coyote = p.onGround ? COYOTE : Math.max(0, this._coyote - dt);
+    this._jumpBuf = jumpPressed ? JUMP_BUF : Math.max(0, this._jumpBuf - dt);
+    if (this._jumpBuf > 0 && this._coyote > 0) {
+      p.vy = -Phaser.Math.Clamp(720 - p.r * 7, 360, 600);
+      p.onGround = false; this._coyote = 0; this._jumpBuf = 0;
+    }
+    if (jumpReleased && p.vy < 0) p.vy *= JUMP_CUT;
+
     if (down) { this._setVol(this.vol - SHRINK_RATE * dt); if (Math.random() < 0.25) this._splash(p.x, p.y + p.r * 0.5, WATER, 1); }
 
     this._physics(dt);
@@ -331,13 +358,10 @@ class CoalesceScene extends Phaser.Scene {
     this._render();
   }
 
-  // 自动试玩输入：朝右走，按区跳/缩
+  // 自动试玩输入：朝右走，跨沟壑/水洼时整段按住跳，窄缝处按住缩小
   _autoInput() {
-    const p = this.player, x = p.x;
-    // 跳：沟壑边缘 + 浊墨水洼前
-    const inJump = (p.onGround && ((x > 528 && x < 559) || (x > 1688 && x < 1719) || (x > 810 && x < 896) || (x > 2110 && x < 2196)));
-    const inSlit = (x > 1080 && x < 1260);   // 窄缝：挤小钻过
-    return { left: false, right: true, up: inJump, down: inSlit };
+    const x = this.player.x;
+    return { left: false, right: true, up: inZone(x, AUTO_JUMP_ZONES), down: inZone(x, [AUTO_SLIT]) };
   }
 
   _render() {
@@ -397,8 +421,8 @@ class CoalesceScene extends Phaser.Scene {
     window.__probe = () => {
       const p = self.player;
       const x = p.x;
-      const needJump = p.onGround && ((x > 528 && x < 559) || (x > 1688 && x < 1719) || (x > 810 && x < 896) || (x > 2110 && x < 2196));
-      const crouch = (x > 1080 && x < 1260);
+      const needJump = p.onGround && inZone(x, AUTO_JUMP_ZONES);
+      const crouch = inZone(x, [AUTO_SLIT]);
       return {
         x: p.x, y: p.y, topdown: false,
         nextGoalX: DAM.x, cellX: WORLD_W,
