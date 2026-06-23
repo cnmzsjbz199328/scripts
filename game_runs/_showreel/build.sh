@@ -19,9 +19,10 @@ ENC=(-c:v libx264 -profile:v high -level 5.0 -pix_fmt yuv420p -r 25
      -video_track_timescale 12800 -crf 18 -preset slow -an)
 
 new1920=(DustOutlaw ShadowArena NeonRacer StarVanguard StickmanFighter \
-         RaccoonDungeon NinjaCat MermaidPrincess NinjaStealth)
+         RaccoonDungeon NinjaCat MermaidPrincess NinjaStealth Coalesce InkMechanics)
 old1280=(ShadowNinja MoonRonin GeoStorm DustTown InkLine ShadowLeap)
 order=( "${new1920[@]}" "${old1280[@]}" )
+TOTAL=${#order[@]}
 
 # 可选子集测试: LIMIT="DustOutlaw ShadowNinja" bash build.sh
 if [ -n "${LIMIT:-}" ]; then order=( $LIMIT ); fi
@@ -53,7 +54,7 @@ for g in "${order[@]}"; do
     -loop 1 -t 1.0 -i "$clean" \
     -filter_complex \
     "[0:v]drawbox=0:0:iw:ih:black@0.5:t=fill,\
-drawtext=fontfile=$FONT:text='$num / 15':fontsize=44:fontcolor=white@0.75:x=(w-text_w)/2:y=h/2-150,\
+drawtext=fontfile=$FONT:text='$num / $TOTAL':fontsize=44:fontcolor=white@0.75:x=(w-text_w)/2:y=h/2-150,\
 drawtext=fontfile=$FONT:text='$name':fontsize=120:fontcolor=white:x=(w-text_w)/2:y=(h-text_h)/2,\
 fade=t=in:st=0:d=0.4,setsar=1,format=yuv420p[b];\
 [1:v]setsar=1,format=yuv420p[c];\
