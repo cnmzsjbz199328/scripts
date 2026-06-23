@@ -341,6 +341,18 @@
 
       return [...seen];
     } catch(_) {
+      // Fallback for inline / non-Phaser games (no game/game-logic.js to scan):
+      // the game declares its action keys via <meta name="mobile-keys" content="F,G">
+      // in index.html. D-pad still covers movement (WASD + arrows) as usual.
+      try {
+        const html = await fetch(frameSrc).then(r => r.text());
+        const m2 = html.match(/<meta\s+name=["']mobile-keys["']\s+content=["']([^"']+)["']/i);
+        if (m2) {
+          return m2[1].split(',')
+            .map(s => s.trim().toUpperCase())
+            .filter(name => KC[name] && !DPAD_EXCLUDE.has(name));
+        }
+      } catch(_) {}
       return [];
     }
   }
