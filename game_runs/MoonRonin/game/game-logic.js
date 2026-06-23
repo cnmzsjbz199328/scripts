@@ -26,6 +26,12 @@ const LIGHT_MIN = 210;       // 下限：零月光时也照亮脚下与前方落
 const LIGHT_PER_ORB = 26;    // 每拾一缕月光，光晕半径增长
 const LIGHT_BIAS = 70;       // 光晕朝奔跑方向前倾，多看前路
 
+// ── 鹭身周的月辉光环（additive 叠加在前景，月光越多越亮越大）──
+const GLOW_MIN_R = 70;       // 零月光时的微弱底光
+const GLOW_PER_ORB = 11;     // 每拾一缕，光环半径增长
+const GLOW_MIN_A = 0.12;     // 零月光时的底 alpha
+const GLOW_PER_ORB_A = 0.05; // 每拾一缕，光环增亮
+
 // 屋脊段（来自 tilemap _segs：[c0,c1,row]）→ x 区间与顶面 y
 const SEGS = (TILEMAP_DATA._segs || []).map(([c0, c1, row]) => ({
   x0: c0 * TILE, x1: (c1 + 1) * TILE, topY: row * TILE,
@@ -84,6 +90,12 @@ class MoonRoninScene extends Phaser.Scene {
     this.light = this.add.image(GAME_W / 2, GAME_H / 2, 'moonlight')
       .setScrollFactor(0).setVisible(false);
     this._lightR = LIGHT_MIN; this._lightPulse = 1;
+
+    // 鹭身周的月辉光环：additive 叠加在前景（深度 19，紧贴玩家 20 之下），随月光成长
+    this._makeGlowTexture();
+    this.glow = this.add.image(0, 0, 'moonglow')
+      .setBlendMode(Phaser.BlendModes.ADD).setDepth(19);
+    this._glowR = GLOW_MIN_R; this._glowA = GLOW_MIN_A;
     const lightMask = this.light.createBitmapMask();
     lightMask.invertAlpha = true;   // 光晕处擦除暗幕 → 露出背后的庙宇剪影
     this.fog.setMask(lightMask);
@@ -225,6 +237,19 @@ class MoonRoninScene extends Phaser.Scene {
     tex.refresh();
   }
 
+  // 鹭身周月辉光环的笔刷（暖月色，软边，配 additive 叠加成发光）
+  _makeGlowTexture() {
+    if (this.textures.exists('moonglow')) return;
+    const S = 256, tex = this.textures.createCanvas('moonglow', S, S);
+    const ctx = tex.getContext();
+    const g = ctx.createRadialGradient(S / 2, S / 2, 0, S / 2, S / 2, S / 2);
+    g.addColorStop(0.0, 'rgba(255,236,176,1)');   // 中心暖月色
+    g.addColorStop(0.4, 'rgba(255,233,168,0.5)');
+    g.addColorStop(1.0, 'rgba(255,233,168,0)');
+    ctx.fillStyle = g; ctx.fillRect(0, 0, S, S);
+    tex.refresh();
+  }
+
   // 光晕跟随鹭、随月光数平滑变大、朝奔跑方向前倾
   _updateLight() {
     if (!this.light) return;
@@ -236,6 +261,18 @@ class MoonRoninScene extends Phaser.Scene {
     this._lightR += (targetR - this._lightR) * 0.08;   // 缓动，月光入手时柔和扩张
     const d = this._lightR * 2 * 1.7 * this._lightPulse;  // 1.7：补偿渐变软边，使可视半径≈_lightR
     this.light.setPosition(sx, sy).setDisplaySize(d, d);
+
+    // 鹭身周月辉光环：跟随玩家世界坐标，半径/亮度随月光数平滑成长，拾取脉冲共享
+    if (this.glow) {
+      const tR = GLOW_MIN_R + this.score * GLOW_PER_ORB;
+      const tA = GLOW_MIN_A + this.score * GLOW_PER_ORB_A;
+      this._glowR += (tR - this._glowR) * 0.08;
+      this._glowA += (tA - this._glowA) * 0.08;
+      const gd = this._glowR * 2 * this._lightPulse;
+      this.glow.setPosition(this.player.x, this.player.y - 6)
+        .setDisplaySize(gd, gd)
+        .setAlpha(Math.min(1, this._glowA * (0.6 + 0.4 * this._lightPulse)));
+    }
   }
 
   _makeAnims() {
