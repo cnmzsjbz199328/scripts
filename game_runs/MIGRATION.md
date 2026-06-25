@@ -76,13 +76,35 @@ game_runs/
 
 ---
 
-## 4. 把巨型 Scene 拆成系统时的高频坑
+## 4. 两种拆分模式 —— 按耦合度选
 
-- **提取系统函数时，状态字段名要对齐。** InkMechanics 实测：physics 读 `state.t` 但 Scene 字段叫 `_t` →
-  `undefined` → 旋转杠杆角度 `NaN` → 水滴 NaN → 永不入井也不失败（软锁）。前 4 关无杠杆没暴露，第 5 关才炸。
-  **教训：抽取后务必跑 bot 全关回归，NaN 主体在 `__probe` 里会显示成 `x:null`。**
-- 系统函数让它**接收显式 state、返回事件**（如 `step()→'clear'|{fail}`），由 Scene 决定后果，
-  系统本身不碰 HUD/场景 → 可单测、可复用。
+拆巨型 Scene 有两种正交手法，**先判断状态耦合度再选**：
+
+### 4A. 纯函数抽取（低耦合，如 InkMechanics）
+系统几乎无状态 → 抽成 `Ink.Physics.step(state, dt)` 这种**接收显式 state、返回事件**的纯函数，
+Scene 决定后果。可单测、可复用。**坑：状态字段名要对齐**——physics 读 `state.t` 但 Scene 字段叫 `_t`
+→ `undefined` → 杠杆角 `NaN` → 主体 NaN → 软锁（永不通关也不失败）。前 4 关无杠杆没暴露，第 5 关才炸。
+NaN 主体在 `__probe` 里显示成 `x:null`。**抽取后必跑 bot 全关回归。**
+
+### 4B. 原型分割（高耦合战斗/AI，如 StickmanFighter 2515 行）
+战斗方法深度共享 `this.player/enemies/energy/...`，硬抽纯函数要到处传 scene，得不偿失。
+改用**原型分割**：保留单个 `class MainScene`（核心：constructor/preload/create/update/输入/结算），
+其余方法按系统切到多个文件，每个文件 `Object.assign(MainScene.prototype, { ...methods })`。
+**方法体逐字不动 → 行为零风险**，纯粹是物理分文件。落地用一次性 codemod 最稳：
+- 按 **2 空格缩进的方法头**行切片（避开大括号计数，对模板字符串/CSS 也鲁棒；排除 if/for/while 关键字）。
+- 删死代码：移除 PvP 时，**不输出**那 6 个 PvP-only 方法即可（它们只在 `if(this.isPvP)` 死分支里被调，
+  入口单按钮后 `isPvP` 恒 false → 不可达）。`create()` 里 onStart 要**硬写 story、忽略 isPvP 入参**，
+  否则 `?pvp` URL 仍会调到已删的 `setupPvP` 而崩。
+- 共享 HUD 字形参数化：`window.GAME_HUD_GLYPHS={full:'♥',empty:'♡'}`（Stickman=♥，InkMechanics 默认 ◆）。
+
+结果：2515 行单体 → 9 文件（最大 combat.js 566 行），PvP 移除省 ~440 行。
+
+### 回归（资源类游戏必须走 http）
+StickmanFighter 用 `this.load.image/spritesheet` 加载 webp → **file:// 被 CORS 拦**，
+测试要起 `python -m http.server`。战斗 RNG 不可复现，故回归不比 kill 数，而是两条**管线覆盖**：
+- **godmode 全清**：每帧钉血 + `__scene.damageAIEnemy(最近敌, 999)` 强杀 → 走通 kill/wave/boss/win + 真实出拳走 input/combat → 必 `won` 且零报错。
+- **dumb bot**：approach+punch → 必到终局(战败) 且零报错（覆盖 take-damage/gameover）。
+- 加 `window.__scene = this` 调试钩子（无害，供 playtest 读写场景）。
 
 ---
 

@@ -148,10 +148,7 @@
         <h2>火柴人：终极决斗</h2>
         <p class="tagline">经典火柴人街头对决，用指尖点燃热血！</p>
         <p class="story-setting">在黑白线条与电子霓虹交织的几何次元，无数流浪的火柴人斗士汇聚在废弃的像素街头，为争夺‘终极战神’的称号展开死斗。</p>
-        <div style="display:flex;gap:16px;justify-content:center;margin-bottom:16px;">
-               <button id="story-btn" class="game-btn" style="background:#ef4444" onclick="window.__hudStart(false)">▶ 单人闯关 (STORY)</button>
-               <button id="pvp-btn" class="game-btn" style="background:#06b6d4" onclick="window.__hudStart(true)">⚔️ 双人对决 (PVP)</button>
-             </div>
+        <button id="start-btn" class="game-btn" style="background:#ef4444" onclick="window.__hudStart()">▶ 开始闯关 (START)</button>
         <p class="controls-hint">
           Controls: A/D or Arrow Keys to move left/right | W or UP: Jump | S or DOWN: Block<br>J: Punch &nbsp;|&nbsp; K: Kick
         </p>
@@ -291,84 +288,23 @@
   }
 ];
 
-    // Expose GameHUD API before game-logic.js loads
-    window.GameHUD = (function () {
-      let _startCallback = null;
-      let _started = false;
-      let _isPvP = false;
-
-      function showHud() {
-        document.getElementById('hud').style.display = 'flex';
-      }
-
-      // __hudStart must be before return to capture _startCallback and showHud from closure
-      window.__hudStart = function (isPvP = false) {
-        if (_started) return;
-        _started = true;
-        _isPvP = isPvP;
-        document.getElementById('start-screen').style.display = 'none';
-        showHud();
-        if (_startCallback) _startCallback(isPvP);
-      };
-
-      return {
-    setHearts(current, maxHp) {
-      const el = document.getElementById('hud-hearts');
-      if (!el) return;
-      const filled = Math.max(0, Math.min(current, maxHp ?? 3));
-      const empty  = (maxHp ?? 3) - filled;
-      el.textContent = '♥'.repeat(filled) + '♡'.repeat(empty);
-    },
-    setScore(value) {
-      const el = document.getElementById('hud-score-value');
-      if (el) el.textContent = value;
-    },
-    setObjective(text) {
-      const el = document.getElementById('hud-objective-text');
-      if (el) el.textContent = text;
-    },
-
-        onStart(cb) {
-          _startCallback = cb;
-          if (_started) {
-            cb(_isPvP);
-          }
-        },
-
-        showGameOver(win, message) {
-          const overlay = document.getElementById('gameover-screen');
-          const title   = document.getElementById('gameover-title');
-          const msg     = document.getElementById('gameover-message');
-          if (title) title.textContent = win ? '🎉 YOU WIN' : 'GAME OVER';
-          if (msg)   msg.textContent   = message ?? '';
-          if (overlay) overlay.style.display = 'flex';
-          document.getElementById('hud').style.display = 'none';
-        },
-      };
-    })();
-
-    // Wire gameover title colour after DOM is ready
-    const _origShowGameOver = window.GameHUD.showGameOver.bind(window.GameHUD);
-    window.GameHUD.showGameOver = function(win, message) {
-      _origShowGameOver(win, message);
-      const title = document.getElementById('gameover-title');
-      if (title) {
-        title.className = win ? 'win' : 'lose';
-        if (!win) title.textContent = 'GAME OVER';
-      }
-    };
-
-    // Headless autostart trigger for gameplay screenshot capture
-    if (window.location.search.includes('autostart')) {
-      setTimeout(() => {
-        if (window.__hudStart) {
-          const isPvP = window.location.search.includes('pvp');
-          window.__hudStart(isPvP);
-        }
-      }, 300);
-    }
+    // 心形 HUD 字形（共享 _engine/hud.js 默认 ◆，此处覆盖为 ♥）
+    window.GAME_HUD_GLYPHS = { full: '♥', empty: '♡' };
   </script>
-  <script src="game/game-logic.js"></script>
+
+  <!-- ── 共享引擎层（game_runs/_engine：GameHUD 契约，22 游戏共用）── -->
+  <script src="../_engine/hud.js"></script>
+
+  <!-- ── 本游戏：常量 → 核心场景 → 系统(原型增补) → 装配（按依赖顺序）── -->
+  <script src="game/config.js"></script>
+  <script src="game/scenes/MainScene.js"></script>
+  <script src="game/systems/animations.js"></script>
+  <script src="game/systems/world.js"></script>
+  <script src="game/systems/hud.js"></script>
+  <script src="game/systems/combat.js"></script>
+  <script src="game/systems/fx.js"></script>
+  <script src="game/systems/ai.js"></script>
+  <script src="game/main.js"></script>
   <script>
     /* Fit the whole stage (canvas + HUD overlays) to the viewport so everything
        scales as one piece — keeps HUD proportions correct at any screen size. */

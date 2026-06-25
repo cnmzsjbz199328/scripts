@@ -34,10 +34,11 @@
     setHearts(current, maxHp) {
       const el = $('hud-hearts');
       if (!el) return;
+      const g = window.GAME_HUD_GLYPHS || { full: '◆', empty: '◇' };   // 各游戏可覆盖字形(♥/◆…)
       const max = maxHp ?? 4;
       const filled = Math.max(0, Math.min(current, max));
       const empty = max - filled;
-      el.textContent = '◆'.repeat(filled) + '◇'.repeat(empty);
+      el.textContent = g.full.repeat(filled) + g.empty.repeat(empty);
     },
     setScore(value) {
       const el = $('hud-score-value');
