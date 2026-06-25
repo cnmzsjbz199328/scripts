@@ -164,78 +164,19 @@
     </div>
   </div>
 
-  <script>
-    window.GAME_CONFIG  = {};
-    window.TILEMAP_DATA = {};
-    window.ENTITIES_DATA = [];
-
-    // Expose GameHUD API before game-logic.js loads
-    window.GameHUD = (function () {
-      let _startCallback = null;
-      let _started = false;
-      let _isPvP = false;
-
-      function showHud() {
-        document.getElementById('hud').style.display = 'flex';
-      }
-
-      // __hudStart must be before return to capture _startCallback and showHud from closure
-      window.__hudStart = function (isPvP = false) {
-        if (_started) return;
-        _started = true;
-        _isPvP = isPvP;
-        document.getElementById('start-screen').style.display = 'none';
-        showHud();
-        if (_startCallback) _startCallback(isPvP);
-      };
-
-      return {
-    setObjective(text) {
-      const el = document.getElementById('hud-objective-text');
-      if (el) el.textContent = text;
-    },
-
-        onStart(cb) {
-          _startCallback = cb;
-          if (_started) {
-            cb(_isPvP);
-          }
-        },
-
-        showGameOver(win, message) {
-          const overlay = document.getElementById('gameover-screen');
-          const title   = document.getElementById('gameover-title');
-          const msg     = document.getElementById('gameover-message');
-          if (title) title.textContent = win ? '🎉 YOU WIN' : 'GAME OVER';
-          if (msg)   msg.textContent   = message ?? '';
-          if (overlay) overlay.style.display = 'flex';
-          document.getElementById('hud').style.display = 'none';
-        },
-      };
-    })();
-
-    // Wire gameover title colour after DOM is ready
-    const _origShowGameOver = window.GameHUD.showGameOver.bind(window.GameHUD);
-    window.GameHUD.showGameOver = function(win, message) {
-      _origShowGameOver(win, message);
-      const title = document.getElementById('gameover-title');
-      if (title) {
-        title.className = win ? 'win' : 'lose';
-        if (!win) title.textContent = 'GAME OVER';
-      }
-    };
-
-    // Headless autostart trigger for gameplay screenshot capture
-    if (window.location.search.includes('autostart')) {
-      setTimeout(() => {
-        if (window.__hudStart) {
-          const isPvP = window.location.search.includes('pvp');
-          window.__hudStart(isPvP);
-        }
-      }, 300);
-    }
-  </script>
-  <script src="game/game-logic.js"></script>
+  <!-- 共享引擎层（本作为格斗，自绘血条，不用 ♥ HUD；仅用 onStart/setObjective/showGameOver） -->
+  <script src="../_engine/hud.js"></script>
+  <!-- 数据：config(空全局) 先于 data -->
+  <script src="game/config.js"></script>
+  <script src="game/data.js"></script>
+  <!-- 场景核心 + 系统模块(原型分割) -->
+  <script src="game/scenes/ShadowArenaScene.js"></script>
+  <script src="game/systems/select.js"></script>
+  <script src="game/systems/fight.js"></script>
+  <script src="game/systems/combat.js"></script>
+  <script src="game/systems/loop.js"></script>
+  <!-- Phaser 装配 -->
+  <script src="game/main.js"></script>
   <script>
     /* Fit the whole stage (canvas + HUD overlays) to the viewport so everything
        scales as one piece — keeps HUD proportions correct at any screen size. */
