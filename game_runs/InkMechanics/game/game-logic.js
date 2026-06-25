@@ -43,44 +43,53 @@ const MAX_SPEED = 1400;
 const SETTLE_SPEED = 26;     // 视为停下的速度
 const MIN_PT_GAP = 9;        // 画线采点最小间距
 
-// 关卡：source 龙头 / well 墨井[x,y,r] / ink 墨量预算 / walls 实心矩形 / spikes 尖刺[x,baseY,w]
-// 所有关「从龙头正下方起一条下行斜坡即可解」；尖刺/墙体逼线条避让，墨量逼线条精简。
+// 关卡：source 龙头 / well 墨井[x,y,r] / ink 墨量预算 / walls 实心矩形(会反弹) /
+//       spikes 尖刺[x,baseY,w] / noDraw 禁画区[x,y,w,h](不可落笔) / levers 旋转杠杆[px,py,len,角速度rad/s,初相]
+// 设计原则：除教学关外，「龙头→井」的直线都被禁画区/屋檐封死——逼墨线绕成不同形状。
+// 引擎切向阻尼较大(TANGENT_KEEP)，墨滴爬不了坡，故所有解都是下行路由谜题 + 墨量经济。
 const FLOOR_Y = 500;
 const LEVELS = [
-  { name: '直坡引流', source: [120, 70], well: [820, 470, 30], ink: 1000,
+  { name: '直坡引流', source: [120, 70], well: [820, 470, 30], ink: 1100,
     walls: [[0, FLOOR_Y, 960, 40]],
-    spikes: [],
+    spikes: [], noDraw: [], levers: [],
     intro: ['第一关 · 直坡引流',
       '一滴墨水悬在龙头下，右下角是空着的墨井。\n按住鼠标拖一条墨线——它会变成真实的斜坡。\n画一道下行的坡，让重力把墨水送进井里。\n空格 / 点「放水」释放，R 重置，C 清空墨线。'] },
-  { name: '越壑架桥', source: [120, 70], well: [840, 470, 30], ink: 1100,
-    walls: [[0, FLOOR_Y, 380, 40], [600, FLOOR_Y, 360, 40]],
-    spikes: [[420, FLOOR_Y, 36], [480, FLOOR_Y, 36], [540, FLOOR_Y, 36]],
-    intro: ['第二关 · 越壑架桥',
-      '地面裂开一道布满尖刺的沟壑。\n你的墨线既是斜坡，也是桥——\n让墨水从坡上一路滑过沟壑，落进对岸的井。'] },
-  { name: '避刺引流', source: [110, 70], well: [850, 470, 28], ink: 1050,
+  { name: '禁画绕行', source: [120, 70], well: [820, 468, 28], ink: 1100,
     walls: [[0, FLOOR_Y, 960, 40]],
-    spikes: [[300, FLOOR_Y, 34], [380, FLOOR_Y, 34], [460, FLOOR_Y, 34], [540, FLOOR_Y, 34], [620, FLOOR_Y, 34]],
-    intro: ['第三关 · 避刺引流',
-      '地面长出一排尖刺，贴地的线会被扎破。\n把斜坡抬高一些，让墨水悬在尖刺之上滑行，\n再俯冲进尽头的墨井。'] },
-  { name: '穿檐窄井', source: [120, 70], well: [820, 470, 26], ink: 1100,
-    walls: [[0, FLOOR_Y, 960, 40], [430, 150, 320, 30]],
-    spikes: [[760, FLOOR_Y, 34]],
-    intro: ['第四关 · 穿檐窄井',
-      '半空横着一道屋檐，墨井就在它另一侧。\n墨线要从檐下穿过，又不能太低撞上井边尖刺——\n在夹缝里画出恰好的弧。'] },
-  { name: '综合 · 终', source: [110, 70], well: [850, 470, 26], ink: 1150,
-    walls: [[0, FLOOR_Y, 320, 40], [560, FLOOR_Y, 400, 40], [380, 170, 240, 28]],
-    spikes: [[360, FLOOR_Y, 34], [420, FLOOR_Y, 34], [480, FLOOR_Y, 34], [690, FLOOR_Y, 34]],
+    spikes: [], levers: [],
+    noDraw: [[280, 150, 380, 130]],
+    intro: ['第二关 · 禁画绕行',
+      '直直一条线本能送到井——可惜半路罩着一片禁画区，\n笔尖进不去那块阴影。\n先向左下把线探到禁区之下，再一路斜着滑进井里。'] },
+  { name: '压顶避刺', source: [120, 70], well: [845, 468, 28], ink: 1100,
+    walls: [[0, FLOOR_Y, 960, 40]],
+    spikes: [[300, FLOOR_Y, 30], [370, FLOOR_Y, 30], [440, FLOOR_Y, 30], [510, FLOOR_Y, 30], [580, FLOOR_Y, 30], [650, FLOOR_Y, 30]],
+    levers: [],
+    noDraw: [[250, 140, 520, 150]],
+    intro: ['第三关 · 压顶避刺',
+      '上方一整片禁画顶棚把线死死压低，\n地面又长出一排刺尖，贴地的线会被扎破。\n在顶棚与刺尖之间那条窄廊里，画出恰好的下行线。'] },
+  { name: '夹层穿行', source: [120, 70], well: [825, 468, 26], ink: 1050,
+    walls: [[0, FLOOR_Y, 960, 40], [380, 150, 380, 30]],
+    spikes: [[300, FLOOR_Y, 30]],
+    levers: [],
+    noDraw: [[380, 360, 380, 140]],
+    intro: ['第四关 · 夹层穿行',
+      '半空横着一道实心屋檐，撞上会被弹开；\n檐下贴地一带又被划成禁画区。\n屋檐与禁区之间只剩一道斜窄缝——让墨线精准穿过它，再俯冲进井。'] },
+  { name: '综合 · 终', source: [120, 70], well: [850, 468, 26], ink: 1050,
+    walls: [[0, FLOOR_Y, 300, 40], [620, FLOOR_Y, 340, 40], [360, 170, 200, 26]],
+    spikes: [[360, FLOOR_Y, 30], [430, FLOOR_Y, 30], [500, FLOOR_Y, 30], [570, FLOOR_Y, 30]],
+    noDraw: [[300, 300, 320, 200]],
+    levers: [[460, 470, 52, 1.7, 0]],
     intro: ['第五关 · 综合 · 终',
-      '屋檐、沟壑、尖刺——整张蓝图的难关汇于一处。\n用一条尽量省墨的线，串起整段流程，\n把最后一滴墨水，稳稳送进井底。'] },
+      '尖刺沟壑、屋檐、禁画区齐聚，\n井前还有一根杠杆不停旋转，扫过低处的通路。\n走上方那条省墨的高线避开它，\n把最后一滴墨水，稳稳送进井底。'] },
 ];
 
-// 每关预设解线（仅 webdriver/自动试玩用：从龙头正下方一条下行斜坡到井口）
+// 每关预设解线（仅 webdriver/自动试玩用：已在离线物理 sim 中验证可通关的折线路由）
 const AUTO_SOLUTIONS = [
-  [[112, 115], [812, 463]],
-  [[112, 115], [832, 463]],
-  [[102, 115], [842, 463]],
-  [[112, 115], [812, 463]],
-  [[102, 115], [842, 463]],
+  [[60, 95], [805, 452]],
+  [[60, 100], [250, 330], [810, 452]],
+  [[60, 120], [250, 305], [680, 430], [845, 455]],
+  [[60, 120], [380, 210], [760, 330], [820, 452]],
+  [[60, 120], [300, 235], [560, 292], [620, 298], [850, 452]],
 ];
 
 class InkMechanicsScene extends Phaser.Scene {
@@ -111,6 +120,8 @@ class InkMechanicsScene extends Phaser.Scene {
     // 静态线段（墙/地板四边）+ 尖刺 + 井，按关装载
     this.segs = [];
     this.spikes = [];
+    this.noDraw = [];
+    this.levers = [];
     this.well = null;
     this.source = null;
     this.inkBudget = 1000;
@@ -148,6 +159,7 @@ class InkMechanicsScene extends Phaser.Scene {
     this.input.on('pointerdown', (p) => {
       if (this.cardActive) { this._advanceCard(); return; }
       if (!this._canDraw() || p.rightButtonDown()) return;
+      if (this._inNoDraw(p.x, p.y)) return;                 // 不能在禁画区起笔
       this.curStroke = { pts: [{ x: p.x, y: p.y }], len: 0 };
     });
     this.input.on('pointermove', (p) => {
@@ -155,6 +167,7 @@ class InkMechanicsScene extends Phaser.Scene {
       const last = this.curStroke.pts[this.curStroke.pts.length - 1];
       const d = Math.hypot(p.x - last.x, p.y - last.y);
       if (d < MIN_PT_GAP) return;
+      if (this._inNoDraw(p.x, p.y)) return;                 // 禁画区内，笔尖进不去
       if (this.inkUsed + d > this.inkBudget) return;       // 墨量耗尽，停止延伸
       this.curStroke.pts.push({ x: p.x, y: p.y });
       this.curStroke.len += d;
@@ -171,6 +184,20 @@ class InkMechanicsScene extends Phaser.Scene {
     return this.gameStarted && !this.gameOver && !this.cardActive && this.mode === 'draw' && !this._auto;
   }
 
+  _inNoDraw(x, y) {
+    for (const r of this.noDraw) if (x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h) return true;
+    return false;
+  }
+
+  // 旋转杠杆 → 当前时刻的线段（绕 pivot 旋转，复用 _collideSeg）
+  _leverSegs() {
+    return this.levers.map((lv) => {
+      const a = lv.ph + lv.av * this._t;
+      const dx = Math.cos(a) * lv.len, dy = Math.sin(a) * lv.len;
+      return { ax: lv.px - dx, ay: lv.py - dy, bx: lv.px + dx, by: lv.py + dy };
+    });
+  }
+
   _loadLevel(idx, showCard) {
     this.level = idx;
     const L = LEVELS[idx];
@@ -185,6 +212,8 @@ class InkMechanicsScene extends Phaser.Scene {
     this.segs = [];
     (L.walls || []).forEach(([x, y, w, h]) => this._rectSegs(x, y, w, h));
     this.spikes = (L.spikes || []).map(([x, by, w]) => ({ x, by, w }));
+    this.noDraw = (L.noDraw || []).map(([x, y, w, h]) => ({ x, y, w, h }));
+    this.levers = (L.levers || []).map(([px, py, len, av, ph]) => ({ px, py, len, av, ph: ph || 0 }));
     this.well = { x: L.well[0], y: L.well[1], r: L.well[2] };
     this.source = { x: L.source[0], y: L.source[1] };
 
@@ -246,6 +275,7 @@ class InkMechanicsScene extends Phaser.Scene {
   _step(dt) {
     const d = this.drop;
     const sdt = dt / SUBSTEPS;
+    const levers = this._leverSegs();
     for (let s = 0; s < SUBSTEPS; s++) {
       d.vy += G * sdt;
       const sp = Math.hypot(d.vx, d.vy);
@@ -253,8 +283,9 @@ class InkMechanicsScene extends Phaser.Scene {
       d.x += d.vx * sdt;
       d.y += d.vy * sdt;
 
-      // 碰撞：静态线段 + 当前墨线段
+      // 碰撞：静态线段 + 旋转杠杆 + 当前墨线段
       this._collideSegs(d, this.segs);
+      this._collideSegs(d, levers);
       for (const st of this.strokes) this._collideStroke(d, st);
     }
 
@@ -375,12 +406,19 @@ class InkMechanicsScene extends Phaser.Scene {
       const sol = AUTO_SOLUTIONS[this.level] || AUTO_SOLUTIONS[0];
       this._autoTimer -= dt;
       if (this._autoTimer <= 0) {
+        // 沿折线每段细分采点（不再只连首尾），让多点解线真正成形
         this.strokes = [];
         const pts = [];
-        const [a, b] = [sol[0], sol[sol.length - 1]];
-        const n = 24;
-        for (let i = 0; i <= n; i++) { const f = i / n; pts.push({ x: a[0] + (b[0] - a[0]) * f, y: a[1] + (b[1] - a[1]) * f }); }
-        this.strokes.push({ pts, len: Math.hypot(b[0] - a[0], b[1] - a[1]) });
+        let len = 0;
+        const seg = 24;
+        for (let k = 0; k < sol.length - 1; k++) {
+          const a = sol[k], b = sol[k + 1];
+          len += Math.hypot(b[0] - a[0], b[1] - a[1]);
+          for (let i = 0; i < seg; i++) { const f = i / seg; pts.push({ x: a[0] + (b[0] - a[0]) * f, y: a[1] + (b[1] - a[1]) * f }); }
+        }
+        const last = sol[sol.length - 1];
+        pts.push({ x: last[0], y: last[1] });
+        this.strokes.push({ pts, len });
         this._release();
         this._autoState = 'run';
       }
@@ -391,8 +429,21 @@ class InkMechanicsScene extends Phaser.Scene {
     const g = this.gfx;
     g.clear();
 
-    // 墙体（实心墨块）
     const L = LEVELS[this.level];
+
+    // 禁画区（红色斜纹阴影 + 虚框，标明笔尖进不去）
+    for (const r of this.noDraw) {
+      g.fillStyle(SPIKE_C, 0.07).fillRect(r.x, r.y, r.w, r.h);
+      g.lineStyle(1, SPIKE_C, 0.5);
+      for (let x = r.x - r.h; x < r.x + r.w; x += 14) {
+        const x0 = Math.max(r.x, x), y0 = r.y + (x0 - x);
+        const x1 = Math.min(r.x + r.w, x + r.h), y1 = r.y + (x1 - x);
+        if (y0 <= r.y + r.h && y1 >= r.y) { g.beginPath(); g.moveTo(x0, y0); g.lineTo(x1, y1); g.strokePath(); }
+      }
+      g.lineStyle(1.5, SPIKE_C, 0.55); this._dashRect(g, r.x, r.y, r.w, r.h);
+    }
+
+    // 墙体（实心墨块）
     for (const [x, y, w, h] of (L.walls || [])) {
       g.fillStyle(LINE, 0.16).fillRect(x, y, w, h);
       g.lineStyle(2.5, INK, 0.85).strokeRect(x, y, w, h);
@@ -405,6 +456,15 @@ class InkMechanicsScene extends Phaser.Scene {
       g.beginPath();
       g.moveTo(sp.x - sp.w / 2, sp.by); g.lineTo(sp.x, apexY); g.lineTo(sp.x + sp.w / 2, sp.by); g.closePath();
       g.fillPath(); g.strokePath();
+    }
+
+    // 旋转杠杆（绕轴旋转的实心墨杆 + 轴心）
+    for (const sg of this._leverSegs()) {
+      g.lineStyle(7, LINE, 0.25); g.beginPath(); g.moveTo(sg.ax, sg.ay); g.lineTo(sg.bx, sg.by); g.strokePath();
+      g.lineStyle(4, INK, 0.9); g.beginPath(); g.moveTo(sg.ax, sg.ay); g.lineTo(sg.bx, sg.by); g.strokePath();
+      const cx = (sg.ax + sg.bx) / 2, cy = (sg.ay + sg.by) / 2;
+      g.fillStyle(PAPER, 1).fillCircle(cx, cy, 6); g.lineStyle(2.5, INK, 0.95).strokeCircle(cx, cy, 6);
+      g.fillStyle(INK, 0.9).fillCircle(cx, cy, 2.5);
     }
 
     // 墨井
@@ -449,6 +509,17 @@ class InkMechanicsScene extends Phaser.Scene {
     g.lineStyle(1.5, INK, 0.7).strokeRect(bx, by, bw, 10);
     const frac = Phaser.Math.Clamp(1 - this.inkUsed / this.inkBudget, 0, 1);
     g.fillStyle(frac > 0.25 ? WATER : SPIKE_C, 0.9).fillRect(bx + 1, by + 1, (bw - 2) * frac, 8);
+  }
+
+  _dashRect(g, x, y, w, h, dash = 7, gap = 5) {
+    const edges = [[x, y, x + w, y], [x + w, y, x + w, y + h], [x + w, y + h, x, y + h], [x, y + h, x, y]];
+    for (const [ax, ay, bx, by] of edges) {
+      const len = Math.hypot(bx - ax, by - ay), ux = (bx - ax) / len, uy = (by - ay) / len;
+      for (let s = 0; s < len; s += dash + gap) {
+        const e = Math.min(s + dash, len);
+        g.beginPath(); g.moveTo(ax + ux * s, ay + uy * s); g.lineTo(ax + ux * e, ay + uy * e); g.strokePath();
+      }
+    }
   }
 
   _ellipsePts(cx, cy, rx, ry, ang, n = 20) {
