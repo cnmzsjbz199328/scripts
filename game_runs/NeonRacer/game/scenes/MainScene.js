@@ -1,15 +1,9 @@
-const DEPTH = {
-  GROUND: 0,
-  DECOR_FLOOR: 100,
-  YSORT: 1000,
-  DECOR_TOP: 9000,
-  EFFECTS: 9500
-};
-
+/* NeonRacer — 由单体 game-logic.js 机械原型分割而来；方法体逐字保留(MIGRATION.md §4B)。 */
 class MainScene extends Phaser.Scene {
   constructor() {
     super('MainScene');
   }
+
 
   preload() {
     // 1. Load tiles dynamically from tileIndex
@@ -49,6 +43,7 @@ class MainScene extends Phaser.Scene {
       frameHeight: 64
     });
   }
+
 
   create() {
     this.DEPTH = DEPTH;
@@ -232,54 +227,6 @@ class MainScene extends Phaser.Scene {
     };
   }
 
-  renderTileLayer(layerName, layerConfig) {
-    const data = TILEMAP_DATA.layers[layerName];
-    if (!data) return;
-
-    const width = TILEMAP_DATA.width;
-    const height = TILEMAP_DATA.height;
-    
-    for (let r = 0; r < height; r++) {
-      for (let c = 0; c < width; c++) {
-        const id = data[r * width + c];
-        if (id === 0) continue; // 0 means empty
-
-        const tileName = TILEMAP_DATA.tileIndex[id];
-        if (!tileName) continue;
-
-        const x = c * this.tileW + this.tileW / 2;
-        const y = r * this.tileH + this.tileH / 2;
-
-        const tileSprite = this.add.sprite(x, y, `tile_${tileName}`);
-        tileSprite.setDisplaySize(this.tileW, this.tileH);
-
-        // Determine base depth
-        let baseDepth = DEPTH.GROUND;
-        if (layerName === 'decor_floor') baseDepth = DEPTH.DECOR_FLOOR;
-        else if (layerName === 'objects') baseDepth = DEPTH.YSORT;
-        else if (layerName === 'decor_top') baseDepth = DEPTH.DECOR_TOP;
-
-        // Apply Y-sort if ysort is enabled
-        if (layerConfig.ysort) {
-          tileSprite.setDepth(baseDepth + y);
-          this.ysortGroup.add(tileSprite);
-        } else {
-          tileSprite.setDepth(baseDepth);
-        }
-
-        // Apply static physics collision if collision is enabled
-        if (layerConfig.collision) {
-          this.physics.add.existing(tileSprite, true);
-          this.obstaclesGroup.add(tileSprite);
-        }
-
-        // Keep reference
-        if (layerName === 'ground') {
-          this.tileSprites[r * width + c] = tileSprite;
-        }
-      }
-    }
-  }
 
   update(time, delta) {
     if (!this.gameStarted) return;
@@ -404,212 +351,4 @@ class MainScene extends Phaser.Scene {
     // Cleanup offscreen objects to free memory
     this.cleanupOffscreenObjects();
   }
-
-  spawnWave(spawnY) {
-    // Road lanes: x coordinates centered around road columns 4-10
-    const lanes = [288, 352, 416, 480, 544, 608, 672];
-    Phaser.Utils.Array.Shuffle(lanes);
-
-    // Spawn 1-2 roadblock obstacles
-    const roadblockCount = Phaser.Math.Between(1, 2);
-    for (let i = 0; i < roadblockCount; i++) {
-      const laneX = lanes.pop();
-      const roadblock = this.roadblocks.create(laneX, spawnY + Phaser.Math.Between(-40, 40), 'roadblock_sheet');
-      roadblock.setDisplaySize(54, 54);
-      roadblock.body.setSize(40, 40);
-      roadblock.play('roadblock_flash');
-      roadblock.setDepth(DEPTH.YSORT + roadblock.y);
-      this.ysortGroup.add(roadblock);
-    }
-
-    // Spawn 1-2 batteries
-    const batteryCount = Phaser.Math.Between(1, 2);
-    for (let i = 0; i < batteryCount; i++) {
-      const laneX = lanes.pop();
-      const battery = this.batteries.create(laneX, spawnY + Phaser.Math.Between(-50, 50), 'battery_sheet');
-      battery.setDisplaySize(44, 44);
-      battery.body.setSize(32, 32);
-      battery.play('battery_sparkle');
-      battery.setDepth(DEPTH.YSORT + battery.y);
-      this.ysortGroup.add(battery);
-
-      // Pulsating scale tween to represent neon pulsating glow
-      this.tweens.add({
-        targets: battery,
-        scaleX: battery.scaleX * 1.3,
-        scaleY: battery.scaleY * 1.3,
-        duration: 450,
-        yoyo: true,
-        repeat: -1
-      });
-    }
-
-    // Spawn floating neon signs/hologram billboards in the side gutters
-    if (Phaser.Math.Between(1, 10) <= 6) {
-      const isLeft = Phaser.Math.Between(0, 1) === 0;
-      const x = isLeft ? Phaser.Math.Between(40, 160) : Phaser.Math.Between(800, 920);
-      const isBillboard = Phaser.Math.Between(1, 2) === 1;
-
-      if (isBillboard) {
-        const billboard = this.decors.create(x, spawnY, 'billboard');
-        billboard.setDisplaySize(110, 55);
-        billboard.play('billboard_blink');
-        billboard.setDepth(DEPTH.DECOR_FLOOR + billboard.y);
-      } else {
-        const signs = ['NEON', 'SPEED', '2099', 'TOKYO', 'PHANTOM', '⚡', '🤖', '🍒', '🔋', 'BOOST'];
-        const word = Phaser.Utils.Array.GetRandom(signs);
-        const colors = ['#f43f5e', '#06b6d4', '#eab308', '#a855f7', '#10b981'];
-        const color = Phaser.Utils.Array.GetRandom(colors);
-        const txt = this.add.text(x, spawnY, word, {
-          font: 'bold 20px Courier',
-          fill: color,
-          stroke: '#ffffff',
-          strokeThickness: 2
-        }).setOrigin(0.5);
-        // Give text a subtle glow shadow
-        txt.setShadow(0, 0, color, 12, true, true);
-        txt.setDepth(DEPTH.DECOR_FLOOR + txt.y);
-        this.decors.add(txt);
-      }
-    }
-  }
-
-  collectBattery(player, battery) {
-    this.spawnBurst(battery.x, battery.y, 0x10b981, 10, 50);
-    battery.destroy();
-    
-    // Increase speed/score
-    this.score += 20;
-    window.GameHUD?.setScore(this.score);
-    this.spawnFloatingText(battery.x, battery.y, '+20 速度 ⚡', '#10b981');
-    
-    // Spawn sparkle effect
-    this.spawnFloatingItem(battery.x, battery.y, '✨', '#10b981');
-  }
-
-  hitRoadblock(player, roadblock) {
-    roadblock.destroy();
-    
-    this.hearts--;
-    window.GameHUD?.setHearts(this.hearts, 3);
-    this.cameras.main.shake(150, 0.015);
-    this.spawnFloatingText(roadblock.x, roadblock.y, '-1 护盾 💥', '#ef4444');
-    
-    // Flashing visual red tint feedback
-    this.player.setTint(0xff3333);
-    this.time.delayedCall(300, () => {
-      this.player.clearTint();
-    });
-
-    if (this.hearts <= 0) {
-      this.triggerGameOver(false, '护盾完全破损！赛车在巨大的冲击下熄火损毁。');
-    }
-  }
-
-  cleanupOffscreenObjects() {
-    // Destroy obstacles/batteries/decors that the player has completely passed
-    const limitY = this.player.y + 400;
-    this.batteries.getChildren().forEach(b => {
-      if (b.y > limitY) b.destroy();
-    });
-    this.roadblocks.getChildren().forEach(r => {
-      if (r.y > limitY) r.destroy();
-    });
-    this.decors.getChildren().forEach(d => {
-      if (d.y > limitY) d.destroy();
-    });
-  }
-
-  spawnFloatingText(x, y, textString, color) {
-    const text = this.add.text(x, y - 10, textString, {
-      font: 'bold 12px monospace',
-      fill: color,
-      stroke: '#000000',
-      strokeThickness: 3
-    }).setOrigin(0.5);
-    text.setDepth(DEPTH.EFFECTS);
-    
-    this.tweens.add({
-      targets: text,
-      y: y - 45,
-      alpha: 0,
-      duration: 1000,
-      onComplete: () => text.destroy()
-    });
-  }
-
-  // Code-drawn particle burst (no asset dependency) for trails, sparks, pickups.
-  spawnBurst(x, y, color, count = 8, spread = 60) {
-    for (let i = 0; i < count; i++) {
-      const angle = Phaser.Math.FloatBetween(0, Math.PI * 2);
-      const dist = Phaser.Math.FloatBetween(spread * 0.3, spread);
-      const p = this.add.circle(x, y, Phaser.Math.Between(2, 5), color, 0.9);
-      p.setDepth(DEPTH.EFFECTS);
-      this.tweens.add({
-        targets: p,
-        x: x + Math.cos(angle) * dist,
-        y: y + Math.sin(angle) * dist,
-        alpha: 0,
-        scale: 0.2,
-        duration: Phaser.Math.Between(300, 500),
-        ease: 'Quad.easeOut',
-        onComplete: () => p.destroy()
-      });
-    }
-  }
-
-  spawnFloatingItem(x, y, iconStr, color) {
-    const itemText = this.add.text(x, y, iconStr, { font: '24px Arial' }).setOrigin(0.5);
-    itemText.setDepth(DEPTH.YSORT + y);
-    
-    this.tweens.add({
-      targets: itemText,
-      y: y - 50,
-      alpha: 0,
-      scaleX: 1.6,
-      scaleY: 1.6,
-      duration: 1200,
-      ease: 'Cubic.easeOut',
-      onComplete: () => itemText.destroy()
-    });
-  }
-
-  triggerGameOver(isWin, endingText) {
-    if (this.victoryShown || this.defeatShown) return;
-    if (isWin) this._won = true; else this._lost = true;
-    if (isWin) {
-      this.victoryShown = true;
-    } else {
-      this.defeatShown = true;
-    }
-
-    this.physics.pause();
-    this.player.setVelocity(0, 0);
-    this.player.anims.stop();
-
-    if (!isWin) {
-      this.player.play('crash');
-    }
-
-    // Call GameHUDGameOver Integration
-    window.GameHUD?.showGameOver(isWin, endingText);
-    this.gameStarted = false;
-  }
 }
-
-const config = {
-  type: Phaser.AUTO,
-  width: 960,
-  height: 600,
-  parent: 'game-container',
-  physics: {
-    default: 'arcade',
-    arcade: {
-      gravity: { y: 0 },
-      debug: false
-    }
-  },
-  scene: MainScene
-};
-
-new Phaser.Game(config);
