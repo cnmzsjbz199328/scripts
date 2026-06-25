@@ -166,101 +166,30 @@
   </div>
 
   <script>
+    // 关卡脚手架数据（保留：供 _build.js / 未来 fetch 用，schema 见 levels.js / MIGRATION.md）
     window.GAME_CONFIG  = {
-  "map": { "width": 960, "height": 540, "tileWidth": 64, "tileHeight": 64 },
-  "player": { "spawn": { "x": 90, "y": 270 }, "speed": 0 },
-  "renderMode": "procedural-lineart",
-  "engine": "phaser-matter",
-  "note": "Side-view gravity ink-routing puzzle (custom verlet sim, not Matter bodies). Mouse-drag to draw ink lines that become solid slopes/rails; gravity pulls an ink droplet down the routes into an ink-well goal while avoiding spikes, no-draw zones and rotating levers. Space/J release, R reset droplet, C clear lines. 5 levels, procedural lineart blueprint render."
-};
-    window.TILEMAP_DATA = {
-  "width": 15,
-  "height": 9,
-  "tileWidth": 64,
-  "tileHeight": 64,
-  "tileIndex": {},
-  "layers": { "obstacles": [] }
-};
-    window.ENTITIES_DATA = [];
-
-    // Expose GameHUD API before game-logic.js loads
-    window.GameHUD = (function () {
-      let _startCallback = null;
-      let _started = false;
-      let _isPvP = false;
-
-      function showHud() {
-        document.getElementById('hud').style.display = 'flex';
-      }
-
-      // __hudStart must be before return to capture _startCallback and showHud from closure
-      window.__hudStart = function (isPvP = false) {
-        if (_started) return;
-        _started = true;
-        _isPvP = isPvP;
-        document.getElementById('start-screen').style.display = 'none';
-        showHud();
-        if (_startCallback) _startCallback(isPvP);
-      };
-
-      return {
-        setHearts(current, maxHp) {
-          const el = document.getElementById('hud-hearts');
-          if (!el) return;
-          const filled = Math.max(0, Math.min(current, maxHp ?? 4));
-          const empty  = (maxHp ?? 4) - filled;
-          el.textContent = '◆'.repeat(filled) + '◇'.repeat(empty);
-        },
-        setScore(value) {
-          const el = document.getElementById('hud-score-value');
-          if (el) el.textContent = value;
-        },
-        setObjective(text) {
-          const el = document.getElementById('hud-objective-text');
-          if (el) el.textContent = text;
-        },
-
-        onStart(cb) {
-          _startCallback = cb;
-          if (_started) {
-            cb(_isPvP);
-          }
-        },
-
-        showGameOver(win, message) {
-          const overlay = document.getElementById('gameover-screen');
-          const title   = document.getElementById('gameover-title');
-          const msg     = document.getElementById('gameover-message');
-          if (title) title.textContent = win ? '🎉 YOU WIN' : 'GAME OVER';
-          if (msg)   msg.textContent   = message ?? '';
-          if (overlay) overlay.style.display = 'flex';
-          document.getElementById('hud').style.display = 'none';
-        },
-      };
-    })();
-
-    // Wire gameover title colour after DOM is ready
-    const _origShowGameOver = window.GameHUD.showGameOver.bind(window.GameHUD);
-    window.GameHUD.showGameOver = function(win, message) {
-      _origShowGameOver(win, message);
-      const title = document.getElementById('gameover-title');
-      if (title) {
-        title.className = win ? 'win' : 'lose';
-        if (!win) title.textContent = 'GAME OVER';
-      }
+      "map": { "width": 960, "height": 540, "tileWidth": 64, "tileHeight": 64 },
+      "player": { "spawn": { "x": 90, "y": 270 }, "speed": 0 },
+      "renderMode": "procedural-lineart",
+      "engine": "phaser-custom-verlet",
+      "note": "Side-view gravity ink-routing puzzle. Mouse-drag to draw ink lines that become solid slopes; gravity pulls a droplet into an ink-well goal, avoiding spikes / no-draw zones / rotating levers. 5 levels, level-select + star scoring, procedural lineart."
     };
-
-    // Headless autostart trigger for gameplay screenshot capture
-    if (window.location.search.includes('autostart')) {
-      setTimeout(() => {
-        if (window.__hudStart) {
-          const isPvP = window.location.search.includes('pvp');
-          window.__hudStart(isPvP);
-        }
-      }, 300);
-    }
+    window.TILEMAP_DATA = { "width": 15, "height": 9, "tileWidth": 64, "tileHeight": 64, "tileIndex": {}, "layers": { "obstacles": [] } };
+    window.ENTITIES_DATA = [];
   </script>
-  <script src="game/game-logic.js"></script>
+
+  <!-- ── 共享引擎层（game_runs/_engine：22 游戏共用同一份，改一次全受益）── -->
+  <script src="../_engine/audio.js"></script>
+  <script src="../_engine/hud.js"></script>
+
+  <!-- ── 本游戏：数据 → 系统 → 场景 → 装配（按依赖顺序）── -->
+  <script src="game/config.js"></script>
+  <script src="game/levels.js"></script>
+  <script src="game/physics.js"></script>
+  <script src="game/render.js"></script>
+  <script src="game/scenes/BootScene.js"></script>
+  <script src="game/scenes/LevelScene.js"></script>
+  <script src="game/main.js"></script>
   <script>
     /* Fit the whole stage (canvas + HUD overlays) to the viewport so everything
        scales as one piece — keeps HUD proportions correct at any screen size. */
