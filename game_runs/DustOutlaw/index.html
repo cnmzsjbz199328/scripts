@@ -167,93 +167,22 @@
   </div>
 
   <script>
-    window.GAME_CONFIG  = {
-  "map": { "width": 1280, "height": 1280, "tileWidth": 64, "tileHeight": 64 },
-  "player": { "spawn": { "x": 640, "y": 640 }, "speed": 200 },
-  "renderMode": "procedural-western",
-  "note": "Top-down arena shooter. scene/panorama.png is the ground map; player/enemies/bullets/cover drawn procedurally. No external tile/sprite assets."
-};
-    window.TILEMAP_DATA = {"width":20,"height":20,"tileWidth":64,"tileHeight":64,"tileIndex":{"1":"crate"},"layers":{"obstacles":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]}};
-    window.ENTITIES_DATA = [];
-
-    // Expose GameHUD API before game-logic.js loads
-    window.GameHUD = (function () {
-      let _startCallback = null;
-      let _started = false;
-      let _isPvP = false;
-
-      function showHud() {
-        document.getElementById('hud').style.display = 'flex';
-      }
-
-      // __hudStart must be before return to capture _startCallback and showHud from closure
-      window.__hudStart = function (isPvP = false) {
-        if (_started) return;
-        _started = true;
-        _isPvP = isPvP;
-        document.getElementById('start-screen').style.display = 'none';
-        showHud();
-        if (_startCallback) _startCallback(isPvP);
-      };
-
-      return {
-    setHearts(current, maxHp) {
-      const el = document.getElementById('hud-hearts');
-      if (!el) return;
-      const filled = Math.max(0, Math.min(current, maxHp ?? 4));
-      const empty  = (maxHp ?? 4) - filled;
-      el.textContent = '♥'.repeat(filled) + '♡'.repeat(empty);
-    },
-    setScore(value) {
-      const el = document.getElementById('hud-score-value');
-      if (el) el.textContent = value;
-    },
-    setObjective(text) {
-      const el = document.getElementById('hud-objective-text');
-      if (el) el.textContent = text;
-    },
-
-        onStart(cb) {
-          _startCallback = cb;
-          if (_started) {
-            cb(_isPvP);
-          }
-        },
-
-        showGameOver(win, message) {
-          const overlay = document.getElementById('gameover-screen');
-          const title   = document.getElementById('gameover-title');
-          const msg     = document.getElementById('gameover-message');
-          if (title) title.textContent = win ? '🎉 YOU WIN' : 'GAME OVER';
-          if (msg)   msg.textContent   = message ?? '';
-          if (overlay) overlay.style.display = 'flex';
-          document.getElementById('hud').style.display = 'none';
-        },
-      };
-    })();
-
-    // Wire gameover title colour after DOM is ready
-    const _origShowGameOver = window.GameHUD.showGameOver.bind(window.GameHUD);
-    window.GameHUD.showGameOver = function(win, message) {
-      _origShowGameOver(win, message);
-      const title = document.getElementById('gameover-title');
-      if (title) {
-        title.className = win ? 'win' : 'lose';
-        if (!win) title.textContent = 'GAME OVER';
-      }
-    };
-
-    // Headless autostart trigger for gameplay screenshot capture
-    if (window.location.search.includes('autostart')) {
-      setTimeout(() => {
-        if (window.__hudStart) {
-          const isPvP = window.location.search.includes('pvp');
-          window.__hudStart(isPvP);
-        }
-      }, 300);
-    }
+    // DustOutlaw 有死亡预算(心数)，沿用 ♥/♡ 字形。
+    window.GAME_HUD_GLYPHS = { full: '♥', empty: '♡' };
   </script>
-  <script src="game/game-logic.js"></script>
+  <!-- 共享引擎层 -->
+  <script src="../_engine/hud.js"></script>
+  <!-- 数据：config 先于 data(data.js 顶层引用 TILEMAP_DATA 时序保险) -->
+  <script src="game/config.js"></script>
+  <script src="game/data.js"></script>
+  <!-- 场景核心 + 系统模块(原型分割) -->
+  <script src="game/scenes/DustOutlawScene.js"></script>
+  <script src="game/systems/world.js"></script>
+  <script src="game/systems/spawn.js"></script>
+  <script src="game/systems/combat.js"></script>
+  <script src="game/systems/flow.js"></script>
+  <!-- Phaser 装配 -->
+  <script src="game/main.js"></script>
   <script>
     /* Fit the whole stage (canvas + HUD overlays) to the viewport so everything
        scales as one piece — keeps HUD proportions correct at any screen size. */
