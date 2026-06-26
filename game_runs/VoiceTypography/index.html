@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>声纹文字 · Voice Kinetic Typography</title>
+<style>
+  :root{
+    --bg:#0b0f19;
+    --base:#f1f5f9;
+    --hot:#ff4d6d;
+    --glow:#fbbf24;
+    --faded:#64748b;
+    --panel:rgba(8,12,24,0.88);
+    --border:#334155;
+    --card:rgba(15,23,42,0.95);
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  html,body{
+    width:100%; height:100%;
+    background:var(--bg); overflow:hidden;
+    font-family:'Segoe UI',monospace;
+    color:var(--base);
+  }
+  #stage{ position:fixed; inset:0; display:block; touch-action:none; }
+
+  .controls{
+    position:fixed; top:0; left:0; right:0;
+    display:flex; align-items:center; gap:14px;
+    padding:10px 16px;
+    background:var(--panel);
+    backdrop-filter:blur(10px);
+    border-bottom:1px solid var(--border);
+    font-size:13px;
+    z-index:10;
+    flex-wrap:wrap;
+  }
+  .controls label{
+    display:flex; align-items:center; gap:6px;
+    color:#94a3b8;
+    letter-spacing:0.02em;
+  }
+  select, button{
+    background:var(--card);
+    color:var(--base);
+    border:1px solid var(--border);
+    border-radius:6px;
+    padding:6px 10px;
+    font-size:13px;
+    cursor:pointer;
+    font-family:inherit;
+    transition:background 0.15s, box-shadow 0.15s;
+  }
+  select:hover, button:hover{
+    background:rgba(37,99,235,0.18);
+    border-color:#3b82f6;
+  }
+  select:focus-visible, button:focus-visible, input:focus-visible{
+    outline:2px solid #3b82f6; outline-offset:2px;
+  }
+
+  #toggleBtn{
+    font-weight:700; letter-spacing:0.08em;
+    background:rgba(37,99,235,0.15);
+    border-color:rgba(59,130,246,0.5);
+    color:#93c5fd;
+  }
+  #toggleBtn.on{
+    background:#dc2626;
+    border-color:#ef4444;
+    color:#fff;
+    box-shadow:0 0 10px rgba(220,38,38,0.4);
+  }
+  #toggleBtn:hover{
+    background:rgba(37,99,235,0.3);
+    border-color:#3b82f6;
+  }
+  #toggleBtn.on:hover{
+    background:#ef4444;
+  }
+
+  input[type=range]{
+    width:90px; accent-color:#3b82f6;
+  }
+
+  .status{
+    margin-left:auto;
+    display:flex; align-items:center; gap:8px;
+    color:#94a3b8;
+    font-size:12.5px;
+    white-space:nowrap;
+  }
+  .dot{
+    width:8px; height:8px; border-radius:50%;
+    background:var(--faded);
+    transition:background .2s;
+  }
+  .dot.live{
+    background:var(--hot);
+    box-shadow:0 0 8px 2px rgba(255,77,109,0.7);
+    animation:blink 1.1s ease-in-out infinite;
+  }
+  @keyframes blink{ 0%,100%{opacity:1;} 50%{opacity:0.35;} }
+
+  .hint{
+    position:fixed; bottom:10px; left:0; right:0;
+    text-align:center;
+    font-size:11px;
+    color:#475569;
+    z-index:10;
+    padding:0 16px;
+    pointer-events:none;
+    letter-spacing:0.02em;
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    .dot.live{ animation:none; }
+  }
+</style>
+</head>
+<body>
+
+<canvas id="stage"></canvas>
+
+<div class="controls">
+  <label>语言
+    <select id="langSel">
+      <option value="zh-CN">中文</option>
+      <option value="en-US">English</option>
+    </select>
+  </label>
+
+  <button id="orientBtn" type="button">横版 →</button>
+
+  <label>灵敏度
+    <input id="sensRange" type="range" min="0.5" max="2.5" step="0.1" value="1.2">
+  </label>
+
+  <button id="toggleBtn" type="button">开始</button>
+
+  <div class="status" aria-live="polite">
+    <span class="dot" id="statusDot"></span>
+    <span id="statusText">待机</span>
+  </div>
+</div>
+
+<div class="hint">排版与动效完全离线渲染；语音识别调用浏览器内置 API（Chrome 效果最佳），识别本身需要联网。</div>
+
+<script>
+(function(){
+  "use strict";
+
+  // ---------- utils ----------
+  const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+  const lerp=(a,b,t)=>a+(b-a)*t;
+  function hexToRgb(hex){
+    const h=hex.replace('#','');
+    return [parseInt(h.substring(0,2),16),parseInt(h.substring(2,4),16),parseInt(h.substring(4,6),16)];
+  }
+  function lerpColor(hexA,hexB,t){
+    t=clamp(t,0,1);
+    const a=hexToRgb(hexA), b=hexToRgb(hexB);
+    return `rgb(${Math.round(lerp(a[0],b[0],t))},${Math.round(lerp(a[1],b[1],t))},${Math.round(lerp(a[2],b[2],t))})`;
+  }
+
+  const COLORS={ bg:'#0b0f19', base:'#f1f5f9', hot:'#ff4d6d', glow:'#fbbf24', faded:'#64748b' };
+  const FONT_FAMILY=`'Segoe UI',monospace`;
+  const MAX_HISTORY=6;
+
+  // ---------- state ----------
+  const S={
+    lang:'zh-CN',
+    orientation:'horizontal',
+    sensitivity:1.2,
+    listening:false,
+    smoothVol:0,
+    liveTokens:[],
+    prevInterimTokens:[],
+    historyLines:[],
+    recognition:null,
+    audioCtx:null,
+    analyser:null,
+    micStream:null,
+    reduceMotion: window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  };
+
+  // ---------- canvas ----------
+  const canvas=document.getElementById('stage');
+  const ctx=canvas.getContext('2d');
+  let logicalWidth=window.innerWidth, logicalHeight=window.innerHeight;
+
+  function resize(){
+    const dpr=window.devicePixelRatio||1;
+    logicalWidth=window.innerWidth;
+    logicalHeight=window.innerHeight;
+    canvas.width=Math.round(logicalWidth*dpr);
+    canvas.height=Math.round(logicalHeight*dpr);
+    canvas.style.width=logicalWidth+'px';
+    canvas.style.height=logicalHeight+'px';
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+  }
+  window.addEventListener('resize', resize);
+  resize();
+
+  // ---------- tokenizing ----------
+  function tokenize(text, lang){
+    text=(text||'').trim();
+    if(!text) return [];
+    if(lang.indexOf('zh')===0) return Array.from(text);
+    return text.split(/\s+/).filter(Boolean);
+  }
+
+  function makeToken(text){
+    const vol=S.smoothVol;
+    const r=Math.random();
+    let effect='pulse';
+    if(r>0.8) effect='shake';
+    else if(r>0.62) effect='tilt';
+    return {
+      text,
+      spawnVolume:vol,
+      spawnTime:performance.now(),
+      seed:Math.random()*Math.PI*2,
+      effect,
+      tilt:(Math.random()-0.5)*0.28
+    };
+  }
+
+  // ---------- recognition ----------
+  function updateInterim(transcript){
+    const toks=tokenize(transcript, S.lang);
+    const prevCount=S.prevInterimTokens.length;
+    if(toks.length < prevCount){
+      S.liveTokens = toks.map(makeToken);
+    } else {
+      for(const t of toks.slice(prevCount)){ S.liveTokens.push(makeToken(t)); }
+    }
+    S.prevInterimTokens = toks;
+  }
+
+  function commitLine(transcript){
+    const toks=tokenize(transcript, S.lang);
+    if(toks.length > S.liveTokens.length){
+      for(const t of toks.slice(S.liveTokens.length)){ S.liveTokens.push(makeToken(t)); }
+    }
+    if(S.liveTokens.length){
+      S.historyLines.unshift({
+        tokens:S.liveTokens,
+        finalizedAt:performance.now(),
+        jitterOffset:(Math.random()-0.5)*26,
+        currentOffset:0,
+        currentOpacity:1
+      });
+      if(S.historyLines.length > MAX_HISTORY) S.historyLines.pop();
+    }
+    S.liveTokens=[];
+    S.prevInterimTokens=[];
+  }
+
+  function onRecognitionResult(event){
+    for(let i=event.resultIndex; i<event.results.length; i++){
+      const result=event.results[i];
+      const transcript=result[0] ? result[0].transcript : '';
+      if(result.isFinal){ commitLine(transcript); }
+      else { updateInterim(transcript); }
+    }
+  }
+
+  function setStatus(text){
+    const el=document.getElementById('statusText');
+    if(el) el.textContent=text;
+  }
+  function setLiveDot(on){
+    const dot=document.getElementById('statusDot');
+    if(dot) dot.classList.toggle('live', !!on);
+  }
+
+  function startRecognition(){
+    const Ctor=window.SpeechRecognition||window.webkitSpeechRecognition;
+    if(!Ctor){
+      setStatus('当前浏览器不支持语音识别，请使用最新版 Chrome');
+      return false;
+    }
+    const r=new Ctor();
+    r.lang=S.lang;
+    r.continuous=true;
+    r.interimResults=true;
+    r.onresult=onRecognitionResult;
+    r.onerror=function(e){
+      if(e.error==='no-speech'){ setStatus('聆听中（未检测到语音）'); return; }
+      if(e.error==='not-allowed' || e.error==='service-not-allowed'){
+        setStatus('麦克风权限被拒绝');
+        stopAll();
+        return;
+      }
+      setStatus('识别出错：'+e.error);
+    };
+    r.onend=function(){
+      if(S.listening){
+        try{ r.start(); }catch(_){}
+      }
+    };
+    S.recognition=r;
+    try{
+      r.start();
+      setStatus('聆听中');
+      setLiveDot(true);
+      return true;
+    }catch(e){
+      setStatus('启动识别失败');
+      return false;
+    }
+  }
+
+  async function startAll(){
+    if(S.listening) return;
+    setStatus('请求麦克风权限…');
+    try{
+      S.micStream=await navigator.mediaDevices.getUserMedia({audio:true});
+    }catch(e){
+      setStatus('麦克风权限被拒绝或不可用');
+      return;
+    }
+    try{
+      S.audioCtx=new (window.AudioContext||window.webkitAudioContext)();
+      const src=S.audioCtx.createMediaStreamSource(S.micStream);
+      S.analyser=S.audioCtx.createAnalyser();
+      S.analyser.fftSize=1024;
+      src.connect(S.analyser);
+    }catch(e){
+      setStatus('音频分析初始化失败');
+    }
+    S.listening=true;
+    const ok=startRecognition();
+    if(!ok){ S.listening=false; }
+    updateToggleButton();
+  }
+
+  function stopAll(){
+    S.listening=false;
+    if(S.recognition){
+      S.recognition.onend=null;
+      try{ S.recognition.stop(); }catch(_){}
+      S.recognition=null;
+    }
+    if(S.micStream){
+      S.micStream.getTracks().forEach(t=>t.stop());
+      S.micStream=null;
+    }
+    if(S.audioCtx){
+      try{ S.audioCtx.close(); }catch(_){}
+      S.audioCtx=null;
+      S.analyser=null;
+    }
+    S.prevInterimTokens=[];
+    setStatus('已停止');
+    setLiveDot(false);
+    updateToggleButton();
+  }
+
+  function updateToggleButton(){
+    const btn=document.getElementById('toggleBtn');
+    if(!btn) return;
+    btn.textContent = S.listening ? '停止' : '开始';
+    btn.classList.toggle('on', S.listening);
+  }
+
+  // ---------- volume ----------
+  let volBuffer=null;
+  function updateVolume(){
+    if(S.listening && S.analyser){
+      if(!volBuffer || volBuffer.length!==S.analyser.fftSize){
+        volBuffer=new Uint8Array(S.analyser.fftSize);
+      }
+      S.analyser.getByteTimeDomainData(volBuffer);
+      let sumSq=0;
+      for(let i=0;i<volBuffer.length;i++){
+        const v=(volBuffer[i]-128)/128;
+        sumSq+=v*v;
+      }
+      const rms=Math.sqrt(sumSq/volBuffer.length);
+      S.smoothVol=lerp(S.smoothVol, clamp(rms*5.5,0,1), 0.25);
+    } else {
+      S.smoothVol=lerp(S.smoothVol, 0, 0.06);
+    }
+  }
+
+  // ---------- animation math ----------
+  function computeScale(tok, now){
+    const age=now-tok.spawnTime;
+    const boostBase = S.reduceMotion ? tok.spawnVolume*0.3 : tok.spawnVolume*S.sensitivity*0.95;
+    const decayTime = tok.effect==='shake' ? 600 : 360;
+    return 1 + boostBase*Math.exp(-age/decayTime);
+  }
+  function computeRot(tok, now){
+    if(S.reduceMotion) return tok.tilt*0.25;
+    const age=now-tok.spawnTime;
+    if(tok.effect==='tilt') return tok.tilt;
+    if(tok.effect==='shake'){
+      return Math.sin(age/68 + tok.seed)*0.34*Math.exp(-age/520);
+    }
+    return Math.sin(age/95 + tok.seed)*0.11*Math.exp(-age/300);
+  }
+  function computeBaseSize(){
+    return clamp(Math.min(logicalWidth, logicalHeight)*0.1, 26, 96);
+  }
+
+  // ---------- glyph paint ----------
+  function paintGlyph(text,x,y,size,rot,color,glowColor,glowBlur){
+    ctx.save();
+    ctx.translate(x,y);
+    ctx.rotate(rot);
+    ctx.font=`800 ${size}px ${FONT_FAMILY}`;
+    ctx.textAlign='center';
+    ctx.textBaseline='middle';
+    if(glowBlur>0.4){
+      ctx.shadowColor=glowColor;
+      ctx.shadowBlur=glowBlur;
+    }
+    ctx.fillStyle=color;
+    ctx.fillText(text,0,0);
+    ctx.restore();
+  }
+
+  function layoutLine(items, centerX, centerY){
+    if(!items.length) return;
+    const gapBase = computeBaseSize()*0.16;
+    const dims=[];
+    let cursor=0;
+    for(const it of items){
+      ctx.font=`800 ${it.size}px ${FONT_FAMILY}`;
+      const dim = S.orientation==='horizontal'
+        ? ctx.measureText(it.text).width
+        : it.size*1.05;
+      dims.push(dim);
+      cursor += dim + gapBase;
+    }
+    cursor -= gapBase;
+    let pos = -cursor/2;
+    for(let i=0;i<items.length;i++){
+      const it=items[i];
+      const center = pos + dims[i]/2;
+      pos += dims[i] + gapBase;
+      const x = S.orientation==='horizontal' ? centerX+center : centerX;
+      const y = S.orientation==='horizontal' ? centerY : centerY+center;
+      paintGlyph(it.text, x, y, it.size, it.rotation, it.color, it.glowColor, it.glowBlur);
+    }
+  }
+
+  function colorForToken(tok){
+    const t=clamp(tok.spawnVolume*S.sensitivity*1.3,0,1);
+    return lerpColor(COLORS.base, COLORS.hot, t);
+  }
+
+  // ---------- draw ----------
+  function drawBackground(){
+    ctx.clearRect(0,0,logicalWidth,logicalHeight);
+    const cx=logicalWidth/2, cy=logicalHeight/2;
+    const radius = 90 + S.smoothVol*S.sensitivity*260;
+    const g=ctx.createRadialGradient(cx,cy,0,cx,cy,radius);
+    g.addColorStop(0, `rgba(255,77,109,${0.08+S.smoothVol*0.18})`);
+    g.addColorStop(1, 'rgba(255,77,109,0)');
+    ctx.fillStyle=g;
+    ctx.fillRect(0,0,logicalWidth,logicalHeight);
+  }
+
+  function drawLive(now, cx, cy, baseSize){
+    if(!S.liveTokens.length) return;
+    const items=S.liveTokens.map(tok=>{
+      const scale=computeScale(tok,now);
+      const age=now-tok.spawnTime;
+      const fresh=clamp(1-age/420,0,1);
+      const tier=clamp(tok.spawnVolume*S.sensitivity,0,1);
+      return {
+        text:tok.text,
+        size:baseSize*scale,
+        rotation:computeRot(tok,now),
+        color:colorForToken(tok),
+        glowColor: tier>0.5 ? COLORS.glow : COLORS.hot,
+        glowBlur: 16*fresh*tier
+      };
+    });
+    layoutLine(items, cx, cy);
+  }
+
+  function drawHistory(now, cx, cy, baseSize){
+    for(let i=0;i<S.historyLines.length;i++){
+      const line=S.historyLines[i];
+      const depth=i;
+      line.currentOffset=lerp(line.currentOffset, (depth+1)*baseSize*1.55, 0.12);
+      line.currentOpacity=lerp(line.currentOpacity, Math.max(0, 1-(depth+1)*0.16), 0.12);
+
+      if(line.currentOpacity<0.02 && depth>=MAX_HISTORY-1){
+        S.historyLines.splice(i,1); i--; continue;
+      }
+
+      const age=now-line.finalizedAt;
+      const pop=1+0.32*Math.exp(-age/170);
+      const depthScale=Math.pow(0.9, depth+1);
+      const jitter=line.jitterOffset;
+
+      let lineCx=cx, lineCy=cy;
+      if(S.orientation==='horizontal'){
+        lineCy = cy - line.currentOffset;
+        lineCx = cx + jitter*0.4;
+      } else {
+        lineCx = cx - line.currentOffset;
+        lineCy = cy + jitter*0.4;
+      }
+
+      const mixFactor=clamp(depth*0.18,0,1);
+      const items=line.tokens.map(tok=>{
+        const size=baseSize*depthScale*pop*(1+tok.spawnVolume*0.35);
+        return {
+          text:tok.text, size,
+          rotation:tok.tilt*0.6,
+          color:lerpColor(colorForToken(tok), COLORS.faded, mixFactor),
+          glowColor:COLORS.glow,
+          glowBlur:0
+        };
+      });
+
+      ctx.save();
+      ctx.globalAlpha=clamp(line.currentOpacity,0,1);
+      layoutLine(items, lineCx, lineCy);
+      ctx.restore();
+    }
+  }
+
+  function frame(){
+    const now=performance.now();
+    updateVolume();
+    drawBackground();
+    const baseSize=computeBaseSize();
+    const cx=logicalWidth/2, cy=logicalHeight/2;
+    drawHistory(now, cx, cy, baseSize);
+    drawLive(now, cx, cy, baseSize);
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+
+  // ---------- UI ----------
+  const langSel=document.getElementById('langSel');
+  const orientBtn=document.getElementById('orientBtn');
+  const sensRange=document.getElementById('sensRange');
+  const toggleBtn=document.getElementById('toggleBtn');
+
+  langSel.value=S.lang;
+  langSel.addEventListener('change', function(){
+    S.lang=this.value;
+    if(S.listening){ stopAll(); startAll(); }
+  });
+
+  orientBtn.addEventListener('click', function(){
+    S.orientation = S.orientation==='horizontal' ? 'vertical' : 'horizontal';
+    this.textContent = S.orientation==='horizontal' ? '横版 →' : '竖版 ↓';
+  });
+
+  sensRange.value=String(S.sensitivity);
+  sensRange.addEventListener('input', function(){
+    S.sensitivity=parseFloat(this.value);
+  });
+
+  toggleBtn.addEventListener('click', function(){
+    if(S.listening) stopAll();
+    else startAll();
+  });
+
+  window.addEventListener('beforeunload', stopAll);
+
+})();
+</script>
+</body>
+</html>
