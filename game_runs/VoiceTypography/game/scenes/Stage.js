@@ -18,6 +18,10 @@ class Stage {
     this.prevInterimTokens = [];
     this.bgLines           = [];   // scattered background history
 
+    // mode-switch flash
+    this.modeFlashAt   = 0;
+    this.modeFlashText = '';
+
     // audio / recognition handles
     this.recognition = null;
     this.audioCtx    = null;
@@ -52,6 +56,7 @@ class Stage {
       const base = this.computeBaseSize();
       const cx = this.logicalWidth / 2, cy = this.logicalHeight / 2;
       this.drawLive(now, cx, cy, base);
+      this.drawModeHint(now);
       requestAnimationFrame(tick);
     };
     requestAnimationFrame(tick);

@@ -96,6 +96,21 @@ Object.assign(Stage.prototype, {
     }
   },
 
+  // Brief centred flash when mode switches — fades out over 900 ms
+  drawModeHint(now) {
+    if (!this.modeFlashAt) return;
+    const age = now - this.modeFlashAt;
+    if (age > 900) { this.modeFlashAt = 0; return; }
+    const alpha = this._clamp(1 - age / 900, 0, 1);
+    const size  = this.computeBaseSize() * 1.8;
+    const cx    = this.logicalWidth  / 2;
+    const cy    = this.logicalHeight / 2;
+    this.ctx.save();
+    this.ctx.globalAlpha = alpha * 0.65;
+    this.paintGlyph(this.modeFlashText, cx, cy, size, 0, COLORS.glow, COLORS.glow, 28 * alpha);
+    this.ctx.restore();
+  },
+
   drawLive(now, cx, cy, baseSize) {
     if (!this.liveTokens.length) return;
     const items = this.liveTokens.map(tok => {
