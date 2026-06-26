@@ -8,5 +8,6 @@ window.COLORS = {
   faded: '#64748b'
 };
 
-window.FONT_FAMILY  = `'Segoe UI',monospace`;
-window.MAX_HISTORY  = 6;
+window.FONT_FAMILY = `'Segoe UI',monospace`;
+
+window.BG_MAX = 14;   // max simultaneous background lines before oldest fades

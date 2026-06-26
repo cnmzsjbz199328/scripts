@@ -16,7 +16,7 @@ class Stage {
     this.smoothVol         = 0;
     this.liveTokens        = [];
     this.prevInterimTokens = [];
-    this.historyLines      = [];
+    this.bgLines           = [];   // scattered background history
 
     // audio / recognition handles
     this.recognition = null;
@@ -48,9 +48,9 @@ class Stage {
       const now = performance.now();
       this.updateVolume();
       this.drawBackground();
+      this.drawBgLines(now);
       const base = this.computeBaseSize();
       const cx = this.logicalWidth / 2, cy = this.logicalHeight / 2;
-      this.drawHistory(now, cx, cy, base);
       this.drawLive(now, cx, cy, base);
       requestAnimationFrame(tick);
     };

@@ -1,6 +1,6 @@
 "use strict";
 
-// Token lifecycle: segmentation → live display → history commit
+// Token lifecycle: segmentation → live display → background commit
 Object.assign(Stage.prototype, {
 
   tokenize(text) {
@@ -36,16 +36,41 @@ Object.assign(Stage.prototype, {
   commitLine(transcript) {
     const toks = this.tokenize(transcript);
     for (const t of toks.slice(this.liveTokens.length)) { this.liveTokens.push(this.makeToken(t)); }
+
     if (this.liveTokens.length) {
-      this.historyLines.unshift({
-        tokens:         this.liveTokens,
-        finalizedAt:    performance.now(),
-        jitterOffset:   (Math.random() - 0.5) * 26,
-        currentOffset:  0,
-        currentOpacity: 1
+      const cx = this.logicalWidth / 2;
+      const cy = this.logicalHeight / 2;
+      const sp = this._scatterPos();
+
+      // Line starts at canvas centre (where live text was) and drifts to scatter target
+      this.bgLines.push({
+        tokens:    this.liveTokens,
+        createdAt: performance.now(),
+
+        // animated current state — starts exactly where live text was
+        cx,  cy,
+        tilt:  0,
+        scale: 1.0,
+        alpha: 0.9,
+
+        // animated targets — scatter position, tilted, smaller
+        tcx:    sp.x,
+        tcy:    sp.y,
+        tTilt:  this._randTilt(),
+        tScale: 0.55 + Math.random() * 0.15,   // 0.55 – 0.70
+        tAlpha: 0.72 + Math.random() * 0.13,   // 0.72 – 0.85
+
+        dying: false
       });
-      if (this.historyLines.length > MAX_HISTORY) this.historyLines.pop();
+
+      // Enforce cap: mark oldest living line for fade-out
+      const alive = this.bgLines.filter(l => !l.dying);
+      if (alive.length > BG_MAX) {
+        alive[0].dying  = true;
+        alive[0].tAlpha = 0;
+      }
     }
+
     this.liveTokens        = [];
     this.prevInterimTokens = [];
   },
