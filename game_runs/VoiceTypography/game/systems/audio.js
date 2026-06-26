@@ -40,7 +40,12 @@ Object.assign(Stage.prototype, {
       }
       this.setStatus('识别出错：' + e.error);
     };
-    r.onend = () => { if (this.listening) try { r.start(); } catch (_) {} };
+    r.onend = () => {
+      if (!this.listening) return;
+      // isFinal may not have fired before session ended — commit any pending tokens
+      if (this.liveTokens.length) this.commitLine('');
+      try { r.start(); } catch (_) {}
+    };
     this.recognition = r;
     try {
       r.start();
