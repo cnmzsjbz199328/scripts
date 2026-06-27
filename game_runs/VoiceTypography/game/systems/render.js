@@ -81,8 +81,8 @@ Object.assign(Stage.prototype, {
         text:      tok.text,
         size:      base * line.scale * (1 + tok.spawnVolume * 0.25),
         rotation:  0,
-        color:     this.lerpColor(this.colorForToken(tok), COLORS.faded, 0.12 + mixFade * 0.55),
-        glowColor: COLORS.glow,
+        color:     this.lerpColor(COLORS.base, COLORS.faded, mixFade * 0.5),
+        glowColor: COLORS.base,
         glowBlur:  0
       }));
 
@@ -97,20 +97,30 @@ Object.assign(Stage.prototype, {
 
   drawLive(now, cx, cy, baseSize) {
     if (!this.liveTokens.length) return;
+
+    // In vertical mode the line width becomes screen height — cap it to prevent overflow
+    let effectiveBase = baseSize;
+    if (this.orientation === 'vertical') {
+      const maxFit = Math.max(1, Math.floor(this.logicalHeight / (baseSize * 1.15)));
+      if (this.liveTokens.length > maxFit) {
+        effectiveBase = baseSize * maxFit / this.liveTokens.length;
+      }
+    }
+
     const items   = this.liveTokens.map(tok => {
       const age   = now - tok.spawnTime;
       const fresh = this._clamp(1 - age / 420, 0, 1);
       const tier  = this._clamp(tok.spawnVolume * this.sensitivity, 0, 1);
       return {
         text:      tok.text,
-        size:      baseSize * this.computeScale(tok, now),
+        size:      effectiveBase * this.computeScale(tok, now),
         rotation:  this.computeRot(tok, now),
         color:     this.colorForToken(tok),
         glowColor: tier > 0.5 ? COLORS.glow : COLORS.hot,
         glowBlur:  16 * fresh * tier
       };
     });
-    const offsets = this.rhythmOffsets(this.liveTokens, now, baseSize);
+    const offsets = this.rhythmOffsets(this.liveTokens, now, effectiveBase);
 
     if (this.orientation === 'vertical') {
       this.ctx.save();

@@ -69,6 +69,9 @@ Object.assign(Stage.prototype, {
         alive[0].dying  = true;
         alive[0].tAlpha = 0;
       }
+
+      // Auto-switch orientation after each committed line for dynamic layout rhythm
+      this.orientation = this.orientation === 'horizontal' ? 'vertical' : 'horizontal';
     }
 
     this.liveTokens        = [];
