@@ -49,6 +49,30 @@ Object.assign(Stage.prototype, {
     return this.lerpColor(COLORS.base, COLORS.hot, t);
   },
 
+  // Per-token {dx, dy} offsets that give each orientation its own rhythm personality.
+  // Horizontal: alternating up/down stagger (piano-key bounce).
+  // Vertical:   each char slides down from above; chars naturally cascade because
+  //             makeToken records a fresh spawnTime for every new character added.
+  rhythmOffsets(tokens, now, baseSize) {
+    if (this.reduceMotion || !tokens.length) return null;
+
+    if (this.orientation === 'horizontal') {
+      return tokens.map((tok, i) => {
+        const age = now - tok.spawnTime;
+        const amp = baseSize * 0.32 * this._clamp(tok.spawnVolume * this.sensitivity, 0.12, 1);
+        return { dx: 0, dy: (i % 2 === 0 ? -1 : 1) * amp * Math.exp(-age / 400) };
+      });
+    }
+
+    // Vertical mode — layout is rotated -90°, so layout +X = upward on screen.
+    // Positive dx offset = char starts above its resting position and falls down.
+    return tokens.map(tok => {
+      const age = now - tok.spawnTime;
+      const amp = baseSize * 0.85;
+      return { dx: amp * Math.exp(-age / 340), dy: 0 };
+    });
+  },
+
   // Random tilt for background lines: ±12°–38°, never within ±5° of upright
   _randTilt() {
     const deg = 12 + Math.random() * 26;

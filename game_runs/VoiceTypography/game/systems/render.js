@@ -17,8 +17,9 @@ Object.assign(Stage.prototype, {
     ctx.restore();
   },
 
-  // Always lays out items horizontally, centred at (centerX, centerY)
-  layoutLine(items, centerX, centerY) {
+  // Always lays out items horizontally, centred at (centerX, centerY).
+  // offsets: optional array of {dx, dy} applied per-item for rhythm effects.
+  layoutLine(items, centerX, centerY, offsets) {
     if (!items.length) return;
     const ctx = this.ctx;
     const gap  = this.computeBaseSize() * 0.16;
@@ -35,8 +36,14 @@ Object.assign(Stage.prototype, {
     for (let i = 0; i < items.length; i++) {
       const center = pos + dims[i] / 2;
       pos += dims[i] + gap;
-      const it = items[i];
-      this.paintGlyph(it.text, centerX + center, centerY, it.size, it.rotation, it.color, it.glowColor, it.glowBlur);
+      const off = offsets ? offsets[i] : null;
+      const it  = items[i];
+      this.paintGlyph(
+        it.text,
+        centerX + center + (off ? off.dx : 0),
+        centerY           + (off ? off.dy : 0),
+        it.size, it.rotation, it.color, it.glowColor, it.glowBlur
+      );
     }
   },
 
@@ -90,7 +97,7 @@ Object.assign(Stage.prototype, {
 
   drawLive(now, cx, cy, baseSize) {
     if (!this.liveTokens.length) return;
-    const items = this.liveTokens.map(tok => {
+    const items   = this.liveTokens.map(tok => {
       const age   = now - tok.spawnTime;
       const fresh = this._clamp(1 - age / 420, 0, 1);
       const tier  = this._clamp(tok.spawnVolume * this.sensitivity, 0, 1);
@@ -103,16 +110,16 @@ Object.assign(Stage.prototype, {
         glowBlur:  16 * fresh * tier
       };
     });
+    const offsets = this.rhythmOffsets(this.liveTokens, now, baseSize);
 
     if (this.orientation === 'vertical') {
-      // Whole line rotated 90° counter-clockwise around canvas centre
       this.ctx.save();
       this.ctx.translate(cx, cy);
       this.ctx.rotate(-Math.PI / 2);
-      this.layoutLine(items, 0, 0);
+      this.layoutLine(items, 0, 0, offsets);
       this.ctx.restore();
     } else {
-      this.layoutLine(items, cx, cy);
+      this.layoutLine(items, cx, cy, offsets);
     }
   }
 
