@@ -18,6 +18,11 @@ class Stage {
     this.prevInterimTokens = [];
     this.bgLines           = [];   // scattered background history
 
+    // segment splitting: track how many tokens from the current interim transcript
+    // have already been committed, so each interim event doesn't re-add them
+    this._interimOffset  = 0;
+    this._splitThreshold = 5 + Math.floor(Math.random() * 4);  // 5–8 chars
+
     // audio / recognition handles
     this.recognition = null;
     this.audioCtx    = null;

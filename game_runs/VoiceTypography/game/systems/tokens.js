@@ -21,61 +21,72 @@ Object.assign(Stage.prototype, {
     };
   },
 
-  updateInterim(transcript) {
-    const toks      = this.tokenize(transcript);
-    const prevCount = this.prevInterimTokens.length;
-    if (toks.length < prevCount) {
-      // Recogniser revised downward — rebuild from scratch
-      this.liveTokens = toks.map(t => this.makeToken(t));
-    } else {
-      for (const t of toks.slice(prevCount)) { this.liveTokens.push(this.makeToken(t)); }
-    }
-    this.prevInterimTokens = toks;
-  },
+  // Push current liveTokens as a new bgLine and switch orientation.
+  // Called both mid-sentence (threshold hit) and at isFinal.
+  _commitSegment() {
+    if (!this.liveTokens.length) return;
+    const cx = this.logicalWidth / 2;
+    const cy = this.logicalHeight / 2;
+    const sp = this._scatterPos();
 
-  commitLine(transcript) {
-    const toks = this.tokenize(transcript);
-    for (const t of toks.slice(this.liveTokens.length)) { this.liveTokens.push(this.makeToken(t)); }
+    this.bgLines.push({
+      tokens:    this.liveTokens,
+      createdAt: performance.now(),
+      cx, cy,
+      tilt:  0,
+      scale: 1.0,
+      alpha: 0.9,
+      tcx:    sp.x,
+      tcy:    sp.y,
+      tTilt:  this._randTilt(),
+      tScale: 0.55 + Math.random() * 0.70,
+      tAlpha: 0.70 + Math.random() * 0.22,
+      dying: false
+    });
 
-    if (this.liveTokens.length) {
-      const cx = this.logicalWidth / 2;
-      const cy = this.logicalHeight / 2;
-      const sp = this._scatterPos();
-
-      // Line starts at canvas centre (where live text was) and drifts to scatter target
-      this.bgLines.push({
-        tokens:    this.liveTokens,
-        createdAt: performance.now(),
-
-        // animated current state — starts exactly where live text was
-        cx,  cy,
-        tilt:  0,
-        scale: 1.0,
-        alpha: 0.9,
-
-        // animated targets — scatter position, tilted, smaller
-        tcx:    sp.x,
-        tcy:    sp.y,
-        tTilt:  this._randTilt(),
-        tScale: 0.55 + Math.random() * 0.70,   // 0.55 – 1.25
-        tAlpha: 0.70 + Math.random() * 0.22,   // 0.70 – 0.92
-
-        dying: false
-      });
-
-      // Enforce cap: mark oldest living line for fade-out
-      const alive = this.bgLines.filter(l => !l.dying);
-      if (alive.length > BG_MAX) {
-        alive[0].dying  = true;
-        alive[0].tAlpha = 0;
-      }
-
-      // Auto-switch orientation after each committed line for dynamic layout rhythm
-      this.orientation = this.orientation === 'horizontal' ? 'vertical' : 'horizontal';
+    const alive = this.bgLines.filter(l => !l.dying);
+    if (alive.length > BG_MAX) {
+      alive[0].dying  = true;
+      alive[0].tAlpha = 0;
     }
 
+    this._interimOffset += this.liveTokens.length;
+    this.orientation     = this.orientation === 'horizontal' ? 'vertical' : 'horizontal';
+    this._splitThreshold = 5 + Math.floor(Math.random() * 4);  // next threshold: 5–8
     this.liveTokens        = [];
     this.prevInterimTokens = [];
+  },
+
+  // Interim (not final) result: show only the slice of tokens after what's
+  // already been committed this session (_interimOffset).
+  updateInterim(transcript) {
+    const toks        = this.tokenize(transcript);
+    const displayToks = toks.slice(this._interimOffset);
+    const prevCount   = this.prevInterimTokens.length;
+
+    if (displayToks.length < prevCount) {
+      // Recogniser revised downward — rebuild display window from scratch
+      this.liveTokens = displayToks.map(t => this.makeToken(t));
+    } else {
+      for (const t of displayToks.slice(prevCount)) { this.liveTokens.push(this.makeToken(t)); }
+    }
+    this.prevInterimTokens = displayToks;
+
+    // Auto-split mid-sentence when enough tokens have accumulated
+    if (this.liveTokens.length >= this._splitThreshold) {
+      this._commitSegment();
+    }
+  },
+
+  // Final result: commit any remaining tokens, then reset session state.
+  commitLine(transcript) {
+    const toks      = this.tokenize(transcript);
+    const remaining = toks.slice(this._interimOffset);
+    for (const t of remaining.slice(this.liveTokens.length)) { this.liveTokens.push(this.makeToken(t)); }
+
+    this._commitSegment();          // commits and switches orientation
+    this._interimOffset  = 0;      // reset for the next sentence
+    this._splitThreshold = 5 + Math.floor(Math.random() * 4);
   },
 
   onRecognitionResult(event) {

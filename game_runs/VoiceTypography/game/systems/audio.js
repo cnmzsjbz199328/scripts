@@ -98,6 +98,7 @@ Object.assign(Stage.prototype, {
       this.analyser = null;
     }
     this.prevInterimTokens = [];
+    this._interimOffset    = 0;
     this.setStatus('已停止');
     this.setLiveDot(false);
     this.updateToggleButton();
