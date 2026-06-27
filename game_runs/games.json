@@ -1,5 +1,19 @@
 [
   {
+    "id": "PianoMaster",
+    "title": "琴键导航：乐谱键位学习",
+    "tagline": "乐谱与琴键同步高亮——再也不用猜该按哪个键，跟着节奏一步步学会弹奏。",
+    "gameType": "music",
+    "genre": "MUSIC / EDU",
+    "accent": "#3b82f6",
+    "previewBg": "#0b0f1a",
+    "icon": "🎹",
+    "thumbnail": null,
+    "previewVideo": null,
+    "path": "PianoMaster/index.html",
+    "createdAt": "2026-06-27T00:00:00.000Z"
+  },
+  {
     "id": "Coalesce",
     "title": "聚水成珠：水量洞穴",
     "tagline": "水量就是力量——何时聚大、何时挤小，是穿过这座洞穴的唯一办法。",

@@ -1,0 +1,712 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>琴键导航：乐谱键位学习</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0b0f1a;
+      --surface: #111827;
+      --border: #1e2d40;
+      --accent: #3b82f6;
+      --gold: #fbbf24;
+      --green: #22c55e;
+      --red: #ef4444;
+      --text: #e2e8f0;
+      --dim: #64748b;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+      padding: 16px;
+      gap: 16px;
+    }
+
+    h1 {
+      font-size: 1.4rem;
+      color: var(--gold);
+      letter-spacing: 2px;
+      text-align: center;
+      margin-top: 4px;
+    }
+
+    /* ── Controls ── */
+    #controls {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      justify-content: center;
+      align-items: center;
+    }
+
+    #controls select, #controls button {
+      background: var(--surface);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 6px 14px;
+      font-size: 0.9rem;
+      cursor: pointer;
+    }
+
+    #controls button:hover { border-color: var(--accent); color: var(--accent); }
+    #controls button.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+    #tempo-label { color: var(--dim); font-size: 0.85rem; }
+
+    /* ── Sheet music area ── */
+    #sheet-area {
+      width: 100%;
+      max-width: 900px;
+      background: #fff;
+      border-radius: 10px;
+      overflow: hidden;
+      border: 2px solid var(--border);
+      position: relative;
+    }
+
+    #sheet-canvas {
+      display: block;
+      width: 100%;
+    }
+
+    /* ── Progress bar ── */
+    #progress-bar {
+      width: 100%;
+      max-width: 900px;
+      height: 6px;
+      background: var(--border);
+      border-radius: 3px;
+      overflow: hidden;
+    }
+
+    #progress-fill {
+      height: 100%;
+      background: var(--accent);
+      width: 0%;
+      transition: width 0.1s linear;
+    }
+
+    /* ── Piano keyboard ── */
+    #keyboard-wrap {
+      width: 100%;
+      max-width: 900px;
+      position: relative;
+      height: 140px;
+      background: #1a1a1a;
+      border-radius: 10px;
+      border: 2px solid #333;
+      overflow: hidden;
+    }
+
+    #keyboard-canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+
+    /* ── Note info panel ── */
+    #note-panel {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    .note-chip {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 8px 18px;
+      font-size: 1.1rem;
+      font-weight: 700;
+      min-width: 70px;
+      text-align: center;
+      transition: all 0.15s;
+    }
+
+    .note-chip.lit {
+      border-color: var(--accent);
+      color: var(--accent);
+      background: rgba(59,130,246,0.12);
+      box-shadow: 0 0 12px rgba(59,130,246,0.3);
+    }
+
+    .note-chip .label { font-size: 0.7rem; color: var(--dim); margin-bottom: 2px; }
+
+    /* ── Score ── */
+    #scoreboard {
+      display: flex;
+      gap: 24px;
+      font-size: 0.9rem;
+      color: var(--dim);
+    }
+
+    #scoreboard span b { color: var(--text); }
+
+    /* ── Flash overlay ── */
+    #flash {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 100;
+      opacity: 0;
+      background: radial-gradient(circle, rgba(59,130,246,0.3), transparent 70%);
+      transition: opacity 0.2s;
+    }
+  </style>
+</head>
+<body>
+
+<h1>🎹 琴键导航 · Piano Map</h1>
+
+<div id="controls">
+  <select id="song-select">
+    <option value="twinkle">小星星 Twinkle Twinkle</option>
+    <option value="ode">欢乐颂 Ode to Joy</option>
+    <option value="mary">玛丽有只小羊 Mary Had a Little Lamb</option>
+    <option value="scale">C大调音阶 C Major Scale</option>
+    <option value="jingle">铃儿响叮当 Jingle Bells</option>
+  </select>
+  <button id="btn-play">▶ 播放</button>
+  <button id="btn-pause">⏸ 暂停</button>
+  <button id="btn-reset">↺ 重置</button>
+  <label id="tempo-label">速度: <span id="tempo-val">80</span> BPM
+    <input type="range" id="tempo-slider" min="30" max="200" value="80" style="width:90px;vertical-align:middle">
+  </label>
+</div>
+
+<div id="sheet-area">
+  <canvas id="sheet-canvas"></canvas>
+</div>
+
+<div id="progress-bar"><div id="progress-fill"></div></div>
+
+<div id="note-panel">
+  <div class="note-chip" id="chip-current">
+    <div class="label">当前音符</div>
+    <div id="chip-note">—</div>
+  </div>
+  <div class="note-chip" id="chip-next">
+    <div class="label">下一个</div>
+    <div id="chip-next-note">—</div>
+  </div>
+  <div class="note-chip" id="chip-key">
+    <div class="label">对应琴键</div>
+    <div id="chip-key-val">—</div>
+  </div>
+  <div class="note-chip" id="chip-octave">
+    <div class="label">八度</div>
+    <div id="chip-octave-val">—</div>
+  </div>
+</div>
+
+<div id="keyboard-wrap">
+  <canvas id="keyboard-canvas"></canvas>
+</div>
+
+<div id="scoreboard">
+  <span>进度 <b id="prog-count">0/0</b></span>
+  <span>已播放 <b id="prog-played">0</b> 个音符</span>
+</div>
+
+<div id="flash"></div>
+
+<script>
+// ─── Song Definitions ────────────────────────────────────────────────
+// Each note: { name, octave, duration } duration in beats (1=quarter)
+const SONGS = {
+  twinkle: {
+    title: 'Twinkle Twinkle Little Star',
+    notes: [
+      {n:'C',o:4,d:1},{n:'C',o:4,d:1},{n:'G',o:4,d:1},{n:'G',o:4,d:1},
+      {n:'A',o:4,d:1},{n:'A',o:4,d:1},{n:'G',o:4,d:2},
+      {n:'F',o:4,d:1},{n:'F',o:4,d:1},{n:'E',o:4,d:1},{n:'E',o:4,d:1},
+      {n:'D',o:4,d:1},{n:'D',o:4,d:1},{n:'C',o:4,d:2},
+      {n:'G',o:4,d:1},{n:'G',o:4,d:1},{n:'F',o:4,d:1},{n:'F',o:4,d:1},
+      {n:'E',o:4,d:1},{n:'E',o:4,d:1},{n:'D',o:4,d:2},
+      {n:'G',o:4,d:1},{n:'G',o:4,d:1},{n:'F',o:4,d:1},{n:'F',o:4,d:1},
+      {n:'E',o:4,d:1},{n:'E',o:4,d:1},{n:'D',o:4,d:2},
+      {n:'C',o:4,d:1},{n:'C',o:4,d:1},{n:'G',o:4,d:1},{n:'G',o:4,d:1},
+      {n:'A',o:4,d:1},{n:'A',o:4,d:1},{n:'G',o:4,d:2},
+      {n:'F',o:4,d:1},{n:'F',o:4,d:1},{n:'E',o:4,d:1},{n:'E',o:4,d:1},
+      {n:'D',o:4,d:1},{n:'D',o:4,d:1},{n:'C',o:4,d:2},
+    ]
+  },
+  ode: {
+    title: 'Ode to Joy',
+    notes: [
+      {n:'E',o:4,d:1},{n:'E',o:4,d:1},{n:'F',o:4,d:1},{n:'G',o:4,d:1},
+      {n:'G',o:4,d:1},{n:'F',o:4,d:1},{n:'E',o:4,d:1},{n:'D',o:4,d:1},
+      {n:'C',o:4,d:1},{n:'C',o:4,d:1},{n:'D',o:4,d:1},{n:'E',o:4,d:1},
+      {n:'E',o:4,d:1.5},{n:'D',o:4,d:0.5},{n:'D',o:4,d:2},
+      {n:'E',o:4,d:1},{n:'E',o:4,d:1},{n:'F',o:4,d:1},{n:'G',o:4,d:1},
+      {n:'G',o:4,d:1},{n:'F',o:4,d:1},{n:'E',o:4,d:1},{n:'D',o:4,d:1},
+      {n:'C',o:4,d:1},{n:'C',o:4,d:1},{n:'D',o:4,d:1},{n:'E',o:4,d:1},
+      {n:'D',o:4,d:1.5},{n:'C',o:4,d:0.5},{n:'C',o:4,d:2},
+    ]
+  },
+  mary: {
+    title: 'Mary Had a Little Lamb',
+    notes: [
+      {n:'E',o:4,d:1},{n:'D',o:4,d:1},{n:'C',o:4,d:1},{n:'D',o:4,d:1},
+      {n:'E',o:4,d:1},{n:'E',o:4,d:1},{n:'E',o:4,d:2},
+      {n:'D',o:4,d:1},{n:'D',o:4,d:1},{n:'D',o:4,d:2},
+      {n:'E',o:4,d:1},{n:'G',o:4,d:1},{n:'G',o:4,d:2},
+      {n:'E',o:4,d:1},{n:'D',o:4,d:1},{n:'C',o:4,d:1},{n:'D',o:4,d:1},
+      {n:'E',o:4,d:1},{n:'E',o:4,d:1},{n:'E',o:4,d:1},{n:'E',o:4,d:1},
+      {n:'D',o:4,d:1},{n:'D',o:4,d:1},{n:'E',o:4,d:1},{n:'D',o:4,d:1},
+      {n:'C',o:4,d:4},
+    ]
+  },
+  scale: {
+    title: 'C Major Scale',
+    notes: [
+      {n:'C',o:4,d:1},{n:'D',o:4,d:1},{n:'E',o:4,d:1},{n:'F',o:4,d:1},
+      {n:'G',o:4,d:1},{n:'A',o:4,d:1},{n:'B',o:4,d:1},{n:'C',o:5,d:2},
+      {n:'B',o:4,d:1},{n:'A',o:4,d:1},{n:'G',o:4,d:1},{n:'F',o:4,d:1},
+      {n:'E',o:4,d:1},{n:'D',o:4,d:1},{n:'C',o:4,d:2},
+    ]
+  },
+  jingle: {
+    title: 'Jingle Bells',
+    notes: [
+      {n:'E',o:4,d:1},{n:'E',o:4,d:1},{n:'E',o:4,d:2},
+      {n:'E',o:4,d:1},{n:'E',o:4,d:1},{n:'E',o:4,d:2},
+      {n:'E',o:4,d:1},{n:'G',o:4,d:1},{n:'C',o:4,d:1},{n:'D',o:4,d:1},
+      {n:'E',o:4,d:4},
+      {n:'F',o:4,d:1},{n:'F',o:4,d:1},{n:'F',o:4,d:1},{n:'F',o:4,d:1},
+      {n:'F',o:4,d:1},{n:'E',o:4,d:1},{n:'E',o:4,d:1},{n:'E',o:4,d:1},
+      {n:'E',o:4,d:1},{n:'D',o:4,d:1},{n:'D',o:4,d:1},{n:'E',o:4,d:1},
+      {n:'D',o:4,d:2},{n:'G',o:4,d:2},
+      {n:'E',o:4,d:1},{n:'E',o:4,d:1},{n:'E',o:4,d:2},
+      {n:'E',o:4,d:1},{n:'E',o:4,d:1},{n:'E',o:4,d:2},
+      {n:'E',o:4,d:1},{n:'G',o:4,d:1},{n:'C',o:4,d:1},{n:'D',o:4,d:1},
+      {n:'E',o:4,d:4},
+      {n:'F',o:4,d:1},{n:'F',o:4,d:1},{n:'F',o:4,d:1},{n:'F',o:4,d:1},
+      {n:'F',o:4,d:1},{n:'E',o:4,d:1},{n:'E',o:4,d:1},{n:'E',o:4,d:1},
+      {n:'G',o:4,d:1},{n:'G',o:4,d:1},{n:'F',o:4,d:1},{n:'D',o:4,d:1},
+      {n:'C',o:4,d:4},
+    ]
+  }
+};
+
+// ─── Music theory helpers ─────────────────────────────────────────────
+const NOTE_NAMES = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+const WHITE_KEYS = ['C','D','E','F','G','A','B'];
+
+function midiNum(name, octave) {
+  const idx = NOTE_NAMES.indexOf(name);
+  return (octave + 1) * 12 + idx;
+}
+
+// Staff position (lines from bottom of treble staff, 0=first ledger below=C4)
+// Treble clef: E4=first line, G4=second line, B4=middle line, D5=fourth line, F5=fifth line
+const STAFF_POS = { C:0, D:1, E:2, F:3, G:4, A:5, B:6 };
+function staffStep(name, octave) {
+  // Steps from C4, positive = upward
+  return (octave - 4) * 7 + STAFF_POS[name.replace('#','')];
+}
+
+// ─── Piano layout ────────────────────────────────────────────────────
+// We'll show 2 octaves: C3–B5 (white keys only + blacks)
+const DISPLAY_START = 3; // octave start
+const DISPLAY_END   = 5; // octave end inclusive
+const WHITE_COUNT   = (DISPLAY_END - DISPLAY_START + 1) * 7;
+
+// ─── Audio ────────────────────────────────────────────────────────────
+let audioCtx = null;
+function getAudio() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  return audioCtx;
+}
+
+function playNote(name, octave, duration_s) {
+  const ctx = getAudio();
+  const freq = 440 * Math.pow(2, (midiNum(name, octave) - 69) / 12);
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.connect(gain); gain.connect(ctx.destination);
+  osc.type = 'triangle';
+  osc.frequency.value = freq;
+  gain.gain.setValueAtTime(0.4, ctx.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration_s * 0.9);
+  osc.start(ctx.currentTime);
+  osc.stop(ctx.currentTime + duration_s);
+}
+
+// ─── State ────────────────────────────────────────────────────────────
+let song = SONGS.twinkle;
+let bpm  = 80;
+let currentIdx = 0;
+let playing = false;
+let timer = null;
+let beatMs = () => (60000 / bpm);
+
+// ─── Canvas Setup ─────────────────────────────────────────────────────
+const sheetCanvas = document.getElementById('sheet-canvas');
+const sc = sheetCanvas.getContext('2d');
+const kbCanvas = document.getElementById('keyboard-canvas');
+const kc = kbCanvas.getContext('2d');
+
+function resizeCanvases() {
+  const w = sheetCanvas.parentElement.clientWidth;
+  sheetCanvas.width  = w * devicePixelRatio;
+  sheetCanvas.height = 180 * devicePixelRatio;
+  sheetCanvas.style.height = '180px';
+  sc.scale(devicePixelRatio, devicePixelRatio);
+
+  kbCanvas.width  = kbCanvas.parentElement.clientWidth * devicePixelRatio;
+  kbCanvas.height = kbCanvas.parentElement.clientHeight * devicePixelRatio;
+  kc.scale(devicePixelRatio, devicePixelRatio);
+
+  drawAll();
+}
+
+// ─── Sheet Music Renderer ─────────────────────────────────────────────
+function drawSheet(highlightIdx) {
+  const W = sheetCanvas.width / devicePixelRatio;
+  const H = sheetCanvas.height / devicePixelRatio;
+  sc.clearRect(0, 0, W, H);
+
+  // White background
+  sc.fillStyle = '#fff';
+  sc.fillRect(0, 0, W, H);
+
+  // Staff parameters
+  const staffTop = 50;
+  const lineGap  = 14;
+  const staffLeft = 60;
+  const clefW     = 40;
+
+  // Draw 5 staff lines
+  sc.strokeStyle = '#222';
+  sc.lineWidth   = 1.2;
+  for (let i = 0; i < 5; i++) {
+    const y = staffTop + i * lineGap;
+    sc.beginPath();
+    sc.moveTo(staffLeft, y);
+    sc.lineTo(W - 20, y);
+    sc.stroke();
+  }
+
+  // Draw treble clef symbol
+  sc.font = `${lineGap * 5.5}px serif`;
+  sc.fillStyle = '#222';
+  sc.fillText('𝄞', staffLeft - 4, staffTop + lineGap * 5.2);
+
+  // Time signature
+  sc.font = `bold ${lineGap * 2}px serif`;
+  sc.fillStyle = '#222';
+  sc.fillText('4', staffLeft + clefW, staffTop + lineGap * 1.9);
+  sc.fillText('4', staffLeft + clefW, staffTop + lineGap * 3.9);
+
+  // Note positioning
+  const noteStartX = staffLeft + clefW + 28;
+  const noteSpacingBase = 38;
+  const visibleNotes = Math.floor((W - noteStartX - 20) / noteSpacingBase);
+
+  // Determine which notes to show (window around currentIdx)
+  let winStart = Math.max(0, highlightIdx - Math.floor(visibleNotes / 3));
+  let winEnd   = Math.min(song.notes.length, winStart + visibleNotes);
+  if (winEnd - winStart < visibleNotes) winStart = Math.max(0, winEnd - visibleNotes);
+
+  const displayNotes = song.notes.slice(winStart, winEnd);
+
+  displayNotes.forEach((note, i) => {
+    const globalIdx = winStart + i;
+    const x = noteStartX + i * noteSpacingBase + 8;
+
+    // Staff Y position: E4 = top line (staffTop + 0), each step = lineGap/2
+    // Treble clef first line = E4 (step 2 from C4)
+    const step = staffStep(note.n, note.o);
+    // E4 is at staffTop (first line), step(E4)=2
+    const E4step = 2;
+    const noteY = staffTop + (E4step - step) * (lineGap / 2);
+
+    const isActive = globalIdx === highlightIdx;
+    const isPast   = globalIdx < highlightIdx;
+
+    // Note head color
+    sc.fillStyle = isActive ? '#1d4ed8' : isPast ? '#94a3b8' : '#222';
+    sc.strokeStyle = isActive ? '#1d4ed8' : isPast ? '#94a3b8' : '#222';
+
+    // Filled note head (oval)
+    sc.beginPath();
+    sc.ellipse(x, noteY, 7, 5.5, -0.3, 0, Math.PI * 2);
+    sc.fill();
+
+    // Stem
+    sc.lineWidth = 1.5;
+    sc.beginPath();
+    if (step < 5) { // stem up
+      sc.moveTo(x + 7, noteY);
+      sc.lineTo(x + 7, noteY - 30);
+    } else {
+      sc.moveTo(x - 7, noteY);
+      sc.lineTo(x - 7, noteY + 30);
+    }
+    sc.stroke();
+
+    // Ledger lines if needed (C4 is below staff)
+    // C4 is at step=0, staffY = staffTop + (2)*7 = staffTop + lineGap
+    // If below bottom line (step < 2, i.e. D4, C4), draw ledger line
+    if (step <= 0) { // C4 and below — ledger line at C4
+      sc.lineWidth = 1.2;
+      sc.beginPath();
+      sc.moveTo(x - 10, staffTop + lineGap * 2 + lineGap / 2 * (2 - (step % 2 === 0 ? step : step - 1)));
+      // Actually: C4 is one ledger line below staff
+      // Let's compute: B3 is just below staff bottom (step=6 for B but oct 3 = -1)
+      const ledgerY = staffTop + (E4step - step) * (lineGap / 2);
+      // Draw ledger lines for notes far from staff
+      const bottomLine = staffTop + 4 * lineGap;
+      if (noteY > bottomLine + lineGap / 2) {
+        let ly = bottomLine + lineGap;
+        while (ly <= noteY + 1) {
+          sc.beginPath();
+          sc.moveTo(x - 10, ly);
+          sc.lineTo(x + 10, ly);
+          sc.stroke();
+          ly += lineGap;
+        }
+      }
+    }
+    if (step >= 10) { // Above staff — ledger lines
+      const topLine = staffTop;
+      if (noteY < topLine - lineGap / 2) {
+        let ly = topLine - lineGap;
+        while (ly >= noteY - 1) {
+          sc.lineWidth = 1.2;
+          sc.beginPath();
+          sc.moveTo(x - 10, ly);
+          sc.lineTo(x + 10, ly);
+          sc.stroke();
+          ly -= lineGap;
+        }
+      }
+    }
+
+    // Sharp sign
+    if (note.n.includes('#')) {
+      sc.fillStyle = isActive ? '#1d4ed8' : isPast ? '#94a3b8' : '#444';
+      sc.font = `bold ${lineGap}px serif`;
+      sc.fillText('♯', x - 16, noteY + 5);
+    }
+
+    // Note name label below note
+    sc.font = `bold 9px sans-serif`;
+    sc.fillStyle = isActive ? '#1d4ed8' : isPast ? '#94a3b8' : '#555';
+    sc.textAlign = 'center';
+    sc.fillText(note.n + note.o, x, H - 8);
+    sc.textAlign = 'left';
+
+    // Highlight box for active note
+    if (isActive) {
+      sc.strokeStyle = 'rgba(59,130,246,0.5)';
+      sc.lineWidth = 2;
+      sc.beginPath();
+      sc.roundRect(x - 14, staffTop - 18, 28, H - staffTop - 4, 4);
+      sc.stroke();
+    }
+  });
+
+  // Bar lines (every 4 beats — simplified)
+  sc.strokeStyle = '#222';
+  sc.lineWidth = 1.5;
+  let beatAcc = 0;
+  displayNotes.forEach((note, i) => {
+    beatAcc += note.d;
+    if (Math.round(beatAcc) % 4 === 0 && i < displayNotes.length - 1) {
+      const x = noteStartX + (i + 1) * noteSpacingBase;
+      sc.beginPath();
+      sc.moveTo(x - 2, staffTop);
+      sc.lineTo(x - 2, staffTop + 4 * lineGap);
+      sc.stroke();
+    }
+  });
+}
+
+// ─── Piano Keyboard Renderer ──────────────────────────────────────────
+function drawKeyboard(activeNotes = []) {
+  const W = kbCanvas.width / devicePixelRatio;
+  const H = kbCanvas.height / devicePixelRatio;
+  kc.clearRect(0, 0, W, H);
+
+  kc.fillStyle = '#111';
+  kc.fillRect(0, 0, W, H);
+
+  const wKeyW = W / WHITE_COUNT;
+  const wKeyH = H * 0.88;
+  const bKeyW = wKeyW * 0.6;
+  const bKeyH = H * 0.58;
+
+  // Build white key list with positions
+  const whiteKeys = [];
+  for (let oct = DISPLAY_START; oct <= DISPLAY_END; oct++) {
+    for (const n of WHITE_KEYS) {
+      whiteKeys.push({ n, oct, x: whiteKeys.length * wKeyW });
+    }
+  }
+
+  // Check if a key is active
+  const isActive = (name, oct) => activeNotes.some(a => a.n === name && a.o === oct);
+
+  // Draw white keys
+  whiteKeys.forEach(({ n, oct, x }) => {
+    const active = isActive(n, oct);
+    kc.fillStyle = active ? '#60a5fa' : '#f5f5f0';
+    kc.fillRect(x + 1, 2, wKeyW - 2, wKeyH - 2);
+    kc.strokeStyle = '#888';
+    kc.lineWidth = 1;
+    kc.strokeRect(x + 1, 2, wKeyW - 2, wKeyH - 2);
+
+    // Label
+    kc.fillStyle = active ? '#1e3a8a' : '#444';
+    kc.font = `bold ${Math.max(8, wKeyW * 0.38)}px sans-serif`;
+    kc.textAlign = 'center';
+    kc.fillText(n, x + wKeyW / 2, wKeyH - 6);
+
+    if (active) {
+      kc.fillStyle = 'rgba(59,130,246,0.18)';
+      kc.fillRect(x + 1, 2, wKeyW - 2, wKeyH - 2);
+    }
+  });
+
+  // Black key positions relative to white keys
+  // Pattern per octave: C#=after C(0), D#=after D(1), F#=after F(3), G#=after G(4), A#=after A(5)
+  const BLACK_OFFSETS = [
+    { n: 'C#', wIdx: 0 },
+    { n: 'D#', wIdx: 1 },
+    { n: 'F#', wIdx: 3 },
+    { n: 'G#', wIdx: 4 },
+    { n: 'A#', wIdx: 5 },
+  ];
+
+  for (let oct = DISPLAY_START; oct <= DISPLAY_END; oct++) {
+    const octBase = (oct - DISPLAY_START) * 7;
+    for (const { n, wIdx } of BLACK_OFFSETS) {
+      const active = isActive(n, oct);
+      const x = (octBase + wIdx) * wKeyW + wKeyW - bKeyW / 2;
+      kc.fillStyle = active ? '#1d4ed8' : '#1a1a1a';
+      kc.fillRect(x, 2, bKeyW, bKeyH);
+
+      if (active) {
+        kc.fillStyle = '#60a5fa';
+        kc.fillRect(x, 2, bKeyW, bKeyH);
+        kc.fillStyle = '#1e3a8a';
+        kc.font = `bold ${Math.max(7, bKeyW * 0.4)}px sans-serif`;
+        kc.textAlign = 'center';
+        kc.fillText(n[0], x + bKeyW / 2, bKeyH - 4);
+      }
+    }
+  }
+
+  // Octave labels
+  for (let oct = DISPLAY_START; oct <= DISPLAY_END; oct++) {
+    const x = (oct - DISPLAY_START) * 7 * wKeyW;
+    kc.fillStyle = '#555';
+    kc.font = `10px sans-serif`;
+    kc.textAlign = 'left';
+    kc.fillText(`C${oct}`, x + 2, H - 2);
+  }
+  kc.textAlign = 'left';
+}
+
+// ─── Update UI ────────────────────────────────────────────────────────
+function updateUI(idx) {
+  const note = song.notes[idx];
+  const nextNote = song.notes[idx + 1];
+
+  document.getElementById('chip-note').textContent = note ? note.n + note.o : '—';
+  document.getElementById('chip-next-note').textContent = nextNote ? nextNote.n + nextNote.o : '—';
+  document.getElementById('chip-key-val').textContent = note ? note.n.replace('#', '♯') : '—';
+  document.getElementById('chip-octave-val').textContent = note ? `第 ${note.o} 八度` : '—';
+  document.getElementById('chip-current').className = 'note-chip' + (note ? ' lit' : '');
+
+  document.getElementById('prog-count').textContent = `${idx}/${song.notes.length}`;
+  document.getElementById('prog-played').textContent = idx;
+  document.getElementById('progress-fill').style.width = `${(idx / song.notes.length) * 100}%`;
+
+  drawSheet(idx);
+  drawKeyboard(note ? [note] : []);
+}
+
+// ─── Playback ─────────────────────────────────────────────────────────
+function scheduleNext() {
+  if (!playing) return;
+  if (currentIdx >= song.notes.length) {
+    playing = false;
+    document.getElementById('btn-play').classList.remove('active');
+    return;
+  }
+
+  const note = song.notes[currentIdx];
+  updateUI(currentIdx);
+  playNote(note.n, note.o, (note.d * beatMs()) / 1000 * 0.85);
+
+  // Flash
+  const flash = document.getElementById('flash');
+  flash.style.opacity = '1';
+  setTimeout(() => flash.style.opacity = '0', 120);
+
+  const dur = note.d * beatMs();
+  currentIdx++;
+  timer = setTimeout(scheduleNext, dur);
+}
+
+function startPlay() {
+  if (playing) return;
+  playing = true;
+  document.getElementById('btn-play').classList.add('active');
+  scheduleNext();
+}
+
+function pause() {
+  playing = false;
+  clearTimeout(timer);
+  document.getElementById('btn-play').classList.remove('active');
+}
+
+function reset() {
+  pause();
+  currentIdx = 0;
+  updateUI(0);
+}
+
+// ─── Event Listeners ─────────────────────────────────────────────────
+document.getElementById('btn-play').addEventListener('click', startPlay);
+document.getElementById('btn-pause').addEventListener('click', pause);
+document.getElementById('btn-reset').addEventListener('click', reset);
+
+document.getElementById('tempo-slider').addEventListener('input', e => {
+  bpm = +e.target.value;
+  document.getElementById('tempo-val').textContent = bpm;
+});
+
+document.getElementById('song-select').addEventListener('change', e => {
+  song = SONGS[e.target.value];
+  reset();
+});
+
+// Keyboard shortcut: Space = play/pause
+document.addEventListener('keydown', e => {
+  if (e.code === 'Space') { e.preventDefault(); playing ? pause() : startPlay(); }
+  if (e.code === 'KeyR') reset();
+});
+
+// ─── Init ─────────────────────────────────────────────────────────────
+window.addEventListener('resize', resizeCanvases);
+resizeCanvases();
+updateUI(0);
+</script>
+</body>
+</html>
