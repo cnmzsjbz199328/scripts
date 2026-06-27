@@ -73,8 +73,14 @@ Object.assign(Stage.prototype, {
       if (line.dying && line.alpha < 0.02) { this.bgLines.splice(i, 1); }
     }
 
-    // 2. Draw oldest-first so newer lines appear on top
-    for (const line of this.bgLines) {
+    // 2. Draw oldest-first so newer lines appear on top.
+    //    Apply rank-based depth: newest line is fully opaque, oldest fades to ~20%.
+    const n = this.bgLines.length;
+    for (let idx = 0; idx < n; idx++) {
+      const line  = this.bgLines[idx];
+      const rank  = n > 1 ? idx / (n - 1) : 1;          // 0 = oldest, 1 = newest
+      const depth = 0.18 + rank * 0.82;                   // 0.18 → 1.00
+
       const age     = (now - line.createdAt) / 1000;
       const mixFade = this._clamp(age / 30, 0, 0.6);
       const items   = line.tokens.map(tok => ({
@@ -87,7 +93,7 @@ Object.assign(Stage.prototype, {
       }));
 
       this.ctx.save();
-      this.ctx.globalAlpha = this._clamp(line.alpha, 0, 1);
+      this.ctx.globalAlpha = this._clamp(line.alpha * depth, 0, 1);
       this.ctx.translate(line.cx, line.cy);
       this.ctx.rotate(line.tilt);
       this.layoutLine(items, 0, 0);
