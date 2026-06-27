@@ -10,4 +10,4 @@ window.COLORS = {
 
 window.FONT_FAMILY = `'Segoe UI',monospace`;
 
-window.BG_MAX = 14;   // max simultaneous background lines before oldest fades
+window.BG_MAX = 28;   // max simultaneous background lines before oldest fades

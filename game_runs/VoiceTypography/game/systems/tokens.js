@@ -57,8 +57,8 @@ Object.assign(Stage.prototype, {
         tcx:    sp.x,
         tcy:    sp.y,
         tTilt:  this._randTilt(),
-        tScale: 0.55 + Math.random() * 0.15,   // 0.55 – 0.70
-        tAlpha: 0.72 + Math.random() * 0.13,   // 0.72 – 0.85
+        tScale: 0.55 + Math.random() * 0.70,   // 0.55 – 1.25
+        tAlpha: 0.70 + Math.random() * 0.22,   // 0.70 – 0.92
 
         dying: false
       });

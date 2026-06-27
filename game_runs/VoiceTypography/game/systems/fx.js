@@ -73,23 +73,18 @@ Object.assign(Stage.prototype, {
     });
   },
 
-  // Random tilt for background lines: ±12°–38°, never within ±5° of upright
+  // Random tilt: ±8°–75°, wide range including near-vertical for visual variety
   _randTilt() {
-    const deg = 12 + Math.random() * 26;
+    const deg = 8 + Math.random() * 67;
     return (Math.random() < 0.5 ? 1 : -1) * deg * (Math.PI / 180);
   },
 
-  // Random scatter position, biased toward the outer 28% of each axis
+  // Uniform scatter across the full canvas so text fills edge-to-edge
   _scatterPos() {
-    const axisVal = (size) => {
-      if (Math.random() < 0.7) {
-        return Math.random() < 0.5
-          ? Math.random() * size * 0.28
-          : size * 0.72 + Math.random() * size * 0.28;
-      }
-      return Math.random() * size;
+    return {
+      x: Math.random() * this.logicalWidth,
+      y: Math.random() * this.logicalHeight
     };
-    return { x: axisVal(this.logicalWidth), y: axisVal(this.logicalHeight) };
   }
 
 });

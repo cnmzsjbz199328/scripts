@@ -81,7 +81,7 @@ Object.assign(Stage.prototype, {
         text:      tok.text,
         size:      base * line.scale * (1 + tok.spawnVolume * 0.25),
         rotation:  0,
-        color:     this.lerpColor(this.colorForToken(tok), COLORS.faded, 0.4 + mixFade),
+        color:     this.lerpColor(this.colorForToken(tok), COLORS.faded, 0.12 + mixFade * 0.55),
         glowColor: COLORS.glow,
         glowBlur:  0
       }));
