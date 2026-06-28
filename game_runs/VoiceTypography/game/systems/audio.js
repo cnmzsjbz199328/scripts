@@ -109,6 +109,7 @@ Object.assign(Stage.prototype, {
 
   updateVolume() {
     if (this.listening && this.analyser) {
+      // RMS from time-domain data → overall volume
       if (!this._volBuf || this._volBuf.length !== this.analyser.fftSize) {
         this._volBuf = new Uint8Array(this.analyser.fftSize);
       }
@@ -120,8 +121,25 @@ Object.assign(Stage.prototype, {
       }
       const rms = Math.sqrt(sumSq / this._volBuf.length);
       this.smoothVol = this._lerp(this.smoothVol, this._clamp(rms * 5.5, 0, 1), 0.25);
+
+      // FFT frequency-band energies for differentiated rhythm
+      // At fftSize=1024 and typical 44.1kHz sample rate, each bin ≈ 43 Hz.
+      // Low band  <300 Hz  → bins 0–6   (bass, drives horizontal bounce)
+      // High band 2k–8kHz  → bins 46–185 (treble, drives vertical cascade snap)
+      if (!this._freqBuf || this._freqBuf.length !== this.analyser.frequencyBinCount) {
+        this._freqBuf = new Uint8Array(this.analyser.frequencyBinCount);
+      }
+      this.analyser.getByteFrequencyData(this._freqBuf);
+      let lowSum = 0;
+      for (let i = 0; i < 7;   i++) lowSum  += this._freqBuf[i];
+      let highSum = 0;
+      for (let i = 46; i < 186; i++) highSum += this._freqBuf[i];
+      this.freqLow  = this._lerp(this.freqLow,  this._clamp(lowSum  / (7   * 255) * 3.0, 0, 1), 0.2);
+      this.freqHigh = this._lerp(this.freqHigh, this._clamp(highSum / (140 * 255) * 4.0, 0, 1), 0.2);
     } else {
       this.smoothVol = this._lerp(this.smoothVol, 0, 0.06);
+      this.freqLow   = this._lerp(this.freqLow,  0, 0.06);
+      this.freqHigh  = this._lerp(this.freqHigh, 0, 0.06);
     }
   }
 

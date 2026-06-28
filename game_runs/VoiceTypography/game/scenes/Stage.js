@@ -29,6 +29,12 @@ class Stage {
     // Markov chain: tracks last assigned effect so next token's probability is state-dependent
     this._lastEffect = 'pulse';
 
+    // Frequency band energies — updated each frame from FFT data
+    // freqLow  drives horizontal bounce amplitude (bass = big bounce)
+    // freqHigh drives vertical cascade snap speed (treble = snappier entry)
+    this.freqLow  = 0;
+    this.freqHigh = 0;
+
     // audio / recognition handles
     this.recognition = null;
     this.audioCtx    = null;
