@@ -297,8 +297,10 @@ const WHITE_KEYS     = ['C','D','E','F','G','A','B'];
 
 function midiOf(name, oct) {
   const i = NOTE_CHROMATIC.indexOf(name);
+  if (i === -1) return -1;
   return (oct + 1) * 12 + i;
 }
+
 
 // Treble-staff step from middle C (C4 = step 0, D4 = 1, E4 = 2 …)
 const DIATONIC_POS = {C:0, D:1, E:2, F:3, G:4, A:5, B:6};
@@ -316,8 +318,10 @@ function getAudio() {
 }
 function playNote(name, oct, durSec) {
   if (name === 'R') return;
+  const midi = midiOf(name, oct);
+  if (midi === -1) return;
   const ctx  = getAudio();
-  const freq = 440 * Math.pow(2, (midiOf(name, oct) - 69) / 12);
+  const freq = 440 * Math.pow(2, (midi - 69) / 12);
   const osc  = ctx.createOscillator();
   const gain = ctx.createGain();
   osc.connect(gain); gain.connect(ctx.destination);
@@ -397,8 +401,10 @@ function drawSheet(hi) {
   const winEnd    = Math.min(NOTES.length, winStart + visible);
   const shown     = NOTES.slice(winStart, winEnd);
 
-  // Bar lines: collect beat positions
+  // Bar lines: seed beatCursor with the cumulative beats before the window
+  // so that modulo-3 checks are relative to the song start, not the window start.
   let beatCursor = 0;
+  for (let j = 0; j < winStart; j++) { beatCursor += NOTES[j].d; }
   shown.forEach((note, i) => {
     const gIdx = winStart + i;
     const isActive = gIdx === hi;
@@ -673,7 +679,7 @@ function reset() {
 // ─── Step mode ────────────────────────────────────────────────────────
 function stepNext() {
   if (!stepMode) return;
-  if (idx >= NOTES.length) { idx = 0; updateUI(0); return; }
+  if (idx >= NOTES.length) { idx = 0; }
   const note = NOTES[idx];
   updateUI(idx);
   playNote(note.n, note.o, 0.7);

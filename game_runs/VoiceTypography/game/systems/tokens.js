@@ -81,12 +81,18 @@ Object.assign(Stage.prototype, {
   // Final result: commit any remaining tokens, then reset session state.
   commitLine(transcript) {
     const toks      = this.tokenize(transcript);
-    const remaining = toks.slice(this._interimOffset);
-    for (const t of remaining.slice(this.liveTokens.length)) { this.liveTokens.push(this.makeToken(t)); }
+    if (toks.length < this._interimOffset) {
+      // Recognizer finalized a transcript shorter than what was already auto-split
+      // and committed. Discard any stale interim tokens — they were retracted.
+      this.liveTokens        = [];
+      this.prevInterimTokens = [];
+    } else {
+      const remaining = toks.slice(this._interimOffset);
+      for (const t of remaining.slice(this.liveTokens.length)) { this.liveTokens.push(this.makeToken(t)); }
+    }
 
-    this._commitSegment();          // commits and switches orientation
-    this._interimOffset  = 0;      // reset for the next sentence
-    this._splitThreshold = 5 + Math.floor(Math.random() * 4);
+    this._commitSegment();     // commits and switches orientation; also sets _splitThreshold
+    this._interimOffset = 0;  // reset for the next sentence
   },
 
   onRecognitionResult(event) {

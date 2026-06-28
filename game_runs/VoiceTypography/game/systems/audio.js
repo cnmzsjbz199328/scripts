@@ -44,6 +44,9 @@ Object.assign(Stage.prototype, {
       if (!this.listening) return;
       // isFinal may not have fired before session ended — commit any pending tokens
       if (this.liveTokens.length) this.commitLine('');
+      // commitLine resets _interimOffset; reset here too for the case where
+      // an auto-split already cleared liveTokens before onend fired
+      this._interimOffset = 0;
       try { r.start(); } catch (_) {}
     };
     this.recognition = r;

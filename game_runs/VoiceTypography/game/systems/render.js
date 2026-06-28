@@ -109,7 +109,7 @@ Object.assign(Stage.prototype, {
     if (this.orientation === 'vertical') {
       const maxFit = Math.max(1, Math.floor(this.logicalHeight / (baseSize * 1.15)));
       if (this.liveTokens.length > maxFit) {
-        effectiveBase = baseSize * maxFit / this.liveTokens.length;
+        effectiveBase = Math.max(1, baseSize * maxFit / this.liveTokens.length);
       }
     }
 
