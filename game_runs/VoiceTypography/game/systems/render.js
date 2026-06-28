@@ -145,18 +145,23 @@ Object.assign(Stage.prototype, {
     }
   },
 
-  // Circular mode: characters arranged on a slowly rotating ring.
-  // Each char's rotation follows the circle tangent so text "lies" on the arc.
+  // Circular mode: characters on a vortex ring with fluid differential rotation.
+  // Each char orbits at a slightly different radius (0.80R–1.20R), and inner
+  // chars rotate faster (ω ∝ R²/r²) to mimic irrotational fluid flow.
   // Newly-spoken chars pop radially outward then settle back.
   _drawLiveCircular(now, dt, cx, cy, baseSize) {
     const n = this.liveTokens.length;
     const R = Math.min(this.logicalWidth, this.logicalHeight) * 0.36;
 
-    // Rotation speed: 1 rev / 16 s base, volume boosts up to 4×
-    const omega = (2 * Math.PI / 16) * (1 + this.smoothVol * this.sensitivity * 3);
-    this._circleAngle = (this._circleAngle + omega * dt) % (2 * Math.PI);
+    // Keep _circlePhase array in sync with liveTokens length
+    while (this._circlePhase.length < n) { this._circlePhase.push(0); }
+    if (this._circlePhase.length > n)     { this._circlePhase.length = n; }
 
-    // Arc span: ~40° per char, capped at 300°
+    // Base global rotation: 1 rev / 16 s, volume accelerates up to 4×
+    const omegaBase = (2 * Math.PI / 16) * (1 + this.smoothVol * this.sensitivity * 3);
+    this._circleAngle = (this._circleAngle + omegaBase * dt) % (2 * Math.PI);
+
+    // Arc span for initial layout: ~40° per char, capped at 300°
     const arcSpan = Math.min(2 * Math.PI * 5 / 6, n * (2 * Math.PI / 9));
 
     for (let i = 0; i < n; i++) {
@@ -165,17 +170,27 @@ Object.assign(Stage.prototype, {
       const fresh = this._clamp(1 - age / 420, 0, 1);
       const tier  = this._clamp(tok.spawnVolume * this.sensitivity, 0, 1);
 
-      // Position on arc: centred at 12 o'clock (−π/2), spread symmetrically
-      const frac  = n > 1 ? i / (n - 1) : 0.5;
-      const theta = this._circleAngle - Math.PI / 2 + (frac - 0.5) * arcSpan;
+      // Each char sits at a slightly varied radius (seeded by tok.seed)
+      // Inner chars are closer to centre, outer chars farther out
+      const radiusFrac = 0.80 + (tok.seed / (2 * Math.PI)) * 0.40;  // 0.80–1.20
+      const r0 = R * radiusFrac;
 
-      // Radial bounce: new chars pop outward then settle onto the ring
+      // Irrotational vortex: ω ∝ R²/r² — inner chars spin faster
+      const omegaVortex = omegaBase * (R * R) / (r0 * r0);
+      this._circlePhase[i] = (this._circlePhase[i] + omegaVortex * dt) % (2 * Math.PI);
+
+      // Base angle from arc layout, then add individual vortex drift
+      const frac  = n > 1 ? i / (n - 1) : 0.5;
+      const baseAngle = -Math.PI / 2 + (frac - 0.5) * arcSpan;
+      const theta = this._circleAngle + baseAngle + this._circlePhase[i];
+
+      // Radial bounce: new chars pop outward then settle
       const bounce = baseSize * 0.22 * tier * Math.exp(-age / 380);
-      const r      = R + bounce;
+      const r      = r0 + bounce;
 
       const x   = cx + r * Math.cos(theta);
       const y   = cy + r * Math.sin(theta);
-      const rot = theta + Math.PI / 2;   // tangent to circle → text reads along arc
+      const rot = theta + Math.PI / 2;   // tangent alignment
 
       this.paintGlyph(
         tok.text, x, y,
