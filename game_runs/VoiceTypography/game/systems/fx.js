@@ -28,12 +28,22 @@ Object.assign(Stage.prototype, {
   },
 
   computeScale(tok, now) {
-    const age   = now - tok.spawnTime;
+    const age   = (now - tok.spawnTime) / 1000;  // seconds for oscillator math
     const boost = this.reduceMotion
       ? tok.spawnVolume * 0.3
       : tok.spawnVolume * this.sensitivity * 0.95;
-    const decay = tok.effect === 'shake' ? 600 : 360;
-    return 1 + boost * Math.exp(-age / decay);
+    if (this.reduceMotion || boost < 0.01) return 1 + boost;
+
+    // Underdamped oscillator: scale = 1 + boost · e^(−ζωt) · cos(ω_d · t)
+    // ζ < 1 → overshoot on pop, then rings down — different feel per effect type.
+    let zeta, omega;
+    switch (tok.effect) {
+      case 'shake': zeta = 0.35; omega = 12; break;  // springy, fast ringing
+      case 'tilt':  zeta = 0.80; omega = 6;  break;  // near-critical, smooth settle
+      default:      zeta = 0.50; omega = 8;  break;  // pulse: one clean overshoot
+    }
+    const omegaD = omega * Math.sqrt(1 - zeta * zeta);
+    return Math.max(0.25, 1 + boost * Math.exp(-zeta * omega * age) * Math.cos(omegaD * age));
   },
 
   computeRot(tok, now) {
