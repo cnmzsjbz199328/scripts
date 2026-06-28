@@ -26,6 +26,9 @@ class Stage {
     // circular mode: accumulated rotation angle in radians
     this._circleAngle = 0;
 
+    // Markov chain: tracks last assigned effect so next token's probability is state-dependent
+    this._lastEffect = 'pulse';
+
     // audio / recognition handles
     this.recognition = null;
     this.audioCtx    = null;

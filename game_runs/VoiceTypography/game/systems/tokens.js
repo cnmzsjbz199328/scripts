@@ -10,13 +10,28 @@ Object.assign(Stage.prototype, {
   },
 
   makeToken(text) {
-    const r = Math.random();
+    // Markov chain transition table: current effect → [P(pulse), P(tilt), P(shake)]
+    // Encourages runs of the same effect rather than every-char random switching.
+    const T = {
+      pulse: [0.65, 0.25, 0.10],
+      tilt:  [0.30, 0.50, 0.20],
+      shake: [0.35, 0.20, 0.45]
+    };
+    const probs = T[this._lastEffect].slice();
+    // Loud speech biases toward shake
+    const volBoost = Math.max(0, this.smoothVol * this.sensitivity - 0.5) * 0.5;
+    probs[2] = Math.min(0.80, probs[2] + volBoost);
+    const norm = probs[0] + probs[1] + probs[2];
+    const r    = Math.random() * norm;
+    const effect = r < probs[0] ? 'pulse' : r < probs[0] + probs[1] ? 'tilt' : 'shake';
+    this._lastEffect = effect;
+
     return {
       text,
       spawnVolume: this.smoothVol,
       spawnTime:   performance.now(),
       seed:        Math.random() * Math.PI * 2,
-      effect:      r > 0.8 ? 'shake' : r > 0.62 ? 'tilt' : 'pulse',
+      effect,
       tilt:        (Math.random() - 0.5) * 0.28
     };
   },
