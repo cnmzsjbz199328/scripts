@@ -2,13 +2,9 @@
 
 const stage = new Stage();
 
-// Available orientation modes — extend here when Effect 3 (circular) is added
-// Available modes — extend here when Effect 3 (circular) is added
-const MODES = ['horizontal', 'vertical'];
-
-// Click anywhere on the canvas to randomly switch to a different mode
+// Click anywhere on the canvas to manually switch to a different mode (LAYOUT_MODES from config.js)
 document.getElementById('stage').addEventListener('click', function () {
-  const others      = MODES.filter(m => m !== stage.orientation);
+  const others      = LAYOUT_MODES.filter(m => m !== stage.orientation);
   stage.orientation = others[Math.floor(Math.random() * others.length)];
 });
 

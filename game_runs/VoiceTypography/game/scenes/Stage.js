@@ -23,6 +23,9 @@ class Stage {
     this._interimOffset  = 0;
     this._splitThreshold = 5 + Math.floor(Math.random() * 4);  // 5–8 chars
 
+    // circular mode: accumulated rotation angle in radians
+    this._circleAngle = 0;
+
     // audio / recognition handles
     this.recognition = null;
     this.audioCtx    = null;
@@ -49,14 +52,17 @@ class Stage {
   }
 
   _startLoop() {
-    const tick = () => {
-      const now = performance.now();
+    let prevNow = performance.now();
+    const tick = (now) => {
+      // Clamp dt to 50 ms so a hidden/backgrounded tab doesn't cause a jump
+      const dt = Math.min((now - prevNow) / 1000, 0.05);
+      prevNow = now;
       this.updateVolume();
       this.drawBackground();
       this.drawBgLines(now);
       const base = this.computeBaseSize();
       const cx = this.logicalWidth / 2, cy = this.logicalHeight / 2;
-      this.drawLive(now, cx, cy, base);
+      this.drawLive(now, dt, cx, cy, base);
       requestAnimationFrame(tick);
     };
     requestAnimationFrame(tick);

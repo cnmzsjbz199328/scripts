@@ -74,12 +74,12 @@ Object.assign(Stage.prototype, {
     }
 
     // 2. Draw oldest-first so newer lines appear on top.
-    //    Apply rank-based depth: newest line is fully opaque, oldest fades to ~20%.
+    //    Rank-based depth: newest = fully opaque, oldest fades to ~18%.
     const n = this.bgLines.length;
     for (let idx = 0; idx < n; idx++) {
       const line  = this.bgLines[idx];
-      const rank  = n > 1 ? idx / (n - 1) : 1;          // 0 = oldest, 1 = newest
-      const depth = 0.18 + rank * 0.82;                   // 0.18 → 1.00
+      const rank  = n > 1 ? idx / (n - 1) : 1;   // 0 = oldest, 1 = newest
+      const depth = 0.18 + rank * 0.82;            // 0.18 → 1.00
 
       const age     = (now - line.createdAt) / 1000;
       const mixFade = this._clamp(age / 30, 0, 0.6);
@@ -101,10 +101,15 @@ Object.assign(Stage.prototype, {
     }
   },
 
-  drawLive(now, cx, cy, baseSize) {
+  drawLive(now, dt, cx, cy, baseSize) {
     if (!this.liveTokens.length) return;
 
-    // In vertical mode the line width becomes screen height — cap it to prevent overflow
+    if (this.orientation === 'circular') {
+      this._drawLiveCircular(now, dt, cx, cy, baseSize);
+      return;
+    }
+
+    // In vertical mode the line width becomes screen height — cap to prevent overflow
     let effectiveBase = baseSize;
     if (this.orientation === 'vertical') {
       const maxFit = Math.max(1, Math.floor(this.logicalHeight / (baseSize * 1.15)));
@@ -136,6 +141,49 @@ Object.assign(Stage.prototype, {
       this.ctx.restore();
     } else {
       this.layoutLine(items, cx, cy, offsets);
+    }
+  },
+
+  // Circular mode: characters arranged on a slowly rotating ring.
+  // Each char's rotation follows the circle tangent so text "lies" on the arc.
+  // Newly-spoken chars pop radially outward then settle back.
+  _drawLiveCircular(now, dt, cx, cy, baseSize) {
+    const n = this.liveTokens.length;
+    const R = Math.min(this.logicalWidth, this.logicalHeight) * 0.36;
+
+    // Rotation speed: 1 rev / 16 s base, volume boosts up to 4×
+    const omega = (2 * Math.PI / 16) * (1 + this.smoothVol * this.sensitivity * 3);
+    this._circleAngle = (this._circleAngle + omega * dt) % (2 * Math.PI);
+
+    // Arc span: ~40° per char, capped at 300°
+    const arcSpan = Math.min(2 * Math.PI * 5 / 6, n * (2 * Math.PI / 9));
+
+    for (let i = 0; i < n; i++) {
+      const tok   = this.liveTokens[i];
+      const age   = now - tok.spawnTime;
+      const fresh = this._clamp(1 - age / 420, 0, 1);
+      const tier  = this._clamp(tok.spawnVolume * this.sensitivity, 0, 1);
+
+      // Position on arc: centred at 12 o'clock (−π/2), spread symmetrically
+      const frac  = n > 1 ? i / (n - 1) : 0.5;
+      const theta = this._circleAngle - Math.PI / 2 + (frac - 0.5) * arcSpan;
+
+      // Radial bounce: new chars pop outward then settle onto the ring
+      const bounce = baseSize * 0.22 * tier * Math.exp(-age / 380);
+      const r      = R + bounce;
+
+      const x   = cx + r * Math.cos(theta);
+      const y   = cy + r * Math.sin(theta);
+      const rot = theta + Math.PI / 2;   // tangent to circle → text reads along arc
+
+      this.paintGlyph(
+        tok.text, x, y,
+        baseSize * this.computeScale(tok, now),
+        rot,
+        this.colorForToken(tok),
+        tier > 0.5 ? COLORS.glow : COLORS.hot,
+        16 * fresh * tier
+      );
     }
   }
 

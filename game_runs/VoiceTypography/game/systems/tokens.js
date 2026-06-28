@@ -51,7 +51,8 @@ Object.assign(Stage.prototype, {
     }
 
     this._interimOffset += this.liveTokens.length;
-    this.orientation     = this.orientation === 'horizontal' ? 'vertical' : 'horizontal';
+    const _others = LAYOUT_MODES.filter(m => m !== this.orientation);
+    this.orientation = _others[Math.floor(Math.random() * _others.length)];
     this._splitThreshold = 5 + Math.floor(Math.random() * 4);  // next threshold: 5–8
     this.liveTokens        = [];
     this.prevInterimTokens = [];
