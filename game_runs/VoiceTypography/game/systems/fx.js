@@ -84,17 +84,47 @@ Object.assign(Stage.prototype, {
     });
   },
 
-  // Random tilt: ±8°–75°, wide range including near-vertical for visual variety
-  _randTilt() {
-    const deg = 8 + Math.random() * 67;
-    return (Math.random() < 0.5 ? 1 : -1) * deg * (Math.PI / 180);
+  // Deterministic pseudo-random from an integer seed (fast hash)
+  _hash(n) {
+    n = ((n >> 16) ^ n) * 0x45d9f3b | 0;
+    n = ((n >> 16) ^ n) * 0x45d9f3b | 0;
+    return (((n >> 16) ^ n) >>> 0) / 0xffffffff;
   },
 
-  // Uniform scatter across the full canvas so text fills edge-to-edge
+  // Smooth (value) noise: linearly interpolated between hashed lattice points.
+  // t is a continuous coordinate; returns a value in [0, 1].
+  _valueNoise(t) {
+    const i = Math.floor(t);
+    const f = t - i;
+    const u = f * f * (3 - 2 * f);   // smoothstep
+    return this._lerp(this._hash(i), this._hash(i + 1), u);
+  },
+
+  // Fractional Brownian motion: 3 octaves of value noise for natural-looking scatter.
+  _smoothNoise(t) {
+    return this._valueNoise(t) * 0.5
+         + this._valueNoise(t * 2.1 + 5.3) * 0.33
+         + this._valueNoise(t * 4.3 + 11.7) * 0.17;
+  },
+
+  // Coherent tilt: ±8°–75°, driven by smooth noise so adjacent segments
+  // don't cluster at the same angle (avoids random clumping).
+  _randTilt() {
+    const idx = this.bgLines.length;
+    const n1  = this._smoothNoise(idx * 0.37 + this._noiseSeed);
+    const n2  = this._smoothNoise(idx * 0.37 + this._noiseSeed + 50);
+    const deg = 8 + n1 * 67;
+    const sign = n2 < 0.5 ? 1 : -1;
+    return sign * deg * (Math.PI / 180);
+  },
+
+  // Coherent scatter: smooth noise distributes positions across the canvas
+  // more evenly than pure random, avoiding visible clumping.
   _scatterPos() {
+    const idx = this.bgLines.length;
     return {
-      x: Math.random() * this.logicalWidth,
-      y: Math.random() * this.logicalHeight
+      x: this._smoothNoise(idx * 0.41 + this._noiseSeed + 20) * this.logicalWidth,
+      y: this._smoothNoise(idx * 0.41 + this._noiseSeed + 80) * this.logicalHeight
     };
   }
 
