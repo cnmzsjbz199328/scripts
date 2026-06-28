@@ -74,12 +74,13 @@ Object.assign(Stage.prototype, {
     }
 
     // 2. Draw oldest-first so newer lines appear on top.
-    //    Rank-based depth: newest = fully opaque, oldest fades to ~18%.
+    //    Power-law depth: newest = 1.0, each older line drops off steeply.
+    //    depth = (1/ageRank)^1.1  where ageRank=1 for newest, n for oldest.
     const n = this.bgLines.length;
     for (let idx = 0; idx < n; idx++) {
-      const line  = this.bgLines[idx];
-      const rank  = n > 1 ? idx / (n - 1) : 1;   // 0 = oldest, 1 = newest
-      const depth = 0.18 + rank * 0.82;            // 0.18 → 1.00
+      const line     = this.bgLines[idx];
+      const ageRank  = n - idx;                        // 1 = newest, n = oldest
+      const depth    = Math.pow(1 / ageRank, 1.1);    // 1.0 → near-zero for oldest
 
       const age     = (now - line.createdAt) / 1000;
       const mixFade = this._clamp(age / 30, 0, 0.6);
