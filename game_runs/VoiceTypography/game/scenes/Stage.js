@@ -30,9 +30,6 @@ class Stage {
     // Markov chain: tracks last assigned effect so next token's probability is state-dependent
     this._lastEffect = 'pulse';
 
-    // Seed for smooth noise — keeps scatter positions coherent across a session
-    this._noiseSeed = Math.random() * 100;
-
     // Frequency band energies — updated each frame from FFT data
     // freqLow  drives horizontal bounce amplitude (bass = big bounce)
     // freqHigh drives vertical cascade snap speed (treble = snappier entry)
