@@ -27,6 +27,9 @@ class Stage {
     this._circleAngle  = 0;
     this._circlePhase  = [];   // per-token accumulated angular offset (vortex drift)
 
+    // particle burst: short-lived sparks emitted when tokens first appear on screen
+    this.particles = [];
+
     // Markov chain: tracks last assigned effect so next token's probability is state-dependent
     this._lastEffect = 'pulse';
 
@@ -70,6 +73,7 @@ class Stage {
       this.updateVolume();
       this.drawBackground();
       this.drawBgLines(now);
+      this.drawParticles(now);
       const base = this.computeBaseSize();
       const cx = this.logicalWidth / 2, cy = this.logicalHeight / 2;
       this.drawLive(now, dt, cx, cy, base);

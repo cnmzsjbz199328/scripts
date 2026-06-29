@@ -19,7 +19,8 @@ Object.assign(Stage.prototype, {
 
   // Always lays out items horizontally, centred at (centerX, centerY).
   // offsets: optional array of {dx, dy} applied per-item for rhythm effects.
-  layoutLine(items, centerX, centerY, offsets) {
+  // onPlace: optional callback(index, worldX, worldY) fired after each glyph is drawn.
+  layoutLine(items, centerX, centerY, offsets, onPlace) {
     if (!items.length) return;
     const ctx = this.ctx;
     const gap  = this.computeBaseSize() * 0.16;
@@ -38,12 +39,10 @@ Object.assign(Stage.prototype, {
       pos += dims[i] + gap;
       const off = offsets ? offsets[i] : null;
       const it  = items[i];
-      this.paintGlyph(
-        it.text,
-        centerX + center + (off ? off.dx : 0),
-        centerY           + (off ? off.dy : 0),
-        it.size, it.rotation, it.color, it.glowColor, it.glowBlur
-      );
+      const gx  = centerX + center + (off ? off.dx : 0);
+      const gy  = centerY           + (off ? off.dy : 0);
+      this.paintGlyph(it.text, gx, gy, it.size, it.rotation, it.color, it.glowColor, it.glowBlur);
+      if (onPlace) onPlace(i, gx, gy);
     }
   },
 
@@ -138,10 +137,18 @@ Object.assign(Stage.prototype, {
       this.ctx.save();
       this.ctx.translate(cx, cy);
       this.ctx.rotate(-Math.PI / 2);
-      this.layoutLine(items, 0, 0, offsets);
+      // layoutLine coords are in the rotated frame; transform back to world for burst:
+      // world = (cx + ly, cy − lx)  (from translate+rotate(−π/2))
+      this.layoutLine(items, 0, 0, offsets, (i, lx, ly) => {
+        const tok = this.liveTokens[i];
+        if (!tok._burst) { tok._burst = true; this.emitBurst(cx + ly, cy - lx, tok.spawnVolume); }
+      });
       this.ctx.restore();
     } else {
-      this.layoutLine(items, cx, cy, offsets);
+      this.layoutLine(items, cx, cy, offsets, (i, gx, gy) => {
+        const tok = this.liveTokens[i];
+        if (!tok._burst) { tok._burst = true; this.emitBurst(gx, gy, tok.spawnVolume); }
+      });
     }
   },
 
@@ -191,6 +198,8 @@ Object.assign(Stage.prototype, {
       const x   = cx + r * Math.cos(theta);
       const y   = cy + r * Math.sin(theta);
       const rot = theta + Math.PI / 2;   // tangent alignment
+
+      if (!tok._burst) { tok._burst = true; this.emitBurst(x, y, tok.spawnVolume); }
 
       this.paintGlyph(
         tok.text, x, y,
