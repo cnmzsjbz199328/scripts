@@ -29,6 +29,7 @@ Object.assign(Stage.prototype, {
     return {
       text,
       spawnVolume: this.smoothVol,
+      spawnPitch:  this.freqPitch,
       spawnTime:   performance.now(),
       seed:        Math.random() * Math.PI * 2,
       effect,

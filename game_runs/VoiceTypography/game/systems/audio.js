@@ -136,10 +136,20 @@ Object.assign(Stage.prototype, {
       for (let i = 46; i < 186; i++) highSum += this._freqBuf[i];
       this.freqLow  = this._lerp(this.freqLow,  this._clamp(lowSum  / (7   * 255) * 3.0, 0, 1), 0.2);
       this.freqHigh = this._lerp(this.freqHigh, this._clamp(highSum / (140 * 255) * 4.0, 0, 1), 0.2);
+
+      // Dominant pitch: peak energy bin in speech range (1–185) → [0, 1].
+      // Hold previous value when signal is too weak to be reliable.
+      let peakBin = 1, peakVal = 0;
+      for (let i = 1; i < 186; i++) {
+        if (this._freqBuf[i] > peakVal) { peakVal = this._freqBuf[i]; peakBin = i; }
+      }
+      const pitchTarget = peakVal > 28 ? peakBin / 185 : this.freqPitch;
+      this.freqPitch = this._lerp(this.freqPitch, pitchTarget, 0.1);
     } else {
       this.smoothVol = this._lerp(this.smoothVol, 0, 0.06);
       this.freqLow   = this._lerp(this.freqLow,  0, 0.06);
       this.freqHigh  = this._lerp(this.freqHigh, 0, 0.06);
+      this.freqPitch = this._lerp(this.freqPitch, 0, 0.06);
     }
   }
 

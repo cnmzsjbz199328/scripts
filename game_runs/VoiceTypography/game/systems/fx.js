@@ -55,8 +55,13 @@ Object.assign(Stage.prototype, {
   },
 
   colorForToken(tok) {
-    const t = this._clamp(tok.spawnVolume * this.sensitivity * 1.3, 0, 1);
-    return this.lerpColor(COLORS.base, COLORS.hot, t);
+    const vol   = this._clamp(tok.spawnVolume * this.sensitivity * 1.3, 0, 1);
+    const pitch = this._clamp((tok.spawnPitch || 0) * 1.4, 0, 1);
+    // Low pitch → warm red/orange (hot); high pitch → cool indigo (cool).
+    // Both blend from base white at low volume.
+    const warm = this.lerpColor(COLORS.base, COLORS.hot,  vol);
+    const cool = this.lerpColor(COLORS.base, COLORS.cool, vol);
+    return this.lerpColor(warm, cool, pitch);
   },
 
   // Per-token {dx, dy} offsets driven by frequency band energies.

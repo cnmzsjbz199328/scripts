@@ -34,10 +34,12 @@ class Stage {
     this._lastEffect = 'pulse';
 
     // Frequency band energies — updated each frame from FFT data
-    // freqLow  drives horizontal bounce amplitude (bass = big bounce)
-    // freqHigh drives vertical cascade snap speed (treble = snappier entry)
-    this.freqLow  = 0;
-    this.freqHigh = 0;
+    // freqLow   drives horizontal bounce amplitude (bass = big bounce)
+    // freqHigh  drives vertical cascade snap speed (treble = snappier entry)
+    // freqPitch 0–1 dominant pitch (0=bass, 1=treble) — drives token color
+    this.freqLow   = 0;
+    this.freqHigh  = 0;
+    this.freqPitch = 0;
 
     // audio / recognition handles
     this.recognition = null;

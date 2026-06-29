@@ -5,7 +5,8 @@ window.COLORS = {
   base:  '#f1f5f9',
   hot:   '#ff4d6d',
   glow:  '#fbbf24',
-  faded: '#64748b'
+  faded: '#64748b',
+  cool:  '#818cf8'   // indigo — high-pitch counterpart to warm hot/glow
 };
 
 window.FONT_FAMILY = `'Segoe UI',monospace`;
