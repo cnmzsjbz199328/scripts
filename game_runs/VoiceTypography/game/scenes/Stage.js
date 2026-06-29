@@ -27,6 +27,9 @@ class Stage {
     this._circleAngle  = 0;
     this._circlePhase  = [];   // per-token accumulated angular offset (vortex drift)
 
+    // wave mode: scrolling phase of the sine path
+    this._wavePhase = 0;
+
     // particle burst: short-lived sparks emitted when tokens first appear on screen
     this.particles = [];
 

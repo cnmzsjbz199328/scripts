@@ -108,6 +108,10 @@ Object.assign(Stage.prototype, {
       this._drawLiveCircular(now, dt, cx, cy, baseSize);
       return;
     }
+    if (this.orientation === 'wave') {
+      this._drawLiveWave(now, dt, cx, cy, baseSize);
+      return;
+    }
 
     // In vertical mode the line width becomes screen height — cap to prevent overflow
     let effectiveBase = baseSize;
@@ -149,6 +153,57 @@ Object.assign(Stage.prototype, {
         const tok = this.liveTokens[i];
         if (!tok._burst) { tok._burst = true; this.emitBurst(gx, gy, tok.spawnVolume); }
       });
+    }
+  },
+
+  // Wave mode: characters arranged along a scrolling sine path.
+  // Amplitude scales with volume; wave frequency scales with treble energy.
+  // Each char's rotation follows the local tangent so text "rides" the wave.
+  _drawLiveWave(now, dt, cx, cy, baseSize) {
+    const n = this.liveTokens.length;
+
+    // Wave scrolls forward; volume boosts speed
+    const waveSpeed = 1.2 + this.smoothVol * this.sensitivity * 2.5;
+    this._wavePhase = (this._wavePhase + waveSpeed * dt) % (2 * Math.PI);
+
+    // Amplitude: 0.5–3x baseSize driven by volume
+    const amp = baseSize * (0.5 + this._clamp(this.smoothVol * this.sensitivity, 0, 1) * 2.5);
+
+    // 1–2.5 cycles across the canvas width; treble pushes frequency up
+    const cycles = 1 + this._clamp((this.freqHigh || 0) * this.sensitivity, 0, 1) * 1.5;
+    const k = cycles * 2 * Math.PI / this.logicalWidth;
+
+    // Auto-scale to keep all chars on screen horizontally
+    let effectiveBase = baseSize;
+    const spacing0 = baseSize * 1.35;
+    const maxFit   = Math.max(1, Math.floor(this.logicalWidth / spacing0));
+    if (n > maxFit) effectiveBase = Math.max(1, baseSize * maxFit / n);
+    const spacing = effectiveBase * 1.35;
+
+    const totalSpan = (n > 1 ? n - 1 : 0) * spacing;
+
+    for (let i = 0; i < n; i++) {
+      const tok   = this.liveTokens[i];
+      const age   = now - tok.spawnTime;
+      const fresh = this._clamp(1 - age / 420, 0, 1);
+      const tier  = this._clamp(tok.spawnVolume * this.sensitivity, 0, 1);
+
+      const xOff = n > 1 ? -totalSpan / 2 + i * spacing : 0;
+      const xW   = cx + xOff;
+      const yW   = cy + amp * Math.sin(k * xOff + this._wavePhase);
+      // tangent angle: arctan(dy/dx) = arctan(amp · k · cos(...))
+      const rot  = Math.atan(amp * k * Math.cos(k * xOff + this._wavePhase));
+
+      if (!tok._burst) { tok._burst = true; this.emitBurst(xW, yW, tok.spawnVolume); }
+
+      this.paintGlyph(
+        tok.text, xW, yW,
+        effectiveBase * this.computeScale(tok, now),
+        rot,
+        this.colorForToken(tok),
+        tier > 0.5 ? COLORS.glow : COLORS.hot,
+        16 * fresh * tier
+      );
     }
   },
 
