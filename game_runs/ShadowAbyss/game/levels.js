@@ -16,7 +16,7 @@ const CIRCLES = [
     riftX: 3010,            // 通往第二圈的下行裂口（视觉 + 圈分界）
     fog: 0x0c0f18, fogA: 0.30, lightR: 150,
     ambient: { tree: 'amb_tree_limbo', fog: 'amb_fog_limbo', wind: null, treeTint: 0xffffff },
-    parallax: { sky: ['#0e1320', '#070a12'], cliff: '#0a0e18' },
+    parallax: { sky: ['#0e1320', '#070a12'], cliff: '#0a0e18', panorama: 'panorama_limbo' },
     card: {
       title: '第一圈 · 林勃',
       body: '幽暗森林的尽头，维吉尔在雾中等你。\n这里没有刑罚，只有走不出的灰。跟上引路的微光。\n\n← → / A D 行走    ·    ↑ / W / 空格 跳（长按跳更高）    ·    继续 SPACE',
@@ -43,7 +43,7 @@ const CIRCLES = [
     riftX: 3300,            // 竖切终点：抵达即过第二圈、通关
     fog: 0x0a0810, fogA: 0.42, lightR: 130,
     ambient: { tree: 'amb_tree_lust', fog: 'amb_fog_lust', wind: 'amb_wind_lust', treeTint: 0xffffff },
-    parallax: { sky: ['#150a14', '#0a050c'], cliff: '#120a14' },
+    parallax: { sky: ['#150a14', '#0a050c'], cliff: '#120a14', panorama: 'panorama_lust' },
     card: {
       title: '第二圈 · 欲色',
       body: '一阵永不停歇的风，把恋慕者的魂魄吹得无处停留。\n风会把你推偏——在风停的间隙里迈步、起跳。\n\n继续 SPACE',

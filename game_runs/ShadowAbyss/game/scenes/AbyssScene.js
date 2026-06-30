@@ -18,6 +18,9 @@ class AbyssScene extends Phaser.Scene {
     for (let i = 0; i < 6; i++) { svg(`amb_tree_limbo_${i}`, `amb_tree_limbo_${i}`, 128, 128); svg(`amb_tree_lust_${i}`, `amb_tree_lust_${i}`, 128, 128); }
     for (let i = 0; i < 8; i++) { svg(`amb_fog_limbo_${i}`, `amb_fog_limbo_${i}`, 128, 128); svg(`amb_fog_lust_${i}`, `amb_fog_lust_${i}`, 128, 128); }
     for (let i = 0; i < 4; i++) svg(`amb_wind_lust_${i}`, `amb_wind_lust_${i}`, 128, 128);
+    // 远景 AI 全景图
+    this.load.image('panorama_limbo', 'scene/panorama_limbo.png');
+    this.load.image('panorama_lust', 'scene/panorama_lust.png');
   }
 
   create() {

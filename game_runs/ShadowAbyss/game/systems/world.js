@@ -22,6 +22,56 @@ Object.assign(AbyssScene.prototype, {
       const S = 8, tex = this.textures.createCanvas('ash', S, S), ctx = tex.getContext();
       ctx.fillStyle = '#caa37a'; ctx.beginPath(); ctx.arc(4, 4, 2.4, 0, 7); ctx.fill(); tex.refresh();
     }
+    if (!this.textures.exists('fg_cliff')) {
+      const w = 180, h = 280;
+      const tex = this.textures.createCanvas('fg_cliff', w, h), ctx = tex.getContext();
+      ctx.fillStyle = '#030406';
+      ctx.beginPath();
+      ctx.moveTo(w, h);
+      ctx.lineTo(0, h);
+      ctx.lineTo(0, h * 0.3);
+      ctx.lineTo(w * 0.25, h * 0.45);
+      ctx.lineTo(w * 0.5, h * 0.25);
+      ctx.lineTo(w * 0.75, h * 0.6);
+      ctx.lineTo(w, h * 0.5);
+      ctx.closePath();
+      ctx.fill();
+      tex.refresh();
+    }
+    if (!this.textures.exists('fg_cliff2')) {
+      const w = 220, h = 340;
+      const tex = this.textures.createCanvas('fg_cliff2', w, h), ctx = tex.getContext();
+      ctx.fillStyle = '#020305';
+      ctx.beginPath();
+      ctx.moveTo(w, h);
+      ctx.lineTo(0, h);
+      ctx.lineTo(0, h * 0.6);
+      ctx.lineTo(w * 0.3, h * 0.35);
+      ctx.lineTo(w * 0.65, h * 0.7);
+      ctx.lineTo(w * 0.85, h * 0.5);
+      ctx.lineTo(w, h * 0.75);
+      ctx.closePath();
+      ctx.fill();
+      tex.refresh();
+    }
+    if (!this.textures.exists('fg_branch')) {
+      const w = 140, h = 140;
+      const tex = this.textures.createCanvas('fg_branch', w, h), ctx = tex.getContext();
+      ctx.strokeStyle = '#030406';
+      ctx.lineWidth = 10;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.lineTo(w * 0.5, h * 0.5);
+      ctx.moveTo(w * 0.25, h * 0.25);
+      ctx.lineTo(w * 0.1, h * 0.6);
+      ctx.moveTo(w * 0.4, h * 0.4);
+      ctx.lineTo(w * 0.85, h * 0.3);
+      ctx.moveTo(w * 0.5, h * 0.5);
+      ctx.lineTo(w * 0.9, h * 0.85);
+      ctx.stroke();
+      tex.refresh();
+    }
   },
 
   _makeAnims() {
@@ -43,35 +93,53 @@ Object.assign(AbyssScene.prototype, {
   // 环境视差层：枯树带（视差精灵）+ 流雾带（雾下）+ 风痕带（雾上，仅欲色）。
   // 配合调淡后的暗雾幕，背景一路变丰富又不丢氛围。
   _buildAmbient() {
-    // 流雾带（雾幕下，被提灯揭示更亮）
-    this.fogBand = this.add.tileSprite(0, 0, GAME_W, GAME_H * 0.7, 'amb_fog_limbo_0')
-      .setOrigin(0, 0).setScrollFactor(0).setDepth(DEPTH.FOG - 40).setAlpha(0.5).setTileScale(1.6, 1.6);
+    // 流雾：离散云精灵池（雾幕下，被提灯揭示）。各自独立的飘速/高度/大小/形状/透明度，
+    // 持续自主飘动 + 轻微视差，飘出屏缘即用新随机参数重生 —— 不平铺、不与相机死同步，
+    // 规避"白云规律飘动"的机械感。
+    this._cloudFog = (this.circles[0].ambient || CIRCLES[0].ambient).fog;
+    this.clouds = [];
+    for (let i = 0; i < 8; i++) {
+      const c = this.add.image(0, 0, `${this._cloudFog}_0`)
+        .setScrollFactor(0).setDepth(DEPTH.FOG - 40);
+      this._respawnCloud(c, Phaser.Math.Between(0, GAME_W));   // 初始铺满屏宽
+      this.clouds.push(c);
+    }
     // 风痕带（雾幕上，永远可见的情欲之风）
     this.windBand = this.add.tileSprite(0, GAME_H * 0.12, GAME_W, GAME_H * 0.5, 'amb_wind_lust_0')
       .setOrigin(0, 0).setScrollFactor(0).setDepth(DEPTH.FOG + 5).setAlpha(0).setTileScale(1.3, 1.3);
 
-    // 枯树视差带：跨整个世界散布，scrollFactor 0.35 → 远景缓慢掠过
+    // 枯树视差带：跨整个世界散布，scrollFactor 0.5 → 中景缓慢掠过
     this.trees = [];
     let x = 120;
     while (x < WORLD_W) {
       const ci = this.circles.findIndex(c => x >= c.startX && x < c.startX + c.span);
       const key = (this.circles[Math.max(0, ci)].ambient || CIRCLES[0].ambient).tree;
       const t = this.add.sprite(x, FLOOR_Y - 6, `${key}_0`)
-        .setOrigin(0.5, 1).setScrollFactor(0.35).setDepth(DEPTH.FOG - 30)
+        .setOrigin(0.5, 1).setScrollFactor(0.5).setDepth(DEPTH.FOG - 30)
         .setScale(Phaser.Math.FloatBetween(1.4, 2.4)).setAlpha(0.9);
       t.play(key);
       this.trees.push(t);
       x += Phaser.Math.Between(360, 560);
     }
 
-    // 帧循环（tileSprite 不能播 anim，手动换纹理）
+    // 风痕带帧循环（tileSprite 不能播 anim，手动换纹理；云用离散飘动，不在此列）
     this._ambTick = 0;
     this.time.addEvent({ delay: 130, loop: true, callback: () => {
       this._ambTick++;
       const a = this.circles[this.curCircle ?? 0].ambient || CIRCLES[0].ambient;
-      this.fogBand.setTexture(`${a.fog}_${this._ambTick % 8}`);
       if (a.wind) this.windBand.setTexture(`${a.wind}_${this._ambTick % 4}`);
     }});
+  },
+
+  // 单朵云重生：随机高度/大小/透明度/形状帧/自主飘速/视差系数（每朵略不同 → 不同步）
+  _respawnCloud(c, x) {
+    c.x = x;
+    c.y = Phaser.Math.Between(24, Math.floor(GAME_H * 0.52));
+    c.setScale(Phaser.Math.FloatBetween(1.3, 2.8));
+    c.setAlpha(Phaser.Math.FloatBetween(0.20, 0.48));
+    c.setTexture(`${this._cloudFog}_${Phaser.Math.Between(0, 7)}`);
+    c._speed = Phaser.Math.FloatBetween(4, 16);     // px/s 自主飘速（与相机无关）
+    c._par = Phaser.Math.FloatBetween(0.12, 0.26);  // 视差系数（每朵不同 → 错开）
   },
 
   // 程序化剪影背景纹理（渐变天空 + 远景崖壁），按圈配色，零 AI 图
@@ -114,7 +182,8 @@ Object.assign(AbyssScene.prototype, {
     this.cameras.main.setBounds(0, 0, WORLD_W, GAME_H);
 
     // 背景 + 暗黑雾幕 + 反相光晕遮罩
-    this.bg = this.add.tileSprite(0, 0, GAME_W, GAME_H, this._makeBgTexture(C0))
+    const bgTex = C0.parallax.panorama || this._makeBgTexture(C0);
+    this.bg = this.add.tileSprite(0, 0, GAME_W, GAME_H, bgTex)
       .setOrigin(0, 0).setScrollFactor(0).setDepth(DEPTH.BG);
     this.fog = this.add.rectangle(0, 0, GAME_W, GAME_H, C0.fog, C0.fogA)
       .setOrigin(0, 0).setScrollFactor(0).setDepth(DEPTH.FOG);
@@ -171,6 +240,26 @@ Object.assign(AbyssScene.prototype, {
       scale: { min: 0.4, max: 1 }, alpha: { start: 0.5, end: 0 },
     }).setScrollFactor(0).setDepth(DEPTH.FOG + 1);
 
+    // 近景前景: 程序化黑色崖壁/断枝，scrollFactor 1.12-1.15，放在雾幕下 (depth DEPTH.FOG - 5 = -55)
+    this.foregrounds = [];
+    let fgX = 200;
+    while (fgX < WORLD_W) {
+      const isCliff = fgX % 3 !== 0;
+      if (isCliff) {
+        const key = fgX % 2 === 0 ? 'fg_cliff' : 'fg_cliff2';
+        const fg = this.add.image(fgX, GAME_H, key)
+          .setOrigin(0.5, 1).setScrollFactor(1.15).setDepth(DEPTH.FOG - 5)
+          .setAlpha(0.95);
+        this.foregrounds.push(fg);
+      } else {
+        const fg = this.add.image(fgX, 0, 'fg_branch')
+          .setOrigin(0.5, 0).setScrollFactor(1.12).setDepth(DEPTH.FOG - 5)
+          .setAlpha(0.95).setFlipY(true);
+        this.foregrounds.push(fg);
+      }
+      fgX += Phaser.Math.Between(450, 700);
+    }
+
     this.cameras.main.startFollow(this.player, true, 0.1, 0.1);
     this.cameras.main.setDeadzone(160, 200);
     this.curCircle = 0;
@@ -190,17 +279,37 @@ Object.assign(AbyssScene.prototype, {
     this.curCircle = idx;
     this._lightR = c.lightR;
     if (this.fog) { this.fog.fillColor = c.fog; this.fog.fillAlpha = c.fogA; }
-    if (this.bg) this.bg.setTexture(this._makeBgTexture(c));
-    // 风痕带仅在有风的圈淡入（情欲之风）
+    if (this.bg) {
+      if (c.parallax.panorama) {
+        this.bg.setTexture(c.parallax.panorama);
+      } else {
+        this.bg.setTexture(this._makeBgTexture(c));
+      }
+    }
+    // 云切换到本圈配色集（后续重生自然采用新集；当前云也即时换形状）
     const a = c.ambient || CIRCLES[idx].ambient;
+    this._cloudFog = a.fog;
+    if (this.clouds) this.clouds.forEach(cl => cl.setTexture(`${a.fog}_${Phaser.Math.Between(0, 7)}`));
+    // 风痕带仅在有风的圈淡入（情欲之风）
     if (this.windBand) this.tweens.add({ targets: this.windBand, alpha: a.wind ? 0.45 : 0, duration: 600 });
   },
 
-  _updateAmbient() {
+  _updateAmbient(time, delta) {
     const sx = this.cameras.main.scrollX;
-    if (this.bg) this.bg.tilePositionX = sx * 0.3;
-    if (this.fogBand) this.fogBand.tilePositionX = sx * 0.18;
-    if (this.windBand) this.windBand.tilePositionX = sx * 0.55;
+    const dt = (delta || 16) / 1000;
+    if (this.bg) this.bg.tilePositionX = sx * 0.2;        // 远景 AI 全景层
+    if (this.windBand) this.windBand.tilePositionX = sx * 0.5;
+    // 离散云：自主飘动（与相机解耦）+ 每朵不同的视差，飘出屏缘换新参数重生
+    if (this.clouds) {
+      const dsx = sx - (this._prevScrollX ?? sx);
+      for (const c of this.clouds) {
+        c.x -= c._speed * dt + dsx * c._par;
+        const m = c.displayWidth;
+        if (c.x < -m) this._respawnCloud(c, GAME_W + m * 0.5);
+        else if (c.x > GAME_W + m) this._respawnCloud(c, -m * 0.5);
+      }
+      this._prevScrollX = sx;
+    }
   },
 
   _updateLight() {
