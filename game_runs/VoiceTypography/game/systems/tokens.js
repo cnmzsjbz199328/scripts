@@ -29,6 +29,7 @@ Object.assign(Stage.prototype, {
     return {
       text,
       spawnVolume: this.smoothVol,
+      spawnPitch:  this.freqPitch,
       spawnTime:   performance.now(),
       seed:        Math.random() * Math.PI * 2,
       effect,
@@ -71,7 +72,6 @@ Object.assign(Stage.prototype, {
     this._splitThreshold = 5 + Math.floor(Math.random() * 4);  // next threshold: 5–8
     this.liveTokens        = [];
     this.prevInterimTokens = [];
-    this._circlePhase      = [];
   },
 
   // Interim (not final) result: show only the slice of tokens after what's

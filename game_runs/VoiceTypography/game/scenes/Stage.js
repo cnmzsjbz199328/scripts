@@ -23,18 +23,25 @@ class Stage {
     this._interimOffset  = 0;
     this._splitThreshold = 5 + Math.floor(Math.random() * 4);  // 5–8 chars
 
-    // circular mode: global rotation angle + per-char phase offsets for vortex
-    this._circleAngle  = 0;
-    this._circlePhase  = [];   // per-token accumulated angular offset (vortex drift)
+    // circular mode: global rotation angle
+    this._circleAngle = 0;
+
+    // wave mode: scrolling phase of the sine path
+    this._wavePhase = 0;
+
+    // particle burst: short-lived sparks emitted when tokens first appear on screen
+    this.particles = [];
 
     // Markov chain: tracks last assigned effect so next token's probability is state-dependent
     this._lastEffect = 'pulse';
 
     // Frequency band energies — updated each frame from FFT data
-    // freqLow  drives horizontal bounce amplitude (bass = big bounce)
-    // freqHigh drives vertical cascade snap speed (treble = snappier entry)
-    this.freqLow  = 0;
-    this.freqHigh = 0;
+    // freqLow   drives horizontal bounce amplitude (bass = big bounce)
+    // freqHigh  drives vertical cascade snap speed (treble = snappier entry)
+    // freqPitch 0–1 dominant pitch (0=bass, 1=treble) — drives token color
+    this.freqLow   = 0;
+    this.freqHigh  = 0;
+    this.freqPitch = 0;
 
     // audio / recognition handles
     this.recognition = null;
@@ -73,6 +80,8 @@ class Stage {
       const base = this.computeBaseSize();
       const cx = this.logicalWidth / 2, cy = this.logicalHeight / 2;
       this.drawLive(now, dt, cx, cy, base);
+      this._emitLiveOrbits(now);
+      this.drawParticles(now);
       requestAnimationFrame(tick);
     };
     requestAnimationFrame(tick);
