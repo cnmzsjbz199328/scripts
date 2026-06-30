@@ -6,7 +6,7 @@ const GAME_H = 540;
 // ── 物理与手感 ──
 const GRAVITY = 1180;
 const PLAYER_SPEED = 220;
-const JUMP_V = 560;        // 起跳初速
+const JUMP_V = 580;        // 起跳初速（130px 沟壑余量充足）
 const JUMP_CUT = 0.42;     // 松开跳键时若仍上升，竖速乘此系数 → 可变跳高（短按矮跳/长按高跳）
 const COYOTE_MS = 90;      // 离地后仍可起跳的宽容窗口
 const DEATH_BUDGET = 5;    // 生命数（坠落/被风吞没各扣 1 心，归零且无命 → 失败）

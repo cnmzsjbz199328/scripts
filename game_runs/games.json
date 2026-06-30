@@ -1,5 +1,19 @@
 [
   {
+    "id": "ShadowAbyss",
+    "title": "影渊：但丁的下降",
+    "tagline": "地狱有九层，光在最底下——跟着维吉尔，一层层走下去。",
+    "gameType": "side-scroller",
+    "genre": "PLATFORMER",
+    "accent": "#c4503a",
+    "previewBg": "#0a0508",
+    "icon": "🕯️",
+    "thumbnail": null,
+    "previewVideo": "ShadowAbyss/preview.mp4",
+    "path": "ShadowAbyss/index.html",
+    "createdAt": "2026-06-30T00:00:00.000Z"
+  },
+  {
     "id": "PianoMaster",
     "title": "琴键导航：乐谱键位学习",
     "tagline": "乐谱与琴键同步高亮——再也不用猜该按哪个键，跟着节奏一步步学会弹奏。",
