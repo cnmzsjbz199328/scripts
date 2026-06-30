@@ -5,6 +5,7 @@ Object.assign(InkLineScene.prototype, {
     if (!this.gameStarted || this.gameOver || this.cardActive) return;
     drop.destroy(); this.score++;
     window.GameHUD?.setScore(this.score);
+    this._revealAt(drop.x, drop.y, 150 + this.score * 26);   // 吃墨即在此处泼开一大片画面
     const f = this.add.circle(drop.x, drop.y, 5, INK, 0.8).setDepth(30);
     this.tweens.add({ targets: f, scale: 3, alpha: 0, duration: 320, onComplete: () => f.destroy() });
     this._updateObjective();
@@ -45,6 +46,7 @@ Object.assign(InkLineScene.prototype, {
 
   _win() {
     this.gameOver = true; this.gameStarted = false; this.player.setVelocity(0, 0);
+    if (this.cover) this.tweens.add({ targets: this.cover, alpha: 0, duration: 900, ease: 'Sine.out' });  // 落笔 → 整幅画绽放
     this._showCard('落 笔',
       '最后一滴墨落下，断裂的线条自动连缀成完整的画，\n米白画纸绽放出第一抹色彩——\n小墨终于画完了自己的世界。',
       () => window.GameHUD?.showGameOver(true, '断线连缀成画，小墨画完了自己的世界。'));

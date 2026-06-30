@@ -15,6 +15,28 @@ Object.assign(InkLineScene.prototype, {
   },
 
 
+  // 柔边圆形笔刷（径向渐变 alpha），erase 时擦出软边、可叠加累积
+  _makeBrush() {
+    if (this.textures.exists('inkbrush')) return;
+    const S = 256, tex = this.textures.createCanvas('inkbrush', S, S);
+    const ctx = tex.getContext();
+    const grad = ctx.createRadialGradient(S / 2, S / 2, 0, S / 2, S / 2, S / 2);
+    grad.addColorStop(0, 'rgba(255,255,255,1)');
+    grad.addColorStop(0.62, 'rgba(255,255,255,0.85)');
+    grad.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = grad; ctx.fillRect(0, 0, S, S);
+    tex.refresh();
+  },
+
+
+  // 在世界坐标 (x,y) 处以半径 r 擦开纸色遮罩，露出背后的全景
+  _revealAt(x, y, r) {
+    if (!this.cover || !this._brush) return;
+    this._brush.setScale(r / 128);   // 笔刷原生半径 128px
+    this.cover.erase(this._brush, x, y);
+  },
+
+
   _makeAnims() {
     const idle = ['blobf0', 'blobf1', 'blobf2', 'blobf1'];
     const move = ['blobf0', 'blobf3', 'blobf4', 'blobf3'];

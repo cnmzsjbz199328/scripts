@@ -12,8 +12,14 @@ class InkLineScene extends Phaser.Scene {
 
     this._makeTextures();
 
-    this.bg = this.add.tileSprite(0, 0, GAME_W, GAME_H, 'paper')
-      .setOrigin(0, 0).setScrollFactor(0).setTileScale(GAME_H / 864, GAME_H / 864).setDepth(-100);
+    // 世界级全景背景：盖一层纸色遮罩，吃墨/行进时擦出 → 世界被一点点“画”出来
+    this.bg = this.add.tileSprite(0, 0, WORLD_W, WORLD_H, 'paper')
+      .setOrigin(0, 0).setTileScale(WORLD_H / 768, WORLD_H / 768).setDepth(-90);
+    this._makeBrush();
+    this.cover = this.add.renderTexture(0, 0, WORLD_W, WORLD_H).setOrigin(0, 0).setDepth(-70);
+    this.cover.fill(PAPER, 1);                                  // 满纸留白 → 完全盖住全景
+    this._brush = this.make.image({ key: 'inkbrush', add: false }).setOrigin(0.5);
+    this._revealAt(ACTS[0].startX, SPAWN_Y, 90);               // 出生点先擦开一小片
     this.wash = this.add.rectangle(0, 0, GAME_W, GAME_H, ACTS[0].wash, 0)
       .setOrigin(0, 0).setScrollFactor(0).setDepth(-50);
 
@@ -89,8 +95,14 @@ class InkLineScene extends Phaser.Scene {
 
 
   update() {
-    if (this.bg) this.bg.tilePositionX = this.cameras.main.scrollX * 0.3;
     if (this.cardActive || !this.gameStarted || this.gameOver) return;
+
+    // 行进留痕：墨团走过处持续擦开遮罩，半径随已吃墨量增大（吃越多、显越多）
+    const rx = this.player.x, ry = this.player.y;
+    if (!this._lastReveal || Phaser.Math.Distance.Between(rx, ry, this._lastReveal.x, this._lastReveal.y) > 16) {
+      this._revealAt(rx, ry, 80 + this.score * 26);
+      this._lastReveal = { x: rx, y: ry };
+    }
 
     const onGround = this.player.body.blocked.down || this.player.body.touching.down;
     const left = this.cursors.left.isDown || this.kkeys.A.isDown;
