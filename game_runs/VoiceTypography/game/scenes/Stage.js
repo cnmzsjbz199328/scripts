@@ -80,6 +80,7 @@ class Stage {
       const base = this.computeBaseSize();
       const cx = this.logicalWidth / 2, cy = this.logicalHeight / 2;
       this.drawLive(now, dt, cx, cy, base);
+      this._emitLiveOrbits(now);
       this.drawParticles(now);
       requestAnimationFrame(tick);
     };

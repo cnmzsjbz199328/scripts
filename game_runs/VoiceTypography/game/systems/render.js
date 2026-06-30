@@ -3,6 +3,8 @@
 // All canvas drawing: background pulse, scattered bg lines, live tokens
 Object.assign(Stage.prototype, {
 
+  // Draw a glyph with layered glow so it looks like glowing energy rather than
+  // solid ink. Double-render: wide diffuse pass first, tight core pass on top.
   paintGlyph(text, x, y, size, rot, color, glowColor, glowBlur) {
     const ctx = this.ctx;
     ctx.save();
@@ -11,9 +13,18 @@ Object.assign(Stage.prototype, {
     ctx.font         = `800 ${size}px ${FONT_FAMILY}`;
     ctx.textAlign    = 'center';
     ctx.textBaseline = 'middle';
-    if (glowBlur > 0.4) { ctx.shadowColor = glowColor; ctx.shadowBlur = glowBlur; }
-    ctx.fillStyle = color;
-    ctx.fillText(text, 0, 0);
+    ctx.fillStyle    = color;
+    if (glowBlur > 0.4) {
+      // Wide diffuse outer glow — looks like a particle cloud surrounding the glyph
+      ctx.shadowColor = glowColor;
+      ctx.shadowBlur  = glowBlur * 2.4;
+      ctx.fillText(text, 0, 0);
+      // Tight inner glow drawn on top — crisp core
+      ctx.shadowBlur  = glowBlur * 0.5;
+      ctx.fillText(text, 0, 0);
+    } else {
+      ctx.fillText(text, 0, 0);
+    }
     ctx.restore();
   },
 
@@ -145,12 +156,16 @@ Object.assign(Stage.prototype, {
       // world = (cx + ly, cy − lx)  (from translate+rotate(−π/2))
       this.layoutLine(items, 0, 0, offsets, (i, lx, ly) => {
         const tok = this.liveTokens[i];
-        if (!tok._burst) { tok._burst = true; this.emitBurst(cx + ly, cy - lx, tok.spawnVolume); }
+        tok._rx = cx + ly;
+        tok._ry = cy - lx;
+        if (!tok._burst) { tok._burst = true; this.emitBurst(tok._rx, tok._ry, tok.spawnVolume); }
       });
       this.ctx.restore();
     } else {
       this.layoutLine(items, cx, cy, offsets, (i, gx, gy) => {
         const tok = this.liveTokens[i];
+        tok._rx = gx;
+        tok._ry = gy;
         if (!tok._burst) { tok._burst = true; this.emitBurst(gx, gy, tok.spawnVolume); }
       });
     }
@@ -194,6 +209,8 @@ Object.assign(Stage.prototype, {
       // tangent angle: arctan(dy/dx) = arctan(amp · k · cos(...))
       const rot  = Math.atan(amp * k * Math.cos(k * xOff + this._wavePhase));
 
+      tok._rx = xW;
+      tok._ry = yW;
       if (!tok._burst) { tok._burst = true; this.emitBurst(xW, yW, tok.spawnVolume); }
 
       this.paintGlyph(
@@ -208,19 +225,20 @@ Object.assign(Stage.prototype, {
   },
 
   // Circular mode: characters arranged on a rotating ring.
-  // Each char sits at a slightly varied radius (0.80R–1.20R, seeded per token)
-  // and pops radially outward on spawn then settles. The whole ring rotates
-  // together so the arc shape stays coherent and legible at all times.
+  // Chars stay upright (using normal oscillation rotation) so the ring
+  // is legible at all arc positions — the circular shape is clear from
+  // positions alone without relying on tangent rotation that makes edge
+  // chars unreadable at 100–150°.
   _drawLiveCircular(now, dt, cx, cy, baseSize) {
     const n = this.liveTokens.length;
-    const R = Math.min(this.logicalWidth, this.logicalHeight) * 0.36;
+    const R = Math.min(this.logicalWidth, this.logicalHeight) * 0.38;
 
     // Global rotation: 1 rev / 16 s, volume accelerates up to 4×
     const omegaBase = (2 * Math.PI / 16) * (1 + this.smoothVol * this.sensitivity * 3);
     this._circleAngle = (this._circleAngle + omegaBase * dt) % (2 * Math.PI);
 
-    // Arc span: ~40° per char, capped at 300° so a full ring forms at 8+ chars
-    const arcSpan = Math.min(2 * Math.PI * 5 / 6, n * (2 * Math.PI / 9));
+    // Arc span: ~40° per char, capped at 320° so a near-complete ring forms at 8+ chars
+    const arcSpan = Math.min(2 * Math.PI * 8 / 9, n * (2 * Math.PI / 9));
 
     for (let i = 0; i < n; i++) {
       const tok   = this.liveTokens[i];
@@ -228,8 +246,8 @@ Object.assign(Stage.prototype, {
       const fresh = this._clamp(1 - age / 420, 0, 1);
       const tier  = this._clamp(tok.spawnVolume * this.sensitivity, 0, 1);
 
-      // Slight radius variation per token keeps depth without destroying arc shape
-      const radiusFrac = 0.88 + (tok.seed / (2 * Math.PI)) * 0.24;  // 0.88–1.12
+      // Slight radius variation per token keeps visual depth without destroying arc shape
+      const radiusFrac = 0.90 + (tok.seed / (2 * Math.PI)) * 0.20;  // 0.90–1.10
       const r0 = R * radiusFrac;
 
       // Radial bounce: new chars pop outward then settle
@@ -240,10 +258,15 @@ Object.assign(Stage.prototype, {
       const baseAngle = -Math.PI / 2 + (frac - 0.5) * arcSpan;
       const theta     = this._circleAngle + baseAngle;
 
-      const x   = cx + r * Math.cos(theta);
-      const y   = cy + r * Math.sin(theta);
-      const rot = theta + Math.PI / 2;   // tangent alignment
+      const x = cx + r * Math.cos(theta);
+      const y = cy + r * Math.sin(theta);
 
+      // Keep chars upright so every glyph on the ring is fully readable.
+      // The ring shape is evident from the arc of positions, not character tilt.
+      const rot = this.computeRot(tok, now);
+
+      tok._rx = x;
+      tok._ry = y;
       if (!tok._burst) { tok._burst = true; this.emitBurst(x, y, tok.spawnVolume); }
 
       this.paintGlyph(
