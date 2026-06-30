@@ -42,12 +42,13 @@ Object.assign(Stage.prototype, {
     };
     r.onend = () => {
       if (!this.listening) return;
-      // isFinal may not have fired before session ended — commit any pending tokens
-      if (this.liveTokens.length) this.commitLine('');
-      // commitLine resets _interimOffset; reset here too for the case where
-      // an auto-split already cleared liveTokens before onend fired
+      // isFinal may not have fired before session ended — flush any pending tokens
+      this._commitSegment();
       this._interimOffset = 0;
-      try { r.start(); } catch (_) {}
+      try { r.start(); } catch (_) {
+        this.stopAll();
+        this.setStatus('识别连接断开，请点击开始重试');
+      }
     };
     this.recognition = r;
     try {
@@ -62,14 +63,17 @@ Object.assign(Stage.prototype, {
   },
 
   async startAll() {
-    if (this.listening) return;
+    if (this.listening || this._starting) return;
+    this._starting = true;
     this.setStatus('请求麦克风权限…');
     try {
       this.micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
     } catch (_) {
       this.setStatus('麦克风权限被拒绝或不可用');
+      this._starting = false;
       return;
     }
+    this._starting = false;
     try {
       this.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
       const src     = this.audioCtx.createMediaStreamSource(this.micStream);
@@ -85,6 +89,7 @@ Object.assign(Stage.prototype, {
   },
 
   stopAll() {
+    this._starting = false;
     this.listening = false;
     if (this.recognition) {
       this.recognition.onend = null;
@@ -124,17 +129,17 @@ Object.assign(Stage.prototype, {
 
       // FFT frequency-band energies for differentiated rhythm
       // At fftSize=1024 and typical 44.1kHz sample rate, each bin ≈ 43 Hz.
-      // Low band  <300 Hz  → bins 0–6   (bass, drives horizontal bounce)
-      // High band 2k–8kHz  → bins 46–185 (treble, drives vertical cascade snap)
+      // Low band  ~43–258 Hz → bins 1–6   (bass; bin 0 is DC, excluded)
+      // High band 2k–8kHz   → bins 46–185 (treble, drives vertical cascade snap)
       if (!this._freqBuf || this._freqBuf.length !== this.analyser.frequencyBinCount) {
         this._freqBuf = new Uint8Array(this.analyser.frequencyBinCount);
       }
       this.analyser.getByteFrequencyData(this._freqBuf);
       let lowSum = 0;
-      for (let i = 0; i < 7;   i++) lowSum  += this._freqBuf[i];
+      for (let i = 1; i < 7;   i++) lowSum  += this._freqBuf[i];  // skip bin 0 (DC)
       let highSum = 0;
       for (let i = 46; i < 186; i++) highSum += this._freqBuf[i];
-      this.freqLow  = this._lerp(this.freqLow,  this._clamp(lowSum  / (7   * 255) * 3.0, 0, 1), 0.2);
+      this.freqLow  = this._lerp(this.freqLow,  this._clamp(lowSum  / (6   * 255) * 3.0, 0, 1), 0.2);
       this.freqHigh = this._lerp(this.freqHigh, this._clamp(highSum / (140 * 255) * 4.0, 0, 1), 0.2);
     } else {
       this.smoothVol = this._lerp(this.smoothVol, 0, 0.06);
