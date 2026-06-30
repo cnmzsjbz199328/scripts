@@ -23,9 +23,8 @@ class Stage {
     this._interimOffset  = 0;
     this._splitThreshold = 5 + Math.floor(Math.random() * 4);  // 5–8 chars
 
-    // circular mode: global rotation angle + per-char phase offsets for vortex
-    this._circleAngle  = 0;
-    this._circlePhase  = [];   // per-token accumulated angular offset (vortex drift)
+    // circular mode: global rotation angle
+    this._circleAngle = 0;
 
     // wave mode: scrolling phase of the sine path
     this._wavePhase = 0;
@@ -78,10 +77,10 @@ class Stage {
       this.updateVolume();
       this.drawBackground();
       this.drawBgLines(now);
-      this.drawParticles(now);
       const base = this.computeBaseSize();
       const cx = this.logicalWidth / 2, cy = this.logicalHeight / 2;
       this.drawLive(now, dt, cx, cy, base);
+      this.drawParticles(now);
       requestAnimationFrame(tick);
     };
     requestAnimationFrame(tick);
