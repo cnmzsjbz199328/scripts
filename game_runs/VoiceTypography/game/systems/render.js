@@ -261,9 +261,9 @@ Object.assign(Stage.prototype, {
       const x = cx + r * Math.cos(theta);
       const y = cy + r * Math.sin(theta);
 
-      // Keep chars upright so every glyph on the ring is fully readable.
-      // The ring shape is evident from the arc of positions, not character tilt.
-      const rot = this.computeRot(tok, now);
+      // Tangent rotation: each char rotates to lie along the arc tangent,
+      // recreating the original "text on a circular path" calligraphic effect.
+      const rot = theta + Math.PI / 2;
 
       tok._rx = x;
       tok._ry = y;
