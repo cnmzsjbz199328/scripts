@@ -59,7 +59,7 @@ const CIRCLES = [
     riftX: 3120,
     fog: 0x0e160c, fogA: 0.5, lightR: 130,
     ambient: { tree: 'amb_tree_gluttony', fog: 'amb_fog_gluttony', wind: null },
-    parallax: { sky: ['#0e1409', '#05080a'], cliff: '#0a0f08' },
+    parallax: { sky: ['#0e1409', '#05080a'], cliff: '#0a0f08', panorama: 'panorama_gluttony' },
     card: { title: '第三圈 · 暴食', body: '永不停歇的冰冷泥雨砸在烂泥地上，三头犬刻耳柏洛斯在雨里咆哮。\n躲开坠落的泥块，绕过看守的恶犬。\n\n继续 SPACE' },
   },
   {
@@ -72,7 +72,7 @@ const CIRCLES = [
     riftX: 3120,
     fog: 0x12100a, fogA: 0.46, lightR: 135,
     ambient: { tree: 'amb_tree_greed', fog: 'amb_fog_greed', wind: null },
-    parallax: { sky: ['#14110a', '#08060a'], cliff: '#0f0c08' },
+    parallax: { sky: ['#14110a', '#08060a'], cliff: '#0f0c08', panorama: 'panorama_greed' },
     card: { title: '第四圈 · 贪婪', body: '吝啬者与挥霍者推着巨石永世对撞，碎石从高处不断滚落。\n看准落点的间隙，一路向下穿过石雨。\n\n继续 SPACE' },
   },
   {
@@ -90,7 +90,7 @@ const CIRCLES = [
     riftX: 3320,
     fog: 0x0a1614, fogA: 0.5, lightR: 125,
     ambient: { tree: 'amb_tree_wrath', fog: 'amb_fog_wrath', wind: null },
-    parallax: { sky: ['#0a1614', '#04080a'], cliff: '#08120f' },
+    parallax: { sky: ['#0a1614', '#04080a'], cliff: '#08120f', panorama: 'panorama_wrath' },
     card: { title: '第五圈 · 愤怒', body: '斯提克斯的黑沼里，愤怒者互相撕咬，沉到泥下的是阴郁者。\n跳过吞脚的泥潭，别陷进去。\n\n继续 SPACE' },
   },
   {
@@ -103,7 +103,7 @@ const CIRCLES = [
     riftX: 3120,
     fog: 0x160a08, fogA: 0.5, lightR: 120,
     ambient: { tree: 'amb_tree_heresy', fog: 'amb_fog_heresy', wind: null },
-    parallax: { sky: ['#1a0c0a', '#0a0405'], cliff: '#140a08' },
+    parallax: { sky: ['#1a0c0a', '#0a0405'], cliff: '#140a08', panorama: 'panorama_heresy' },
     card: { title: '第六圈 · 异端', body: '狄斯城内，烧红的石棺一具接一具，异端者在火里永生。\n跳过喷火的棺缝，别被落下的火星灼到。\n\n继续 SPACE' },
   },
   {
@@ -116,7 +116,7 @@ const CIRCLES = [
     riftX: 3320,
     fog: 0x180706, fogA: 0.52, lightR: 120,
     ambient: { tree: 'amb_tree_violence', fog: 'amb_fog_violence', wind: null },
-    parallax: { sky: ['#1a0806', '#0a0303'], cliff: '#160706' },
+    parallax: { sky: ['#1a0806', '#0a0303'], cliff: '#160706', panorama: 'panorama_violence' },
     card: { title: '第七圈 · 暴力', body: '弗列革吞的沸血河翻滚，半人马沿岸巡弋，射杀爬出血河的亡魂。\n避开巡逻的半人马，跳过滚烫的血潭。\n\n继续 SPACE' },
   },
   {
@@ -134,7 +134,7 @@ const CIRCLES = [
     riftX: 3120,
     fog: 0x0c0a16, fogA: 0.62, lightR: 95,
     ambient: { tree: 'amb_tree_fraud', fog: 'amb_fog_fraud', wind: null },
-    parallax: { sky: ['#0e0a1a', '#05040a'], cliff: '#0c0a16' },
+    parallax: { sky: ['#0e0a1a', '#05040a'], cliff: '#0c0a16', panorama: 'panorama_fraud' },
     card: { title: '第八圈 · 欺诈', body: '马勒勃支的十道沟壑，提叉的恶鬼在沥青坑边巡逻。\n这里最暗——贴着提灯的光，绕开恶鬼，别被诓住。\n\n继续 SPACE' },
   },
   {
@@ -147,7 +147,7 @@ const CIRCLES = [
     riftX: 3120,            // 全游戏终点：抵达 = 爬出地心、重见星辰
     fog: 0x0e1622, fogA: 0.4, lightR: 140,
     ambient: { tree: 'amb_tree_betrayal', fog: 'amb_fog_betrayal', wind: null },
-    parallax: { sky: ['#101a28', '#06080e'], cliff: '#0e1622' },
+    parallax: { sky: ['#101a28', '#06080e'], cliff: '#0e1622', panorama: 'panorama_betrayal' },
     card: { title: '第九圈 · 背叛', body: '科库托斯的冰湖封住了背叛者，湖心是三面巨翼的撒旦。\n冰面打滑——借惯性绕过撒旦，攀向湖那头的出口。\n\n继续 SPACE' },
   },
 ];
