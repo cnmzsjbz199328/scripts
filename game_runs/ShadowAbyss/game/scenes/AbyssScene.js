@@ -14,13 +14,16 @@ class AbyssScene extends Phaser.Scene {
     for (let i = 0; i < 2; i++) svg(`soul_${i}`, `soul_flutter_${i}`, VBW, VBH);
     svg('tile_rock', 'tile_rock', 48, 48);
     svg('rift', 'rift', 64, 160);
-    // 环境动态层（svg-ambient 轨）
-    for (let i = 0; i < 6; i++) { svg(`amb_tree_limbo_${i}`, `amb_tree_limbo_${i}`, 128, 128); svg(`amb_tree_lust_${i}`, `amb_tree_lust_${i}`, 128, 128); }
-    for (let i = 0; i < 8; i++) { svg(`amb_fog_limbo_${i}`, `amb_fog_limbo_${i}`, 128, 128); svg(`amb_fog_lust_${i}`, `amb_fog_lust_${i}`, 128, 128); }
+    // 巡逻怪 + 撒旦
+    for (let i = 0; i < 2; i++) svg(`fiend_move_${i}`, `fiend_move_${i}`, VBW, VBH);
+    for (let i = 0; i < 2; i++) svg(`satan_${i}`, `satan_${i}`, VBW, VBH);
+    // 环境动态层（svg-ambient 轨）+ 远景 AI 全景，按各圈 id 动态加载
+    for (const c of CIRCLES) {
+      for (let i = 0; i < 6; i++) svg(`amb_tree_${c.id}_${i}`, `amb_tree_${c.id}_${i}`, 128, 128);
+      for (let i = 0; i < 8; i++) svg(`amb_fog_${c.id}_${i}`, `amb_fog_${c.id}_${i}`, 128, 128);
+      if (c.parallax && c.parallax.panorama) this.load.image(c.parallax.panorama, `scene/${c.parallax.panorama}.png`);
+    }
     for (let i = 0; i < 4; i++) svg(`amb_wind_lust_${i}`, `amb_wind_lust_${i}`, 128, 128);
-    // 远景 AI 全景图
-    this.load.image('panorama_limbo', 'scene/panorama_limbo.png');
-    this.load.image('panorama_lust', 'scene/panorama_lust.png');
   }
 
   create() {
@@ -78,9 +81,19 @@ class AbyssScene extends Phaser.Scene {
     const right = this.cursors.right.isDown || this.kkeys.D.isDown;
     const jumpDown = this.cursors.up.isDown || this.kkeys.W.isDown || this.kkeys.SPACE.isDown;
 
-    if (left) { p.setVelocityX(-PLAYER_SPEED); p.setFlipX(true); }
-    else if (right) { p.setVelocityX(PLAYER_SPEED); p.setFlipX(false); }
-    else p.setVelocityX(0);
+    // 冰面物理（背叛圈）：加速度 + 低阻力 → 滑行惯性；否则即时速度
+    const slip = this.circles[this._currentCircleIdx()]?.slippery;
+    if (slip) {
+      p.setMaxVelocity(PLAYER_SPEED, 4000); p.setDragX(240);
+      if (left) { p.setAccelerationX(-760); p.setFlipX(true); }
+      else if (right) { p.setAccelerationX(760); p.setFlipX(false); }
+      else p.setAccelerationX(0);
+    } else {
+      p.setAccelerationX(0); p.setDragX(0); p.setMaxVelocity(10000, 10000);
+      if (left) { p.setVelocityX(-PLAYER_SPEED); p.setFlipX(true); }
+      else if (right) { p.setVelocityX(PLAYER_SPEED); p.setFlipX(false); }
+      else p.setVelocityX(0);
+    }
 
     // 起跳 + 可变跳高
     if (jumpDown && canJump && !this._jumpHeld) {
@@ -98,14 +111,16 @@ class AbyssScene extends Phaser.Scene {
     const ci = this._currentCircleIdx();
     if (ci > this.curCircle) { this._advanceCircle(ci); return; }
 
-    // 情欲之风：在阵风区内施加随时间摆动的横向加速度
+    // 情欲之风 + 坠落物 + 巡逻怪
     this._applyWind(time);
+    this._updateFallers(time, delta);
+    this._updatePatrollers();
 
     // 抉择点：靠近未解决的亡魂 → 弹出选择卡
     const cir = this.circles[ci];
-    if (cir.soul && !this.soulResolved && this.soulSprite &&
+    if (cir.soul && !cir._soulDone && cir.soulSprite &&
         Math.abs(p.x - cir.soul.x) < 60 && Math.abs(p.y - cir.soul.y) < 120) {
-      this._presentChoice(cir.soul);
+      this._presentChoice(cir);
       return;
     }
 

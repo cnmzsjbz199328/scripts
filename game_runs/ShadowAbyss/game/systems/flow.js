@@ -15,6 +15,8 @@ Object.assign(AbyssScene.prototype, {
     this.circleCleared = idx;             // 已走完前 idx 圈
     this.gameStarted = false;
     this.windCalm = false;
+    this.hp = this.maxHp;                 // 过圈回血（保证九圈长程 bot/玩家可解）
+    window.GameHUD?.setHearts(this.hp, this.maxHp);
     this.tweens.add({ targets: this, _lightPulse: 1.4, duration: 220, yoyo: true });
     const c = CIRCLES[idx];
     this._showCard(c.card.title, c.card.body, () => {
@@ -65,11 +67,18 @@ Object.assign(AbyssScene.prototype, {
     window.__probe = () => {
       const p = self.player;
       const onGround = p ? (p.body.blocked.down || p.body.touching.down) : false;
-      // 平台 bot 导航提示：前方若有沟壑边缘则该起跳
-      let needJump = false;
+      // 平台 bot 导航提示：前方有沟壑边缘 / 地面危害 / 巡逻怪 → 起跳越过
+      let needJump = false, dangerAhead = false;
       if (p && onGround && self.circles)
         for (const c of self.circles) for (const [a] of c.pits)
-          if (p.x > a - 90 && p.x < a - 8) needJump = true;
+          if (p.x > a - 95 && p.x < a - 8) needJump = true;
+      if (p && onGround && self.hazardPoints)
+        for (const hx of self.hazardPoints)
+          if (hx - p.x > 8 && hx - p.x < 78) { needJump = true; dangerAhead = true; }
+      // 头顶坠落物 → 危险（bot 据此可停顿/规避）
+      let dangerNow = false;
+      if (p && self.fallers)
+        self.fallers.getChildren().forEach(o => { if (Math.abs(o.x - p.x) < 40 && o.y < p.y && o.y > p.y - 200) dangerNow = true; });
       return {
         x: p ? p.x : null, y: p ? p.y : null, vx: p ? p.body.velocity.x : 0, onGround,
         hp: self.hp, maxHp: self.maxHp, lives: self.lives,
@@ -77,7 +86,8 @@ Object.assign(AbyssScene.prototype, {
         choiceMade: self.choiceMade, soulResolved: self.soulResolved,
         won: self.won, lost: self.lost,
         started: self.gameStarted, cardActive: self.cardActive,
-        needJump, nextGoalX: FINAL_RIFT_X, goalX: FINAL_RIFT_X, worldW: WORLD_W,
+        needJump, dangerNow, dangerAhead,
+        nextGoalX: FINAL_RIFT_X, goalX: FINAL_RIFT_X, worldW: WORLD_W,
       };
     };
   },

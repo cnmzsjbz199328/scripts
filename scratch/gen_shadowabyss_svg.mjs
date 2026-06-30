@@ -6,7 +6,7 @@
  */
 import fs from 'fs';
 import path from 'path';
-import { pt, line, circle, svg, humanoid, mergePose, writeFrames } from '../skills/svg-sprite/rig.mjs';
+import { pt, line, circle, poly, svg, humanoid, mergePose, writeFrames } from '../skills/svg-sprite/rig.mjs';
 
 const OUT = 'game_runs/ShadowAbyss/assets/svg';
 fs.mkdirSync(OUT, { recursive: true });
@@ -93,6 +93,35 @@ writeFrames(fs, path, OUT, 'soul', 'flutter', [
   m({ lean: 34, bob: -2, fThigh: 40, fShin: 10, bThigh: 8, bShin: -30, fUp: 150, fFore: 168, bUp: 130, bFore: 150 }),
   m({ lean: 26, bob: 2, fThigh: 28, fShin: 0, bThigh: -4, bShin: -36, fUp: 138, fFore: 158, bUp: 120, bFore: 142 }),
 ], renderHuman(SOUL, (j, p, c) => ({ back: cloak(j, c), front: '' })));
+
+// ── 巡逻怪 fiend（恶鬼/半人马/刻耳柏洛斯通用：佝偻双足兽形 + 头角，2 帧步态） ──
+const FIEND = { limbW: 13, torsoW: 22, torsoLen: 26, headR: 11, ink: '#0a0c12' };
+const fiendExtras = (j, p, c) => ({
+  // 头顶双角 + 后背棘刺
+  front: `${line(j.headX, j.headY, ...pt(j.headX, j.headY, 16, 150), 4, c.ink)}${line(j.headX, j.headY, ...pt(j.headX, j.headY, 16, 210), 4, c.ink)}`,
+  back: poly([[j.shX, j.shY - 4], [j.shX - 20, j.shY - 18], [j.shX - 8, j.shY], [j.shX - 26, j.shY - 4]], c.ink),
+});
+const fiendPose = (o) => mergePose({ lean: 26, bob: 0, hipDx: 0, fThigh: 30, fShin: 0, bThigh: -28, bShin: -8, fUp: 96, fFore: 150, bUp: 70, bFore: 140 }, o);
+writeFrames(fs, path, OUT, 'fiend', 'move', [
+  fiendPose({ fThigh: 34, fShin: 4, bThigh: -30, bShin: -12, bob: 1 }),
+  fiendPose({ fThigh: -28, fShin: -10, bThigh: 32, bShin: 2, bob: -2 }),
+], renderHuman(FIEND, fiendExtras));
+
+// ── 撒旦 satan（科库托斯冰湖终局：巨大三对翼的剪影，2 帧扇翼） ──
+const satanFrame = (wing) => {
+  const cx = 84, cy = 96, ink = '#06070c';
+  const W = (dx, dy, sp) => `<path d="M ${cx} ${cy} q ${dx * 0.5} ${dy - sp} ${dx} ${dy} q ${-dx * 0.3} ${sp} ${-dx * 0.7} ${sp * 1.4} Z" fill="${ink}"/>`;
+  return svg(VB, `
+    ${W(-70, -10 - wing, 26)}${W(70, -10 - wing, 26)}
+    ${W(-78, 26 + wing, 30)}${W(78, 26 + wing, 30)}
+    ${W(-60, 56 + wing, 22)}${W(60, 56 + wing, 22)}
+    ${line(cx, cy - 30, cx, cy + 54, 30, ink)}
+    ${circle(cx, cy - 40, 18, ink)}
+    ${line(cx - 8, cy - 52, cx - 14, cy - 66, 5, ink)}${line(cx + 8, cy - 52, cx + 14, cy - 66, 5, ink)}
+    ${line(cx, cy + 50, cx - 22, cy + 78, 14, ink)}${line(cx, cy + 50, cx + 22, cy + 78, 14, ink)}`);
+};
+fs.writeFileSync(path.join(OUT, 'satan_0.svg'), satanFrame(0));
+fs.writeFileSync(path.join(OUT, 'satan_1.svg'), satanFrame(14));
 
 // ── 道具（原样写入完整 <svg>） ──
 const raw = (name, full) => fs.writeFileSync(path.join(OUT, name), full);

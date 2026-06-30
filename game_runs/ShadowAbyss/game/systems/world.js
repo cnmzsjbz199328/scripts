@@ -22,6 +22,7 @@ Object.assign(AbyssScene.prototype, {
       const S = 8, tex = this.textures.createCanvas('ash', S, S), ctx = tex.getContext();
       ctx.fillStyle = '#caa37a'; ctx.beginPath(); ctx.arc(4, 4, 2.4, 0, 7); ctx.fill(); tex.refresh();
     }
+    this._makeHazardTextures();
     if (!this.textures.exists('fg_cliff')) {
       const w = 180, h = 280;
       const tex = this.textures.createCanvas('fg_cliff', w, h), ctx = tex.getContext();
@@ -86,8 +87,9 @@ Object.assign(AbyssScene.prototype, {
     mk('v_idle', 'virgil_idle', 4, 4, true);
     mk('v_walk', 'virgil_walk', 6, 11, true);
     mk('soul_flutter', 'soul', 2, 4, true);
-    mk('amb_tree_limbo', 'amb_tree_limbo', 6, 7, true);
-    mk('amb_tree_lust', 'amb_tree_lust', 6, 7, true);
+    mk('fiend_move', 'fiend_move', 2, 5, true);
+    mk('satan_fly', 'satan', 2, 3, true);
+    for (const c of CIRCLES) mk(`amb_tree_${c.id}`, `amb_tree_${c.id}`, 6, 7, true);
   },
 
   // 环境视差层：枯树带（视差精灵）+ 流雾带（雾下）+ 风痕带（雾上，仅欲色）。
@@ -166,9 +168,12 @@ Object.assign(AbyssScene.prototype, {
   _absoluteCircles() {
     return CIRCLES.map(c => ({
       ...c,
-      ground: c.ground.map(([a, b]) => [a + c.startX, b + c.startX]),
-      pits: c.pits.map(([a, b]) => [a + c.startX, b + c.startX]),
-      gusts: c.gusts.map(g => ({ ...g, x0: g.x0 + c.startX, x1: g.x1 + c.startX })),
+      ground: (c.ground || []).map(([a, b]) => [a + c.startX, b + c.startX]),
+      pits: (c.pits || []).map(([a, b]) => [a + c.startX, b + c.startX]),
+      gusts: (c.gusts || []).map(g => ({ ...g, x0: g.x0 + c.startX, x1: g.x1 + c.startX })),
+      groundHazards: (c.groundHazards || []).map(g => ({ ...g, x: g.x + c.startX })),
+      patrollers: (c.patrollers || []).map(p => ({ ...p, x0: p.x0 + c.startX, x1: p.x1 + c.startX })),
+      fallers: (c.fallers || []).map(f => ({ ...f, x0: f.x0 + c.startX, x1: f.x1 + c.startX })),
       soul: c.soul ? { ...c.soul, x: c.soul.x + c.startX } : null,
       riftAbs: c.riftX + c.startX,
     }));
@@ -210,11 +215,11 @@ Object.assign(AbyssScene.prototype, {
       // 下行裂口
       const rift = this.add.image(c.riftAbs + 20, FLOOR_Y - 40, 'rift').setDepth(DEPTH.RIFT);
       this.tweens.add({ targets: rift, alpha: 0.6, duration: 1100, yoyo: true, repeat: -1 });
-      // 抉择亡魂
+      // 抉择亡魂（精灵存到圈对象上，支持多圈各自的抉择点）
       if (c.soul) {
-        this.soulSprite = this.add.sprite(c.soul.x, c.soul.y, 'soul_0').setScale(0.6).setDepth(DEPTH.SOUL);
-        this.soulSprite.play('soul_flutter');
-        this.tweens.add({ targets: this.soulSprite, x: c.soul.x + 18, angle: 8, duration: 900, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
+        c.soulSprite = this.add.sprite(c.soul.x, c.soul.y, 'soul_0').setScale(0.6).setDepth(DEPTH.SOUL);
+        c.soulSprite.play('soul_flutter');
+        this.tweens.add({ targets: c.soulSprite, x: c.soul.x + 18, angle: 8, duration: 900, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
       }
     }
 
@@ -259,6 +264,8 @@ Object.assign(AbyssScene.prototype, {
       }
       fgX += Phaser.Math.Between(450, 700);
     }
+
+    this._buildHazards();
 
     this.cameras.main.startFollow(this.player, true, 0.1, 0.1);
     this.cameras.main.setDeadzone(160, 200);
