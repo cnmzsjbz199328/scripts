@@ -14,7 +14,8 @@ const CIRCLES = [
     gusts: [],
     soul: null,
     riftX: 3010,            // 通往第二圈的下行裂口（视觉 + 圈分界）
-    fog: 0x0c0f18, fogA: 0.42, lightR: 150,
+    fog: 0x0c0f18, fogA: 0.30, lightR: 150,
+    ambient: { tree: 'amb_tree_limbo', fog: 'amb_fog_limbo', wind: null, treeTint: 0xffffff },
     parallax: { sky: ['#0e1320', '#070a12'], cliff: '#0a0e18' },
     card: {
       title: '第一圈 · 林勃',
@@ -26,11 +27,12 @@ const CIRCLES = [
     startX: 3120, span: 3400,
     ground: [[0, 740], [870, 1580], [1710, 2380], [2510, 3400]],
     pits: [[740, 870], [1580, 1710], [2380, 2510]],
-    // 情欲之风：三段阵风，越深越烈；方向随时间正弦摆动，看准风停落脚
+    // 情欲之风：阵风只覆盖实心地面段，每个沟壑前后留 ≥120px 无风缓冲——
+    // 「顶风走」与「卡风停跳沟」是两个独立挑战，绝不让玩家/ bot 在风里被迫跳沟。
     gusts: [
-      { x0: 870, x1: 1580, force: 150 },
-      { x0: 1710, x1: 2380, force: 200 },
-      { x0: 2510, x1: 3100, force: 240 },
+      { x0: 990, x1: 1460, force: 140 },
+      { x0: 1830, x1: 2260, force: 170 },
+      { x0: 2630, x1: 3120, force: 200 },
     ],
     // 抉择点：被风卷向深渊的亡魂向你伸手（圣殿春秋的道德抉择基因）
     soul: {
@@ -39,7 +41,8 @@ const CIRCLES = [
       body: '一个被狂风扯着的魂魄向你伸出手——是停下来拉住她，\n还是借这阵风的势头冲过去？\n\n[1] 伸手拉住（风会为你平息，安全） · [2] 借风冲过（更快，更险）',
     },
     riftX: 3300,            // 竖切终点：抵达即过第二圈、通关
-    fog: 0x0a0810, fogA: 0.6, lightR: 120,
+    fog: 0x0a0810, fogA: 0.42, lightR: 130,
+    ambient: { tree: 'amb_tree_lust', fog: 'amb_fog_lust', wind: 'amb_wind_lust', treeTint: 0xffffff },
     parallax: { sky: ['#150a14', '#0a050c'], cliff: '#120a14' },
     card: {
       title: '第二圈 · 欲色',

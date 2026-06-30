@@ -36,6 +36,42 @@ Object.assign(AbyssScene.prototype, {
     mk('v_idle', 'virgil_idle', 4, 4, true);
     mk('v_walk', 'virgil_walk', 6, 11, true);
     mk('soul_flutter', 'soul', 2, 4, true);
+    mk('amb_tree_limbo', 'amb_tree_limbo', 6, 7, true);
+    mk('amb_tree_lust', 'amb_tree_lust', 6, 7, true);
+  },
+
+  // 环境视差层：枯树带（视差精灵）+ 流雾带（雾下）+ 风痕带（雾上，仅欲色）。
+  // 配合调淡后的暗雾幕，背景一路变丰富又不丢氛围。
+  _buildAmbient() {
+    // 流雾带（雾幕下，被提灯揭示更亮）
+    this.fogBand = this.add.tileSprite(0, 0, GAME_W, GAME_H * 0.7, 'amb_fog_limbo_0')
+      .setOrigin(0, 0).setScrollFactor(0).setDepth(DEPTH.FOG - 40).setAlpha(0.5).setTileScale(1.6, 1.6);
+    // 风痕带（雾幕上，永远可见的情欲之风）
+    this.windBand = this.add.tileSprite(0, GAME_H * 0.12, GAME_W, GAME_H * 0.5, 'amb_wind_lust_0')
+      .setOrigin(0, 0).setScrollFactor(0).setDepth(DEPTH.FOG + 5).setAlpha(0).setTileScale(1.3, 1.3);
+
+    // 枯树视差带：跨整个世界散布，scrollFactor 0.35 → 远景缓慢掠过
+    this.trees = [];
+    let x = 120;
+    while (x < WORLD_W) {
+      const ci = this.circles.findIndex(c => x >= c.startX && x < c.startX + c.span);
+      const key = (this.circles[Math.max(0, ci)].ambient || CIRCLES[0].ambient).tree;
+      const t = this.add.sprite(x, FLOOR_Y - 6, `${key}_0`)
+        .setOrigin(0.5, 1).setScrollFactor(0.35).setDepth(DEPTH.FOG - 30)
+        .setScale(Phaser.Math.FloatBetween(1.4, 2.4)).setAlpha(0.9);
+      t.play(key);
+      this.trees.push(t);
+      x += Phaser.Math.Between(360, 560);
+    }
+
+    // 帧循环（tileSprite 不能播 anim，手动换纹理）
+    this._ambTick = 0;
+    this.time.addEvent({ delay: 130, loop: true, callback: () => {
+      this._ambTick++;
+      const a = this.circles[this.curCircle ?? 0].ambient || CIRCLES[0].ambient;
+      this.fogBand.setTexture(`${a.fog}_${this._ambTick % 8}`);
+      if (a.wind) this.windBand.setTexture(`${a.wind}_${this._ambTick % 4}`);
+    }});
   },
 
   // 程序化剪影背景纹理（渐变天空 + 远景崖壁），按圈配色，零 AI 图
@@ -138,6 +174,7 @@ Object.assign(AbyssScene.prototype, {
     this.cameras.main.startFollow(this.player, true, 0.1, 0.1);
     this.cameras.main.setDeadzone(160, 200);
     this.curCircle = 0;
+    this._buildAmbient();
   },
 
   _currentCircleIdx() {
@@ -154,10 +191,16 @@ Object.assign(AbyssScene.prototype, {
     this._lightR = c.lightR;
     if (this.fog) { this.fog.fillColor = c.fog; this.fog.fillAlpha = c.fogA; }
     if (this.bg) this.bg.setTexture(this._makeBgTexture(c));
+    // 风痕带仅在有风的圈淡入（情欲之风）
+    const a = c.ambient || CIRCLES[idx].ambient;
+    if (this.windBand) this.tweens.add({ targets: this.windBand, alpha: a.wind ? 0.45 : 0, duration: 600 });
   },
 
   _updateAmbient() {
-    if (this.bg) this.bg.tilePositionX = this.cameras.main.scrollX * 0.3;
+    const sx = this.cameras.main.scrollX;
+    if (this.bg) this.bg.tilePositionX = sx * 0.3;
+    if (this.fogBand) this.fogBand.tilePositionX = sx * 0.18;
+    if (this.windBand) this.windBand.tilePositionX = sx * 0.55;
   },
 
   _updateLight() {
