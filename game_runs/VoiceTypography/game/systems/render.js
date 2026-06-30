@@ -59,9 +59,7 @@ Object.assign(Stage.prototype, {
     ctx.fillRect(0, 0, w, h);
   },
 
-  drawBgLines(now) {
-    const base = this.computeBaseSize();
-
+  drawBgLines(now, base) {
     // 1. Animate + prune dead lines (backward for safe splice)
     for (let i = this.bgLines.length - 1; i >= 0; i--) {
       const line = this.bgLines[i];

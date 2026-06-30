@@ -69,8 +69,8 @@ class Stage {
       prevNow = now;
       this.updateVolume();
       this.drawBackground();
-      this.drawBgLines(now);
       const base = this.computeBaseSize();
+      this.drawBgLines(now, base);
       const cx = this.logicalWidth / 2, cy = this.logicalHeight / 2;
       this.drawLive(now, dt, cx, cy, base);
       requestAnimationFrame(tick);
