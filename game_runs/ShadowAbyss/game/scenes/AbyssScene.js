@@ -6,9 +6,10 @@ class AbyssScene extends Phaser.Scene {
   preload() {
     const svg = (key, file, w, h) => this.load.svg(key, `assets/svg/${file}.svg`, { width: w, height: h });
     const VBW = 168, VBH = 176;
-    for (let i = 0; i < 4; i++) svg(`dante_idle_${i}`, `dante_idle_${i}`, VBW, VBH);
-    for (let i = 0; i < 6; i++) svg(`dante_walk_${i}`, `dante_walk_${i}`, VBW, VBH);
-    for (let i = 0; i < 3; i++) svg(`dante_jump_${i}`, `dante_jump_${i}`, VBW, VBH);
+    // 但丁：glb-sprite 轨（3D 骨骼动画→剪影 PNG 序列帧，见 skills/glb-sprite）
+    for (let i = 0; i < 8; i++) this.load.image(`dante_idle_${i}`, `assets/3d/dante_idle_${i}.png`);
+    for (let i = 0; i < 8; i++) this.load.image(`dante_walk_${i}`, `assets/3d/dante_walk_${i}.png`);
+    for (let i = 0; i < 6; i++) this.load.image(`dante_jump_${i}`, `assets/3d/dante_jump_${i}.png`);
     for (let i = 0; i < 4; i++) svg(`virgil_idle_${i}`, `virgil_idle_${i}`, VBW, VBH);
     for (let i = 0; i < 6; i++) svg(`virgil_walk_${i}`, `virgil_walk_${i}`, VBW, VBH);
     for (let i = 0; i < 2; i++) svg(`soul_${i}`, `soul_flutter_${i}`, VBW, VBH);
@@ -142,7 +143,7 @@ class AbyssScene extends Phaser.Scene {
     // 坠入沟壑
     if (p.y > FLOOR_Y + 220) {
       p.setVelocity(0, 0);
-      p.setPosition(this.lastSafeX, FLOOR_Y - 60);
+      p.setPosition(this.lastSafeX, FLOOR_Y - 100);
       this._damage(1, '坠入深渊');
     }
 

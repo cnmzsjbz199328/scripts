@@ -81,9 +81,10 @@ Object.assign(AbyssScene.prototype, {
       this.anims.create({ key, frameRate: fps, repeat: loop ? -1 : 0,
         frames: Array.from({ length: n }, (_, i) => ({ key: `${prefix}_${i}` })) });
     };
-    mk('d_idle', 'dante_idle', 4, 4, true);
-    mk('d_walk', 'dante_walk', 6, 12, true);
-    mk('d_jump', 'dante_jump', 3, 8, false);
+    // 但丁（glb-sprite 轨）：idle/walk 全循环；jump 取 Run clip 0→0.35s 蓄力腾空段，非循环定格末帧
+    mk('d_idle', 'dante_idle', 8, 8, true);
+    mk('d_walk', 'dante_walk', 8, 10, true);
+    mk('d_jump', 'dante_jump', 6, 10, false);
     mk('v_idle', 'virgil_idle', 4, 4, true);
     mk('v_walk', 'virgil_walk', 6, 11, true);
     mk('soul_flutter', 'soul', 2, 4, true);
@@ -224,9 +225,10 @@ Object.assign(AbyssScene.prototype, {
     }
 
     // 但丁（贴左墙出生 + 世界边界碰撞，防 L2 左右键位移精确抵消，见 [[game-verify-l2-movement-cancel]]）
-    this.player = this.physics.add.sprite(60, FLOOR_Y - 60, 'dante_idle_0');
-    this.player.setScale(0.62);
-    this.player.body.setSize(36, 96).setOffset(66, 60);
+    this.player = this.physics.add.sprite(60, FLOOR_Y - 100, 'dante_idle_0');
+    this.player.setScale(0.78);
+    // 192×208 帧内剪影 bbox：脚底 y≈183，躯干中线 x≈96 → 体底对齐脚底
+    this.player.body.setSize(28, 94).setOffset(82, 89);
     this.player.setCollideWorldBounds(true);
     this.player.setDepth(DEPTH.PLAYER);
     this.physics.add.collider(this.player, this.solids);
