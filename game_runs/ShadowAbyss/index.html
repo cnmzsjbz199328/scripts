@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>影渊：但丁的下降</title>
+  <title>影渊：神曲</title>
   <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -22,23 +22,24 @@
     #hud {
       display: none; position: absolute; top: 0; left: 0; right: 0;
       padding: 10px 16px; gap: 18px; flex-direction: row; align-items: center;
-      background: linear-gradient(to bottom, rgba(0,0,0,0.6), transparent);
+      background: linear-gradient(to bottom, rgba(0,0,0,0.55), transparent);
       pointer-events: none; z-index: 10; font-size: 15px; user-select: none;
     }
-    #hud-hearts { color: #ff5a4a; letter-spacing: 2px; font-size: 17px; }
     #hud-objective { color: #d8b98a; flex: 1; text-align: center; font-style: italic; }
     .game-overlay {
       position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
       z-index: 20; background: rgba(5, 6, 12, 0.92);
+      background-size: cover; background-position: center;
     }
+    #start-screen { background-image: linear-gradient(rgba(5,6,12,0.72), rgba(5,6,12,0.88)), url('scene/cover.png'); }
     .overlay-card {
-      text-align: center; max-width: 560px; padding: 36px 42px;
-      background: rgba(10, 8, 14, 0.95); border: 1px solid #3a2418; border-radius: 12px;
+      text-align: center; max-width: 600px; padding: 36px 42px;
+      background: rgba(10, 8, 14, 0.9); border: 1px solid #3a2418; border-radius: 12px;
       box-shadow: 0 20px 50px rgba(0,0,0,0.7);
     }
-    .overlay-card h2 { font-size: 2rem; margin-bottom: 10px; color: #e8d6b0; letter-spacing: 0.1em; }
+    .overlay-card h2 { font-size: 2rem; margin-bottom: 10px; color: #e8d6b0; letter-spacing: 0.14em; }
     .overlay-card .tagline { font-size: 0.95rem; color: #9a8f7a; margin-bottom: 16px; font-style: italic; }
-    .overlay-card .story-setting { font-size: 0.9rem; color: #6f6657; line-height: 1.7; margin-bottom: 24px; }
+    .overlay-card .story-setting { font-size: 0.9rem; color: #8a8071; line-height: 1.8; margin-bottom: 24px; white-space: pre-line; }
     .overlay-card .controls-hint { font-size: 0.78rem; color: #564e42; line-height: 1.8; margin-top: 14px; }
     .game-btn {
       display: inline-block; padding: 12px 38px; font-size: 1rem; font-weight: 700;
@@ -50,6 +51,7 @@
     #restart-btn { background: #6a2618; color: #f3e3c4; }
     #gameover-title.win { color: #e8b86a; }
     #gameover-title.lose { color: #c4503a; }
+    #gameover-message { white-space: pre-line; }
     html, body { width: 100%; height: 100%; }
   </style>
 </head>
@@ -58,40 +60,39 @@
     <div id="game-container"></div>
 
     <div id="hud">
-      <div id="hud-hearts" title="生命">❤❤❤</div>
-      <div id="hud-objective"><span id="hud-objective-text">跟随维吉尔，走向地狱第一层。</span></div>
+      <div id="hud-objective"><span id="hud-objective-text">Ⅰ 黑暗森林</span></div>
     </div>
 
     <div id="start-screen" class="game-overlay">
       <div class="overlay-card">
-        <h2>影渊：但丁的下降</h2>
-        <p class="tagline">地狱有九层，光在最底下——跟着维吉尔，一层层走下去。</p>
-        <p class="story-setting">一片永夜的幽冥深渊。九层地狱沿着不断下沉的螺旋旋落，每一层封存着一种罪。你是手持微光的旅人但丁，被一道比你亮一线的引路魂魄领着，向最深处走去。</p>
-        <button id="start-btn" class="game-btn" onclick="window.__hudStart()">▶ 进入地狱</button>
+        <h2>影渊：神曲</h2>
+        <p class="tagline">地狱、炼狱与天堂——一场必须走完的旅程。</p>
+        <p class="story-setting">你在人生旅程的中途醒来，发觉自己迷失于一座幽暗的森林。
+穿越地狱、炼狱与天堂三界，唯有走完全程，才能见到那推动太阳和群星的爱。
+你的每一次抉择都会积聚或耗散「光照」——它决定你最终能否承受那至高的幻象。六种结局。</p>
+        <button id="start-btn" class="game-btn" onclick="window.__hudStart()">▶ 启程</button>
         <p class="controls-hint">
-          ← → / A D 行走　·　↑ / W / 空格 跳（长按更高）<br>
-          叙事卡：空格继续　·　抉择：1 拉住 / 2 冲过
+          空格 / 点击 推进叙事　·　数字 1 / 2 做出抉择<br>
+          抉择没有对错，但地狱会记住每一次伸出的手
         </p>
       </div>
     </div>
 
     <div id="gameover-screen" class="game-overlay" style="display:none">
       <div class="overlay-card">
-        <h2 id="gameover-title">GAME OVER</h2>
+        <h2 id="gameover-title">FIN</h2>
         <p id="gameover-message" class="story-setting"></p>
-        <button id="restart-btn" class="game-btn" onclick="location.reload()">↩ 重来</button>
+        <button id="restart-btn" class="game-btn" onclick="location.reload()">↩ 再走一次</button>
       </div>
     </div>
   </div>
 
   <script src="../_engine/hud.js"></script>
   <script src="game/config.js"></script>
-  <script src="game/levels.js"></script>
-  <script src="game/scenes/AbyssScene.js"></script>
-  <script src="game/systems/world.js"></script>
-  <script src="game/systems/hazards.js"></script>
-  <script src="game/systems/cards.js"></script>
-  <script src="game/systems/flow.js"></script>
+  <script src="game/storyData.js"></script>
+  <script src="game/scenes/StoryScene.js"></script>
+  <script src="game/systems/runtime.js"></script>
+  <script src="game/systems/ui.js"></script>
   <script src="game/main.js"></script>
   <script>
     (function () {

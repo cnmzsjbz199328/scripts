@@ -1,10 +1,10 @@
 [
   {
     "id": "ShadowAbyss",
-    "title": "影渊：但丁的下降",
-    "tagline": "地狱有九层，光在最底下——跟着维吉尔，一层层走下去。",
-    "gameType": "side-scroller",
-    "genre": "PLATFORMER",
+    "title": "影渊：神曲",
+    "tagline": "地狱、炼狱与天堂——一场必须走完的旅程。六种结局。",
+    "gameType": "branching-narrative",
+    "genre": "NARRATIVE",
     "accent": "#c4503a",
     "previewBg": "#0a0508",
     "icon": "🕯️",
