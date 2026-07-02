@@ -1,6 +1,6 @@
 /* ShadowAbyss（影渊：但丁的下降）SVG 资产生成器
  * 参数化骨骼 + 逐帧 SVG（rig.mjs）。LIMBO 剪影风：纯黑前景、零图像额度。
- * 角色：但丁(dante, 持微光的旅人) / 维吉尔(virgil, 略亮一线的引路者) / 风中亡魂(soul)
+ * 角色：巡逻怪 fiend / 撒旦 satan（但丁/维吉尔/亡魂已迁移到 glb-sprite 轨）
  * 道具：地岩瓦片 tile_rock / 下行裂口 rift
  * 输出：game_runs/ShadowAbyss/assets/svg/
  */
@@ -14,113 +14,10 @@ fs.mkdirSync(OUT, { recursive: true });
 // 共用画布：留足斗篷/伸臂边距，全角色共用同一 viewBox → Phaser 里对齐不抖
 const VB = { x: -24, y: -4, w: 168, h: 176 };
 
-// ── 角色参数 ──
-const DANTE  = { limbW: 11, torsoW: 18, torsoLen: 30, headR: 9,  ink: '#0a0c12', fHandStyle: 'grip' };  // 近黑旅人·前手握灯
-const VIRGIL = { limbW: 12, torsoW: 19, torsoLen: 35, headR: 9,  ink: '#1b2436' };  // 比但丁亮一线的引路者
-const SOUL   = { limbW: 9,  torsoW: 14, torsoLen: 26, headR: 7,  ink: '#141a26' };
-
-// 基础站姿（绝对角：0下/90前/180上）
-const BASE = { lean: 7, bob: 0, hipDx: 0,
-  fThigh: 10, fShin: 4, bThigh: -10, bShin: -4,
-  fUp: 52, fFore: 122, bUp: 46, bFore: 118 };
-const m = (o) => mergePose(BASE, o);
-
-const f1 = (n) => n.toFixed(1);
-// 披风：从肩贴背垂下、收成一条向身后拖的尖飘带（不在腰侧鼓包→避免"甲壳"）。
-//   sway 越大飘带越往后甩、末梢越上扬（被风掀起感）。绑前倾 lean + 每帧 p.cloakSway。
-const cloak = (j, c, p = {}) => {
-  const sx = j.shX, sy = j.shY, hx = j.hipX, hy = j.hipY;
-  const sway = (j.lean || 0) * 0.8 + (p.cloakSway || 0);  // 向身后(左)拖
-  const back = 14 + sway * 0.6;          // 主体后移量(克制，不鼓腰)
-  const droop = 52;                      // 垂长(≈到踝)
-  const tipX = hx - back - sway * 0.7;   // 飘带末梢：随 sway 后甩
-  const tipY = hy + droop - sway * 0.7;  // 随 sway 上扬
-  return `<path d="M ${f1(sx + 3)} ${f1(sy - 2)}
-    C ${f1(sx - 6 - sway * 0.3)} ${f1(sy + 24)} ${f1(hx - 10 - back * 0.4)} ${f1(hy + 10)} ${f1(hx - back)} ${f1(hy + 32)}
-    C ${f1(hx - back - 4)} ${f1(hy + 48)} ${f1(tipX + 7)} ${f1(tipY - 5)} ${f1(tipX)} ${f1(tipY)}
-    C ${f1(tipX + 9)} ${f1(tipY - 11)} ${f1(hx - 2)} ${f1(hy + 30)} ${f1(hx + 3)} ${f1(hy + 1)} Z" fill="${c.ink}"/>`;
-};
-// 兜帽：圆顺包头 cowl，前缘留口让头圆露脸、后下方拖出尖角(cowl 垂坠感)
-const hood = (j, c) => {
-  const x = j.headX, y = j.headY, r = c.headR;
-  return `<path d="M ${f1(x + r * 0.5)} ${f1(y - r * 0.9)}
-    C ${f1(x - r * 1.3)} ${f1(y - r * 1.5)} ${f1(x - r * 1.9)} ${f1(y + r * 0.4)} ${f1(x - r * 1.0)} ${f1(y + r * 1.9)}
-    C ${f1(x - r * 0.7)} ${f1(y + r * 1.0)} ${f1(x - r * 0.2)} ${f1(y + r * 0.8)} ${f1(x + r * 0.4)} ${f1(y + r * 0.55)}
-    C ${f1(x + r * 1.2)} ${f1(y + r * 0.05)} ${f1(x + r * 1.1)} ${f1(y - r * 0.7)} ${f1(x + r * 0.5)} ${f1(y - r * 0.9)} Z" fill="${c.ink}"/>`;
-};
-// 侧脸：额→鼻尖→下巴 朝 +x 的三角凸起 → 把黑圆读成兜帽下的侧影
-const faceNub = (j, c) => {
-  const x = j.headX, y = j.headY, r = c.headR;
-  return `<path d="M ${f1(x + r * 0.45)} ${f1(y - r * 0.45)}
-    L ${f1(x + r * 1.38)} ${f1(y + r * 0.06)} L ${f1(x + r * 0.55)} ${f1(y + r * 0.52)} Z" fill="${c.ink}"/>`;
-};
-// 侧靴：踝点 (x,y) 起，脚跟略后、脚掌朝前(+x)、靴头微翘
-const boot = (x, y, c) => `<path d="M ${f1(x - 5)} ${f1(y - 4)}
-  L ${f1(x - 4)} ${f1(y + 4)} L ${f1(x + 11)} ${f1(y + 5)}
-  Q ${f1(x + 16)} ${f1(y + 4)} ${f1(x + 13)} ${f1(y)} L ${f1(x + 3)} ${f1(y - 3)} Z" fill="${c.ink}"/>`;
-
-// 提灯：手握环 → 短杆下垂 → 六角灯体 + 暖芯（引擎再叠大范围光晕，这里只画灯体）
-const lantern = (x, y, ink) => {
-  const ty = y + 9, by = y + 23, w = 6;   // 灯顶/灯底/半宽
-  return `<path d="M ${(x - 1).toFixed(1)} ${(y + 1).toFixed(1)} Q ${(x - 7).toFixed(1)} ${(y + 5).toFixed(1)} ${(x - 3).toFixed(1)} ${ty.toFixed(1)}" fill="none" stroke="${ink}" stroke-width="2.2"/>
-    ${line(x - 4, ty, x + 4, ty, 2.4, ink)}
-    <path d="M ${(x - w).toFixed(1)} ${(ty + 1).toFixed(1)} L ${(x + w).toFixed(1)} ${(ty + 1).toFixed(1)} L ${(x + w - 1.6).toFixed(1)} ${by.toFixed(1)} L ${(x - w + 1.6).toFixed(1)} ${by.toFixed(1)} Z" fill="${ink}"/>
-    <circle cx="${x.toFixed(1)}" cy="${((ty + by) / 2).toFixed(1)}" r="3.8" fill="#ffc59a"/>
-    ${line(x - w + 1.6, by, x + w - 1.6, by, 2.6, ink)}`;
-};
-// 但丁：背斗篷 + 兜帽 + 前手握提灯（灯锚到拳心，从拳下穿出，读作"握住"）
-const danteExtras = (j, p, c) => {
-  const [gx, gy] = pt(j.fHx, j.fHy, c.limbW * 0.62, p.fFore);  // 握心（沿前臂角前移到拳团内）
-  return {
-    back: `${cloak(j, c, p)}${boot(j.bFx, j.bFy, c)}`,
-    front: `${boot(j.fFx, j.fFy, c)}${hood(j, c)}${faceNub(j, c)}${lantern(gx, gy, c.ink)}`,
-  };
-};
-// 维吉尔：长袍（更长的斗篷）+ 兜帽侧脸 + 侧靴
-const virgilExtras = (j, p, c) => ({
-  back: `${cloak(j, c, p)}${boot(j.bFx, j.bFy, c)}`,
-  front: `${boot(j.fFx, j.fFy, c)}${hood(j, c)}${faceNub(j, c)}`,
-});
-
 const renderHuman = (c, extras) => (p) => svg(VB, humanoid(c, p, { extras }));
 
-// ── 步态：以正弦摆腿/摆臂生成 n 帧 walk 循环 ──
-function walkFrames(n, opts = {}) {
-  const amp = opts.amp ?? 26, lean = opts.lean ?? 12;
-  const frames = [];
-  for (let i = 0; i < n; i++) {
-    const t = (i / n) * Math.PI * 2;
-    const fThigh = amp * Math.sin(t);
-    const bThigh = amp * Math.sin(t + Math.PI);
-    frames.push(m({
-      lean, bob: -Math.abs(Math.cos(t)) * 2.5,
-      fThigh, fShin: fThigh - 36 * Math.max(0, Math.sin(t + 1.0)),
-      bThigh, bShin: bThigh - 36 * Math.max(0, Math.sin(t + Math.PI + 1.0)),
-      fUp: 52 + 22 * Math.sin(t + Math.PI), fFore: 122,
-      bUp: 46 + 22 * Math.sin(t),           bFore: 118,
-      cloakSway: 8 + 7 * Math.sin(t),  // 披风随步态前后飘
-    }));
-  }
-  return frames;
-}
-
-function idleFrames(n) {
-  return Array.from({ length: n }, (_, i) =>
-    m({ bob: [0, -1.5, -0.5, -1][i % 4], fFore: 122 + (i % 2) * 4 }));
-}
-
-// ── 但丁：已迁移到 glb-sprite 轨（3D 骨骼动画→剪影 PNG，assets/3d/），不再走 SVG。
-//    生成命令见 scratch/glb_dante_hooks.mjs 顶部注释与 skills/glb-sprite/SKILL.md。──
-
-// ── 维吉尔（只需 idle/walk，作引路者跟随） ──
-writeFrames(fs, path, OUT, 'virgil', 'idle', idleFrames(4), renderHuman(VIRGIL, virgilExtras));
-writeFrames(fs, path, OUT, 'virgil', 'walk', walkFrames(6, { amp: 24, lean: 11 }), renderHuman(VIRGIL, virgilExtras));
-
-// ── 风中亡魂（2 帧：被风扯向两侧的挣扎，伸手求援） ──
-writeFrames(fs, path, OUT, 'soul', 'flutter', [
-  m({ lean: 34, bob: -2, fThigh: 40, fShin: 10, bThigh: 8, bShin: -30, fUp: 150, fFore: 168, bUp: 130, bFore: 150 }),
-  m({ lean: 26, bob: 2, fThigh: 28, fShin: 0, bThigh: -4, bShin: -36, fUp: 138, fFore: 158, bUp: 120, bFore: 142 }),
-], renderHuman(SOUL, (j, p, c) => ({ back: cloak(j, c), front: '' })));
+// ── 但丁/维吉尔/风中亡魂：已迁移到 glb-sprite 轨（3D 骨骼动画→剪影 PNG，assets/3d/），不再走 SVG。
+//    生成命令见 scratch/glb_dante_hooks.mjs / glb_virgil_hooks.mjs / glb_soul_hooks.mjs 顶部注释。──
 
 // ── 巡逻怪 fiend（恶鬼/半人马/刻耳柏洛斯通用：佝偻双足兽形 + 头角，2 帧步态） ──
 const FIEND = { limbW: 13, torsoW: 22, torsoLen: 26, headR: 11, ink: '#0a0c12' };

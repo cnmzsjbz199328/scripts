@@ -85,9 +85,9 @@ Object.assign(AbyssScene.prototype, {
     mk('d_idle', 'dante_idle', 8, 8, true);
     mk('d_walk', 'dante_walk', 8, 10, true);
     mk('d_jump', 'dante_jump', 6, 10, false);
-    mk('v_idle', 'virgil_idle', 4, 4, true);
-    mk('v_walk', 'virgil_walk', 6, 11, true);
-    mk('soul_flutter', 'soul', 2, 4, true);
+    mk('v_idle', 'virgil_idle', 8, 6, true);
+    mk('v_walk', 'virgil_walk', 8, 10, true);
+    mk('soul_flutter', 'soul', 6, 5, true);
     mk('fiend_move', 'fiend_move', 2, 5, true);
     mk('satan_fly', 'satan', 2, 3, true);
     for (const c of CIRCLES) mk(`amb_tree_${c.id}`, `amb_tree_${c.id}`, 6, 7, true);
@@ -218,7 +218,7 @@ Object.assign(AbyssScene.prototype, {
       this.tweens.add({ targets: rift, alpha: 0.6, duration: 1100, yoyo: true, repeat: -1 });
       // 抉择亡魂（精灵存到圈对象上，支持多圈各自的抉择点）
       if (c.soul) {
-        c.soulSprite = this.add.sprite(c.soul.x, c.soul.y, 'soul_0').setScale(0.6).setDepth(DEPTH.SOUL);
+        c.soulSprite = this.add.sprite(c.soul.x, c.soul.y, 'soul_0').setScale(0.5).setDepth(DEPTH.SOUL);
         c.soulSprite.play('soul_flutter');
         this.tweens.add({ targets: c.soulSprite, x: c.soul.x + 18, angle: 8, duration: 900, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
       }
@@ -236,8 +236,8 @@ Object.assign(AbyssScene.prototype, {
     this.lastSafeX = 60;
     if (window.__gameState) window.__gameState.player = this.player;
 
-    // 维吉尔引路者
-    this.virgil = this.add.sprite(170, FLOOR_Y - 62, 'virgil_idle_0').setScale(0.66).setDepth(DEPTH.PLAYER - 1);
+    // 维吉尔引路者（glb-sprite 轨，与但丁同 192×208 取景；略小于但丁作次要角色）
+    this.virgil = this.add.sprite(170, FLOOR_Y - 95, 'virgil_idle_0').setScale(0.72).setDepth(DEPTH.PLAYER - 1);
     this.virgil.play('v_idle');
 
     // 灰烬环境轨
@@ -348,6 +348,7 @@ Object.assign(AbyssScene.prototype, {
     } else if (this.virgil.anims.currentAnim?.key !== 'v_idle') {
       this.virgil.play('v_idle', true);
     }
-    this.virgil.y = this.player.y - 2;
+    // 同取景不同缩放的脚底对齐：中心→脚底 79px，79*(0.78-0.72) ≈ +5
+    this.virgil.y = this.player.y + 5;
   },
 });

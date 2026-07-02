@@ -6,13 +6,13 @@ class AbyssScene extends Phaser.Scene {
   preload() {
     const svg = (key, file, w, h) => this.load.svg(key, `assets/svg/${file}.svg`, { width: w, height: h });
     const VBW = 168, VBH = 176;
-    // 但丁：glb-sprite 轨（3D 骨骼动画→剪影 PNG 序列帧，见 skills/glb-sprite）
+    // 但丁/维吉尔/亡魂：glb-sprite 轨（3D 骨骼动画→剪影 PNG 序列帧，见 skills/glb-sprite）
     for (let i = 0; i < 8; i++) this.load.image(`dante_idle_${i}`, `assets/3d/dante_idle_${i}.png`);
     for (let i = 0; i < 8; i++) this.load.image(`dante_walk_${i}`, `assets/3d/dante_walk_${i}.png`);
     for (let i = 0; i < 6; i++) this.load.image(`dante_jump_${i}`, `assets/3d/dante_jump_${i}.png`);
-    for (let i = 0; i < 4; i++) svg(`virgil_idle_${i}`, `virgil_idle_${i}`, VBW, VBH);
-    for (let i = 0; i < 6; i++) svg(`virgil_walk_${i}`, `virgil_walk_${i}`, VBW, VBH);
-    for (let i = 0; i < 2; i++) svg(`soul_${i}`, `soul_flutter_${i}`, VBW, VBH);
+    for (let i = 0; i < 8; i++) this.load.image(`virgil_idle_${i}`, `assets/3d/virgil_idle_${i}.png`);
+    for (let i = 0; i < 8; i++) this.load.image(`virgil_walk_${i}`, `assets/3d/virgil_walk_${i}.png`);
+    for (let i = 0; i < 6; i++) this.load.image(`soul_${i}`, `assets/3d/soul_flutter_${i}.png`);
     svg('tile_rock', 'tile_rock', 48, 48);
     svg('rift', 'rift', 64, 160);
     // 巡逻怪 + 撒旦

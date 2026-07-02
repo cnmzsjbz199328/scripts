@@ -1,10 +1,11 @@
 // ShadowAbyss Dante 挂件：披风(Spine2) + 兜帽(Head) + 提灯(RightHand)。
 // 再生成（在仓库根目录，OUT=game_runs/ShadowAbyss/assets/3d）：
-//   node skills/glb-sprite/render.mjs --clip Idle --frames 8 --rotY 180 --color "#0a0c12" --hooks scratch/glb_dante_hooks.mjs --out $OUT --prefix dante_idle --w 192 --h 208
+//   node skills/glb-sprite/render.mjs --clip Idle --frames 8 --rotY 0 --color "#0a0c12" --hooks scratch/glb_dante_hooks.mjs --out $OUT --prefix dante_idle --w 192 --h 208
 //   node skills/glb-sprite/render.mjs --clip Walk --frames 8 ...同上... --prefix dante_walk
 //   node skills/glb-sprite/render.mjs --clip Run --from 0 --to 0.35 --endpoint --frames 6 ...同上... --prefix dante_jump
 // 剪影同色扁平 Shape，只继承骨骼位置、自 author 旋转（勿 quaternion.copy，见 glb-sprite SKILL.md）。
-// 坐标约定：模型 rotY 180 后面朝 -Z（屏幕右）；shape 局部 +X = 屏幕右（前方），-X = 身后。
+// 坐标约定：Soldier.glb rotY 0 即面朝屏幕右（TPose 目检定的，勿信"默认朝左"旧注）；
+//   shape 局部 +X = 屏幕右（前方），-X = 身后；世界 z 偏移 -z 前 +z 后。
 const COLOR = 0x0a0c12;
 let cape, hood, lantern, spine2, head, hand, v;
 
