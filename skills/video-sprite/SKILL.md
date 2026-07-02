@@ -68,7 +68,7 @@ npx tsx video-prepare.ts <ProjectName>
 ### 2. 处理每段视频动画
 
 ```bash
-npx tsx video-process.ts <ProjectName> <AnimName> <video_path> [--fps=8] [--frames=9] [--no-loop]
+npx tsx video-process.ts <ProjectName> <AnimName> <video_path> [--fps=8] [--frames=9] [--no-loop] [--lock]
 ```
 
 | 参数 | 说明 | 默认值 |
@@ -79,12 +79,17 @@ npx tsx video-process.ts <ProjectName> <AnimName> <video_path> [--fps=8] [--fram
 | `--fps=N` | 该动画在游戏中播放的帧率 | `8` |
 | `--frames=N` | 从视频中采样的帧数 | `9` |
 | `--no-loop` | 标记为非循环动画 | 默认循环 |
+| `--lock` | **锁定高度/基线/中心**：跨全帧算统一 bbox 整体裁剪，不逐帧 trim | 默认关（逐帧 trim） |
+
+> **`--lock` 何时用**：原地行走 / 原地跳跃等"角色不位移、要求脚底基线和整体高度稳定"的动作。
+> 默认逐帧 trim 会把每帧按各自剪影框缩放居中，蹲下/抬手帧因剪影变形被单独放大或上下浮动 → 播放时角色忽大忽小、基线跳动。`--lock` 用同一裁剪框和同一缩放处理所有帧，脚底和高度天然锁死。
+> 前提：源视频里角色本就居中、不横移、脚踩同一基线（见「视频输入规范」）。
 
 **脚本内部流程：**
 1. 调用 `ffmpeg` 以 15fps 抽取全部原始帧到临时目录
 2. 从中均匀采样 `--frames` 帧
 3. 对每帧做绿幕抠图（欧氏距离 ≤ 110）
-4. 去除透明边缘（trim）后缩放居中到 192×208px
+4. 缩放居中到 192×208px：默认逐帧去透明边（trim）；`--lock` 时改用**跨帧统一 bbox** 整体裁剪
 5. 保存为 `frame_N.png`，更新 `manifest.json`
 
 **示例：**
@@ -97,6 +102,10 @@ npx tsx video-process.ts MyHero attack ./clips/attack.mp4 --fps=12 --frames=12 -
 
 # 处理一段待机视频，取 6 帧
 npx tsx video-process.ts MyHero idle ./clips/idle.mp4 --fps=6 --frames=6
+
+# 原地行走/跳跃：--lock 锁定脚底基线与整体高度，避免逐帧缩放跳动
+npx tsx video-process.ts MyHero walk ./clips/walk.mp4 --fps=8 --frames=8 --lock
+npx tsx video-process.ts MyHero jump ./clips/jump.mp4 --fps=10 --frames=6 --no-loop --lock
 ```
 
 对每个动画重复执行此步骤。
