@@ -35,7 +35,7 @@ description: 用绑好骨骼的 3D 模型（GLB）+ 真实动作数据渲染剪�
 ## 前置依赖
 
 `npm install` 后即有：`three`（0.185.x）、`playwright`、`esbuild`、`sharp`。
-自带默认模型 [models/Soldier.glb](models/Soldier.glb)（Mixamo 骨架，clips：`Idle(2.0s) / Run(0.7s) / TPose / Walk(1.0s)`，侧视朝左）。
+自带默认模型 [models/Soldier.glb](models/Soldier.glb)（Mixamo 骨架，clips：`Idle(2.0s) / Run(0.7s) / TPose / Walk(1.0s)`，**rotY 0 即侧视朝右**）。
 
 ---
 
@@ -153,7 +153,7 @@ for (const [act, a] of Object.entries(ACT))
 ```
 
 要点同 svg-sprite：物理体固定大小 `setOffset` 对齐躯干；左右朝向 `setFlipX`
-（Soldier 默认朝左）；L2 verify 贴边出生 + `setCollideWorldBounds(true)`。
+（Soldier 默认朝右，与 Phaser 未翻转=朝右的惯例一致，无需 rotY）；L2 verify 贴边出生 + `setCollideWorldBounds(true)`。
 360×480 对游戏偏大时用 `setScale` 或渲染时直接减小 `--w/--h`（正交下等比缩放无损构图）。
 
 ---
@@ -165,6 +165,8 @@ for (const [act, a] of Object.entries(ACT))
 3. **骨骼命名**：非 Mixamo 来源不一定是 `mixamorigXXX`，`--list` 打出来，hooks 里的骨骼名跟着改。
 4. **Clip 名字**：同上，`--list` 看 Idle/Walk/Run 的实际叫法。
 5. **朝向**：默认朝向不一定侧对相机，拍出正/背面就调 `--rotY`（90 的倍数先试）。
+   **定左右朝向必须用 TPose/静止帧目检脚尖**——步行中间帧后脚蹬地的剪影会把朝向读反
+   （ShadowAbyss 曾因此全员"倒着走"，游戏里未翻转贴图应面朝右）。
 6. **授权**：Fab Standard License 允许任意兼容工具；小心 legacy UE Marketplace License 的老资产。
 
 模型来源：three.js 官方示例 `Soldier.glb`（已内置）· Mixamo 导出（免费，需 Adobe 账号）· Fab / Sketchfab。
