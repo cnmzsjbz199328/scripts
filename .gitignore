@@ -39,6 +39,7 @@ game_runs/**/verify-screenshot.png
 # game-playtest full playthrough recordings — local verification/showcase only,
 # NOT version-controlled (large). The 10s preview.mp4 in each game root IS tracked.
 game_runs/**/playtest/
+game_runs/**/_rec/
 
 # showreel — concatenated demo video + all intermediate parts, local showcase only.
 # Keep only the reproducible build script.
