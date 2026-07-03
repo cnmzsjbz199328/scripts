@@ -198,8 +198,10 @@ Object.assign(StoryScene.prototype, {
       .setDepth(DEPTH.SHADOW).setData('base', 0.3);
     this.virgilShadow = this.add.ellipse(262, FEET_Y - 14, 62, 11, 0x000000, 0.26)
       .setDepth(DEPTH.SHADOW).setData('base', 0.26).setVisible(false);
-    this.dante = this.add.sprite(150, FEET_Y, 'dante_idle_0').setOrigin(0.5, 1).setScale(0.85).setDepth(DEPTH.CHAR);
-    this.virgil = this.add.sprite(262, FEET_Y - 2, 'virgil_idle_0').setOrigin(0.5, 1).setScale(0.82).setDepth(DEPTH.CHAR - 1).setVisible(false);
+    // glb-sprite 帧(192x208)底部有 24px 透明留白，origin(0.5,1) 对齐的是图底而非脚底：
+    // 落点须加 24*scale 补偿，否则实际脚底 ≈ FEET_Y-20，浮在地脊边缘之上
+    this.dante = this.add.sprite(150, FEET_Y + 24 * 0.85, 'dante_idle_0').setOrigin(0.5, 1).setScale(0.85).setDepth(DEPTH.CHAR);
+    this.virgil = this.add.sprite(262, FEET_Y - 2 + 24 * 0.82, 'virgil_idle_0').setOrigin(0.5, 1).setScale(0.82).setDepth(DEPTH.CHAR - 1).setVisible(false);
     this.dante.play('dante_idle');
     this.virgil.play('virgil_idle');
   },
