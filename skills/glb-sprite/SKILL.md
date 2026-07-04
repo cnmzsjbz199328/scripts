@@ -188,6 +188,11 @@ for (const [act, a] of Object.entries(ACT))
 
 - **`FBXLoader.parse()` 是同步的**，直接返回根 Object3D（动作挂 `obj.animations`）；
   GLTFLoader.parse 是回调式——照抄回调写法等 FBX 返回值会拿到 `undefined`。harness 已按扩展名分流。
+- **Mixamo 位移动作要加 `--in-place`**：名字带 "Forward" 的走/跑（非 In Place 导出）根骨骼
+  带真实世界位移，固定相机下角色会走出画面（Remy 实测第 3 帧起出框、末帧只剩一条边）。
+  `--in-place` 把根骨骼位置轨道的水平分量钉在首帧、保留 Y 起伏，不用回 Mixamo 重导。
+- **Mixamo FBX 默认朝屏幕左**（rig 面向 +Z，+X 侧视相机下即朝左），要 `--rotY 180` 才符合
+  Phaser"未翻转=朝右"惯例——内置 Soldier.glb 是转换时烘焙过旋转的特例（rotY 0 朝右），别互相类推。
 - **多角色身高对齐**：剪影渲染按包围盒自动取景，单个模型多大都能渲；但多角色同台时
   相对身高必须统一——按体检报告的换算系数折算各自 `setScale`，导师才不会比主角高两倍。
 

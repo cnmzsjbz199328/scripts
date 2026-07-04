@@ -45,6 +45,7 @@ const usage = `glb-sprite render.mjs — 3D 骨骼动画（GLB/FBX）→ 剪影�
   --camY <n>        相机/注视高度（缺省取包围盒中心）
   --fit-margin <n>  自动 fit 的留边系数（默认 1.3）
   --endpoint        采样含终点帧（非循环动作用；循环默认不含，末帧接回首帧）
+  --in-place        消除根骨骼水平位移（Mixamo 非 In Place 导出的走/跑用，保留 Y 起伏）
   --from / --to     只采样时间轴 [from,to] 秒的片段
   --hooks <file>    挂件脚本（export onModelLoaded(state) / onFrame(state, info)）
   --sheet           同时输出接触表 <prefix>_sheet.png 供目检`;
@@ -109,10 +110,11 @@ if (args.inspect) {
   const isMixamo = info.bones.length > 0
     && info.bones.every((n) => n.toLowerCase().includes('mixamorig'));
 
-  // 比例：整数倍偏差（2x/0.5x/10x…）几乎都是导出单位约定不同，不是模型建错
+  // 比例：整数倍偏差（2x/0.5x/10x…）几乎都是导出单位约定不同，不是模型建错。
+  // 200/50 覆盖"厘米单位再 ×2/÷2"的常见组合（Remy 实测 212 倍 = 厘米 ×2 → 189cm）
   const ratio = info.height / REF_HEIGHT;
   let best = 1, bestDiff = Infinity;
-  for (const f of [100, 10, 2, 1, 0.5, 0.1, 0.01]) {
+  for (const f of [200, 100, 50, 10, 2, 1, 0.5, 0.1, 0.01, 0.005]) {
     const d = Math.abs(ratio / f - 1);
     if (d < bestDiff) { bestDiff = d; best = f; }
   }
@@ -128,7 +130,7 @@ if (args.inspect) {
       info.clips.length > usable.length ? `（已忽略 ${info.clips.length - usable.length} 个 0-track 空占位）` : ''}`
     : '动作: ⚠ 没有可用 clip——需要走 Mixamo 自动绑骨/配动作，或只做静态摆拍');
   lines.push(Math.abs(ratio - 1) > 0.15
-    ? `比例: ⚠ 包围盒高 ${info.height}，偏离参照(${REF_HEIGHT}) ${ratio.toFixed(2)} 倍 → 多半是单位约定不同，多角色同台时按 ×${1 / best} 换算对齐身高（剪影渲染本身自动取景，不受影响）`
+    ? `比例: ⚠ 包围盒高 ${info.height}，偏离参照(${REF_HEIGHT}) ${ratio.toFixed(2)} 倍 → 多半是单位约定不同，按 ×${1 / best} 校正后 ≈ ${(info.height / best).toFixed(2)} 世界单位(米)，多角色同台按此对齐身高（剪影渲染本身自动取景，不受影响）`
     : `比例: ✅ 包围盒高 ${info.height}，与参照(${REF_HEIGHT})同一量级`);
 
   // 渲染验证：挑第一个可用动作的中段渲一帧，像素覆盖率做无人值守兜底
@@ -165,6 +167,7 @@ const dataUrls = await page.evaluate(
     clip: args.clip,
     frames,
     endpoint: !!args.endpoint,
+    inPlace: !!args['in-place'],
     from: args.from != null ? +args.from : null,
     to: args.to != null ? +args.to : null,
   },

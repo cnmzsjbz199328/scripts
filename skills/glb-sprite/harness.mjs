@@ -113,9 +113,23 @@ export function boot(hooks = {}) {
     state.renderer.render(state.scene, state.camera);
   }
 
-  async function sample({ clip: clipName, frames, endpoint, from, to }) {
+  async function sample({ clip: clipName, frames, endpoint, from, to, inPlace }) {
     const clip = state.clips[clipName];
     if (!clip) throw new Error(`clip "${clipName}" not found; available: ${Object.keys(state.clips).join(', ')}`);
+    if (inPlace) {
+      // Mixamo 非 In Place 导出的位移动作：根骨骼位置轨道的水平分量钉在首帧，
+      // 消掉世界位移（角色不再走出画面），保留 Y 分量的步态起伏
+      let rootBone = null;
+      state.model.traverse((o) => {
+        if (!rootBone && o.isBone && !(o.parent && o.parent.isBone)) rootBone = o;
+      });
+      for (const tr of clip.tracks) {
+        if (rootBone && tr.name === `${rootBone.name}.position`) {
+          const v = tr.values;
+          for (let i = 3; i < v.length; i += 3) { v[i] = v[0]; v[i + 2] = v[2]; }
+        }
+      }
+    }
     const t0 = from ?? 0;
     const span = (to ?? clip.duration) - t0;
     state.mixer.stopAllAction();
