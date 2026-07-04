@@ -52,3 +52,6 @@ scratch/*.webp
 
 # AI tool workspaces
 .gemini/
+
+# FBX/GLB 角色素材库 — 大二进制不入库（inbox 待体检接入 / archive 已接入归档）
+assets_fbx/

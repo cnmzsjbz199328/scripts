@@ -1,6 +1,6 @@
 ---
 name: glb-sprite
-description: 用绑好骨骼的 3D 模型（GLB）+ 真实动作数据渲染剪影序列帧。正交侧视相机 + 纯黑无光照材质，在动作时间轴上等距采样导出 PNG。动作数据真实精确、网格从不切割、天然无缝。作为 svg-sprite（参数化骨骼）/ char-sprite（AI 图集）/ video-sprite（绿幕视频）的第四条平行轨道，适合"写实人形运动的剪影"。
+description: 用绑好骨骼的 3D 模型（GLB/FBX）+ 真实动作数据渲染剪影序列帧。正交侧视相机 + 纯黑无光照材质，在动作时间轴上等距采样导出 PNG。动作数据真实精确、网格从不切割、天然无缝。作为 svg-sprite（参数化骨骼）/ char-sprite（AI 图集）/ video-sprite（绿幕视频）的第四条平行轨道，适合"写实人形运动的剪影"。自带 --inspect 新模型体检（骨骼/动作/比例/渲染验证）。
 ---
 
 # GLB Sprite Skill
@@ -37,12 +37,20 @@ description: 用绑好骨骼的 3D 模型（GLB）+ 真实动作数据渲染剪�
 `npm install` 后即有：`three`（0.185.x）、`playwright`、`esbuild`、`sharp`。
 自带默认模型 [models/Soldier.glb](models/Soldier.glb)（Mixamo 骨架，clips：`Idle(2.0s) / Run(0.7s) / TPose / Walk(1.0s)`，**rotY 0 即侧视朝右**）。
 
+**GLB 和 FBX 都支持**（按扩展名自动分流 loader）。FBX 是关键补充：**Mixamo 免费角色库只导出 FBX**，
+是"多个不同人形角色 + 统一骨架 + 现成动作"最便宜的来源。
+新下载的模型放 `assets_fbx/inbox/`（整目录不入 git），接入游戏后移 `assets_fbx/archive/<角色名>/` 归档，
+详见 [assets_fbx/README.md](../../assets_fbx/README.md)。
+
 ---
 
 ## 工作流
 
 ```bash
-# 1. 查看模型的 clip 名 + 骨骼命名（换模型后第一件事，每个模型都不一样）
+# 0. 新模型先体检（换模型后第一件事）：骨骼命名/可用动作/比例/渲染验证一次出报告
+node skills/glb-sprite/render.mjs --inspect --model assets_fbx/inbox/Xxx.fbx
+
+# 1. 要看骨骼全名（写 hooks 挂件前）用 --list
 node skills/glb-sprite/render.mjs --list [--model path/to/Model.glb]
 
 # 2. 采样渲染 → 逐帧 PNG（透明背景）+ 接触表目检
@@ -158,18 +166,32 @@ for (const [act, a] of Object.entries(ACT))
 
 ---
 
-## 换模型时要检查什么
+## 换模型：先跑 `--inspect` 体检
 
-1. **格式**：要 `.glb/.gltf`（`.fbx` 可转）。市场上很多"角色资产"是引擎专属格式，打不开。
-2. **是否带骨骼动画**：没有 `AnimationClip` 就得走 Mixamo 自动绑骨，或只做静态摆拍。
-3. **骨骼命名**：非 Mixamo 来源不一定是 `mixamorigXXX`，`--list` 打出来，hooks 里的骨骼名跟着改。
-4. **Clip 名字**：同上，`--list` 看 Idle/Walk/Run 的实际叫法。
-5. **朝向**：默认朝向不一定侧对相机，拍出正/背面就调 `--rotY`（90 的倍数先试）。
+`--inspect` 几秒出一份报告，不用开建模软件就能确认"这个模型能不能直接用"：
+
+| 检查项 | 判定标准 | 背后的坑 |
+|---|---|---|
+| 骨骼 | `Set` 去重后的唯一骨骼数 + 是否 `mixamorig` 命名 | 多部件角色（衣服/身体/头发各自 SkinnedMesh）遍历时同名骨骼重复计数——Remy 原始遍历 114，去重后 67 才是真骨架。**只看去重数** |
+| 动作 | 只算 `trackCount > 0` 的 clip | Mixamo FBX 几乎总带一个 `Take 001`（0 tracks）空占位，**是正常现象不是文件损坏**；真动作通常叫 `mixamo.com`。usableClips 为 0 才是真没动作 |
+| 比例 | 包围盒高度对照参照值 1.78（Soldier≈1.74 / Xbot≈1.78） | 整数倍偏差（2x/0.5x/100x）几乎都是导出单位约定不同（FBX 常按厘米，高 ~180），**先怀疑缩放约定，别怀疑模型坏了**。报告会给换算系数 |
+| 渲染 | 实渲一帧动作中段 + 剪影覆盖率兜底（人形合理区间 3%~35%） | 数字全过≠蒙皮没问题；覆盖率太低=没渲出来/相机没对准，太高=相机在模型内部。批量筛模型时这道自动兜底比逐个肉眼盯高效 |
+
+体检过了再人工确认剩下两件事：
+
+1. **朝向**：默认朝向不一定侧对相机，拍出正/背面就调 `--rotY`（90 的倍数先试）。
    **定左右朝向必须用 TPose/静止帧目检脚尖**——步行中间帧后脚蹬地的剪影会把朝向读反
    （ShadowAbyss 曾因此全员"倒着走"，游戏里未翻转贴图应面朝右）。
-6. **授权**：Fab Standard License 允许任意兼容工具；小心 legacy UE Marketplace License 的老资产。
+2. **授权**：Fab Standard License 允许任意兼容工具；小心 legacy UE Marketplace License 的老资产。
 
-模型来源：three.js 官方示例 `Soldier.glb`（已内置）· Mixamo 导出（免费，需 Adobe 账号）· Fab / Sketchfab。
+### FBX 特有注意
+
+- **`FBXLoader.parse()` 是同步的**，直接返回根 Object3D（动作挂 `obj.animations`）；
+  GLTFLoader.parse 是回调式——照抄回调写法等 FBX 返回值会拿到 `undefined`。harness 已按扩展名分流。
+- **多角色身高对齐**：剪影渲染按包围盒自动取景，单个模型多大都能渲；但多角色同台时
+  相对身高必须统一——按体检报告的换算系数折算各自 `setScale`，导师才不会比主角高两倍。
+
+模型来源：three.js 官方示例 `Soldier.glb`（已内置）· **Mixamo（免费，需 Adobe 账号，只出 FBX——本 skill 直接吃）** · Fab / Sketchfab。
 
 ---
 

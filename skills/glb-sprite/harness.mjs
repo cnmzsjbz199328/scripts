@@ -3,6 +3,7 @@
 // 约定：正交相机侧视 + MeshBasicMaterial 纯色覆盖 + mixer.setTime 定格采样。
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
 
 export function boot(hooks = {}) {
   const state = {};
@@ -29,10 +30,19 @@ export function boot(hooks = {}) {
     if (cfg.bg === 'transparent') renderer.setClearColor(0x000000, 0);
     else scene.background = new THREE.Color(cfg.bg);
 
-    // 沙箱环境不能走 loader.load（fetch 会被拦截炸 DataCloneError），一律 parse 喂二进制
-    const gltf = await new Promise((res, rej) =>
-      new GLTFLoader().parse(base64ToArrayBuffer(cfg.glbB64), '', res, rej));
-    const model = gltf.scene;
+    // 沙箱环境不能走 loader.load（fetch 会被拦截炸 DataCloneError），一律 parse 喂二进制。
+    // FBXLoader.parse 是同步的（直接返回根 Object3D，动作挂在 obj.animations）；
+    // GLTFLoader.parse 是回调式的——两个接口不一致，照抄回调写法等 FBX 会拿到 undefined。
+    let model, animations, gltf = null;
+    if (cfg.ext === 'fbx') {
+      model = new FBXLoader().parse(base64ToArrayBuffer(cfg.glbB64), '');
+      animations = model.animations || [];
+    } else {
+      gltf = await new Promise((res, rej) =>
+        new GLTFLoader().parse(base64ToArrayBuffer(cfg.glbB64), '', res, rej));
+      model = gltf.scene;
+      animations = gltf.animations || [];
+    }
     model.rotation.y = THREE.MathUtils.degToRad(cfg.rotY || 0);
 
     const silhouette = new THREE.MeshBasicMaterial({ color: new THREE.Color(cfg.color) });
@@ -46,31 +56,47 @@ export function boot(hooks = {}) {
 
     const mixer = new THREE.AnimationMixer(model);
     const clips = {};
-    for (const c of gltf.animations) clips[c.name] = c;
+    for (const c of animations) clips[c.name] = c;
 
     // 取景：显式给 orthoH/camY，或按静止姿态包围盒自动 fit
     model.updateMatrixWorld(true);
+    const box = new THREE.Box3().setFromObject(model);
+    const height = box.max.y - box.min.y;
     let { orthoH, camY } = cfg;
-    if (orthoH == null || camY == null) {
-      const box = new THREE.Box3().setFromObject(model);
-      if (orthoH == null) orthoH = (box.max.y - box.min.y) * (cfg.fitMargin ?? 1.3);
-      if (camY == null) camY = (box.max.y + box.min.y) / 2;
-    }
+    if (orthoH == null) orthoH = height * (cfg.fitMargin ?? 1.3);
+    if (camY == null) camY = (box.max.y + box.min.y) / 2;
     const aspect = cfg.width / cfg.height;
+    // 相机距离/远平面随模型尺寸走——FBX 常按厘米建模（高 ~180 单位），
+    // 固定 camX=5/far=100 会把相机埋进模型里、剪裁掉大半网格
+    const dist = cfg.camX != null ? cfg.camX : Math.max(5, height * 3);
     // 必须正交相机——透视的近大远小会让轮廓随视角畸变
     const camera = new THREE.OrthographicCamera(
-      -orthoH * aspect / 2, orthoH * aspect / 2, orthoH / 2, -orthoH / 2, 0.1, 100);
-    camera.position.set(cfg.camX ?? 5, camY, cfg.camZ ?? 0);
+      -orthoH * aspect / 2, orthoH * aspect / 2, orthoH / 2, -orthoH / 2,
+      0.1, Math.max(100, dist * 20));
+    camera.position.set(dist, camY, cfg.camZ ?? 0);
     camera.lookAt(0, camY, 0);
 
-    Object.assign(state, { THREE, renderer, scene, camera, model, gltf, mixer, clips, canvas, cfg });
+    Object.assign(state, { THREE, renderer, scene, camera, model, gltf, animations, mixer, clips, canvas, cfg });
     await hooks.onModelLoaded?.(state);
 
-    const bones = [];
-    model.traverse((o) => { if (o.isBone) bones.push(o.name); });
+    // 骨骼名必须 Set 去重：多部件角色（衣服/身体/头发各自 SkinnedMesh）遍历时
+    // 同名骨骼会被重复计数（Remy 实测 114 → 去重后 67 才是真实骨架）
+    const boneSet = new Set();
+    let meshCount = 0;
+    const skinnedMeshNames = [];
+    model.traverse((o) => {
+      if (o.isBone) boneSet.add(o.name);
+      if (o.isMesh) meshCount++;
+      if (o.isSkinnedMesh) skinnedMeshNames.push(o.name);
+    });
     return {
-      clips: gltf.animations.map((c) => ({ name: c.name, duration: +c.duration.toFixed(3) })),
-      bones,
+      clips: animations.map((c) => ({
+        name: c.name, duration: +c.duration.toFixed(3), trackCount: c.tracks.length,
+      })),
+      bones: Array.from(boneSet),
+      meshCount,
+      skinnedMeshNames,
+      height: +height.toFixed(3),
       framing: { orthoH: +orthoH.toFixed(3), camY: +camY.toFixed(3) },
     };
   }
