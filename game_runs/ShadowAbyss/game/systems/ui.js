@@ -191,6 +191,14 @@ Object.assign(StoryScene.prototype, {
       frames: Array.from({ length: 6 }, (_, i) => ({ key: `soul_gesture_${i}` })),
       frameRate: 6, repeat: 0,
     });
+    // 路人 NPC 共享剪影槽的各套待机呼吸循环
+    for (const tex of ['beatrice', 'elder', 'matilda', 'angel', 'furies', 'minos']) {
+      this.anims.create({
+        key: `${tex}_idle`,
+        frames: Array.from({ length: 8 }, (_, i) => ({ key: `${tex}_idle_${i}` })),
+        frameRate: 6, repeat: -1,
+      });
+    }
     // 前景雾帧循环（四章各一套）
     for (let ch = 1; ch <= 4; ch++) {
       this.anims.create({
@@ -223,6 +231,46 @@ Object.assign(StoryScene.prototype, {
       .setOrigin(0.5, 1).setScale(0.6).setAlpha(0.75).setDepth(DEPTH.CHAR - 2).setVisible(false);
     this.soul.play('soul_walk');
     this._paceSoul();
+
+    // 路人 NPC 共享剪影槽：站在维吉尔与远景亡魂之间，speaker 命中 NPC_GUEST 才现身（见 _showGuest）。
+    // heaven 角色背后加一圈叠加光晕表现"圣洁感"——剪影本身仍是统一深色，不重染颜色：
+    // 天堂章背景本身很亮（米黄色调），试过整体重染暖金色，结果剪影和背景融在一起几乎看不见
+    // （至高天场景实测：贝雅特丽齐 tintFill 后近乎隐形）。深色剪影在明暗背景下对比度都稳定。
+    this.guestHalo = this.add.circle(620, FEET_Y - 96, 72, 0xfff2d0, 0.4)
+      .setDepth(DEPTH.CHAR - 2).setBlendMode(Phaser.BlendModes.ADD).setVisible(false);
+    this.guestShadow = this.add.ellipse(620, FEET_Y - 10, 56, 10, 0x000000, 0.25)
+      .setDepth(DEPTH.SHADOW).setData('base', 0.25).setVisible(false);
+    this.guest = this.add.sprite(620, FEET_Y + 24 * 0.85, 'beatrice_idle_0')
+      .setOrigin(0.5, 1).setScale(0.85).setAlpha(0).setDepth(DEPTH.CHAR - 1).setVisible(false);
+    this.guestKey = null;
+  },
+
+  // speaker 命中 NPC_GUEST → 淡入对应剪影（heaven 角色加光晕）；同一角色连续发言不重复触发
+  _showGuest(g) {
+    if (this.guestKey === g.tex) return;
+    this.guestKey = g.tex;
+    this.guest.play(`${g.tex}_idle`, true);
+    this.guest.setVisible(true);
+    this.guestShadow.setVisible(true).setData('base', g.heaven ? 0.15 : 0.25);
+    this.guestHalo.setVisible(!!g.heaven).setAlpha(0);
+    this.tweens.killTweensOf(this.guest);
+    this.tweens.killTweensOf(this.guestHalo);
+    this.tweens.add({ targets: this.guest, alpha: 1, duration: 400 });
+    if (g.heaven) this.tweens.add({ targets: this.guestHalo, alpha: 1, duration: 400 });
+  },
+
+  // 节点切换时清空剪影槽，避免上一位路人跨场景残留
+  _resetGuest() {
+    if (!this.guestKey) return;
+    this.guestKey = null;
+    this.tweens.killTweensOf(this.guest);
+    this.tweens.killTweensOf(this.guestHalo);
+    this.tweens.add({
+      targets: this.guest, alpha: 0, duration: 300,
+      onComplete: () => this.guest.setVisible(false),
+    });
+    this.guestHalo.setVisible(false);
+    this.guestShadow.setVisible(false);
   },
 
   // 亡魂来回踱步：走到一端→原地做一次挣扎手势→折返，循环往复
@@ -315,6 +363,8 @@ Object.assign(StoryScene.prototype, {
   _renderSegment(seg) {
     this._setHint('▸ 空格');
     this.speakerText.setText(seg.speaker ? '「 ' + seg.speaker + ' 」' : '');
+    const guest = seg.speaker && NPC_GUEST[seg.speaker];
+    if (guest) this._showGuest(guest);
     this.bodyText.setColor(seg.arrival ? '#8b8474' : seg.speaker ? '#e2d8be' : '#bdb6a4');
     this._typing = true; this._typeFull = seg.text; this._typeI = 0;
     this.bodyText.setText('');

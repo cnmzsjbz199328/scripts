@@ -13,6 +13,9 @@ class StoryScene extends Phaser.Scene {
       this.load.image(`virgil_idle_${i}`, `assets/3d/virgil_idle_${i}.png`);
       this.load.image(`virgil_walk_${i}`, `assets/3d/virgil_walk_${i}.png`);
       this.load.image(`soul_walk_${i}`, `assets/3d/soul_walk_${i}.png`);
+      // 路人 NPC 共享剪影槽（config.js NPC_GUEST），按 speaker 名字临时换贴图
+      for (const tex of ['beatrice', 'elder', 'matilda', 'angel', 'furies', 'minos'])
+        this.load.image(`${tex}_idle_${i}`, `assets/3d/${tex}_idle_${i}.png`);
     }
     // 背景亡魂 NPC 的非循环手势帧数与主角不同（6 帧），单独一个循环
     for (let i = 0; i < 6; i++) this.load.image(`soul_gesture_${i}`, `assets/3d/soul_gesture_${i}.png`);
@@ -45,6 +48,7 @@ class StoryScene extends Phaser.Scene {
     sync(this.danteShadow, this.dante);
     sync(this.virgilShadow, this.virgil);
     sync(this.soulShadow, this.soul);
+    sync(this.guestShadow, this.guest);
   }
 
   _bindInput() {

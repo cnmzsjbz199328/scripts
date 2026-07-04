@@ -70,3 +70,21 @@ const SCENE_META = {
 
 // 章节卡编号（chapterTitle 全文出现在这些节点上）
 const CHAPTER_NUMERALS = { '第一章：黑暗森林': 'Ⅰ', '第二章：地狱': 'Ⅱ', '第三章：炼狱': 'Ⅲ', '第四章：天堂': 'Ⅳ' };
+
+// ── 路人 NPC：按 segment.speaker 名字临时显隐一个共享剪影槽（见 ui.js _showGuest）。
+//    法里纳塔/圣彼得/圣伯尔纳共用"elder"模型（Tier C 偷懒复用，靠名字+光色区分）；
+//    群魔复用"furies"模型（同一个女妖剪影代表整群，不追求一一对应）。
+//    heaven:true 的用 setTintFill 整体重染暖金色，呈现"圣洁发光"感，不改变原始渲染色。
+const NPC_GUEST = {
+  '贝雅特丽齐': { tex: 'beatrice', heaven: true },
+  '卡戎':       { tex: 'elder',    heaven: false },
+  '玛蒂尔达':   { tex: 'matilda',  heaven: false },
+  '守门天使':   { tex: 'angel',    heaven: true },
+  '天使':       { tex: 'angel',    heaven: true },
+  '复仇女神':   { tex: 'furies',   heaven: false },
+  '群魔':       { tex: 'furies',   heaven: false },
+  '米诺斯':     { tex: 'minos',    heaven: false },
+  '法里纳塔':   { tex: 'elder',    heaven: false },
+  '圣彼得':     { tex: 'elder',    heaven: true },
+  '圣伯尔纳':   { tex: 'elder',    heaven: true },
+};

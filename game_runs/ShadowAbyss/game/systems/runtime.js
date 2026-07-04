@@ -47,6 +47,7 @@ Object.assign(StoryScene.prototype, {
 
   _queueNode(n) {
     this._node = n; this._nodeDone = false;
+    this._resetGuest();
     this._segQueue = [];
     if (n.scene && n.scene.arrival) this._segQueue.push({ text: n.scene.arrival, arrival: true });
     for (const s of (n.segments || [])) this._segQueue.push(s);
