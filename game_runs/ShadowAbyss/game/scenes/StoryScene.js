@@ -12,7 +12,10 @@ class StoryScene extends Phaser.Scene {
       this.load.image(`dante_walk_${i}`, `assets/3d/dante_walk_${i}.png`);
       this.load.image(`virgil_idle_${i}`, `assets/3d/virgil_idle_${i}.png`);
       this.load.image(`virgil_walk_${i}`, `assets/3d/virgil_walk_${i}.png`);
+      this.load.image(`soul_walk_${i}`, `assets/3d/soul_walk_${i}.png`);
     }
+    // 背景亡魂 NPC 的非循环手势帧数与主角不同（6 帧），单独一个循环
+    for (let i = 0; i < 6; i++) this.load.image(`soul_gesture_${i}`, `assets/3d/soul_gesture_${i}.png`);
     // 四章前景近地雾（svg-ambient 轨，scratch/gen_shadowabyss_fg.mjs）
     for (let ch = 1; ch <= 4; ch++)
       for (let i = 0; i < 8; i++)
@@ -41,6 +44,7 @@ class StoryScene extends Phaser.Scene {
     };
     sync(this.danteShadow, this.dante);
     sync(this.virgilShadow, this.virgil);
+    sync(this.soulShadow, this.soul);
   }
 
   _bindInput() {

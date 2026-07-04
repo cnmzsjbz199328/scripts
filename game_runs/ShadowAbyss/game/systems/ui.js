@@ -181,6 +181,16 @@ Object.assign(StoryScene.prototype, {
     };
     mk('dante', { idle: 8, walk: 8 });
     mk('virgil', { idle: 8, walk: 8 });
+    this.anims.create({
+      key: 'soul_walk',
+      frames: Array.from({ length: 8 }, (_, i) => ({ key: `soul_walk_${i}` })),
+      frameRate: 8, repeat: -1,
+    });
+    this.anims.create({
+      key: 'soul_gesture',
+      frames: Array.from({ length: 6 }, (_, i) => ({ key: `soul_gesture_${i}` })),
+      frameRate: 6, repeat: 0,
+    });
     // 前景雾帧循环（四章各一套）
     for (let ch = 1; ch <= 4; ch++) {
       this.anims.create({
@@ -204,6 +214,30 @@ Object.assign(StoryScene.prototype, {
     this.virgil = this.add.sprite(262, FEET_Y - 2 + 24 * 0.82, 'virgil_idle_0').setOrigin(0.5, 1).setScale(0.82).setDepth(DEPTH.CHAR - 1).setVisible(false);
     this.dante.play('dante_idle');
     this.virgil.play('virgil_idle');
+
+    // 背景亡魂 NPC（地狱/炼狱章路人剪影，svg-sprite/glb-sprite 第四轨同款接地公约）：
+    // 缩小 + 半透明模拟纵深，右侧地脊上来回踱步，章节切换时按 _setScene 显隐
+    this.soulShadow = this.add.ellipse(760, FEET_Y - 8, 40, 8, 0x000000, 0.2)
+      .setDepth(DEPTH.SHADOW).setData('base', 0.2).setVisible(false);
+    this.soul = this.add.sprite(760, FEET_Y + 24 * 0.6, 'soul_walk_0')
+      .setOrigin(0.5, 1).setScale(0.6).setAlpha(0.75).setDepth(DEPTH.CHAR - 2).setVisible(false);
+    this.soul.play('soul_walk');
+    this._paceSoul();
+  },
+
+  // 亡魂来回踱步：走到一端→原地做一次挣扎手势→折返，循环往复
+  _paceSoul() {
+    if (!this.soul.active) return;
+    this._soulGoingRight = !this._soulGoingRight;
+    const to = this._soulGoingRight ? 860 : 660;
+    this.soul.setFlipX(!this._soulGoingRight).play('soul_walk', true);
+    this.tweens.add({
+      targets: this.soul, x: to, duration: 5200, ease: 'Sine.easeInOut',
+      onComplete: () => {
+        this.soul.play('soul_gesture', true);
+        this.soul.once('animationcomplete-soul_gesture', () => this._paceSoul());
+      },
+    });
   },
 
   // ── 场景切换：背景交叉淡入 + 横幅 + 人物走入 + DOM 目标栏 ──
@@ -247,6 +281,11 @@ Object.assign(StoryScene.prototype, {
     }
     this.danteShadow.setData('base', this._chapter === 4 ? 0.2 : 0.3);
     this.virgilShadow.setData('base', this._chapter === 4 ? 0.17 : 0.26);
+
+    // 亡魂路人仅在地狱/炼狱（ch2/3）出没，森林与天堂章不显示
+    const soulOn = this._chapter === 2 || this._chapter === 3;
+    this.soul.setVisible(soulOn);
+    this.soulShadow.setVisible(soulOn).setData('base', this._chapter === 3 ? 0.15 : 0.2);
 
     // 横幅：显现后淡去
     this.tweens.killTweensOf(this.banner);
