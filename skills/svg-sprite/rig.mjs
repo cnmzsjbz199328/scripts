@@ -114,10 +114,35 @@ export function writeFrames(fs, path, dir, id, act, frames, render) {
 }
 
 /**
+ * 定向手——沿前臂角 deg（0下/90前/180上）的重叠同色圆簇，同色填充自动融合成
+ * 平滑剪影，治"各向同性正球手=棒棒糖"。手沿臂轴略伸出腕点 (x,y)。
+ *   r：手的基准半径（≈ 肢宽的一半上下）。
+ *   style：'fist' 拳（默认）| 'open' 张手（指节再扇 3 短指）| 'grip' 握柄（紧凑团，
+ *          由上层的柄/灯环压过即读作"握住"）。
+ */
+export function hand(x, y, deg, r, ink = '#0a0c12', style = 'fist') {
+  const [kx, ky] = pt(x, y, r * 1.1, deg);       // 指节团中心：沿臂轴前移
+  const [tx, ty] = pt(x, y, r * 0.6, deg + 70);  // 拇指：偏向前内侧
+  const palm  = circle(x, y, r * 0.82, ink);     // 掌根
+  const thumb = circle(tx, ty, r * 0.5, ink);
+  const knuck = circle(kx, ky, r * 0.92, ink);   // 指节团
+  if (style === 'open') {                        // 从指节团扇 3 根短指
+    let fingers = '';
+    for (let i = -1; i <= 1; i++) {
+      const [ex, ey] = pt(kx, ky, r * 1.15, deg + i * 22);
+      fingers += line(kx, ky, ex, ey, r * 0.5, ink);
+    }
+    return palm + thumb + knuck + fingers;
+  }
+  return palm + thumb + knuck;                   // fist / grip
+}
+
+/**
  * 通用人形骨骼渲染。绝对关节角度姿态 p（缺省走 base），角色参数 c。
  * 返回未包裹的 inner SVG（自行用 svg(vb, ...) 包裹，以便控制 viewBox 边距）。
  *
- * c: { limbW, torsoW, torsoLen, headR, ink? }
+ * c: { limbW, torsoW, torsoLen, headR, ink?, fHandStyle?, bHandStyle? }
+ *   手风格优先级：pose.fHandStyle/bHandStyle > c.fHandStyle/bHandStyle > 'fist'。
  * p（角度，0下/90前/180上）: lean, bob, fThigh,fShin,bThigh,bShin, fUp,fFore,bUp,bFore
  *   重心位移：hipDx（髋部水平前冲/后撤，治"原地僵硬挥手"），bob（髋部上下，含下蹲）。
  * opts.extras(j) 可在关节坐标 j 上追加武器/头饰/披风等部件。
@@ -138,15 +163,17 @@ export function humanoid(c, p, opts = {}) {
   const [bEx, bEy] = pt(shX, shY, 18, p.bUp);
   const [bHx, bHy] = pt(bEx, bEy, 16, p.bFore);
   const lw = c.limbW;
+  const fHandStyle = p.fHandStyle || c.fHandStyle || 'fist';
+  const bHandStyle = p.bHandStyle || c.bHandStyle || 'fist';
   const j = { hipX, hipY, neckX, neckY, shX, shY, headX, headY, fKx, fKy, fFx, fFy, bKx, bKy, bFx, bFy, fEx, fEy, fHx, fHy, bEx, bEy, bHx, bHy, lean };
   const extras = opts.extras ? opts.extras(j, p, c) : { back: '', front: '' };
   return `
     ${line(hipX, hipY, bKx, bKy, lw, ink)}${line(bKx, bKy, bFx, bFy, lw - 2, ink)}
-    ${line(shX, shY, bEx, bEy, lw - 2, ink)}${line(bEx, bEy, bHx, bHy, lw - 3, ink)}${circle(bHx, bHy, lw * 0.55, ink)}
+    ${line(shX, shY, bEx, bEy, lw - 2, ink)}${line(bEx, bEy, bHx, bHy, lw - 3, ink)}${hand(bHx, bHy, p.bFore, lw * 0.6, ink, bHandStyle)}
     ${extras.back || ''}
     ${line(hipX, hipY, neckX, neckY, c.torsoW, ink)}
     ${circle(headX, headY, c.headR, ink)}
     ${line(hipX, hipY, fKx, fKy, lw + 1, ink)}${line(fKx, fKy, fFx, fFy, lw - 1, ink)}
-    ${line(shX, shY, fEx, fEy, lw, ink)}${line(fEx, fEy, fHx, fHy, lw - 1, ink)}${circle(fHx, fHy, lw * 0.75, ink)}
+    ${line(shX, shY, fEx, fEy, lw, ink)}${line(fEx, fEy, fHx, fHy, lw - 1, ink)}${hand(fHx, fHy, p.fFore, lw * 0.68, ink, fHandStyle)}
     ${extras.front || ''}`;
 }

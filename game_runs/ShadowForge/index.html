@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>影铸：变形格斗</title>
+  <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: #05060c; color: #e8d6b0;
+      font-family: 'Georgia', 'Segoe UI', serif;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      min-height: 100vh; overflow: hidden;
+    }
+    #game-wrapper {
+      position: relative; width: 960px; height: 540px; flex: 0 0 auto;
+      border: 3px solid #3a2418; border-radius: 8px;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.8);
+      overflow: hidden; transform-origin: center center;
+    }
+    #hud {
+      display: none; position: absolute; top: 0; left: 0; right: 0;
+      padding: 10px 16px; gap: 18px; flex-direction: row; align-items: center;
+      background: linear-gradient(to bottom, rgba(0,0,0,0.55), transparent);
+      pointer-events: none; z-index: 10; font-size: 15px; user-select: none;
+    }
+    #hud-hearts { color: #c4503a; letter-spacing: 2px; }
+    #hud-objective { color: #d8b98a; flex: 1; text-align: center; font-style: italic; }
+    #hud-score { color: #ffd98a; }
+    .game-overlay {
+      position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+      z-index: 20; background: rgba(5, 6, 12, 0.92);
+      background-size: cover; background-position: center;
+    }
+    #start-screen { background-image: linear-gradient(rgba(5,6,12,0.74), rgba(5,6,12,0.9)), url('scene/cover.png'); }
+    .overlay-card {
+      text-align: center; max-width: 620px; padding: 36px 42px;
+      background: rgba(10, 8, 14, 0.9); border: 1px solid #3a2418; border-radius: 12px;
+      box-shadow: 0 20px 50px rgba(0,0,0,0.7);
+    }
+    .overlay-card h2 { font-size: 2rem; margin-bottom: 10px; color: #e8d6b0; letter-spacing: 0.14em; }
+    .overlay-card .tagline { font-size: 0.95rem; color: #9a8f7a; margin-bottom: 16px; font-style: italic; }
+    .overlay-card .story-setting { font-size: 0.9rem; color: #8a8071; line-height: 1.8; margin-bottom: 24px; white-space: pre-line; }
+    .overlay-card .controls-hint { font-size: 0.78rem; color: #564e42; line-height: 1.8; margin-top: 14px; }
+    .game-btn {
+      display: inline-block; padding: 12px 38px; font-size: 1rem; font-weight: 700;
+      letter-spacing: 0.12em; border: none; border-radius: 6px; cursor: pointer;
+      transition: transform 0.1s, box-shadow 0.1s; font-family: 'Georgia', serif;
+    }
+    .game-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 18px rgba(0,0,0,0.5); }
+    #start-btn { background: #8a3a1e; color: #f3e3c4; }
+    #restart-btn { background: #6a2618; color: #f3e3c4; }
+    #gameover-title.win { color: #e8b86a; }
+    #gameover-title.lose { color: #c4503a; }
+    #gameover-message { white-space: pre-line; }
+    html, body { width: 100%; height: 100%; }
+  </style>
+</head>
+<body>
+  <div id="game-wrapper">
+    <div id="game-container"></div>
+
+    <div id="hud">
+      <div id="hud-hearts">♥♥♥♥♥♥♥♥♥♥</div>
+      <div id="hud-objective"><span id="hud-objective-text">第一波</span></div>
+      <div id="hud-score">魄 ✦ <span id="hud-score-value">0</span></div>
+    </div>
+
+    <div id="start-screen" class="game-overlay">
+      <div class="overlay-card">
+        <h2>影铸：变形格斗</h2>
+        <p class="tagline">影可成锋，雾可避锋——变形即武艺。</p>
+        <p class="story-setting">你的身体由影之粒尘铸成：化作长矛贯穿敌阵，化作战锤震退围攻，
+化作黑雾穿过利爪。击败恶鬼可吸收其「魄」——化形为它，以彼之爪，破彼之阵。
+守住三波进攻，在判官米诺斯面前站到最后。</p>
+        <button id="start-btn" class="game-btn" onclick="window.__hudStart()">▶ 入阵</button>
+        <p class="controls-hint">
+          A / D 或 ←→ 移动　·　J 化矛突刺　·　K 化锤震地<br>
+          L / 空格 雾化闪避（无敌）　·　E 消耗魄化形　·　R 重开　·　M 静音
+        </p>
+      </div>
+    </div>
+
+    <div id="gameover-screen" class="game-overlay" style="display:none">
+      <div class="overlay-card">
+        <h2 id="gameover-title">FIN</h2>
+        <p id="gameover-message" class="story-setting"></p>
+        <button id="restart-btn" class="game-btn" onclick="location.reload()">↩ 再战</button>
+      </div>
+    </div>
+  </div>
+
+  <script>window.GAME_HUD_GLYPHS = { full: '♥', empty: '♡' };</script>
+  <script src="../_engine/hud.js"></script>
+  <script src="../_engine/audio.js"></script>
+  <script src="game/config.js"></script>
+  <script src="game/levels.js"></script>
+  <script src="game/systems/pointcloud.js"></script>
+  <script src="game/systems/morph.js"></script>
+  <script src="game/scenes/ArenaScene.js"></script>
+  <script src="game/systems/player.js"></script>
+  <script src="game/systems/enemies.js"></script>
+  <script src="game/main.js"></script>
+  <script>
+    (function () {
+      var W = 960, H = 540, wrap = document.getElementById('game-wrapper');
+      function fit() {
+        if (!wrap) return;
+        var s = Math.min(window.innerWidth / W, window.innerHeight / H, 1);
+        wrap.style.transform = 'scale(' + s + ')';
+      }
+      window.addEventListener('resize', fit);
+      window.addEventListener('orientationchange', fit);
+      fit();
+    })();
+  </script>
+</body>
+</html>
