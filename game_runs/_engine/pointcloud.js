@@ -1,6 +1,7 @@
-/* ShadowForge — 点云采样：纹理不透明像素 → 2D 点云（脚底锚点 0.5,1）。
+/* engine/pointcloud.js — 点云采样：纹理不透明像素 → 2D 点云（脚底锚点 0.5,1）。
  * 变形机制的数据源：人形/敌形直接采现成剪影帧，冷兵器采程序化 canvas 剪影。
- * 只负责"取点"，全部缓存；"怎么飘"见 systems/morph.js（两层解耦）。 */
+ * 只负责"取点"，全部缓存；"怎么飘"见 engine/morph.js（两层解耦）。
+ * 依赖调用方注入的 Forge.C.DEPTH / Forge.FXN（见 ShadowForge/game/config.js），跨游戏复用时按同名约定提供。 */
 Forge.Cloud = {
   _cache: {},
 

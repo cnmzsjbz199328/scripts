@@ -27,6 +27,9 @@ class ArenaScene extends Phaser.Scene {
 
   create() {
     this.auto = !!navigator.webdriver || /autoplay|autostart/.test(location.search);
+    // 回归双管线（?bot=godmode 全清必胜 / ?bot=dumb 必败），默认沿用聪明 bot 做日常 playtest
+    this.botMode = /bot=godmode/.test(location.search) ? 'godmode'
+      : /bot=dumb/.test(location.search) ? 'dumb' : 'smart';
     this.started = false; this.ended = false; this.won = false;
     this.kills = 0; this.wave = -1;
     this.enemies = []; this._freeze = 0; this._toSpawn = 0;
@@ -244,6 +247,8 @@ class ArenaScene extends Phaser.Scene {
   // ── 无头/自动模式 bot：贴近→矛刺，群聚→锤震，近身→雾穿，有魄→化形 ──
   _botTick() {
     if (this.ended || !this.started) return;
+    if (this.botMode === 'godmode') return this._botGodmode();
+    if (this.botMode === 'dumb') return this._botDumb();
     const P = this.P;
     if (P.state !== 'free') { this._botMv = 0; return; }
     const bossUp = this.enemies.some(e => !e.dead && e.def.boss);
@@ -269,5 +274,24 @@ class ArenaScene extends Phaser.Scene {
     // Boss 挥臂半径 175：保持 205px 风筝距离，矛(280px)够得着它、它够不着我
     const keep = near.def.boss ? 205 : 90;
     this._botMv = nd > 250 ? dir : (nd < keep ? -dir : 0);
+  }
+
+  // 回归·godmode：每 tick 秒杀场上敌人，走通 kill/wave/boss/win 全流程，验证"必能通关"
+  _botGodmode() {
+    this._botMv = 0;
+    for (const e of this.enemies) if (!e.dead) { e.hp = 0; this._killEnemy(e); }
+  }
+
+  // 回归·dumb：只会朝最近敌人走位，从不触发任何技能键，验证"受击/gameover 必能走到终局"
+  _botDumb() {
+    const P = this.P;
+    if (P.state !== 'free') { this._botMv = 0; return; }
+    let near = null, nd = 1e9;
+    for (const e of this.enemies) {
+      if (e.dead) continue;
+      const d = Math.abs(e.x - P.x);
+      if (d < nd) { nd = d; near = e; }
+    }
+    this._botMv = near ? (Math.sign(near.x - P.x) || 1) : 0;
   }
 }

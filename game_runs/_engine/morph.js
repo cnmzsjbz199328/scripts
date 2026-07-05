@@ -1,8 +1,9 @@
-/* ShadowForge — 运行时粒子变形引擎（三权重混合时间轴）。
+/* engine/morph.js — 运行时粒子变形引擎（三权重混合时间轴），源自 ShadowForge。
  * 起终点云按索引天然配对（同锚点采样），本文件只管"怎么飘"：
  *   wSrc(1→0) + wBlob(中段隆起，带湍流/上浮) + wTgt(0→1)，叠 stagger 参差。
  * 渲染用 Blitter（<1k bob 每特效，并发 3~4 个无压力），每个特效自建自毁。
- * 四个动词：morph 变形 / burst 受击迸溅 / dissolve 死亡消散 / absorb 吸魄归体。 */
+ * 四个动词：morph 变形 / burst 受击迸溅 / dissolve 死亡消散 / absorb 吸魄归体。
+ * 依赖调用方注入的 Forge.C.DEPTH / Forge.FXN / Forge.C.INK（见 ShadowForge/game/config.js）。 */
 (function () {
   const sstep = (a, b, x) => {
     const t = Math.min(1, Math.max(0, (x - a) / (b - a)));
