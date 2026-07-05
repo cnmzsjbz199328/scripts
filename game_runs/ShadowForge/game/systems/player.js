@@ -18,6 +18,11 @@ Object.assign(ArenaScene.prototype, {
     this.player = this.add.sprite(this.P.x, this._pY(), 'dante_idle_0')
       .setOrigin(0.5, 1).setScale(this.P.scale).setDepth(C.DEPTH.CHAR);
     this.player.play('dante_idle');
+    // 常驻描边光晕：叠一层加色纹理跟随 this.player（贴图逐帧镜像，见 _updateGlow），随波次调色
+    this.playerGlow = this.add.sprite(this.P.x, this._pY(), 'dante_idle_0')
+      .setOrigin(0.5, 1).setScale(this.P.scale).setDepth(C.DEPTH.CHAR - 0.5)
+      .setBlendMode(Phaser.BlendModes.ADD).setVisible(false);
+    this._glowT = 0;
   },
 
   // 脚底锚点世界 y：glb 帧底部有 24px 透明留白须补偿，svg(恶鬼形)没有
@@ -34,10 +39,23 @@ Object.assign(ArenaScene.prototype, {
     return Forge.C.PALETTE[this.wave] || null;
   },
 
+  // 光晕常驻跟随：贴着 this.player 的位置/朝向/贴图/动画，呼吸式明暗；无 mix（第一波）不显示
+  _updateGlow(dms) {
+    const g = this.playerGlow, mix = this._lightMix();
+    if (!mix || !mix.ratio) { g.setVisible(false); return; }
+    this._glowT += dms;
+    g.setVisible(this.player.visible)
+      .setPosition(this.player.x, this.player.y).setScale(this.player.scaleX, this.player.scaleY)
+      .setTexture(this.player.texture.key).setFlipX(this.player.flipX)
+      .setTint(mix.accent)
+      .setAlpha(0.2 + Math.sin(this._glowT / 420) * 0.05);
+  },
+
   _updatePlayer(dms) {
     const P = this.P, C = Forge.C;
     for (const k in P.cds) P.cds[k] = Math.max(0, P.cds[k] - dms);
     P.invuln = Math.max(0, P.invuln - dms);
+    this._updateGlow(dms);
     if (P.form === 'fiend') {
       P.formLeft -= dms;
       if (P.formLeft <= 0 && P.state === 'free') this._revertForm();
