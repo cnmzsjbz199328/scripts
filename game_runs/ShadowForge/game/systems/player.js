@@ -430,6 +430,14 @@ Object.assign(ArenaScene.prototype, {
       n: 620, dur: 1200, mix: this._lightMix(),
     });
     window.GameAudio && GameAudio.play('lose');
+    if (this.currentBGM) {
+      this.tweens.add({
+        targets: this.currentBGM,
+        volume: 0,
+        duration: 900,
+        onComplete: () => this.currentBGM.stop()
+      });
+    }
     this.time.delayedCall(1000, () =>
       window.GameHUD && GameHUD.showGameOver(false, `影散于${Forge.WAVES[this.wave].name}。\n变形不是护身符——化矛化雾时无敌，落地成形时脆弱。`));
   },

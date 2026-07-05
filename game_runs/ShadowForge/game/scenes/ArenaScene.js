@@ -22,6 +22,11 @@ class ArenaScene extends Phaser.Scene {
     this.load.image('bg_violence', 'scene/panorama_violence.png');
     this.load.image('bg_fraud', 'scene/panorama_fraud.png');
     this.load.image('bg_betrayal', 'scene/panorama_betrayal.png');
+    this.load.audio('music_limbo', 'assets/audio/Under_the_Iron_Sky.mp3');
+    this.load.audio('music_wrath', 'assets/audio/Scorch_and_Marrow.mp3');
+    this.load.audio('music_violence', 'assets/audio/Judgment_at_the_Iron_Bastion.mp3');
+    this.load.audio('music_fraud', 'assets/audio/Scurrying_Beneath_the_Floorboards.mp3');
+    this.load.audio('music_betrayal', 'assets/audio/Last_Light_in_the_Nave.mp3');
     this.load.on('loaderror', () => {});   // 缺图静默，create 时补渐变占位
   }
 
@@ -43,7 +48,12 @@ class ArenaScene extends Phaser.Scene {
 
     this.keys = this.input.keyboard.addKeys('A,D,LEFT,RIGHT,J,K,I,L,E,R,M,SPACE');
     this.input.keyboard.on('keydown-R', () => { if (this.started) location.reload(); });
-    this.input.keyboard.on('keydown-M', () => window.GameAudio && GameAudio.toggle());
+    this.input.keyboard.on('keydown-M', () => {
+      if (window.GameAudio) {
+        const muted = window.GameAudio.toggle();
+        this.sound.mute = muted;
+      }
+    });
 
     this._exposeContract();
     window.GameHUD && GameHUD.onStart(() => this._begin());
@@ -146,6 +156,8 @@ class ArenaScene extends Phaser.Scene {
     this.wave = i;
     const w = Forge.WAVES[i];
     window.GameHUD && GameHUD.setObjective(`${w.name}`);
+    const bgmKeys = ['music_limbo', 'music_wrath', 'music_violence', 'music_fraud', 'music_betrayal'];
+    this._playBGM(bgmKeys[i]);
     const card = w.intro ? `${w.name}\n${w.intro}\n${w.hint}` : `${w.name}\n${w.hint}`;
     this._toast(card, w.intro ? 3200 : 2400);
     if (this.textures.exists(w.bg) && this.bgA.texture.key !== w.bg) {
@@ -180,6 +192,14 @@ class ArenaScene extends Phaser.Scene {
 
   _win() {
     this.ended = true; this.won = true;
+    if (this.currentBGM) {
+      this.tweens.add({
+        targets: this.currentBGM,
+        volume: 0,
+        duration: 900,
+        onComplete: () => this.currentBGM.stop()
+      });
+    }
     window.GameAudio && GameAudio.play('win');
     this.time.delayedCall(900, () =>
       window.GameHUD && GameHUD.showGameOver(true,
@@ -293,5 +313,31 @@ class ArenaScene extends Phaser.Scene {
       if (d < nd) { nd = d; near = e; }
     }
     this._botMv = near ? (Math.sign(near.x - P.x) || 1) : 0;
+  }
+
+  _playBGM(key) {
+    if (this.currentBGM && this.currentBGM.key === key) return;
+    
+    // Mute state check on start
+    this.sound.mute = !!(window.GameAudio && window.GameAudio.muted);
+
+    if (this.currentBGM) {
+      const prev = this.currentBGM;
+      this.tweens.add({
+        targets: prev,
+        volume: 0,
+        duration: 800,
+        onComplete: () => prev.stop()
+      });
+    }
+
+    const track = this.sound.add(key, { loop: true, volume: 0 });
+    this.currentBGM = track;
+    track.play();
+    this.tweens.add({
+      targets: track,
+      volume: 0.35,
+      duration: 800
+    });
   }
 }
