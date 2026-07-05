@@ -33,12 +33,12 @@ Forge.MIST   = { cd: 950, ms: 400, dist: 200 };
 // ── 吸收变形：击败可吸收敌得「魄」，E 化身为它（限时）；每种敌各自的 J 招式见下方 form.throw/lunge ──
 Forge.FIEND_FORM = {
   tex: 'fiend_0', anim: 'fiend_move', scale: 0.85, toast: '化形 · 恶鬼之躯 — J 爪袭',
-  ms: 8000, speed: 330, morphMs: 340,
+  ms: 8000, speed: 330, morphMs: 720,
   lunge: { dmg: 2, cd: 550, dist: 160, ms: 130 },
 };
 Forge.FURIES_FORM = {
   tex: 'furies_idle_0', anim: 'furies_move', scale: 0.85, toast: '化形 · 女妖之躯 — J 掷弹', glb: true,
-  ms: 8000, speed: 210, morphMs: 340,
+  ms: 8000, speed: 210, morphMs: 720,
   throw: { dmg: 2, cd: 900, projSpeed: 560, ms: 700 },
 };
 Forge.FORM_BY_TYPE = { fiend: Forge.FIEND_FORM, furies: Forge.FURIES_FORM };

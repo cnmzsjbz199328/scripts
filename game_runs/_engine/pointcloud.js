@@ -46,13 +46,10 @@ Forge.Cloud = {
       cv.width = 272; cv.height = 150;
       const x = cv.getContext('2d');
       x.fillStyle = ink;
-      x.fillRect(10, 66, 194, 9);
+      x.fillRect(10, 66, 194, 9);                  // 矛杆
       x.beginPath();                               // 叶形矛头
       x.moveTo(204, 50); x.quadraticCurveTo(250, 62, 266, 70.5);
       x.quadraticCurveTo(250, 79, 204, 91); x.closePath(); x.fill();
-      x.beginPath();                               // 尾缨
-      x.moveTo(10, 70.5); x.lineTo(-2 + 14, 56); x.lineTo(22, 66); x.closePath(); x.fill();
-      x.beginPath(); x.moveTo(10, 70.5); x.lineTo(12, 85); x.lineTo(24, 75); x.closePath(); x.fill();
     } else if (kind === 'hammer') {
       // 战锤：竖柄 + 巨头，头朝上 → 举锤姿态
       cv.width = 190; cv.height = 200;

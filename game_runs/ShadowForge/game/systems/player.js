@@ -42,16 +42,17 @@ Object.assign(ArenaScene.prototype, {
     return Forge.C.PALETTE[this.wave] || null;
   },
 
-  // 光晕常驻跟随：贴着 this.player 的位置/朝向/贴图/动画，呼吸式明暗；无 mix（第一波）不显示
+  // 光晕常驻跟随：贴着 this.player 的位置/朝向/贴图/动画，呼吸式明暗；第一关也显示（灰色光晕）
   _updateGlow(dms) {
     const g = this.playerGlow, mix = this._lightMix();
-    if (!mix || !mix.ratio) { g.setVisible(false); return; }
     this._glowT += dms;
+    const accent = (mix && mix.accent !== null) ? mix.accent : 0x4a5a6a; // 第一关没有 accent 时用雾灰色
     g.setVisible(this.player.visible)
-      .setPosition(this.player.x, this.player.y).setScale(this.player.scaleX, this.player.scaleY)
+      .setPosition(this.player.x, this.player.y)
+      .setScale(this.player.scaleX * 1.12, this.player.scaleY * 1.07) // 稍微放大，形成真实的描边外发光
       .setTexture(this.player.texture.key).setFlipX(this.player.flipX)
-      .setTint(mix.accent)
-      .setAlpha(0.2 + Math.sin(this._glowT / 420) * 0.05);
+      .setTint(accent)
+      .setAlpha(0.48 + Math.sin(this._glowT / 350) * 0.12); // 增强可见亮度
   },
 
   // 150ms 输入缓冲：free 时立即执行，非 free 时记录最近一次意图（单槽覆盖），
