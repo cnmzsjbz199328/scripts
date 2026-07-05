@@ -300,19 +300,32 @@
     }
   }
 
-  // ── Auto-scan game-logic.js for registered keys ───────────────
+  // ── Auto-scan the game's own <script src> files for registered keys ──
+  // Older games bundle everything into one game/game-logic.js; newer games
+  // (the multi-file "golden template": config.js + systems/*.js + scenes/*.js
+  // + main.js) have no such file, so we read index.html itself to find every
+  // local <script src> it loads and scan all of them concatenated.
   // Primary scan: every Phaser.Input.Keyboard.KeyCodes.X reference.
   // Secondary scan: createCursorKeys() implicit keys — cursors.space /
   //   cursors.shift are not registered via addKey(), so the primary regex
   //   misses them (affects e.g. NinjaCat / MermaidPrincess jump).
   // Filters out D-pad keys (W/A/S/D + arrows). Returns keys in source order.
   async function scanKeys(frameSrc) {
-    const jsUrl = frameSrc.replace(/\/index\.html(\?.*)?$/, '/game/game-logic.js');
+    const base = frameSrc.replace(/\/index\.html(\?.*)?$/, '/');
     try {
-      const text = await fetch(jsUrl).then(r => {
+      const html = await fetch(frameSrc).then(r => {
         if (!r.ok) throw new Error(r.status);
         return r.text();
       });
+
+      // Local scripts only — skip the Phaser CDN / absolute URLs.
+      const srcs = [...html.matchAll(/<script[^>]+src=["']([^"']+)["']/gi)]
+        .map(m => m[1])
+        .filter(s => !/^(https?:)?\/\//.test(s));
+
+      const texts = await Promise.all(srcs.map(s =>
+        fetch(new URL(s, base)).then(r => r.ok ? r.text() : '').catch(() => '')));
+      const text = texts.join('\n');
       const seen = new Set();
 
       // Primary: explicit addKey / KeyCodes references
@@ -339,20 +352,19 @@
       if (/cursors\.space\b/.test(text) && !seen.has('SPACE')) seen.add('SPACE');
       if (/cursors\.shift\b/.test(text) && !seen.has('SHIFT')) seen.add('SHIFT');
 
-      return [...seen];
-    } catch(_) {
-      // Fallback for inline / non-Phaser games (no game/game-logic.js to scan):
+      if (seen.size) return [...seen];
+
+      // Fallback for inline / non-Phaser games with no scannable script tags:
       // the game declares its action keys via <meta name="mobile-keys" content="F,G">
       // in index.html. D-pad still covers movement (WASD + arrows) as usual.
-      try {
-        const html = await fetch(frameSrc).then(r => r.text());
-        const m2 = html.match(/<meta\s+name=["']mobile-keys["']\s+content=["']([^"']+)["']/i);
-        if (m2) {
-          return m2[1].split(',')
-            .map(s => s.trim().toUpperCase())
-            .filter(name => KC[name] && !DPAD_EXCLUDE.has(name));
-        }
-      } catch(_) {}
+      const m2 = html.match(/<meta\s+name=["']mobile-keys["']\s+content=["']([^"']+)["']/i);
+      if (m2) {
+        return m2[1].split(',')
+          .map(s => s.trim().toUpperCase())
+          .filter(name => KC[name] && !DPAD_EXCLUDE.has(name));
+      }
+      return [];
+    } catch(_) {
       return [];
     }
   }
