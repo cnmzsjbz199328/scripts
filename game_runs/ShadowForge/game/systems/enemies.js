@@ -121,10 +121,20 @@ Object.assign(ArenaScene.prototype, {
     if (e.hp <= 0) this._killEnemy(e);
   },
 
+  // 击杀微慢放：80ms 内 timeScale 0.3，把"全身消散"这档最高反馈看清（真实时间计时，不受 timeScale 自身影响）
+  _killSlowmo() {
+    const gen = (this._slowGen = (this._slowGen || 0) + 1);
+    this.time.timeScale = 0.3; this.tweens.timeScale = 0.3;
+    setTimeout(() => {
+      if (this._slowGen === gen) { this.time.timeScale = 1; this.tweens.timeScale = 1; }
+    }, 80);
+  },
+
   // ── 死亡：可吸收 → 金尘归体得魄；否则黑雾消散 ──
   _killEnemy(e) {
     e.dead = true;
     this.kills++;
+    this._killSlowmo();
     const flip = e.spr.flipX ? -1 : 1;
     e.spr.setVisible(false); e.shadow.setVisible(false);
     const cloud = this._enemyCloud(e);

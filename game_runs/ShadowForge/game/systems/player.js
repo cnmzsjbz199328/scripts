@@ -10,7 +10,7 @@ Object.assign(ArenaScene.prototype, {
     this.P = {
       x: 180, dir: 1, hp: P.maxHp, essence: 0,
       state: 'free', form: 'dante', scale: P.scale,
-      formLeft: 0, invuln: 0,
+      formLeft: 0, invuln: 0, queued: null,
       cds: { spear: 0, hammer: 0, mist: 0, lunge: 0 },
     };
     this.playerShadow = this.add.ellipse(this.P.x, C.FEET_Y - 10, 70, 12, 0x000000, 0.3)
@@ -51,6 +51,19 @@ Object.assign(ArenaScene.prototype, {
       .setAlpha(0.2 + Math.sin(this._glowT / 420) * 0.05);
   },
 
+  // 150ms 输入缓冲：free 时立即执行，非 free 时记录最近一次意图（单槽覆盖），
+  // 招式 onDone 落地瞬间消费——避免"矛落地前按下一招"被直接吞掉的发粘感
+  _queueOrRun(fn) {
+    if (this.P.state === 'free') fn();
+    else this.P.queued = { fn, t: this.time.now };
+  },
+
+  _flushQueued() {
+    const q = this.P.queued;
+    this.P.queued = null;
+    if (q && this.time.now - q.t <= 150) q.fn();
+  },
+
   _updatePlayer(dms) {
     const P = this.P, C = Forge.C;
     for (const k in P.cds) P.cds[k] = Math.max(0, P.cds[k] - dms);
@@ -59,6 +72,22 @@ Object.assign(ArenaScene.prototype, {
     if (P.form === 'fiend') {
       P.formLeft -= dms;
       if (P.formLeft <= 0 && P.state === 'free') this._revertForm();
+    }
+
+    // 技能输入：每帧都判 JustDown（哪怕非 free 也要消费边沿，否则漏判/延迟触发）
+    if (!this.auto) {
+      const K = Phaser.Input.Keyboard.JustDown;
+      if (K(this.keys.J)) this._queueOrRun(() => P.form === 'fiend' ? this._fiendLunge() : this._doSpear());
+      if (K(this.keys.K)) this._queueOrRun(() => this._doHammer());
+      if (K(this.keys.L) || K(this.keys.SPACE)) this._queueOrRun(() => this._doMist());
+      if (K(this.keys.E)) this._queueOrRun(() => this._doTransform());
+      // 雾化转向：化雾中按反方向 → 从原地重发一段新方向的雾（见 _startMist 的世代号处理）
+      if (P.state === 'mist') {
+        let steer = 0;
+        if (K(this.keys.A) || K(this.keys.LEFT)) steer = -1;
+        else if (K(this.keys.D) || K(this.keys.RIGHT)) steer = 1;
+        if (steer && steer !== P.dir) this._startMist(steer, ++this._mistGen);
+      }
     }
     if (P.state !== 'free') return;
 
@@ -80,14 +109,6 @@ Object.assign(ArenaScene.prototype, {
     const want = mv ? walkKey : idleKey;
     if (!this.player.anims.currentAnim || this.player.anims.currentAnim.key !== want)
       this.player.play(want, true);
-
-    if (!this.auto) {
-      const K = Phaser.Input.Keyboard.JustDown;
-      if (K(this.keys.J)) P.form === 'fiend' ? this._fiendLunge() : this._doSpear();
-      if (K(this.keys.K)) this._doHammer();
-      if (K(this.keys.L) || K(this.keys.SPACE)) this._doMist();
-      if (K(this.keys.E)) this._doTransform();
-    }
   },
 
   // ── J 化矛突刺：人→矛(morph) → 矛体飞掠击穿(实体段) → 矛→人(morph) ──
@@ -101,7 +122,7 @@ Object.assign(ArenaScene.prototype, {
     const wCloud = Forge.Cloud.fromTexture(this, wKey, Forge.FXN.morph);
     const hCloud = this._playerCloud();
     this.player.setVisible(false);
-    window.GameAudio && GameAudio.play('release');
+    window.GameAudio && GameAudio.play('morph');
 
     Forge.FX.morph({
       src: { cloud: hCloud, x: x0, y: py, scale: P.scale, flip: dir },
@@ -111,6 +132,14 @@ Object.assign(ArenaScene.prototype, {
         const img = this.add.image(x0, C.FEET_Y, wKey)
           .setOrigin(0.5, 1).setDepth(C.DEPTH.FX).setFlipX(dir < 0);
         const hit = new Set();
+        // 突刺残影：实体段每 30ms 从矛点云撒一小撮拖尾粒子，补上"全程粒子最少"的速度感缺口
+        const trail = this.time.addEvent({
+          delay: 30, repeat: Math.ceil(S.dashMs / 30),
+          callback: () => Forge.FX.burst({
+            cloud: wCloud, x: img.x, y: img.y, scale: 1, flip: dir,
+            n: 10, dur: 180, dirX: -dir, mix: this._lightMix(),
+          }),
+        });
         this.tweens.add({
           targets: img, x: x1, duration: S.dashMs, ease: 'Sine.easeIn',
           onUpdate: () => {
@@ -121,6 +150,7 @@ Object.assign(ArenaScene.prototype, {
               }
           },
           onComplete: () => {
+            trail.remove();
             img.destroy();
             Forge.FX.morph({
               src: { cloud: wCloud, x: x1, y: C.FEET_Y, scale: 1, flip: dir },
@@ -130,6 +160,7 @@ Object.assign(ArenaScene.prototype, {
                 P.x = x1;
                 this.player.setX(x1).setVisible(true);
                 P.state = 'free';
+                this._flushQueued();
               },
             });
           },
@@ -148,6 +179,7 @@ Object.assign(ArenaScene.prototype, {
     const wCloud = Forge.Cloud.fromTexture(this, wKey, Forge.FXN.morph);
     const hCloud = this._playerCloud();
     this.player.setVisible(false);
+    window.GameAudio && GameAudio.play('morph');
 
     Forge.FX.morph({
       src: { cloud: hCloud, x, y: py, scale: P.scale, flip: dir },
@@ -173,7 +205,7 @@ Object.assign(ArenaScene.prototype, {
                 src: { cloud: wCloud, x, y: C.FEET_Y + 4, scale: 1, flip: dir },
                 dst: { cloud: hCloud, x, y: py, scale: P.scale, flip: dir },
                 dur: H.outMs, turb: 26, rise: 20, mix: this._lightMix(),
-                onDone: () => { this.player.setVisible(true); P.state = 'free'; },
+                onDone: () => { this.player.setVisible(true); P.state = 'free'; this._flushQueued(); },
               });
             });
           },
@@ -182,25 +214,35 @@ Object.assign(ArenaScene.prototype, {
     });
   },
 
-  // ── L 雾化闪避：同形态两点间 morph，高湍流高上浮，全程无敌 ──
+  // ── L 雾化闪避：同形态两点间 morph，高湍流高上浮，全程无敌；化雾中可反向改落点（见 _steerMist） ──
   _doMist() {
-    const M = Forge.MIST, P = this.P, C = Forge.C;
+    const P = this.P;
     if (P.state !== 'free' || P.cds.mist > 0) return;
-    P.state = 'mist'; P.cds.mist = M.cd;
+    P.cds.mist = Forge.MIST.cd;
+    this._mistGen = (this._mistGen || 0) + 1;
+    this._mistCloud = this._playerCloud();
+    this._startMist(P.dir, this._mistGen);
+  },
+
+  // 雾化中途改向：不等旧 morph 收尾，直接从原地重发一段新方向的雾（世代号让旧 onDone 失效，不覆盖新状态）
+  _startMist(dir, gen) {
+    const M = Forge.MIST, P = this.P, C = Forge.C;
+    P.state = 'mist'; P.dir = dir;
     P.invuln = Math.max(P.invuln, M.ms + 180);
-    const dir = P.dir, x0 = P.x, py = this._pY();
+    const x0 = P.x, py = this._pY();
     const x1 = Phaser.Math.Clamp(x0 + dir * M.dist, C.X_MIN, C.X_MAX);
-    const cloud = this._playerCloud();
     this.player.setVisible(false);
-    window.GameAudio && GameAudio.play('ui');
+    window.GameAudio && GameAudio.play('morph');
     Forge.FX.morph({
-      src: { cloud, x: x0, y: py, scale: P.scale, flip: dir },
-      dst: { cloud, x: x1, y: py, scale: P.scale, flip: dir },
+      src: { cloud: this._mistCloud, x: x0, y: py, scale: P.scale, flip: dir },
+      dst: { cloud: this._mistCloud, x: x1, y: py, scale: P.scale, flip: dir },
       dur: M.ms, turb: 55, rise: 44, mix: this._lightMix(),
       onDone: () => {
+        if (gen !== this._mistGen) return;   // 已被转向覆盖，交给新一段收尾
         P.x = x1;
         this.player.setX(x1).setVisible(true);
         P.state = 'free';
+        this._flushQueued();
       },
     });
   },
@@ -215,6 +257,7 @@ Object.assign(ArenaScene.prototype, {
     const srcCloud = this._playerCloud();
     const fiendCloud = Forge.Cloud.fromTexture(this, 'fiend_0', Forge.FXN.morph);
     this.player.setVisible(false);
+    window.GameAudio && GameAudio.play('morph');
     window.GameAudio && GameAudio.play('unlock');
     Forge.FX.morph({
       src: { cloud: srcCloud, x, y: this._pY(), scale: P.scale, flip: dir },
@@ -226,6 +269,7 @@ Object.assign(ArenaScene.prototype, {
         this.player.play('fiend_move', true);
         this._toast('化形 · 恶鬼之躯 — J 爪袭');
         P.state = 'free';
+        this._flushQueued();
       },
     });
   },
@@ -238,6 +282,7 @@ Object.assign(ArenaScene.prototype, {
     const fiendCloud = this._playerCloud();
     const danteCloud = Forge.Cloud.fromTexture(this, 'dante_idle_0', Forge.FXN.morph);
     this.player.setVisible(false);
+    window.GameAudio && GameAudio.play('morph');
     Forge.FX.morph({
       src: { cloud: fiendCloud, x, y: this._pY(), scale: P.scale, flip: dir },
       dst: { cloud: danteCloud, x, y: Forge.C.FEET_Y + Forge.C.GLB_PAD * Forge.PLAYER.scale, scale: Forge.PLAYER.scale, flip: dir },
@@ -247,6 +292,7 @@ Object.assign(ArenaScene.prototype, {
         this.player.setTexture('dante_idle_0').setScale(P.scale).setY(this._pY()).setVisible(true);
         this.player.play('dante_idle', true);
         P.state = 'free';
+        this._flushQueued();
       },
     });
   },
@@ -270,7 +316,7 @@ Object.assign(ArenaScene.prototype, {
             this._hitEnemy(e, L.dmg, dir * 60);
           }
       },
-      onComplete: () => { P.x = x1; P.state = 'free'; },
+      onComplete: () => { P.x = x1; P.state = 'free'; this._flushQueued(); },
     });
   },
 

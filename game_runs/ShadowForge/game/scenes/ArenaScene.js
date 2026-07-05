@@ -143,9 +143,15 @@ class ArenaScene extends Phaser.Scene {
 
   _checkWave() {
     if (this.ended || this._toSpawn > 0 || this.enemies.length > 0) return;
-    if (this.wave + 1 < Forge.WAVES.length)
+    if (this.wave + 1 < Forge.WAVES.length) {
+      // 波间回血：人类玩家（不像 bot 会风筝）容易在最后一波前残血见底
+      const P = this.P, before = P.hp;
+      P.hp = Math.min(Forge.PLAYER.maxHp, P.hp + 2);
+      if (P.hp !== before) window.GameHUD && GameHUD.setHearts(P.hp, Forge.PLAYER.maxHp);
+      if (P.hp === Forge.PLAYER.maxHp && before < Forge.PLAYER.maxHp)
+        this.time.delayedCall(300, () => this._toast('影力回满 ✦'));
       this.time.delayedCall(1200, () => { if (!this.ended) this._startWave(this.wave + 1); });
-    else this._win();
+    } else this._win();
   }
 
   _win() {
