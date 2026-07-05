@@ -105,6 +105,9 @@ Object.assign(Stage.prototype, {
       this.prevInterimTokens = [];
     } else {
       const remaining = toks.slice(this._interimOffset);
+      if (remaining.length < this.liveTokens.length) {
+        this.liveTokens.length = remaining.length;  // trim retracted tokens
+      }
       for (const t of remaining.slice(this.liveTokens.length)) { this.liveTokens.push(this.makeToken(t)); }
     }
 
