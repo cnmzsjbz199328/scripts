@@ -110,6 +110,16 @@ class ArenaScene extends Phaser.Scene {
       ctx.fillStyle = rg; ctx.fillRect(0, 0, W, H);
       cv.refresh();
     }
+    if (!this.textures.exists('glow_circle')) {
+      const s = 256;
+      const cv = this.textures.createCanvas('glow_circle', s, s), ctx = cv.getContext();
+      const rg = ctx.createRadialGradient(s / 2, s / 2, 0, s / 2, s / 2, s / 2);
+      rg.addColorStop(0, 'rgba(255,255,255,1)');
+      rg.addColorStop(0.35, 'rgba(255,255,255,0.72)');
+      rg.addColorStop(1, 'rgba(255,255,255,0)');
+      ctx.fillStyle = rg; ctx.fillRect(0, 0, s, s);
+      cv.refresh();
+    }
   }
 
   _buildLayers() {

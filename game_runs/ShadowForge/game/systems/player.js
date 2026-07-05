@@ -18,9 +18,9 @@ Object.assign(ArenaScene.prototype, {
     this.player = this.add.sprite(this.P.x, this._pY(), 'dante_idle_0')
       .setOrigin(0.5, 1).setScale(this.P.scale).setDepth(C.DEPTH.CHAR);
     this.player.play('dante_idle');
-    // 常驻描边光晕：叠一层加色纹理跟随 this.player（贴图逐帧镜像，见 _updateGlow），随波次调色
-    this.playerGlow = this.add.sprite(this.P.x, this._pY(), 'dante_idle_0')
-      .setOrigin(0.5, 1).setScale(this.P.scale).setDepth(C.DEPTH.CHAR - 0.5)
+    // 常驻主角背景圆形光晕（高亮体现主角，位于角色后方）
+    this.playerGlow = this.add.sprite(this.P.x, this._pY() - 60, 'glow_circle')
+      .setOrigin(0.5, 0.5).setDepth(C.DEPTH.CHAR - 0.5)
       .setBlendMode(Phaser.BlendModes.ADD).setVisible(false);
     this._glowT = 0;
   },
@@ -42,17 +42,17 @@ Object.assign(ArenaScene.prototype, {
     return Forge.C.PALETTE[this.wave] || null;
   },
 
-  // 光晕常驻跟随：贴着 this.player 的位置/朝向/贴图/动画，呼吸式明暗；第一关也显示（灰色光晕）
+  // 光晕常驻跟随：贴着 this.player 的中心，呼吸式明暗；第一关也显示（灰色光晕）
   _updateGlow(dms) {
     const g = this.playerGlow, mix = this._lightMix();
     this._glowT += dms;
     const accent = (mix && mix.accent !== null) ? mix.accent : 0x4a5a6a; // 第一关没有 accent 时用雾灰色
+    const py = this.player.y - this.player.displayHeight / 2;
     g.setVisible(this.player.visible)
-      .setPosition(this.player.x, this.player.y)
-      .setScale(this.player.scaleX * 1.12, this.player.scaleY * 1.07) // 稍微放大，形成真实的描边外发光
-      .setTexture(this.player.texture.key).setFlipX(this.player.flipX)
-      .setTintFill(accent)
-      .setAlpha(0.48 + Math.sin(this._glowT / 350) * 0.12); // 增强可见亮度
+      .setPosition(this.player.x, py)
+      .setScale(1.15) // 圆形大小适当外扩，约覆盖整个身躯周围
+      .setTint(accent) // 对于白色渐变图，用 setTint 能够完美染出带渐变的光晕颜色
+      .setAlpha(0.38 + Math.sin(this._glowT / 400) * 0.08); // 柔和的呼吸明暗
   },
 
   // 150ms 输入缓冲：free 时立即执行，非 free 时记录最近一次意图（单槽覆盖），
