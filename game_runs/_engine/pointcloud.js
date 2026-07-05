@@ -42,14 +42,39 @@ Forge.Cloud = {
     const ink = '#0a0d12';
 
     if (kind === 'spear') {
-      // 横置长矛，尖朝右；杆心 y=70 → 化形后悬在脚底上方 ~80px（躯干高度）
+      // 横置长矛/箭矢，尖朝右；中心线 y=70.5
       cv.width = 272; cv.height = 150;
       const x = cv.getContext('2d');
       x.fillStyle = ink;
-      x.fillRect(10, 66, 194, 9);                  // 矛杆
-      x.beginPath();                               // 叶形矛头
-      x.moveTo(204, 50); x.quadraticCurveTo(250, 62, 266, 70.5);
-      x.quadraticCurveTo(250, 79, 204, 91); x.closePath(); x.fill();
+
+      // 1. 纤细箭杆 (4px)
+      x.fillRect(26, 68.5, 176, 4);
+
+      // 2. 空气动力学双尾羽 (Fletching)
+      x.beginPath();
+      // 上尾翼
+      x.moveTo(34, 68.5);
+      x.lineTo(10, 52);
+      x.lineTo(6, 52);
+      x.lineTo(18, 68.5);
+      x.closePath();
+      // 下尾翼
+      x.moveTo(34, 72.5);
+      x.lineTo(10, 89);
+      x.lineTo(6, 89);
+      x.lineTo(18, 72.5);
+      x.closePath();
+      x.fill();
+
+      // 3. 极具侵略性的倒钩箭头 (Barbed Head)
+      x.beginPath();
+      x.moveTo(202, 70.5);                        // 箭杆接合点
+      x.lineTo(190, 58);                          // 上倒钩顶点
+      x.quadraticCurveTo(232, 63, 266, 70.5);     // 上刃曲线至锋尖
+      x.quadraticCurveTo(232, 78, 190, 83);       // 下刃曲线至下倒钩顶点
+      x.lineTo(202, 70.5);                        // 回合接合点
+      x.closePath();
+      x.fill();
     } else if (kind === 'hammer') {
       // 战锤：竖柄 + 巨头，头朝上 → 举锤姿态
       cv.width = 190; cv.height = 200;
