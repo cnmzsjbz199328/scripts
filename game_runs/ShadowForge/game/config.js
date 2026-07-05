@@ -57,6 +57,9 @@ Forge.ENEMY = {
   // 冰湖亡魂：死亡时留一片减速地带（环境后果，不进吸收/化形系统）
   icesoul: { tex: 'icesoul_idle_0', anim: 'icesoul_move', hp: 6, speed: 50, dmg: 1, scale: 1.0, touchR: 40, glb: true,
              leavesSlowZone: { r: 92, dur: 3400, factor: 0.55 } },
+  // 终局 Boss：背叛之主，纯 1v1（无召唤），复用 minos 同款"预备帧挥臂"分支（def.swipe）
+  satan: { tex: 'satan_0', anim: 'satan_idle', hp: 34, speed: 48, dmg: 3, scale: 1.35, touchR: 62, boss: true, superArmor: true,
+           swipe: { tele: 700, r: 190, cd: 2600 } },
 };
 
 // 受击/击杀粒子预算
@@ -64,7 +67,9 @@ Forge.FXN = { morph: 760, burst: 70, kill: 420, absorb: 150 };
 
 // 玩家粒子渐染色（按波次）：ratio=混入 accent 色的比例，null=纯墨色
 Forge.C.PALETTE = [
-  { ratio: 0,    accent: null      },   // 第一波 · 林波
-  { ratio: 0.35, accent: 0xc0501a },   // 第二波 · 愤怒（暗橙余烬）
-  { ratio: 0.55, accent: 0x3a6ea8 },   // 第三波 · 暴力（冷钢蓝）
+  { ratio: 0,    accent: null      },   // 第一关 · 林波
+  { ratio: 0.35, accent: 0xc0501a },   // 第二关 · 愤怒（暗橙余烬）
+  { ratio: 0.55, accent: 0x3a6ea8 },   // 第三关 · 暴力（冷钢蓝）
+  { ratio: 0.65, accent: 0x2e8f7a },   // 第四关 · 欺诈（诡谲青绿）
+  { ratio: 0.8,  accent: 0xd8c8a0 },   // 第五关 · 背叛（临终微光，趋近满染）
 ];

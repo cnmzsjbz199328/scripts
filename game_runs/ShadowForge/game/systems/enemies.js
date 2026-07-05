@@ -75,7 +75,7 @@ Object.assign(ArenaScene.prototype, {
           if (e.stateT <= 0) { e.state = 'walk'; e.atkCd = L.cd; }
         }
 
-      } else if (e.type === 'minos') {
+      } else if (e.def.swipe) {   // 宽幅挥臂 Boss 通用分支（minos/satan 共用，靠 def.swipe 判定而非写死 type）
         const S = e.def.swipe;
         if (e.state === 'walk') {
           e.x += dir * e.def.speed * dt;
@@ -93,13 +93,15 @@ Object.assign(ArenaScene.prototype, {
             if (Math.abs(P.x - e.x) < S.r) this._playerHit(e.def.dmg, e.x);
           }
         }
-        // 周期召唤亡魂（限量，避免车轮战失控）
-        e.summonT += dms;
-        if (e.summonT >= e.def.summonMs) {
-          e.summonT = 0;
-          const adds = this.enemies.filter(o => !o.dead && o.type === 'soul').length;
-          if (adds < e.def.maxAdds)
-            this._spawnEnemy('soul', e.x > Forge.W / 2 ? 100 : 860);
+        // 周期召唤亡魂（限量，避免车轮战失控；summonMs 缺省则跳过——satan 终局不召唤，纯 1v1）
+        if (e.def.summonMs) {
+          e.summonT += dms;
+          if (e.summonT >= e.def.summonMs) {
+            e.summonT = 0;
+            const adds = this.enemies.filter(o => !o.dead && o.type === 'soul').length;
+            if (adds < e.def.maxAdds)
+              this._spawnEnemy('soul', e.x > Forge.W / 2 ? 100 : 860);
+          }
         }
       }
 

@@ -13,11 +13,15 @@ class ArenaScene extends Phaser.Scene {
       this.load.image(`icesoul_idle_${i}`, `assets/3d/icesoul_idle_${i}.png`);
       this.load.svg(`chfog_${i}`, `assets/svg/amb_chfog_ch2_${i}.svg`, { width: 320, height: 320 });
     }
-    for (let i = 0; i < 2; i++)
+    for (let i = 0; i < 2; i++) {
       this.load.svg(`fiend_${i}`, `assets/svg/fiend_move_${i}.svg`, { width: 168, height: 176 });
+      this.load.svg(`satan_${i}`, `assets/svg/satan_${i}.svg`, { width: 168, height: 176 });
+    }
     this.load.image('bg_limbo', 'scene/panorama_limbo.png');
     this.load.image('bg_wrath', 'scene/panorama_wrath.png');
     this.load.image('bg_violence', 'scene/panorama_violence.png');
+    this.load.image('bg_fraud', 'scene/panorama_fraud.png');
+    this.load.image('bg_betrayal', 'scene/panorama_betrayal.png');
     this.load.on('loaderror', () => {});   // 缺图静默，create 时补渐变占位
   }
 
@@ -43,13 +47,23 @@ class ArenaScene extends Phaser.Scene {
   }
 
   // ── 缺图占位 + 地面带 + 暗角 ──
+  // bg_fraud/bg_betrayal 目前还没有真全景图（agy 生成需要交互式会话授权），先用同款渐变占位，
+  // 色相按地狱圈区分（欺诈=浑浊土黄雾、背叛=极寒冰蓝），有真图后 loaderror 静默、纹理键一致自动切换。
   _makeFallbacks() {
     const W = Forge.W, H = Forge.H;
-    for (const key of ['bg_limbo', 'bg_wrath', 'bg_violence']) {
+    const FALLBACK = {
+      bg_limbo:    ['#170c0a', '#0e0606', '#070304'],
+      bg_wrath:    ['#170c0a', '#0e0606', '#070304'],
+      bg_violence: ['#170c0a', '#0e0606', '#070304'],
+      bg_fraud:    ['#141208', '#0c0a05', '#050402'],
+      bg_betrayal: ['#0a1420', '#060d16', '#02060a'],
+    };
+    for (const key in FALLBACK) {
       if (this.textures.exists(key)) continue;
       const cv = this.textures.createCanvas(key, W, H), ctx = cv.getContext();
+      const [c0, c1, c2] = FALLBACK[key];
       const g = ctx.createLinearGradient(0, 0, 0, H);
-      g.addColorStop(0, '#170c0a'); g.addColorStop(0.55, '#0e0606'); g.addColorStop(1, '#070304');
+      g.addColorStop(0, c0); g.addColorStop(0.55, c1); g.addColorStop(1, c2);
       ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
       cv.refresh();
     }
@@ -111,6 +125,7 @@ class ArenaScene extends Phaser.Scene {
     mk('furies_move', 'furies_idle', 8, 7);
     mk('icesoul_move', 'icesoul_idle', 8, 5);
     mk('fiend_move', 'fiend', 2, 6);
+    mk('satan_idle', 'satan', 2, 5);
     mk('chfog', 'chfog', 8, 5);
     for (const f of this.fgFogs) f.play('chfog');
   }
@@ -128,7 +143,8 @@ class ArenaScene extends Phaser.Scene {
     this.wave = i;
     const w = Forge.WAVES[i];
     window.GameHUD && GameHUD.setObjective(`${w.name}`);
-    this._toast(`${w.name}\n${w.hint}`, 2400);
+    const card = w.intro ? `${w.name}\n${w.intro}\n${w.hint}` : `${w.name}\n${w.hint}`;
+    this._toast(card, w.intro ? 3200 : 2400);
     if (this.textures.exists(w.bg) && this.bgA.texture.key !== w.bg) {
       this.bgB.setTexture(w.bg).setDisplaySize(Forge.W, Forge.H).setAlpha(0);
       this.tweens.add({
@@ -164,7 +180,7 @@ class ArenaScene extends Phaser.Scene {
     window.GameAudio && GameAudio.play('win');
     this.time.delayedCall(900, () =>
       window.GameHUD && GameHUD.showGameOver(true,
-        `三波皆破。\n击杀 ${this.kills} · 剩余生命 ${this.P.hp}/${Forge.PLAYER.maxHp}\n影可成锋，雾可避锋——变形即武艺。`));
+        `五关皆破，撒旦亦坠。\n击杀 ${this.kills} · 剩余生命 ${this.P.hp}/${Forge.PLAYER.maxHp}\n影可成锋，雾可避锋——变形即武艺。`));
   }
 
   update(_t, delta) {
@@ -248,6 +264,7 @@ class ArenaScene extends Phaser.Scene {
     if (danger && P.cds.mist <= 0) { P.dir = dir; this._botMv = 0; return this._doMist(); }
     if (threats >= 2 && P.cds.hammer <= 0 && nd < 140) { this._botMv = 0; return this._doHammer(); }
     if (P.form === 'fiend' && !near.def.boss && nd < 150 && P.cds.lunge <= 0) { P.dir = dir; this._botMv = 0; return this._fiendLunge(); }
+    if (P.form === 'furies' && !near.def.boss && nd < 320 && P.cds.throw <= 0) { P.dir = dir; this._botMv = 0; return this._furiesThrow(); }
     if (P.form === 'dante' && nd < 260 && P.cds.spear <= 0) { P.dir = dir; this._botMv = 0; return this._doSpear(); }
     // Boss 挥臂半径 175：保持 205px 风筝距离，矛(280px)够得着它、它够不着我
     const keep = near.def.boss ? 205 : 90;
