@@ -12,6 +12,7 @@ import { fileURLToPath } from 'node:url';
 import esbuild from 'esbuild';
 import { chromium } from 'playwright';
 import sharp from 'sharp';
+import http from 'node:http';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const DEFAULT_MODEL = path.join(HERE, 'models', 'Soldier.glb');
@@ -58,8 +59,10 @@ if (args.help || (!args.list && !args.clip && !args.inspect)) {
 const modelPath = path.resolve(args.model || DEFAULT_MODEL);
 if (!fs.existsSync(modelPath)) { console.error(`模型不存在: ${modelPath}`); process.exit(1); }
 
+// 对于大于 10MB 的模型，不采用 base64 字符串传输以防止 OOM，仅通过 Page Route 载入
+const fileSize = fs.statSync(modelPath).size;
 const cfg = {
-  glbB64: fs.readFileSync(modelPath).toString('base64'),
+  glbB64: fileSize < 10 * 1024 * 1024 ? fs.readFileSync(modelPath).toString('base64') : null,
   ext: path.extname(modelPath).slice(1).toLowerCase(), // fbx 走 FBXLoader，其余走 GLTFLoader
   width: +(args.w || 360),
   height: +(args.h || 480),
@@ -86,11 +89,36 @@ const bundle = await esbuild.build({
   write: false,
 });
 
+// ---------- start local HTTP server to stream model file (prevents Playwright CDP payload OOM crashes) ----------
+const server = http.createServer((req, res) => {
+  if (req.url === '/model') {
+    res.writeHead(200, {
+      'Content-Type': 'application/octet-stream',
+      'Access-Control-Allow-Origin': '*'
+    });
+    fs.createReadStream(modelPath).pipe(res);
+  } else {
+    res.writeHead(404);
+    res.end();
+  }
+});
+await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+const serverPort = server.address().port;
+cfg.modelUrl = `http://127.0.0.1:${serverPort}/model`;
+
 // ---------- render in headless chromium ----------
-const browser = await chromium.launch();
+const browser = await chromium.launch({
+  args: [
+    '--js-flags=--max-old-space-size=4096',
+    '--no-sandbox',
+    '--disable-setuid-sandbox'
+  ]
+});
 const page = await browser.newPage();
-page.on('pageerror', (e) => console.error('[page]', e.message));
+page.on('pageerror', (e) => console.error('[page-err]', e.message));
+page.on('console', (msg) => console.log('[page-log]', msg.text()));
 await page.setContent('<!DOCTYPE html><body></body>');
+
 await page.addScriptTag({ content: bundle.outputFiles[0].text });
 
 const info = await page.evaluate((c) => window.__silhouette.init(c), cfg);
@@ -100,6 +128,7 @@ console.log(`framing: orthoH=${info.framing.orthoH} camY=${info.framing.camY}`);
 if (args.list) {
   console.log(`bones (${info.bones.length}, 去重后):\n  ${info.bones.join('\n  ')}`);
   await browser.close();
+  server.close();
   process.exit(0);
 }
 
@@ -157,6 +186,7 @@ if (args.inspect) {
 
   console.log('\n===== 体检报告 =====\n' + lines.join('\n'));
   await browser.close();
+  server.close();
   process.exit(0);
 }
 
@@ -173,6 +203,7 @@ const dataUrls = await page.evaluate(
   },
 );
 await browser.close();
+server.close();
 
 // ---------- write PNGs ----------
 const outDir = path.resolve(args.out || '.');

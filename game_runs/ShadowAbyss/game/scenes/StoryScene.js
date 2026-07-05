@@ -14,11 +14,15 @@ class StoryScene extends Phaser.Scene {
       this.load.image(`virgil_walk_${i}`, `assets/3d/virgil_walk_${i}.png`);
       this.load.image(`soul_walk_${i}`, `assets/3d/soul_walk_${i}.png`);
       // 路人 NPC 共享剪影槽（config.js NPC_GUEST），按 speaker 名字临时换贴图
-      for (const tex of ['beatrice', 'elder', 'matilda', 'angel', 'furies', 'minos'])
+      for (const tex of ['beatrice', 'elder', 'matilda', 'angel', 'furies', 'minos', 'peasant', 'yaku', 'ch05', 'ch25', 'ch44'])
         this.load.image(`${tex}_idle_${i}`, `assets/3d/${tex}_idle_${i}.png`);
+      this.load.image(`peasant_jog_${i}`, `assets/3d/peasant_jog_${i}.png`);       // 奔跑的魂灵专用，非 idle
+      this.load.image(`icesoul_idle_${i}`, `assets/3d/icesoul_idle_${i}.png`);     // 冰中魂灵：裁头肩合成冰块图
     }
     // 背景亡魂 NPC 的非循环手势帧数与主角不同（6 帧），单独一个循环
     for (let i = 0; i < 6; i++) this.load.image(`soul_gesture_${i}`, `assets/3d/soul_gesture_${i}.png`);
+    // 树魂：程序化 SVG 扭曲树形剪影（不是人形），只有 4 帧极轻微枝条颤动
+    for (let i = 0; i < 4; i++) this.load.image(`treesoul_idle_${i}`, `assets/3d/treesoul_idle_${i}.png`);
     // 四章前景近地雾（svg-ambient 轨，scratch/gen_shadowabyss_fg.mjs）
     for (let ch = 1; ch <= 4; ch++)
       for (let i = 0; i < 8; i++)

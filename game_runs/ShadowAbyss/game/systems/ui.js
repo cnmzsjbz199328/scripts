@@ -192,13 +192,31 @@ Object.assign(StoryScene.prototype, {
       frameRate: 6, repeat: 0,
     });
     // 路人 NPC 共享剪影槽的各套待机呼吸循环
-    for (const tex of ['beatrice', 'elder', 'matilda', 'angel', 'furies', 'minos']) {
+    for (const tex of ['beatrice', 'elder', 'matilda', 'angel', 'furies', 'minos', 'peasant', 'yaku', 'ch05', 'ch25', 'ch44']) {
       this.anims.create({
         key: `${tex}_idle`,
         frames: Array.from({ length: 8 }, (_, i) => ({ key: `${tex}_idle_${i}` })),
         frameRate: 6, repeat: -1,
       });
     }
+    // 奔跑的魂灵专用循环（怠惰者台"不知疲倦地奔跑"，不能用 idle）
+    this.anims.create({
+      key: 'peasant_jog',
+      frames: Array.from({ length: 8 }, (_, i) => ({ key: `peasant_jog_${i}` })),
+      frameRate: 10, repeat: -1,
+    });
+    // 冰中魂灵：裁头肩合成冰块图，8 帧
+    this.anims.create({
+      key: 'icesoul_idle',
+      frames: Array.from({ length: 8 }, (_, i) => ({ key: `icesoul_idle_${i}` })),
+      frameRate: 6, repeat: -1,
+    });
+    // 树魂：程序化扭曲树形，只有 4 帧、极慢的枝条颤动（不是走路/呼吸）
+    this.anims.create({
+      key: 'treesoul_idle',
+      frames: Array.from({ length: 4 }, (_, i) => ({ key: `treesoul_idle_${i}` })),
+      frameRate: 2, repeat: -1,
+    });
     // 前景雾帧循环（四章各一套）
     for (let ch = 1; ch <= 4; ch++) {
       this.anims.create({
@@ -245,13 +263,23 @@ Object.assign(StoryScene.prototype, {
     this.guestKey = null;
   },
 
-  // speaker 命中 NPC_GUEST → 淡入对应剪影（heaven 角色加光晕）；同一角色连续发言不重复触发
+  // speaker 命中 NPC_GUEST → 淡入对应剪影（heaven 角色加光晕）。
+  // 去重键用 tex+anim（不是单纯 tex）：同一模型可能配不同动作（如 peasant 的 idle/jog），
+  // 只按 tex 去重会导致"卡托→奔跑的魂灵"这类切换被误判成"同一角色连续发言"而不重新触发。
   _showGuest(g) {
-    if (this.guestKey === g.tex) return;
-    this.guestKey = g.tex;
-    this.guest.play(`${g.tex}_idle`, true);
+    const animKey = `${g.tex}_${g.anim || 'idle'}`;
+    if (this.guestKey === animKey) return;
+    this.guestKey = animKey;
+    this.guest.play(animKey, true);
+    // embedded：冰中魂灵这类"裁头肩合成静态图"，没有 24px 底部留白，也不需要脚印
+    if (g.embedded) {
+      this.guest.setY(FEET_Y).setScale(0.85);
+      this.guestShadow.setVisible(false);
+    } else {
+      this.guest.setY(FEET_Y + 24 * 0.85).setScale(0.85);
+      this.guestShadow.setVisible(true).setData('base', g.heaven ? 0.15 : 0.25);
+    }
     this.guest.setVisible(true);
-    this.guestShadow.setVisible(true).setData('base', g.heaven ? 0.15 : 0.25);
     this.guestHalo.setVisible(!!g.heaven).setAlpha(0);
     this.tweens.killTweensOf(this.guest);
     this.tweens.killTweensOf(this.guestHalo);

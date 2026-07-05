@@ -30,16 +30,38 @@ export function boot(hooks = {}) {
     if (cfg.bg === 'transparent') renderer.setClearColor(0x000000, 0);
     else scene.background = new THREE.Color(cfg.bg);
 
+    // 优先通过 fetch 加载大模型（避免 base64 内存暴涨导致 Chromium OOM 崩溃）
+    let arrayBuffer;
+    try {
+      const url = cfg.modelUrl || 'http://local/model';
+      console.log("[harness] fetching model from", url, "...");
+      const resp = await fetch(url);
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      arrayBuffer = await resp.arrayBuffer();
+      console.log("[harness] model fetched successfully, size:", arrayBuffer.byteLength, "bytes");
+    } catch (e) {
+      if (cfg.glbB64) {
+        console.log("[harness] fetch failed, falling back to glbB64...");
+        arrayBuffer = base64ToArrayBuffer(cfg.glbB64);
+      } else {
+        throw new Error(`Failed to load model: ${e.message}`);
+      }
+    }
+
     // 沙箱环境不能走 loader.load（fetch 会被拦截炸 DataCloneError），一律 parse 喂二进制。
     // FBXLoader.parse 是同步的（直接返回根 Object3D，动作挂在 obj.animations）；
     // GLTFLoader.parse 是回调式的——两个接口不一致，照抄回调写法等 FBX 会拿到 undefined。
     let model, animations, gltf = null;
     if (cfg.ext === 'fbx') {
-      model = new FBXLoader().parse(base64ToArrayBuffer(cfg.glbB64), '');
+      console.log("[harness] parsing FBX model...");
+      model = new FBXLoader().parse(arrayBuffer, '');
+      console.log("[harness] FBX model parsed successfully!");
       animations = model.animations || [];
     } else {
+      console.log("[harness] parsing GLTF model...");
       gltf = await new Promise((res, rej) =>
-        new GLTFLoader().parse(base64ToArrayBuffer(cfg.glbB64), '', res, rej));
+        new GLTFLoader().parse(arrayBuffer, '', res, rej));
+      console.log("[harness] GLTF model parsed successfully!");
       model = gltf.scene;
       animations = gltf.animations || [];
     }

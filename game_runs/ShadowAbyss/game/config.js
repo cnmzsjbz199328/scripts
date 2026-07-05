@@ -72,9 +72,13 @@ const SCENE_META = {
 const CHAPTER_NUMERALS = { '第一章：黑暗森林': 'Ⅰ', '第二章：地狱': 'Ⅱ', '第三章：炼狱': 'Ⅲ', '第四章：天堂': 'Ⅳ' };
 
 // ── 路人 NPC：按 segment.speaker 名字临时显隐一个共享剪影槽（见 ui.js _showGuest）。
-//    法里纳塔/圣彼得/圣伯尔纳共用"elder"模型（Tier C 偷懒复用，靠名字+光色区分）；
-//    群魔复用"furies"模型（同一个女妖剪影代表整群，不追求一一对应）。
-//    heaven:true 的用 setTintFill 整体重染暖金色，呈现"圣洁发光"感，不改变原始渲染色。
+//    法里纳塔/圣彼得/圣伯尔纳目前仍共用"elder"模型、群魔仍共用"furies"模型——
+//    本该给独立形象（Morak/Drake），但下载没有实际完成，这几个还是 Tier C 偷懒复用，
+//    靠名字/光晕区分，等真正下载好模型后再替换 tex。
+//    heaven:true 只触发 ui.js 里的暖色光晕叠加（ADD 混合），不改变剪影本身颜色——
+//    天堂章背景本身很亮，试过整体重染暖金色剪影会和背景融在一起看不清。
+//    anim 缺省用 "idle"；embedded 表示程序化/裁剪合成的静态图（没有 glb-sprite 惯例的
+//    24px 底部留白，也不需要脚印），树魂（扭曲树形）和冰中魂灵（裁头肩合成冰块）都是这类。
 const NPC_GUEST = {
   '贝雅特丽齐': { tex: 'beatrice', heaven: true },
   '卡戎':       { tex: 'elder',    heaven: false },
@@ -87,4 +91,12 @@ const NPC_GUEST = {
   '法里纳塔':   { tex: 'elder',    heaven: false },
   '圣彼得':     { tex: 'elder',    heaven: true },
   '圣伯尔纳':   { tex: 'elder',    heaven: true },
+  '卡托':       { tex: 'peasant',  heaven: true },
+  '弗兰切斯卡': { tex: 'ch44',     heaven: false },
+  '菲莱杰斯':   { tex: 'ch05',     heaven: false },
+  '冰中魂灵':   { tex: 'icesoul',  heaven: false, embedded: true },
+  '树魂':       { tex: 'treesoul', heaven: false, embedded: true },
+  '魂灵':       { tex: 'ch25',     heaven: false },
+  '奔跑的魂灵': { tex: 'peasant',  heaven: false, anim: 'jog' },
+  '枯瘦的魂灵': { tex: 'yaku',     heaven: false },
 };
