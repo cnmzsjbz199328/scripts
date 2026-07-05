@@ -52,7 +52,7 @@ Forge.Cloud = {
       x.beginPath();                               // 尾缨
       x.moveTo(10, 70.5); x.lineTo(-2 + 14, 56); x.lineTo(22, 66); x.closePath(); x.fill();
       x.beginPath(); x.moveTo(10, 70.5); x.lineTo(12, 85); x.lineTo(24, 75); x.closePath(); x.fill();
-    } else {
+    } else if (kind === 'hammer') {
       // 战锤：竖柄 + 巨头，头朝上 → 举锤姿态
       cv.width = 190; cv.height = 200;
       const x = cv.getContext('2d');
@@ -66,6 +66,21 @@ Forge.Cloud = {
       x.lineTo(38, 8 + r); x.quadraticCurveTo(38, 8, 38 + r, 8);
       x.closePath(); x.fill();
       x.fillRect(30, 22, 8, 36); x.fillRect(152, 22, 8, 36);   // 两侧錾缘
+    } else {
+      // 链镰：新月形镰刀头（右侧，尖朝右上）+ 链节（左侧延伸），中距离横扫
+      cv.width = 260; cv.height = 130;
+      const x = cv.getContext('2d');
+      x.fillStyle = ink;
+      x.beginPath();                               // 新月形刃
+      x.moveTo(150, 70);
+      x.quadraticCurveTo(210, 28, 246, 44);
+      x.quadraticCurveTo(220, 70, 178, 86);
+      x.closePath(); x.fill();
+      for (let i = 0; i < 5; i++) {                 // 链节
+        x.beginPath();
+        x.arc(140 - i * 24, 70 + (i % 2 ? 4 : -4), 9, 0, Math.PI * 2);
+        x.fill();
+      }
     }
     scene.textures.addCanvas(key, cv);
     return key;

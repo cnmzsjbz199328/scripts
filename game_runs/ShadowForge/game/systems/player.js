@@ -10,8 +10,8 @@ Object.assign(ArenaScene.prototype, {
     this.P = {
       x: 180, dir: 1, hp: P.maxHp, essence: 0,
       state: 'free', form: 'dante', scale: P.scale,
-      formLeft: 0, invuln: 0, queued: null,
-      cds: { spear: 0, hammer: 0, mist: 0, lunge: 0 },
+      formLeft: 0, invuln: 0, queued: null, pendingForm: null,
+      cds: { spear: 0, hammer: 0, sickle: 0, mist: 0, lunge: 0, throw: 0 },
     };
     this.playerShadow = this.add.ellipse(this.P.x, C.FEET_Y - 10, 70, 12, 0x000000, 0.3)
       .setDepth(C.DEPTH.SHADOW);
@@ -25,13 +25,16 @@ Object.assign(ArenaScene.prototype, {
     this._glowT = 0;
   },
 
-  // 脚底锚点世界 y：glb 帧底部有 24px 透明留白须补偿，svg(恶鬼形)没有
+  // 脚底锚点世界 y：glb-sprite 帧底部有 24px 透明留白须补偿，svg(恶鬼形)没有
   _pY() {
-    return Forge.C.FEET_Y + (this.P.form === 'dante' ? Forge.C.GLB_PAD * this.P.scale : 0);
+    const form = Forge.FORM_BY_TYPE[this.P.form];
+    const glb = this.P.form === 'dante' || (form && form.glb);
+    return Forge.C.FEET_Y + (glb ? Forge.C.GLB_PAD * this.P.scale : 0);
   },
 
   _playerCloud() {
-    return Forge.Cloud.fromTexture(this, this.P.form === 'dante' ? 'dante_idle_0' : 'fiend_0', Forge.FXN.morph);
+    const form = Forge.FORM_BY_TYPE[this.P.form];
+    return Forge.Cloud.fromTexture(this, this.P.form === 'dante' ? 'dante_idle_0' : form.tex, Forge.FXN.morph);
   },
 
   // 玩家粒子渐染色：按当前波次取染色比例，见 config.js PALETTE
@@ -69,7 +72,7 @@ Object.assign(ArenaScene.prototype, {
     for (const k in P.cds) P.cds[k] = Math.max(0, P.cds[k] - dms);
     P.invuln = Math.max(0, P.invuln - dms);
     this._updateGlow(dms);
-    if (P.form === 'fiend') {
+    if (P.form !== 'dante') {
       P.formLeft -= dms;
       if (P.formLeft <= 0 && P.state === 'free') this._revertForm();
     }
@@ -77,8 +80,13 @@ Object.assign(ArenaScene.prototype, {
     // 技能输入：每帧都判 JustDown（哪怕非 free 也要消费边沿，否则漏判/延迟触发）
     if (!this.auto) {
       const K = Phaser.Input.Keyboard.JustDown;
-      if (K(this.keys.J)) this._queueOrRun(() => P.form === 'fiend' ? this._fiendLunge() : this._doSpear());
+      if (K(this.keys.J)) this._queueOrRun(() => {
+        if (P.form === 'fiend') this._fiendLunge();
+        else if (P.form === 'furies') this._furiesThrow();
+        else this._doSpear();
+      });
       if (K(this.keys.K)) this._queueOrRun(() => this._doHammer());
+      if (K(this.keys.I)) this._queueOrRun(() => this._doSickle());
       if (K(this.keys.L) || K(this.keys.SPACE)) this._queueOrRun(() => this._doMist());
       if (K(this.keys.E)) this._queueOrRun(() => this._doTransform());
       // 雾化转向：化雾中按反方向 → 从原地重发一段新方向的雾（见 _startMist 的世代号处理）
@@ -98,17 +106,24 @@ Object.assign(ArenaScene.prototype, {
       if (this.keys.A.isDown || this.keys.LEFT.isDown) mv = -1;
       else if (this.keys.D.isDown || this.keys.RIGHT.isDown) mv = 1;
     }
+    const formCfg = Forge.FORM_BY_TYPE[P.form];
     if (mv) {
       P.dir = mv;
-      const spd = P.form === 'fiend' ? Forge.FIEND_FORM.speed : Forge.PLAYER.speed;
+      const spd = (formCfg ? formCfg.speed : Forge.PLAYER.speed) * this._speedFactor();
       P.x = Phaser.Math.Clamp(P.x + mv * spd * dms / 1000, C.X_MIN, C.X_MAX);
     }
     this.player.setX(P.x).setFlipX(P.dir < 0);
-    const walkKey = P.form === 'fiend' ? 'fiend_move' : 'dante_walk';
-    const idleKey = P.form === 'fiend' ? 'fiend_move' : 'dante_idle';
-    const want = mv ? walkKey : idleKey;
+    const want = formCfg ? formCfg.anim : (mv ? 'dante_walk' : 'dante_idle');
     if (!this.player.anims.currentAnim || this.player.anims.currentAnim.key !== want)
       this.player.play(want, true);
+  },
+
+  // icesoul 减速地带：站在圈内按 factor 降速（多圈叠加取最小值，最容易踩坑先修）
+  _speedFactor() {
+    let f = 1;
+    for (const z of this.slowZones)
+      if (Math.abs(this.P.x - z.x) < z.r) f = Math.min(f, z.factor);
+    return f;
   },
 
   // ── J 化矛突刺：人→矛(morph) → 矛体飞掠击穿(实体段) → 矛→人(morph) ──
@@ -146,7 +161,7 @@ Object.assign(ArenaScene.prototype, {
             for (const e of this.enemies)
               if (!hit.has(e) && !e.dead && Math.abs(e.x - img.x) < S.hitW) {
                 hit.add(e);
-                this._hitEnemy(e, S.dmg, dir * 46);
+                this._hitEnemy(e, S.dmg, dir * 46, 'spear');
               }
           },
           onComplete: () => {
@@ -195,7 +210,7 @@ Object.assign(ArenaScene.prototype, {
             this._shockRing(x, C.FEET_Y - 8, H.radius);
             for (const e of this.enemies)
               if (!e.dead && Math.abs(e.x - x) < H.radius)
-                this._hitEnemy(e, H.dmg, Math.sign(e.x - x || dir) * H.knock);
+                this._hitEnemy(e, H.dmg, Math.sign(e.x - x || dir) * H.knock, 'hammer');
             this._hitstop(70);
             this.cameras.main.shake(130, 0.008);
             window.GameAudio && GameAudio.play('splashBad');
@@ -209,6 +224,44 @@ Object.assign(ArenaScene.prototype, {
               });
             });
           },
+        });
+      },
+    });
+  },
+
+  // ── I 化镰横扫：人→镰(morph) → 原地扇形横扫面前一段范围(实体段) → 镰→人(morph)；矛=长/镰=中/锤=近 ──
+  _doSickle() {
+    const S = Forge.SICKLE, P = this.P, C = Forge.C;
+    if (P.state !== 'free' || P.cds.sickle > 0) return;
+    P.state = 'sickle'; P.cds.sickle = S.cd;
+    const dir = P.dir, x = P.x, py = this._pY();
+    const wKey = Forge.Cloud.weapon(this, 'sickle');
+    const wCloud = Forge.Cloud.fromTexture(this, wKey, Forge.FXN.morph);
+    const hCloud = this._playerCloud();
+    this.player.setVisible(false);
+    window.GameAudio && GameAudio.play('morph');
+
+    Forge.FX.morph({
+      src: { cloud: hCloud, x, y: py, scale: P.scale, flip: dir },
+      dst: { cloud: wCloud, x, y: C.FEET_Y, scale: 1, flip: dir },
+      dur: S.inMs, turb: 22, rise: 18, mix: this._lightMix(),
+      onDone: () => {
+        const img = this.add.image(x, C.FEET_Y, wKey)
+          .setOrigin(0.5, dir < 0 ? 0 : 1).setDepth(C.DEPTH.FX).setFlipX(dir < 0);
+        this.tweens.add({ targets: img, angle: dir * 70, duration: S.sweepMs, ease: 'Sine.easeOut' });
+        window.GameAudio && GameAudio.play('release');
+        this._hitstop(50);
+        for (const e of this.enemies)
+          if (!e.dead && dir * (e.x - x) > 0 && dir * (e.x - x) < S.range)
+            this._hitEnemy(e, S.dmg, dir * 70, 'sickle');
+        this.time.delayedCall(S.sweepMs, () => {
+          img.destroy();
+          Forge.FX.morph({
+            src: { cloud: wCloud, x, y: C.FEET_Y, scale: 1, flip: dir },
+            dst: { cloud: hCloud, x, y: py, scale: P.scale, flip: dir },
+            dur: S.outMs, turb: 24, rise: 16, mix: this._lightMix(),
+            onDone: () => { this.player.setVisible(true); P.state = 'free'; this._flushQueued(); },
+          });
         });
       },
     });
@@ -247,27 +300,29 @@ Object.assign(ArenaScene.prototype, {
     });
   },
 
-  // ── E 吸收变形：消耗 1 魄，人形 → 恶鬼形（限时） ──
+  // ── E 吸收变形：消耗 1 魄，人形 → 最近一次吸收的敌形（限时）；每种形态的 tex/anim/scale/toast 见 config.js FORM_BY_TYPE ──
   _doTransform() {
     const P = this.P;
-    if (P.essence < 1 || P.form !== 'dante' || P.state !== 'free') return;
+    if (P.essence < 1 || P.form !== 'dante' || P.state !== 'free' || !P.pendingForm) return;
+    const F = Forge.FORM_BY_TYPE[P.pendingForm];
     P.essence--; this._updateScore();
     P.state = 'morphing';
     const dir = P.dir, x = P.x;
     const srcCloud = this._playerCloud();
-    const fiendCloud = Forge.Cloud.fromTexture(this, 'fiend_0', Forge.FXN.morph);
+    const dstCloud = Forge.Cloud.fromTexture(this, F.tex, Forge.FXN.morph);
+    const dstY = Forge.C.FEET_Y + (F.glb ? Forge.C.GLB_PAD * F.scale : 0);
     this.player.setVisible(false);
     window.GameAudio && GameAudio.play('morph');
     window.GameAudio && GameAudio.play('unlock');
     Forge.FX.morph({
       src: { cloud: srcCloud, x, y: this._pY(), scale: P.scale, flip: dir },
-      dst: { cloud: fiendCloud, x, y: Forge.C.FEET_Y, scale: 0.85, flip: dir },
-      dur: Forge.FIEND_FORM.morphMs, turb: 34, rise: 30, mix: this._lightMix(),
+      dst: { cloud: dstCloud, x, y: dstY, scale: F.scale, flip: dir },
+      dur: F.morphMs, turb: 34, rise: 30, mix: this._lightMix(),
       onDone: () => {
-        P.form = 'fiend'; P.scale = 0.85; P.formLeft = Forge.FIEND_FORM.ms;
-        this.player.setTexture('fiend_0').setScale(P.scale).setY(this._pY()).setVisible(true);
-        this.player.play('fiend_move', true);
-        this._toast('化形 · 恶鬼之躯 — J 爪袭');
+        P.form = P.pendingForm; P.scale = F.scale; P.formLeft = F.ms;
+        this.player.setTexture(F.tex).setScale(P.scale).setY(this._pY()).setVisible(true);
+        this.player.play(F.anim, true);
+        this._toast(F.toast);
         P.state = 'free';
         this._flushQueued();
       },
@@ -276,17 +331,18 @@ Object.assign(ArenaScene.prototype, {
 
   _revertForm() {
     const P = this.P;
-    if (P.form !== 'fiend' || P.state !== 'free') return;
+    if (P.form === 'dante' || P.state !== 'free') return;
+    const F = Forge.FORM_BY_TYPE[P.form];
     P.state = 'morphing';
     const dir = P.dir, x = P.x;
-    const fiendCloud = this._playerCloud();
+    const srcCloud = this._playerCloud();
     const danteCloud = Forge.Cloud.fromTexture(this, 'dante_idle_0', Forge.FXN.morph);
     this.player.setVisible(false);
     window.GameAudio && GameAudio.play('morph');
     Forge.FX.morph({
-      src: { cloud: fiendCloud, x, y: this._pY(), scale: P.scale, flip: dir },
+      src: { cloud: srcCloud, x, y: this._pY(), scale: P.scale, flip: dir },
       dst: { cloud: danteCloud, x, y: Forge.C.FEET_Y + Forge.C.GLB_PAD * Forge.PLAYER.scale, scale: Forge.PLAYER.scale, flip: dir },
-      dur: Forge.FIEND_FORM.morphMs, turb: 34, rise: 30, mix: this._lightMix(),
+      dur: F.morphMs, turb: 34, rise: 30, mix: this._lightMix(),
       onDone: () => {
         P.form = 'dante'; P.scale = Forge.PLAYER.scale;
         this.player.setTexture('dante_idle_0').setScale(P.scale).setY(this._pY()).setVisible(true);
@@ -317,6 +373,29 @@ Object.assign(ArenaScene.prototype, {
           }
       },
       onComplete: () => { P.x = x1; P.state = 'free'; this._flushQueued(); },
+    });
+  },
+
+  // ── 女妖形 J 掷弹：原地扔一枚直线弹丸，不位移（轻量招，不走完整 morph） ──
+  _furiesThrow() {
+    const T = Forge.FURIES_FORM.throw, P = this.P, C = Forge.C;
+    if (P.state !== 'free' || P.cds.throw > 0) return;
+    P.cds.throw = T.cd;
+    const dir = P.dir, x0 = P.x, y0 = this._pY() - 60;
+    const img = this.add.ellipse(x0, y0, 12, 12, 0x1a0f08, 0.92)
+      .setStrokeStyle(2, 0x3a2418, 0.8).setDepth(C.DEPTH.FX);
+    window.GameAudio && GameAudio.play('release');
+    const hit = new Set();
+    this.tweens.add({
+      targets: img, x: x0 + dir * 420, duration: T.ms, ease: 'Linear',
+      onUpdate: () => {
+        for (const e of this.enemies)
+          if (!hit.has(e) && !e.dead && Math.abs(e.x - img.x) < 40) {
+            hit.add(e);
+            this._hitEnemy(e, T.dmg, dir * 30);
+          }
+      },
+      onComplete: () => img.destroy(),
     });
   },
 

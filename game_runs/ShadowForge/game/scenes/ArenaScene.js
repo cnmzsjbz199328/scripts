@@ -9,6 +9,8 @@ class ArenaScene extends Phaser.Scene {
       this.load.image(`dante_walk_${i}`, `assets/3d/dante_walk_${i}.png`);
       this.load.image(`soul_walk_${i}`, `assets/3d/soul_walk_${i}.png`);
       this.load.image(`minos_idle_${i}`, `assets/3d/minos_idle_${i}.png`);
+      this.load.image(`furies_idle_${i}`, `assets/3d/furies_idle_${i}.png`);
+      this.load.image(`icesoul_idle_${i}`, `assets/3d/icesoul_idle_${i}.png`);
       this.load.svg(`chfog_${i}`, `assets/svg/amb_chfog_ch2_${i}.svg`, { width: 320, height: 320 });
     }
     for (let i = 0; i < 2; i++)
@@ -24,6 +26,7 @@ class ArenaScene extends Phaser.Scene {
     this.started = false; this.ended = false; this.won = false;
     this.kills = 0; this.wave = -1;
     this.enemies = []; this._freeze = 0; this._toSpawn = 0;
+    this.projectiles = []; this.slowZones = [];
 
     Forge.FX.init(this);
     this._makeFallbacks();
@@ -31,7 +34,7 @@ class ArenaScene extends Phaser.Scene {
     this._buildAnims();
     this._buildPlayer();
 
-    this.keys = this.input.keyboard.addKeys('A,D,LEFT,RIGHT,J,K,L,E,R,M,SPACE');
+    this.keys = this.input.keyboard.addKeys('A,D,LEFT,RIGHT,J,K,I,L,E,R,M,SPACE');
     this.input.keyboard.on('keydown-R', () => { if (this.started) location.reload(); });
     this.input.keyboard.on('keydown-M', () => window.GameAudio && GameAudio.toggle());
 
@@ -105,6 +108,8 @@ class ArenaScene extends Phaser.Scene {
     mk('dante_walk', 'dante_walk', 8, 10);
     mk('soul_walk', 'soul_walk', 8, 8);
     mk('minos_idle', 'minos_idle', 8, 6);
+    mk('furies_move', 'furies_idle', 8, 7);
+    mk('icesoul_move', 'icesoul_idle', 8, 5);
     mk('fiend_move', 'fiend', 2, 6);
     mk('chfog', 'chfog', 8, 5);
     for (const f of this.fgFogs) f.play('chfog');
@@ -170,6 +175,7 @@ class ArenaScene extends Phaser.Scene {
     if (!this.ended) {
       this._updatePlayer(dms);
       this._updateEnemies(dms);
+      this._updateProjectiles(dms);
     }
     this.playerShadow.setX(this.P.x)
       .setVisible(this.player.visible && this.player.alpha > 0.05)
