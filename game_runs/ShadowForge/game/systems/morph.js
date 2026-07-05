@@ -24,23 +24,34 @@
         ctx.fillStyle = g; ctx.fillRect(0, 0, s, s);
         scene.textures.addCanvas(key, cv);
       };
-      mkDot('fx_dot', '10,13,18');       // 剪影同色黑雾
+      mkDot('fx_dot', '255,255,255');    // 中性白，实际颜色由 tint 决定
       mkDot('fx_gold', '255,214,120');   // 吸魄金尘
     },
 
-    _spawn(tex, n) {
+    // 固定索引哈希（非随机，同一特效内每帧颜色稳定不闪）→ mix.ratio 比例落 accent，其余落墨色
+    _tintFor(i, mix) {
+      if (!mix || !mix.ratio) return Forge.C.INK;
+      const h = ((i * 2654435761) >>> 0) % 1000 / 1000;
+      return h < mix.ratio ? mix.accent : Forge.C.INK;
+    },
+
+    _spawn(tex, n, mix) {
       const b = this.scene.add.blitter(0, 0, tex).setDepth(Forge.C.DEPTH.FX);
       const bobs = [];
-      for (let i = 0; i < n; i++) bobs.push(b.create(-99, -99));
+      for (let i = 0; i < n; i++) {
+        const bob = b.create(-99, -99);
+        if (tex !== 'fx_gold') bob.tint = this._tintFor(i, mix);   // 金尘保留烘焙色，不参与染色系统
+        bobs.push(bob);
+      }
       return { b, bobs };
     },
 
     // ── 变形：src 形态@位置 → dst 形态@位置（位置可不同 = 转移）──
-    // o: { src:{cloud,x,y,scale,flip}, dst:{cloud,x,y,scale,flip}, dur, turb, rise, tex, n, onDone }
-    // flip：点云统一朝右采样，朝左时传 -1 做水平镜像
+    // o: { src:{cloud,x,y,scale,flip}, dst:{cloud,x,y,scale,flip}, dur, turb, rise, tex, n, mix, onDone }
+    // flip：点云统一朝右采样，朝左时传 -1 做水平镜像；mix：{ratio,accent} 玩家渐染色，见 config.js PALETTE
     morph(o) {
       const n = o.n || Forge.FXN.morph;
-      const { b, bobs } = this._spawn(o.tex || 'fx_dot', n);
+      const { b, bobs } = this._spawn(o.tex || 'fx_dot', n, o.mix);
       const sc = o.src.cloud, tc = o.dst.cloud;
       const sf = o.src.flip || 1, tf = o.dst.flip || 1;
       const sN = sc.length / 2, tN = tc.length / 2;
@@ -84,7 +95,7 @@
     // ── 受击迸溅：从点云随机抽子集，向 dirX 侧飞散 + 重力坠落 ──
     burst(o) {
       const n = o.n || Forge.FXN.burst;
-      const { b, bobs } = this._spawn(o.tex || 'fx_dot', n);
+      const { b, bobs } = this._spawn(o.tex || 'fx_dot', n, o.mix);
       const c = o.cloud, cN = c.length / 2, fl = o.flip || 1;
       const px = new Float32Array(n), py = new Float32Array(n),
             vx = new Float32Array(n), vy = new Float32Array(n);
@@ -112,7 +123,7 @@
     // ── 死亡消散：整团上飘扩散、渐隐（不重组）──
     dissolve(o) {
       const n = o.n || Forge.FXN.kill;
-      const { b, bobs } = this._spawn(o.tex || 'fx_dot', n);
+      const { b, bobs } = this._spawn(o.tex || 'fx_dot', n, o.mix);
       const c = o.cloud, cN = c.length / 2, fl = o.flip || 1;
       const px = new Float32Array(n), py = new Float32Array(n),
             vx = new Float32Array(n), vy = new Float32Array(n), ph = new Float32Array(n);

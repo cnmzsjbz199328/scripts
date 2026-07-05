@@ -46,3 +46,10 @@ Forge.ENEMY = {
 
 // 受击/击杀粒子预算
 Forge.FXN = { morph: 760, burst: 70, kill: 420, absorb: 150 };
+
+// 玩家粒子渐染色（按波次）：ratio=混入 accent 色的比例，null=纯墨色
+Forge.C.PALETTE = [
+  { ratio: 0,    accent: null      },   // 第一波 · 林波
+  { ratio: 0.15, accent: 0xc0501a },   // 第二波 · 愤怒（暗橙余烬）
+  { ratio: 0.30, accent: 0x3a6ea8 },   // 第三波 · 暴力（冷钢蓝）
+];

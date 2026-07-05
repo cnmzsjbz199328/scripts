@@ -29,6 +29,11 @@ Object.assign(ArenaScene.prototype, {
     return Forge.Cloud.fromTexture(this, this.P.form === 'dante' ? 'dante_idle_0' : 'fiend_0', Forge.FXN.morph);
   },
 
+  // 玩家粒子渐染色：按当前波次取染色比例，见 config.js PALETTE
+  _lightMix() {
+    return Forge.C.PALETTE[this.wave] || null;
+  },
+
   _updatePlayer(dms) {
     const P = this.P, C = Forge.C;
     for (const k in P.cds) P.cds[k] = Math.max(0, P.cds[k] - dms);
@@ -83,7 +88,7 @@ Object.assign(ArenaScene.prototype, {
     Forge.FX.morph({
       src: { cloud: hCloud, x: x0, y: py, scale: P.scale, flip: dir },
       dst: { cloud: wCloud, x: x0, y: C.FEET_Y, scale: 1, flip: dir },
-      dur: S.inMs, turb: 22, rise: 14,
+      dur: S.inMs, turb: 22, rise: 14, mix: this._lightMix(),
       onDone: () => {
         const img = this.add.image(x0, C.FEET_Y, wKey)
           .setOrigin(0.5, 1).setDepth(C.DEPTH.FX).setFlipX(dir < 0);
@@ -102,7 +107,7 @@ Object.assign(ArenaScene.prototype, {
             Forge.FX.morph({
               src: { cloud: wCloud, x: x1, y: C.FEET_Y, scale: 1, flip: dir },
               dst: { cloud: hCloud, x: x1, y: py, scale: P.scale, flip: dir },
-              dur: S.outMs, turb: 24, rise: 16,
+              dur: S.outMs, turb: 24, rise: 16, mix: this._lightMix(),
               onDone: () => {
                 P.x = x1;
                 this.player.setX(x1).setVisible(true);
@@ -129,7 +134,7 @@ Object.assign(ArenaScene.prototype, {
     Forge.FX.morph({
       src: { cloud: hCloud, x, y: py, scale: P.scale, flip: dir },
       dst: { cloud: wCloud, x, y: C.FEET_Y - 26, scale: 1, flip: dir },
-      dur: H.inMs, turb: 24, rise: 34,
+      dur: H.inMs, turb: 24, rise: 34, mix: this._lightMix(),
       onDone: () => {
         const img = this.add.image(x, C.FEET_Y - 26, wKey)
           .setOrigin(0.5, 1).setDepth(C.DEPTH.FX).setFlipX(dir < 0);
@@ -149,7 +154,7 @@ Object.assign(ArenaScene.prototype, {
               Forge.FX.morph({
                 src: { cloud: wCloud, x, y: C.FEET_Y + 4, scale: 1, flip: dir },
                 dst: { cloud: hCloud, x, y: py, scale: P.scale, flip: dir },
-                dur: H.outMs, turb: 26, rise: 20,
+                dur: H.outMs, turb: 26, rise: 20, mix: this._lightMix(),
                 onDone: () => { this.player.setVisible(true); P.state = 'free'; },
               });
             });
@@ -173,7 +178,7 @@ Object.assign(ArenaScene.prototype, {
     Forge.FX.morph({
       src: { cloud, x: x0, y: py, scale: P.scale, flip: dir },
       dst: { cloud, x: x1, y: py, scale: P.scale, flip: dir },
-      dur: M.ms, turb: 55, rise: 44,
+      dur: M.ms, turb: 55, rise: 44, mix: this._lightMix(),
       onDone: () => {
         P.x = x1;
         this.player.setX(x1).setVisible(true);
@@ -196,7 +201,7 @@ Object.assign(ArenaScene.prototype, {
     Forge.FX.morph({
       src: { cloud: srcCloud, x, y: this._pY(), scale: P.scale, flip: dir },
       dst: { cloud: fiendCloud, x, y: Forge.C.FEET_Y, scale: 0.85, flip: dir },
-      dur: Forge.FIEND_FORM.morphMs, turb: 34, rise: 30,
+      dur: Forge.FIEND_FORM.morphMs, turb: 34, rise: 30, mix: this._lightMix(),
       onDone: () => {
         P.form = 'fiend'; P.scale = 0.85; P.formLeft = Forge.FIEND_FORM.ms;
         this.player.setTexture('fiend_0').setScale(P.scale).setY(this._pY()).setVisible(true);
@@ -218,7 +223,7 @@ Object.assign(ArenaScene.prototype, {
     Forge.FX.morph({
       src: { cloud: fiendCloud, x, y: this._pY(), scale: P.scale, flip: dir },
       dst: { cloud: danteCloud, x, y: Forge.C.FEET_Y + Forge.C.GLB_PAD * Forge.PLAYER.scale, scale: Forge.PLAYER.scale, flip: dir },
-      dur: Forge.FIEND_FORM.morphMs, turb: 34, rise: 30,
+      dur: Forge.FIEND_FORM.morphMs, turb: 34, rise: 30, mix: this._lightMix(),
       onDone: () => {
         P.form = 'dante'; P.scale = Forge.PLAYER.scale;
         this.player.setTexture('dante_idle_0').setScale(P.scale).setY(this._pY()).setVisible(true);
@@ -235,7 +240,7 @@ Object.assign(ArenaScene.prototype, {
     P.state = 'lunge'; P.cds.lunge = L.cd;
     const dir = P.dir;
     const x1 = Phaser.Math.Clamp(P.x + dir * L.dist, C.X_MIN, C.X_MAX);
-    Forge.FX.burst({ cloud: this._playerCloud(), x: P.x, y: this._pY(), scale: P.scale, flip: dir, n: 36, dirX: -dir });
+    Forge.FX.burst({ cloud: this._playerCloud(), x: P.x, y: this._pY(), scale: P.scale, flip: dir, n: 36, dirX: -dir, mix: this._lightMix() });
     window.GameAudio && GameAudio.play('release');
     const hit = new Set();
     this.tweens.add({
@@ -261,7 +266,7 @@ Object.assign(ArenaScene.prototype, {
     P.invuln = Forge.PLAYER.invulnMs;
     Forge.FX.burst({
       cloud: this._playerCloud(), x: P.x, y: this._pY(), scale: P.scale, flip: P.dir,
-      n: 46, dirX: P.x >= fromX ? 1 : -1,
+      n: 46, dirX: P.x >= fromX ? 1 : -1, mix: this._lightMix(),
     });
     this._hitstop(50);
     this.cameras.main.shake(90, 0.006);
@@ -279,7 +284,7 @@ Object.assign(ArenaScene.prototype, {
     this.playerShadow.setVisible(false);
     Forge.FX.dissolve({
       cloud: this._playerCloud(), x: P.x, y: this._pY(), scale: P.scale, flip: P.dir,
-      n: 620, dur: 1200,
+      n: 620, dur: 1200, mix: this._lightMix(),
     });
     window.GameAudio && GameAudio.play('lose');
     this.time.delayedCall(1000, () =>
