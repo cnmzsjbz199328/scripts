@@ -51,7 +51,7 @@ Object.assign(ArenaScene.prototype, {
       .setPosition(this.player.x, this.player.y)
       .setScale(this.player.scaleX * 1.12, this.player.scaleY * 1.07) // 稍微放大，形成真实的描边外发光
       .setTexture(this.player.texture.key).setFlipX(this.player.flipX)
-      .setTint(accent)
+      .setTintFill(accent)
       .setAlpha(0.48 + Math.sin(this._glowT / 350) * 0.12); // 增强可见亮度
   },
 
