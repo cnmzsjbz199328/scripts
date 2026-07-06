@@ -114,7 +114,12 @@ Object.assign(ArenaScene.prototype, {
       P.x = Phaser.Math.Clamp(P.x + mv * spd * dms / 1000, C.X_MIN, C.X_MAX);
     }
     this.player.setX(P.x).setFlipX(P.dir < 0);
-    const want = formCfg ? formCfg.anim : (mv ? 'dante_walk' : 'dante_idle');
+    let want = 'dante_idle';
+    if (P.form === 'dante') {
+      want = mv ? 'dante_walk' : 'dante_idle';
+    } else {
+      want = mv ? `${P.form}_walk` : `${P.form}_idle`;
+    }
     if (!this.player.anims.currentAnim || this.player.anims.currentAnim.key !== want)
       this.player.play(want, true);
   },

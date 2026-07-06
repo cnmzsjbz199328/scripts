@@ -1,8 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="-24 -4 168 176" width="168" height="176">
-    <path d="M 84 96 q -35 -36 -70 -10 q 21 26 49 36.4 Z" fill="#06070c"/><path d="M 84 96 q 35 -36 70 -10 q -21 26 -49 36.4 Z" fill="#06070c"/>
-    <path d="M 84 96 q -39 -4 -78 26 q 23.4 30 54.599999999999994 42 Z" fill="#06070c"/><path d="M 84 96 q 39 -4 78 26 q -23.4 30 -54.599999999999994 42 Z" fill="#06070c"/>
-    <path d="M 84 96 q -30 34 -60 56 q 18 22 42 30.799999999999997 Z" fill="#06070c"/><path d="M 84 96 q 30 34 60 56 q -18 22 -42 30.799999999999997 Z" fill="#06070c"/>
-    <line x1="84.0" y1="66.0" x2="84.0" y2="150.0" stroke="#06070c" stroke-width="30" stroke-linecap="round"/>
-    <circle cx="84.0" cy="56.0" r="18" fill="#06070c"/>
-    <line x1="76.0" y1="44.0" x2="70.0" y2="30.0" stroke="#06070c" stroke-width="5" stroke-linecap="round"/><line x1="92.0" y1="44.0" x2="98.0" y2="30.0" stroke="#06070c" stroke-width="5" stroke-linecap="round"/>
-    <line x1="84.0" y1="146.0" x2="62.0" y2="174.0" stroke="#06070c" stroke-width="14" stroke-linecap="round"/><line x1="84.0" y1="146.0" x2="106.0" y2="174.0" stroke="#06070c" stroke-width="14" stroke-linecap="round"/></svg>

@@ -10,12 +10,14 @@ class ArenaScene extends Phaser.Scene {
       this.load.image(`soul_walk_${i}`, `assets/3d/soul_walk_${i}.png`);
       this.load.image(`minos_idle_${i}`, `assets/3d/minos_idle_${i}.png`);
       this.load.image(`furies_idle_${i}`, `assets/3d/furies_idle_${i}.png`);
+      this.load.image(`furies_walk_${i}`, `assets/3d/furies_walk_${i}.png`);
       this.load.image(`icesoul_idle_${i}`, `assets/3d/icesoul_idle_${i}.png`);
+      this.load.image(`icesoul_walk_${i}`, `assets/3d/icesoul_walk_${i}.png`);
+      this.load.image(`fiend_idle_${i}`, `assets/3d/fiend_idle_${i}.png`);
+      this.load.image(`fiend_walk_${i}`, `assets/3d/fiend_walk_${i}.png`);
+      this.load.image(`satan_idle_${i}`, `assets/3d/satan_idle_${i}.png`);
+      this.load.image(`satan_walk_${i}`, `assets/3d/satan_walk_${i}.png`);
       this.load.svg(`chfog_${i}`, `assets/svg/amb_chfog_ch2_${i}.svg`, { width: 320, height: 320 });
-    }
-    for (let i = 0; i < 2; i++) {
-      this.load.svg(`fiend_${i}`, `assets/svg/fiend_move_${i}.svg`, { width: 168, height: 176 });
-      this.load.svg(`satan_${i}`, `assets/svg/satan_${i}.svg`, { width: 168, height: 176 });
     }
     this.load.image('bg_limbo', 'scene/panorama_limbo.png');
     this.load.image('bg_wrath', 'scene/panorama_wrath.png');
@@ -145,10 +147,18 @@ class ArenaScene extends Phaser.Scene {
     mk('dante_walk', 'dante_walk', 8, 10);
     mk('soul_walk', 'soul_walk', 8, 8);
     mk('minos_idle', 'minos_idle', 8, 6);
-    mk('furies_move', 'furies_idle', 8, 7);
-    mk('icesoul_move', 'icesoul_idle', 8, 5);
-    mk('fiend_move', 'fiend', 2, 6);
-    mk('satan_idle', 'satan', 2, 5);
+    mk('furies_idle', 'furies_idle', 8, 7);
+    mk('furies_walk', 'furies_walk', 8, 10);
+    mk('icesoul_idle', 'icesoul_idle', 8, 7);
+    mk('icesoul_walk', 'icesoul_walk', 8, 10);
+    mk('fiend_idle', 'fiend_idle', 8, 7);
+    mk('fiend_walk', 'fiend_walk', 8, 12);
+    mk('satan_idle', 'satan_idle', 8, 7);
+    mk('satan_walk', 'satan_walk', 8, 10);
+    // 兼容层别名
+    mk('furies_move', 'furies_walk', 8, 10);
+    mk('icesoul_move', 'icesoul_walk', 8, 10);
+    mk('fiend_move', 'fiend_walk', 8, 12);
     mk('chfog', 'chfog', 8, 5);
     for (const f of this.fgFogs) f.play('chfog');
   }

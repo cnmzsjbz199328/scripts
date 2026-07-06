@@ -111,6 +111,24 @@ Object.assign(ArenaScene.prototype, {
         e.touchCd = 1000;
         this._playerHit(e.def.dmg, e.x);
       }
+      // 动态更新敌人的行走与待机动画
+      if (['furies', 'icesoul', 'fiend', 'satan'].includes(e.type)) {
+        let activeAnim = `${e.type}_idle`;
+        if (e.type === 'fiend' && e.state === 'lunge') {
+          activeAnim = `${e.type}_walk`;   // 扑袭冲刺中高速位移，不能用静止的 idle 姿势
+        } else if (e.state === 'walk') {
+          let isMoving = true;
+          if (e.type === 'furies') {
+            const adx = Math.abs(P.x - e.x);
+            const R = e.def.ranged;
+            isMoving = (adx < R.keep - 20) || (adx > R.keep + 60);
+          }
+          activeAnim = isMoving ? `${e.type}_walk` : `${e.type}_idle`;
+        }
+        if (e.spr.anims.currentAnim?.key !== activeAnim) {
+          e.spr.play(activeAnim, true);
+        }
+      }
       e.spr.setX(e.x).setFlipX(dx < 0);
       e.shadow.setX(e.x).setVisible(e.spr.visible && e.spr.alpha > 0.05);
     }

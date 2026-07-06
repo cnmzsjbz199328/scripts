@@ -94,7 +94,7 @@ const NPC_GUEST = {
   '卡托':       { tex: 'peasant',  heaven: true },
   '弗兰切斯卡': { tex: 'ch44',     heaven: false },
   '菲莱杰斯':   { tex: 'ch05',     heaven: false },
-  '冰中魂灵':   { tex: 'icesoul',  heaven: false, embedded: true },
+  '冰中魂灵':   { tex: 'icesoul',  heaven: false },
   '树魂':       { tex: 'treesoul', heaven: false, embedded: true },
   '魂灵':       { tex: 'ch25',     heaven: false },
   '奔跑的魂灵': { tex: 'peasant',  heaven: false, anim: 'jog' },

@@ -61,6 +61,15 @@ async function generic(deadline) {
 }
 
 const RECIPES = {
+  async ShadowForge(dl) {
+    await page.goto(`http://localhost:${PORT}/ShadowForge/index.html?autoplay`, { waitUntil: 'load' });
+    await wait(800);
+    await page.evaluate(() => { window.__hudStart?.(); window.__startGame?.(); });
+    await wait(400);
+    while (Date.now() < dl) {
+      await wait(500);
+    }
+  },
   async ShadowArena(dl) {           // char-select: D to move cursor, SPACE confirm, then fight
     await tap('D', 120); await wait(250); await tap('SPACE', 120); await wait(900);
     const seq = ['D','J','D','K','W','J','A','K','D','J','SPACE','D','K','W','J'];
