@@ -488,10 +488,12 @@ Object.assign(ArenaScene.prototype, {
     for (const pr of this.projectiles) {
       pr.x += pr.dir * pr.speed * dt;
       pr.dart.setPos(pr.x, pr.y);
-      if (!this.ended && P.invuln <= 0 && (P.state === 'free' || P.state === 'hammer') &&
-          Math.abs(pr.x - P.x) < 30 && Math.abs(pr.y - this._pY()) < 60) {
+      // 命中判定交给统一裁决：_playerHit 内部按 _isSolid/invuln 决定是否受伤，
+      // 只有真正扣了血才销毁弹丸（免疫/无敌时穿身而过，继续飞）
+      if (!this.ended && Math.abs(pr.x - P.x) < 30 && Math.abs(pr.y - this._pY()) < 60) {
+        const before = P.hp;
         this._playerHit(pr.dmg, pr.x);
-        pr.dead = true;
+        if (P.hp < before) pr.dead = true;
       } else if (pr.x < C.X_MIN - 30 || pr.x > C.X_MAX + 30) pr.dead = true;
     }
     this.projectiles = this.projectiles.filter((pr) => {

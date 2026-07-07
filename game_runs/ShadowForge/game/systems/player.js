@@ -1,9 +1,21 @@
 /* ShadowForge — 玩家状态机（Object.assign 到 ArenaScene 原型）。
  * 变形即招式：J 化矛突刺(击穿) / K 化锤震地(击退) / L 雾化闪避(无敌帧) /
  * E 消耗「魄」化形为恶鬼(限时,J 变爪袭)。
- * 状态: free / spear / hammer / mist / morphing / lunge / dead。
- * 受击判定只在 free、hammer 生效——化矛化雾期间没有"身体"。 */
+ * 状态: free / spear / hammer / sickle / throw / mist / morphing / lunge / dead。
+ *
+ * ── 统一受击裁决（_isSolid）：一条规则覆盖全部化形态 ──
+ * 「本体是否留有可击的立足点」决定能否被击，与 Boss「打武器=打Boss」同源：
+ *   · 原地化形招（锤/镰）与站立起手（掷弹）——武器/身体锚在原地，打它即打本体 → 可被击。
+ *   · 位移化形招（矛/爪/雾）——本体散作自由粒子高速离开原地，没有可打的定点 → 免疫(i-frame，
+ *     这是「变形过渡从僵直负债变成主动防御资产」的设计核心，见 gdd 支柱）。
+ *   · 变身过渡（morphing）与死亡消散——纯粒子，免疫。 */
 Object.assign(ArenaScene.prototype, {
+
+  // 本体当前是否有可击的立足点（受击/被弹丸命中的唯一判据，敌我弹与近身共用）
+  _isSolid() {
+    const s = this.P.state;
+    return s === 'free' || s === 'hammer' || s === 'sickle' || s === 'throw';
+  },
 
   _buildPlayer() {
     const C = Forge.C, P = Forge.PLAYER;
@@ -466,10 +478,7 @@ Object.assign(ArenaScene.prototype, {
   // ── 受击（分级反馈的最低档：小迸溅 + 顿帧 + 无敌闪烁） ──
   _playerHit(dmg, fromX) {
     const P = this.P;
-    if (this.ended || P.invuln > 0) return;
-    // 有身体的状态才可被击：free / hammer(化锤但人立于地) / throw(掷弹起手僵直，身体仍在)。
-    // 化矛/化雾/化爪/化形过渡期间本体已散作粒子，没有身体 → 免疫（见各招式）
-    if (P.state !== 'free' && P.state !== 'hammer' && P.state !== 'throw') return;
+    if (this.ended || P.invuln > 0 || !this._isSolid()) return;   // 统一受击裁决，见文件头
     P.hp = Math.max(0, P.hp - dmg);
     window.GameHUD && GameHUD.setHearts(P.hp, Forge.PLAYER.maxHp);
     P.invuln = Forge.PLAYER.invulnMs;
