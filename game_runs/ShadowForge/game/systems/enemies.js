@@ -115,9 +115,7 @@ Object.assign(ArenaScene.prototype, {
             e.state = 'reform'; e.stateT = 460;   // 挥砍(130ms)+重组(300ms)期间不移动不再攻击
             e.atkCd = S.cd;
             this.cameras.main.shake(110, 0.007);
-            this._swingWeapon(e);   // 武器实体下扫 → 迸溅 → 整体重组回 Boss 躯体
-            this._shockRing(e.x, C.FEET_Y - 8, S.r, Forge.ENEMY_MIX);
-            if (Math.abs(P.x - e.x) < S.r) this._playerHit(e.def.dmg, e.x);
+            this._swingWeapon(e);   // 武器实体下扫 → 落刃瞬间才结算伤害/冲击环 → 迸溅 → 重组回躯体
           }
         } else if (e.state === 'reform') {
           e.stateT -= dms;
@@ -391,13 +389,18 @@ Object.assign(ArenaScene.prototype, {
     });
   },
 
+  // 伤害绑定武器实体：只有武器成形(wp 存在)且下扫落刃时才结算——不再是 tele 结束的凭空半径判定，
+  // 杜绝「被一把看不见的武器砍中」（审查#7）。化形被打断/未成形则无武器、不结算、直接重聚。
   _swingWeapon(e) {
     const wp = e._wpn; e._wpn = null;
-    const A = this._bossWpn(e), d0 = e._wpnDir || 1;
-    if (!wp) return this._reformBoss(e, A, d0, null);   // 化形被打断的边缘残留：直接重聚躯体
+    const A = this._bossWpn(e), d0 = e._wpnDir || 1, S = e.def.swipe, C = Forge.C;
+    if (!wp) return this._reformBoss(e, A, d0, null);   // 化形被打断的边缘残留：无武器则不致伤，直接重聚躯体
     this.tweens.add({
       targets: wp, angle: d0 * A.a1, duration: 130, ease: 'Cubic.easeIn',
       onComplete: () => {
+        // 落刃瞬间：此刻武器实体扫到地面，才结算冲击环 + 伤害（半径仍以 Boss 立足点为心，与预警圈一致）
+        this._shockRing(e.x, C.FEET_Y - 8, S.r, Forge.ENEMY_MIX);
+        if (!this.ended && !e.dead && Math.abs(this.P.x - e.x) < S.r) this._playerHit(e.def.dmg, e.x);
         // 刃口动能残留迸溅，随后武器整体重组回 Boss 躯体（与玩家锤/矛的收尾同构）
         Forge.FX.burst({
           cloud: A.cloud, x: wp.x + d0 * (0.5 - A.ox) * A.W * A.s, y: wp.y + (1 - A.oy) * A.H * A.s,
