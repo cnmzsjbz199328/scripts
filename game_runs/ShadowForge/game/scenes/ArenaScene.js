@@ -304,7 +304,12 @@ class ArenaScene extends Phaser.Scene {
       if (d < nd) { nd = d; near = e; }
       if (d < 170) threats++;
       if (e.state === 'lunge' || (e.state === 'tele' && d < 200) || d < 66) danger = true;
+      // 天降镰刀读条中且预警圈罩着自己 → 也算危险（雾化水平位移可脱离锁定列）
+      if (e.def.sky && e.skyState === 'tele' && Math.abs(P.x - e.skyX) < e.def.sky.r + 20) danger = true;
     }
+    // 飞向自己且已近的敌方弹丸 → 危险（furies 投掷弹每发 2 伤，站桩硬吃 5 发就死）
+    for (const pr of this.projectiles)
+      if (Math.sign(P.x - pr.x) === pr.dir && Math.abs(pr.x - P.x) < 130) danger = true;
     if (!near) { this._botMv = 0; return; }
     const dir = Math.sign(near.x - P.x) || 1;
 

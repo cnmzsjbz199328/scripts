@@ -17,6 +17,7 @@ Object.assign(ArenaScene.prototype, {
       type, def, spr, shadow, x, y,
       hp: def.hp, dead: false,
       state: 'walk', stateT: 0, atkCd: 800, touchCd: 600, summonT: 0,
+      skyState: 'idle', skyT: 0, skyStateT: 0,
     };
     // 入场也走粒子凝聚：雾团从上方聚成敌形
     spr.setAlpha(0);
@@ -113,6 +114,20 @@ Object.assign(ArenaScene.prototype, {
           e.stateT -= dms;
           if (e.stateT <= 0) e.state = 'walk';
         }
+        // 死亡镰刀天降：与近身挥臂独立并行的读招，锁定施放瞬间的玩家列，逼横移/雾化而非站桩硬吃
+        if (e.def.sky) {
+          if (e.skyState === 'idle') {
+            e.skyT += dms;
+            if (e.skyT >= e.def.sky.cd) {
+              e.skyT = 0; e.skyState = 'tele'; e.skyStateT = e.def.sky.tele; e.skyX = P.x;
+              this._warnRing(e.skyX, C.FEET_Y - 8, e.def.sky.r, e.def.sky.tele);
+              window.GameAudio && GameAudio.play('tick');
+            }
+          } else {
+            e.skyStateT -= dms;
+            if (e.skyStateT <= 0) { e.skyState = 'idle'; this._bossSkyScythe(e, e.skyX); }
+          }
+        }
         // 周期召唤亡魂（限量，避免车轮战失控；summonMs 缺省则跳过——satan 终局不召唤，纯 1v1）
         if (e.def.summonMs) {
           e.summonT += dms;
@@ -161,6 +176,38 @@ Object.assign(ArenaScene.prototype, {
       e.spr.setX(e.x).setFlipX(dx < 0);
       e.shadow.setX(e.x).setVisible(e.spr.visible && e.spr.alpha > 0.05);
     }
+  },
+
+  // ── Boss 天降镰刀：读招结束后于锁定列从高空凝聚+俯冲砸落，纵向窄 AOE ──
+  _bossSkyScythe(e, x) {
+    const S = e.def.sky, C = Forge.C;
+    const wKey = Forge.Cloud.weapon(this, 'sickle');
+    const wCloud = Forge.Cloud.fromTexture(this, wKey, Forge.FXN.morph);
+    const topY = C.FEET_Y - 340;
+    const img = this.add.image(x, topY, wKey)
+      .setOrigin(0.5, 0.5).setDepth(C.DEPTH.FX).setAngle(70).setAlpha(0);
+    // 凝聚：雾团在高空聚成镰刀形，成形后再俯冲砸落
+    Forge.FX.morph({
+      src: { cloud: wCloud, x, y: topY - 110, scale: 0.5 },
+      dst: { cloud: wCloud, x, y: topY, scale: 1.3 },
+      dur: 220, turb: 30, rise: 18, mix: Forge.ENEMY_MIX,
+      onDone: () => {
+        if (this.ended) { img.destroy(); return; }
+        img.setAlpha(1);
+        window.GameAudio && GameAudio.play('release');
+        this.tweens.add({
+          targets: img, y: C.FEET_Y, angle: 96, duration: 220, ease: 'Cubic.easeIn',
+          onComplete: () => {
+            img.destroy();
+            this._shockRing(x, C.FEET_Y - 8, S.r, Forge.ENEMY_MIX);
+            if (!this.ended && Math.abs(this.P.x - x) < S.r) this._playerHit(S.dmg, x);
+            this._hitstop(80);
+            this.cameras.main.shake(160, 0.01);
+            window.GameAudio && GameAudio.play('splashBad');
+          },
+        });
+      },
+    });
   },
 
   _enemyCloud(e) {
