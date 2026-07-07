@@ -178,7 +178,9 @@ Object.assign(ArenaScene.prototype, {
     }
   },
 
-  // ── Boss 天降镰刀：读招结束后于锁定列从高空凝聚+俯冲砸落，纵向窄 AOE ──
+  // ── Boss 天降镰刀：从 Boss 躯体剥离一缕粒子升空、越过锁定列，于高空凝成镰刀+俯冲砸落，纵向窄 AOE。
+  // 与挥砍同构——镰刀来源是 Boss 本体（可见的粒子流），不再凭空召唤。Boss 本体不隐藏（天降是与
+  // 近身挥砍并行的读招，只送出一缕而非整体化形），但「武器源自本体」的因果链在视觉上成立。──
   _bossSkyScythe(e, x) {
     const S = e.def.sky, C = Forge.C;
     const wKey = Forge.Cloud.weapon(this, 'sickle');
@@ -186,11 +188,12 @@ Object.assign(ArenaScene.prototype, {
     const topY = C.FEET_Y - 340;
     const img = this.add.image(x, topY, wKey)
       .setOrigin(0.5, 0.5).setDepth(C.DEPTH.FX).setAngle(70).setAlpha(0);
-    // 凝聚：雾团在高空聚成镰刀形，成形后再俯冲砸落
+    window.GameAudio && GameAudio.play('morph');
+    // 剥离升空：Boss 躯体的点云化作一缕粒子，斜升越过目标列，于高空重塑为镰刀形
     Forge.FX.morph({
-      src: { cloud: wCloud, x, y: topY - 110, scale: 0.5 },
+      src: { cloud: this._enemyCloud(e), x: e.x, y: e.y, scale: 0.5, flip: e.spr.flipX ? -1 : 1 },
       dst: { cloud: wCloud, x, y: topY, scale: 1.3 },
-      dur: 220, turb: 30, rise: 18, mix: Forge.ENEMY_MIX,
+      dur: 320, turb: 34, rise: 40, n: 420, mix: Forge.ENEMY_MIX,
       onDone: () => {
         if (this.ended) { img.destroy(); return; }
         img.setAlpha(1);
