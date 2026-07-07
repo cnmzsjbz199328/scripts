@@ -132,12 +132,15 @@ Object.assign(ArenaScene.prototype, {
     return f;
   },
 
-  // ── J 化矛突刺：人→矛(morph) → 矛体飞掠击穿(实体段) → 矛→人(morph) ──
+  // ── J 化矛突刺：人→矛(morph, 落点后偏=拉弓) → 离弦即满速、尾段减速(实体段) → 矛→人(morph, 继承惯性) ──
+  // 速度曲线是打击感的命门：预备(凝聚+后偏) → 释放瞬间即最高速(easeOut) → 减速收尾 →
+  // 重组时粒子带残余动量过冲回聚(drift)。反过来(easeIn+死停+原地重组)会有明显惯性断层。
   _doSpear() {
     const S = Forge.SPEAR, P = this.P, C = Forge.C;
     if (P.state !== 'free' || P.cds.spear > 0) return;
     P.state = 'spear'; P.cds.spear = S.cd;
     const dir = P.dir, x0 = P.x, py = this._pY();
+    const xDraw = Phaser.Math.Clamp(x0 - dir * 14, C.X_MIN, C.X_MAX);   // 拉弓式反向预备
     const x1 = Phaser.Math.Clamp(x0 + dir * S.range, C.X_MIN, C.X_MAX);
     const wKey = Forge.Cloud.weapon(this, 'spear');
     const wCloud = Forge.Cloud.fromTexture(this, wKey, Forge.FXN.morph);
@@ -147,36 +150,43 @@ Object.assign(ArenaScene.prototype, {
 
     Forge.FX.morph({
       src: { cloud: hCloud, x: x0, y: py, scale: P.scale, flip: dir },
-      dst: { cloud: wCloud, x: x0, y: C.FEET_Y, scale: 1, flip: dir },
+      dst: { cloud: wCloud, x: xDraw, y: C.FEET_Y, scale: 1, flip: dir },
       dur: S.inMs, turb: 22, rise: 14, mix: this._lightMix(),
       onDone: () => {
-        const img = this.add.image(x0, C.FEET_Y, wKey)
+        const img = this.add.image(xDraw, C.FEET_Y, wKey)
           .setOrigin(0.5, 1).setDepth(C.DEPTH.FX).setFlipX(dir < 0);
         const hit = new Set();
-        // 突刺残影：实体段每 30ms 从矛点云撒一小撮拖尾粒子，补上"全程粒子最少"的速度感缺口
-        const trail = this.time.addEvent({
-          delay: 30, repeat: Math.ceil(S.dashMs / 30),
-          callback: () => Forge.FX.burst({
-            cloud: wCloud, x: img.x, y: img.y, scale: 1, flip: dir,
-            n: 10, dur: 180, dirX: -dir, mix: this._lightMix(),
-          }),
-        });
+        // 突刺残影按飞行距离发（每 25px 一撮）而非按时间：高速段自然更密，拖尾密度=速度读数
+        let lastX = xDraw, trailAcc = 0;
         this.tweens.add({
-          targets: img, x: x1, duration: S.dashMs, ease: 'Sine.easeIn',
+          targets: img, x: x1, duration: S.dashMs, ease: 'Cubic.easeOut',
           onUpdate: () => {
+            trailAcc += Math.abs(img.x - lastX); lastX = img.x;
+            while (trailAcc >= 25) {
+              trailAcc -= 25;
+              Forge.FX.burst({
+                cloud: wCloud, x: img.x, y: img.y, scale: 1, flip: dir,
+                n: 8, dur: 200, dirX: -dir, mix: this._lightMix(),
+              });
+            }
             for (const e of this.enemies)
               if (!hit.has(e) && !e.dead && Math.abs(e.x - img.x) < S.hitW) {
                 hit.add(e);
+                // 穿击涟漪：矛体自身也迸一撮（顿帧不停 tween，穿透反馈不能只靠敌人侧）
+                Forge.FX.burst({
+                  cloud: wCloud, x: img.x, y: img.y, scale: 1, flip: dir,
+                  n: 14, dur: 220, dirX: dir, mix: this._lightMix(),
+                });
                 this._hitEnemy(e, S.dmg, dir * 46, 'spear');
               }
           },
           onComplete: () => {
-            trail.remove();
             img.destroy();
             Forge.FX.morph({
               src: { cloud: wCloud, x: x1, y: C.FEET_Y, scale: 1, flip: dir },
               dst: { cloud: hCloud, x: x1, y: py, scale: P.scale, flip: dir },
               dur: S.outMs, turb: 24, rise: 16, mix: this._lightMix(),
+              drift: { x: dir * 460 },   // 继承飞行末速：粒子向前甩过落点再回聚成人
               onDone: () => {
                 P.x = x1;
                 this.player.setX(x1).setVisible(true);

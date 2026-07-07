@@ -50,8 +50,10 @@
     },
 
     // ── 变形：src 形态@位置 → dst 形态@位置（位置可不同 = 转移）──
-    // o: { src:{cloud,x,y,scale,flip}, dst:{cloud,x,y,scale,flip}, dur, turb, rise, tex, n, mix, onDone }
+    // o: { src:{cloud,x,y,scale,flip}, dst:{cloud,x,y,scale,flip}, dur, turb, rise, tex, n, mix, drift, onDone }
     // flip：点云统一朝右采样，朝左时传 -1 做水平镜像；mix：{ratio,accent} 玩家渐染色，见 config.js PALETTE
+    // drift：{x,y} px/s——src 解体瞬间的残余速度，线性衰减到 0。粒子继承动量向前甩、
+    // 越过落点再被拉回 dst 聚形（follow-through），高速位移后的重组必须传，否则有"惯性断层"
     morph(o) {
       const n = o.n || Forge.FXN.morph;
       const { b, bobs } = this._spawn(o.tex || 'fx_dot', n, o.mix);
@@ -59,6 +61,8 @@
       const sf = o.src.flip || 1, tf = o.dst.flip || 1;
       const sN = sc.length / 2, tN = tc.length / 2;
       const turb = o.turb ?? 30, rise = o.rise ?? 30;
+      const dvx = (o.drift && o.drift.x) || 0, dvy = (o.drift && o.drift.y) || 0;
+      const dk = (o.dur || 300) / 1000;   // 速度线性衰减的位移积分系数：s(lt) = v0·dur·lt(1-lt/2)
       const stag = new Float32Array(n), fx = new Float32Array(n),
             fy = new Float32Array(n), ph = new Float32Array(n);
       for (let i = 0; i < n; i++) {
@@ -79,14 +83,17 @@
             const wB = Math.max(0, 1 - wS - wT);
             const bt = sstep(0.26, 0.7, lt);
             const si = (i % sN) * 2, ti = (i % tN) * 2;
-            const bx = o.src.x + (o.dst.x - o.src.x) * bt
+            // 惯性漂移：src 锚点（连同中段云途的出发端）随残余速度前移，dst 锚点不动 → 过冲后回聚
+            const dis = lt * (1 - lt / 2) * dk;
+            const sx = o.src.x + dvx * dis, sy = o.src.y + dvy * dis;
+            const bx = sx + (o.dst.x - sx) * bt
                      + Math.sin(lt * fx[i] * 6.28 + ph[i]) * turb * wB;
-            const by = o.src.y + (o.dst.y - o.src.y) * bt
+            const by = sy + (o.dst.y - sy) * bt
                      - Math.sin(Math.PI * bt) * rise
                      + Math.sin(lt * fy[i] * 6.28 + ph[i] * 1.3) * turb * 0.6 * wB;
-            bobs[i].x = wS * (o.src.x + sc[si] * o.src.scale * sf) + wB * bx
+            bobs[i].x = wS * (sx + sc[si] * o.src.scale * sf) + wB * bx
                       + wT * (o.dst.x + tc[ti] * o.dst.scale * tf);
-            bobs[i].y = wS * (o.src.y + sc[si + 1] * o.src.scale) + wB * by
+            bobs[i].y = wS * (sy + sc[si + 1] * o.src.scale) + wB * by
                       + wT * (o.dst.y + tc[ti + 1] * o.dst.scale);
             bobs[i].alpha = 0.92;
           }
