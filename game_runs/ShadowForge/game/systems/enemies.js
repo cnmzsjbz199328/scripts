@@ -5,7 +5,9 @@
  * 分级反馈: 普通命中=局部迸溅+顿帧+击退；死亡=全身消散/吸魄。 */
 Object.assign(ArenaScene.prototype, {
 
-  _spawnEnemy(type, x) {
+  // origin（可选）：入场粒子的来源。缺省时雾团自上方落下聚成敌形；提供 {x,y,cloud,flip} 时，
+  // 粒子从该源（如 Boss 躯体）飞抵出生点再凝成敌形——用于 Boss 召唤的「本体剥离生成」。
+  _spawnEnemy(type, x, origin) {
     const def = Forge.ENEMY[type], C = Forge.C;
     const y = C.FEET_Y + (def.glb ? C.GLB_PAD * def.scale : 0);
     const spr = this.add.sprite(x, y, def.tex)
@@ -19,12 +21,16 @@ Object.assign(ArenaScene.prototype, {
       state: 'walk', stateT: 0, atkCd: 800, summonT: 0,
       skyState: 'idle', skyT: 0, skyStateT: 0,
     };
-    // 入场也走粒子凝聚：雾团从上方聚成敌形
+    e._cloud = Forge.Cloud.fromTexture(this, def.tex, Forge.FXN.kill);
+    // 入场走粒子凝聚
     spr.setAlpha(0);
+    const src = origin
+      ? { cloud: origin.cloud || e._cloud, x: origin.x, y: origin.y, scale: def.scale * 0.4, flip: origin.flip || 1 }
+      : { cloud: e._cloud, x, y: y - 130, scale: def.scale * 0.4 };
     Forge.FX.morph({
-      src: { cloud: e._cloud || (e._cloud = Forge.Cloud.fromTexture(this, def.tex, Forge.FXN.kill)), x, y: y - 130, scale: def.scale * 0.4 },
-      dst: { cloud: e._cloud, x, y, scale: def.scale },
-      dur: 460, turb: 40, rise: 10, n: 420,
+      src, dst: { cloud: e._cloud, x, y, scale: def.scale },
+      dur: origin ? 620 : 460, turb: 40, rise: origin ? 34 : 10, n: 420,
+      mix: origin ? Forge.ENEMY_MIX : undefined,
       onDone: () => { if (!e.dead) spr.setAlpha(1); },
     });
     this.enemies.push(e);
@@ -142,9 +148,10 @@ Object.assign(ArenaScene.prototype, {
             e.summonT = 0;
             const adds = this.enemies.filter(o => !o.dead && o.type === 'soul').length;
             if (adds < e.def.maxAdds) {
-              // 施法表现：Boss 胸口聚拢一团粒子，把"新亡魂出现"归因到 Boss 身上
-              Forge.FX.gather({ x: e.x, y: e.y - e.spr.displayHeight * 0.6, r: 70, dur: 420, n: Forge.FXN.gather, mix: Forge.ENEMY_MIX });
-              this._spawnEnemy('soul', e.x > Forge.W / 2 ? 100 : 860);
+              // 从 Boss 躯体剥离一缕粒子飞向出生点、抵达后凝成亡魂——「新亡魂」归因到 Boss 本体的
+              // 实际粒子流，不再是"胸口聚一团 + 边缘凭空出生"的两特效蒙太奇（审查#8）
+              const sx = e.x > Forge.W / 2 ? 100 : 860;
+              this._spawnEnemy('soul', sx, { x: e.x, y: e.y, cloud: this._enemyCloud(e), flip: e.spr.flipX ? -1 : 1 });
             }
           }
         }
