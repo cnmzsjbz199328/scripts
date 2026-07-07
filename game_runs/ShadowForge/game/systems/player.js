@@ -213,7 +213,7 @@ Object.assign(ArenaScene.prototype, {
           targets: img, y: C.FEET_Y + 4, scaleY: 0.86, duration: H.slamMs, ease: 'Cubic.easeIn',
           onComplete: () => {
             // 落锤瞬间：冲击环 + AOE 击退 + 顿帧 + 震屏
-            this._shockRing(x, C.FEET_Y - 8, H.radius);
+            this._shockRing(x, C.FEET_Y - 8, H.radius, this._lightMix());
             for (const e of this.enemies)
               if (!e.dead && Math.abs(e.x - x) < H.radius)
                 this._hitEnemy(e, H.dmg, Math.sign(e.x - x || dir) * H.knock, 'hammer');
@@ -383,25 +383,27 @@ Object.assign(ArenaScene.prototype, {
   },
 
   // ── 女妖形 J 掷弹：原地扔一枚直线弹丸，不位移（轻量招，不走完整 morph） ──
+  // 弹体与敌方 furies 同款 FX.follow 粒子团，只是染玩家当前关卡色——"化形成它"表现一致
   _furiesThrow() {
     const T = Forge.FURIES_FORM.throw, P = this.P, C = Forge.C;
     if (P.state !== 'free' || P.cds.throw > 0) return;
     P.cds.throw = T.cd;
     const dir = P.dir, x0 = P.x, y0 = this._pY() - 60;
-    const img = this.add.ellipse(x0, y0, 12, 12, 0x1a0f08, 0.92)
-      .setStrokeStyle(2, 0x3a2418, 0.8).setDepth(C.DEPTH.FX);
+    const fx = Forge.FX.follow({ x: x0, y: y0, n: Forge.FXN.proj, rad: 9, life: 260, mix: this._lightMix() });
     window.GameAudio && GameAudio.play('release');
     const hit = new Set();
+    const pos = { x: x0 };
     this.tweens.add({
-      targets: img, x: x0 + dir * 420, duration: T.ms, ease: 'Linear',
+      targets: pos, x: x0 + dir * 420, duration: T.ms, ease: 'Linear',
       onUpdate: () => {
+        fx.setPos(pos.x, y0);
         for (const e of this.enemies)
-          if (!hit.has(e) && !e.dead && Math.abs(e.x - img.x) < 40) {
+          if (!hit.has(e) && !e.dead && Math.abs(e.x - pos.x) < 40) {
             hit.add(e);
             this._hitEnemy(e, T.dmg, dir * 30);
           }
       },
-      onComplete: () => img.destroy(),
+      onComplete: () => fx.die(),
     });
   },
 

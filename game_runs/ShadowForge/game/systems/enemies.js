@@ -48,7 +48,11 @@ Object.assign(ArenaScene.prototype, {
         // 保持距离放风筝：太近后退、太远才追近，不吃接触伤害的近身逻辑
         if (adx < R.keep - 20) e.x -= dir * e.def.speed * dt;
         else if (adx > R.keep + 60) e.x += dir * e.def.speed * dt;
-        if (e.state === 'walk' && e.atkCd <= 0) { e.state = 'tele'; e.stateT = R.tele; }
+        if (e.state === 'walk' && e.atkCd <= 0) {
+          e.state = 'tele'; e.stateT = R.tele;
+          // 投掷前摇：暗红粒子向出手点聚拢，给玩家"要扔了"的可读信号
+          Forge.FX.gather({ x: e.x, y: e.y - 40, r: 48, dur: R.tele, n: Forge.FXN.gather, mix: Forge.ENEMY_MIX });
+        }
         else if (e.state === 'tele') {
           e.stateT -= dms;
           if (e.stateT <= 0) {
@@ -65,13 +69,24 @@ Object.assign(ArenaScene.prototype, {
           if (adx < L.dist && e.atkCd <= 0) {
             e.state = 'tele'; e.stateT = L.tele; e.lungeDir = dir;
             this.tweens.add({ targets: e.spr, scaleX: e.def.scale * 1.12, duration: 110, yoyo: true, repeat: 1 });
+            // 扑袭前摇：粒子向躯干收束（与 squash 缩放叠加，蓄势感）
+            Forge.FX.gather({ x: e.x, y: e.y - 50, r: 54, dur: L.tele, n: Forge.FXN.gather, mix: Forge.ENEMY_MIX });
           }
         } else if (e.state === 'tele') {
           e.stateT -= dms;
-          if (e.stateT <= 0) { e.state = 'lunge'; e.stateT = L.ms; }
+          if (e.stateT <= 0) { e.state = 'lunge'; e.stateT = L.ms; e.trailT = 0; }
         } else if (e.state === 'lunge') {
           e.stateT -= dms;
           e.x += e.lungeDir * L.speed * dt;
+          // 冲刺拖尾：与玩家矛突刺同款节奏（每 30ms 一小撮反向粒子），补高速位移的速度感
+          e.trailT += dms;
+          if (e.trailT >= 30) {
+            e.trailT = 0;
+            Forge.FX.burst({
+              cloud: this._enemyCloud(e), x: e.x, y: e.y, scale: e.def.scale,
+              flip: e.spr.flipX ? -1 : 1, n: 10, dur: 180, dirX: -e.lungeDir, mix: Forge.ENEMY_MIX,
+            });
+          }
           if (e.stateT <= 0) { e.state = 'walk'; e.atkCd = L.cd; }
         }
 
@@ -82,14 +97,19 @@ Object.assign(ArenaScene.prototype, {
           if (adx < S.r - 20 && e.atkCd <= 0) {
             e.state = 'tele'; e.stateT = S.tele;
             this.tweens.add({ targets: e.spr, scaleY: e.def.scale * 1.07, duration: S.tele / 2, yoyo: true });
-            this._shockRing(e.x, C.FEET_Y - 8, S.r, 0x8a2c18, S.tele);   // 预警圈：给闪避窗口
+            this._warnRing(e.x, C.FEET_Y - 8, S.r, S.tele);   // 粒子预警圈：标出挥臂半径，给闪避窗口
           }
         } else if (e.state === 'tele') {
           e.stateT -= dms;
           if (e.stateT <= 0) {
             e.state = 'walk'; e.atkCd = S.cd;
             this.cameras.main.shake(110, 0.007);
-            this._shockRing(e.x, C.FEET_Y - 8, S.r);
+            this._shockRing(e.x, C.FEET_Y - 8, S.r, Forge.ENEMY_MIX);
+            // 挥臂本体：Boss 自身点云向落点方向迸出一大片，攻击"有形"而非只有震屏
+            Forge.FX.burst({
+              cloud: this._enemyCloud(e), x: e.x, y: e.y, scale: e.def.scale,
+              flip: e.spr.flipX ? -1 : 1, n: 90, dur: 380, dirX: dir, mix: Forge.ENEMY_MIX,
+            });
             if (Math.abs(P.x - e.x) < S.r) this._playerHit(e.def.dmg, e.x);
           }
         }
@@ -99,8 +119,11 @@ Object.assign(ArenaScene.prototype, {
           if (e.summonT >= e.def.summonMs) {
             e.summonT = 0;
             const adds = this.enemies.filter(o => !o.dead && o.type === 'soul').length;
-            if (adds < e.def.maxAdds)
+            if (adds < e.def.maxAdds) {
+              // 施法表现：Boss 胸口聚拢一团粒子，把"新亡魂出现"归因到 Boss 身上
+              Forge.FX.gather({ x: e.x, y: e.y - e.spr.displayHeight * 0.6, r: 70, dur: 420, n: Forge.FXN.gather, mix: Forge.ENEMY_MIX });
               this._spawnEnemy('soul', e.x > Forge.W / 2 ? 100 : 860);
+            }
           }
         }
       }
@@ -109,6 +132,11 @@ Object.assign(ArenaScene.prototype, {
       // 接触伤害（扑袭中的恶鬼也算；纯远程单位 dmg:0 不触发，避免 0 伤害的空反馈）
       if (e.def.dmg > 0 && adx < e.def.touchR && e.touchCd <= 0 && e.state !== 'tele') {
         e.touchCd = 1000;
+        // 攻击方也要有表现：敌人自身点云向玩家方向迸出一小片（否则接触伤害读作"走近自动掉血"）
+        Forge.FX.burst({
+          cloud: this._enemyCloud(e), x: e.x, y: e.y, scale: e.def.scale,
+          flip: e.spr.flipX ? -1 : 1, n: Forge.FXN.touch, dur: 300, dirX: dir, mix: Forge.ENEMY_MIX,
+        });
         this._playerHit(e.def.dmg, e.x);
       }
       // 动态更新敌人的行走与待机动画
@@ -138,18 +166,18 @@ Object.assign(ArenaScene.prototype, {
     return e._cloud || (e._cloud = Forge.Cloud.fromTexture(this, e.def.tex, Forge.FXN.kill));
   },
 
-  // ── furies 远程弹丸：飞向玩家所在方向的直线弹，命中/出界即销毁 ──
+  // ── furies 远程弹丸：飞向玩家所在方向的直线弹，命中/出界即消散 ──
+  // 弹体是 FX.follow 跟随粒子团（曾是描边椭圆），die() 后余粒自然衰减 = 消散动画
   _spawnProjectile(x, y, dir, speed, dmg) {
-    const spr = this.add.ellipse(x, y, 12, 12, 0x1a0f08, 0.92)
-      .setStrokeStyle(2, 0x3a2418, 0.8).setDepth(Forge.C.DEPTH.FX);
-    this.projectiles.push({ x, y, dir, speed, dmg, spr });
+    const fx = Forge.FX.follow({ x, y, n: Forge.FXN.proj, rad: 9, life: 260, mix: Forge.ENEMY_MIX });
+    this.projectiles.push({ x, y, dir, speed, dmg, fx });
   },
 
   _updateProjectiles(dms) {
     const dt = dms / 1000, C = Forge.C, P = this.P;
     for (const pr of this.projectiles) {
       pr.x += pr.dir * pr.speed * dt;
-      pr.spr.setX(pr.x);
+      pr.fx.setPos(pr.x, pr.y);
       if (!this.ended && P.invuln <= 0 && (P.state === 'free' || P.state === 'hammer') &&
           Math.abs(pr.x - P.x) < 30 && Math.abs(pr.y - this._pY()) < 60) {
         this._playerHit(pr.dmg, pr.x);
@@ -157,7 +185,7 @@ Object.assign(ArenaScene.prototype, {
       } else if (pr.x < C.X_MIN - 30 || pr.x > C.X_MAX + 30) pr.dead = true;
     }
     this.projectiles = this.projectiles.filter((pr) => {
-      if (pr.dead) pr.spr.destroy();
+      if (pr.dead) pr.fx.die();
       return !pr.dead;
     });
   },

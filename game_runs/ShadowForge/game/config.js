@@ -62,8 +62,11 @@ Forge.ENEMY = {
            swipe: { tele: 700, r: 190, cd: 2600 } },
 };
 
-// 受击/击杀粒子预算
-Forge.FXN = { morph: 760, burst: 70, kill: 420, absorb: 150 };
+// 受击/击杀/攻击类粒子预算（proj=弹丸跟随团 ring=冲击/预警环 gather=前摇聚拢 touch=接触攻击迸溅）
+Forge.FXN = { morph: 760, burst: 70, kill: 420, absorb: 150, proj: 24, ring: 90, gather: 56, touch: 26 };
+
+// 敌方攻击特效染色：墨色底 + 余烬暗红，与玩家的按关卡渐染区分开（敌我攻击一眼可辨）
+Forge.ENEMY_MIX = { ratio: 0.45, accent: 0x8a2c18 };
 
 // 玩家粒子渐染色（按波次）：ratio=混入 accent 色的比例，null=纯墨色
 Forge.C.PALETTE = [

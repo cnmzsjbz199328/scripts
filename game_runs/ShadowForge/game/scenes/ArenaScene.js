@@ -244,13 +244,15 @@ class ArenaScene extends Phaser.Scene {
   // ── 通用小件 ──
   _hitstop(ms) { this._freeze = Math.max(this._freeze, ms); }
 
-  _shockRing(x, y, r, color = 0xd8c8a8, dur = 280) {
-    const ring = this.add.ellipse(x, y, r * 2, r * 0.55)
-      .setStrokeStyle(3, color, 0.85).setDepth(Forge.C.DEPTH.RING).setScale(0.15).setFillStyle();
-    this.tweens.add({
-      targets: ring, scaleX: 1, scaleY: 1, alpha: 0, duration: dur, ease: 'Cubic.easeOut',
-      onComplete: () => ring.destroy(),
-    });
+  // 冲击环（命中/落地）：粒子从中心炸开到半径 r（曾是描边椭圆 tween，现全粒子化）
+  // mix 决定染色：玩家招式传 _lightMix()，敌方传 Forge.ENEMY_MIX，缺省纯墨
+  _shockRing(x, y, r, mix, dur = 320) {
+    Forge.FX.ring({ x, y, r, dur, mode: 'out', n: Forge.FXN.ring, mix });
+  }
+
+  // 预警环（预备帧）：粒子沿攻击半径周界闪烁收拢，持续整个前摇时长
+  _warnRing(x, y, r, dur) {
+    Forge.FX.ring({ x, y, r, dur, mode: 'in', n: Forge.FXN.ring, mix: Forge.ENEMY_MIX });
   }
 
   _toast(msg, hold = 1700) {
