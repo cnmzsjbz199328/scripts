@@ -68,27 +68,19 @@ Object.assign(ArenaScene.prototype, {
         if (e.state === 'walk') {
           e.x += dir * e.def.speed * dt;
           if (adx < L.dist && e.atkCd <= 0) {
-            e.state = 'tele'; e.stateT = L.tele; e.lungeDir = dir;
-            this.tweens.add({ targets: e.spr, scaleX: e.def.scale * 1.12, duration: 110, yoyo: true, repeat: 1 });
-            // 扑袭前摇：粒子向躯干收束（与 squash 缩放叠加，蓄势感）
+            e.state = 'tele'; e.stateT = L.tele;
+            // 扑袭前摇：本体散作粒子化形为爪——读招信号就是变形本身（与 Boss 挥砍/玩家矛同构）
             Forge.FX.gather({ x: e.x, y: e.y - 50, r: 54, dur: L.tele, n: Forge.FXN.gather, mix: Forge.ENEMY_MIX });
+            this._morphToClaw(e, dir, L);
           }
         } else if (e.state === 'tele') {
           e.stateT -= dms;
-          if (e.stateT <= 0) { e.state = 'lunge'; e.stateT = L.ms; e.trailT = 0; }
+          if (e.stateT <= 0) { e.state = 'lunge'; e.stateT = L.ms; this._clawDash(e, L); }
         } else if (e.state === 'lunge') {
+          e.stateT -= dms;   // 位移与伤害由爪实体 tween 驱动（_clawDash），此处只计时兜底
+        } else if (e.state === 'reform') {
           e.stateT -= dms;
-          e.x += e.lungeDir * L.speed * dt;
-          // 冲刺拖尾：与玩家矛突刺同款节奏（每 30ms 一小撮反向粒子），补高速位移的速度感
-          e.trailT += dms;
-          if (e.trailT >= 30) {
-            e.trailT = 0;
-            Forge.FX.burst({
-              cloud: this._enemyCloud(e), x: e.x, y: e.y, scale: e.def.scale,
-              flip: e.spr.flipX ? -1 : 1, n: 10, dur: 180, dirX: -e.lungeDir, mix: Forge.ENEMY_MIX,
-            });
-          }
-          if (e.stateT <= 0) { e.state = 'walk'; e.atkCd = L.cd; }
+          if (e.stateT <= 0) e.state = 'walk';
         }
 
       } else if (e.def.swipe) {   // 宽幅挥砍 Boss 通用分支（minos/satan 共用，靠 def.swipe 判定而非写死 type）
@@ -144,9 +136,10 @@ Object.assign(ArenaScene.prototype, {
       }
 
       e.x = Phaser.Math.Clamp(e.x, C.X_MIN - 10, C.X_MAX + 10);
-      // 接触伤害（扑袭中的恶鬼也算；纯远程单位 dmg:0 不触发，避免 0 伤害的空反馈；
-      // tele/reform 期间 Boss 没有"身体"——化形为武器时不产生贴身碰撞）
-      if (e.def.dmg > 0 && adx < e.def.touchR && e.touchCd <= 0 && e.state !== 'tele' && e.state !== 'reform') {
+      // 接触伤害（纯远程单位 dmg:0 不触发，避免 0 伤害的空反馈；
+      // 只在 walk 态生效——tele/lunge/reform 期间本体已化形为武器，没有"身体"可产生贴身碰撞，
+      // 扑袭伤害由爪实体自己承载，见 _clawDash）
+      if (e.def.dmg > 0 && adx < e.def.touchR && e.touchCd <= 0 && e.state === 'walk') {
         e.touchCd = 1000;
         // 攻击方也要有表现：敌人自身点云向玩家方向迸出一小片（否则接触伤害读作"走近自动掉血"）
         Forge.FX.burst({
@@ -212,6 +205,83 @@ Object.assign(ArenaScene.prototype, {
 
   _enemyCloud(e) {
     return e._cloud || (e._cloud = Forge.Cloud.fromTexture(this, e.def.tex, Forge.FXN.kill));
+  },
+
+  // 武器资产通用缓存：剪影纹理 + 点云 + 原始尺寸（Boss META 之外的轻量武器共用）
+  _wpnAssets(kind) {
+    this._waCache = this._waCache || {};
+    if (!this._waCache[kind]) {
+      const key = Forge.Cloud.weapon(this, kind);
+      const src = this.textures.get(key).getSourceImage();
+      this._waCache[kind] = { key, cloud: Forge.Cloud.fromTexture(this, key, 240), W: src.width, H: src.height };
+    }
+    return this._waCache[kind];
+  },
+
+  // ── fiend 扑袭化形：本体散作粒子凝成恶鬼之爪(前摇) → 爪实体贯穿突进(落帧) → 重组回躯体。
+  // 与 Boss 挥砍同构——扑袭不是身体冲撞，是"变成爪扑过去"。化形期间仍可被击（打爪=打恶鬼）──
+  _morphToClaw(e, dir, L) {
+    const A = this._wpnAssets('claw'), s = L.ws;
+    const wy = e.y - e.spr.displayHeight * 0.45;   // 爪浮在躯干高度
+    e._wpnDir = dir;
+    e.spr.setVisible(false);
+    Forge.FX.morph({
+      src: { cloud: this._enemyCloud(e), x: e.x, y: e.y, scale: e.def.scale, flip: dir },
+      dst: { cloud: A.cloud, x: e.x, y: wy + A.H * s / 2, scale: s, flip: dir },
+      dur: L.tele * 0.8, turb: 30, rise: 14, n: 420, mix: Forge.ENEMY_MIX,
+      onDone: () => {
+        if (this.ended || e.dead || e.state !== 'tele') return;   // 已被击杀/打断：粒子散场即可
+        e._wpn = this.add.image(e.x, wy, A.key).setOrigin(0.5, 0.5)
+          .setDepth(Forge.C.DEPTH.FX).setFlipX(dir < 0).setScale(s).setAlpha(0.95);
+        e._wpnInfo = { cloud: A.cloud, W: A.W, H: A.H, s, ox: 0.5, oy: 0.5 };
+      },
+    });
+  },
+
+  // 爪实体突进：位移与伤害都由武器承载（e.x 跟随爪，玩家打爪即打恶鬼），末速 drift 重组
+  _clawDash(e, L) {
+    const wp = e._wpn, dir = e._wpnDir || 1, C = Forge.C;
+    if (!wp) {   // 化形被死亡/时序打断的残局：直接重聚躯体
+      e.state = 'walk'; e.atkCd = L.cd;
+      if (!e.dead && !this.ended) e.spr.setVisible(true);
+      return;
+    }
+    const x1 = Phaser.Math.Clamp(e.x + dir * L.dist, C.X_MIN, C.X_MAX);
+    let struck = false, trailAcc = 0, lastX = wp.x;
+    window.GameAudio && GameAudio.play('release');
+    this.tweens.add({
+      targets: wp, x: x1, duration: L.ms, ease: 'Cubic.easeOut',
+      onUpdate: () => {
+        if (e.dead || this.ended) return;
+        e.x = wp.x;
+        // 突进拖尾按飞行距离发（与玩家矛同款）：高速段更密，密度=速度读数
+        trailAcc += Math.abs(wp.x - lastX); lastX = wp.x;
+        while (trailAcc >= 30) {
+          trailAcc -= 30;
+          Forge.FX.burst({
+            cloud: e._wpnInfo.cloud, x: wp.x, y: wp.y, scale: e._wpnInfo.s,
+            flip: dir, n: 10, dur: 180, dirX: -dir, mix: Forge.ENEMY_MIX,
+          });
+        }
+        if (!struck && Math.abs(this.P.x - wp.x) < 48) {
+          struck = true;
+          this._playerHit(e.def.dmg, wp.x);
+        }
+      },
+      onComplete: () => {
+        if (e.dead || this.ended) return;   // 突进中被击杀：武器已由 _dropWeapon 善后，勿再触碰
+        if (e._wpn === wp) e._wpn = null;
+        const I = e._wpnInfo, ax = wp.x, ay = wp.y + (1 - I.oy) * I.H * I.s;
+        wp.destroy(); e._wpnInfo = null;
+        e.state = 'reform'; e.stateT = 320; e.atkCd = L.cd;
+        Forge.FX.morph({
+          src: { cloud: I.cloud, x: ax, y: ay, scale: I.s, flip: dir },
+          dst: { cloud: this._enemyCloud(e), x: e.x, y: e.y, scale: e.def.scale, flip: dir },
+          dur: 300, turb: 26, rise: 16, n: 420, drift: { x: dir * 220 }, mix: Forge.ENEMY_MIX,
+          onDone: () => { if (!e.dead && !this.ended) e.spr.setVisible(true); },
+        });
+      },
+    });
   },
 
   // ── Boss 化形武器：本体散作粒子化形为武器(预备帧) → 武器挥扫(落帧) → 重组回躯体。
@@ -290,15 +360,23 @@ Object.assign(ArenaScene.prototype, {
     });
   },
 
-  // 化形被锤打断 / Boss 被击杀时的武器善后：已成形的武器温和消散，不奖励性迸发
+  // 化形被锤打断 / 化形单位被击杀时的武器善后：已成形的武器温和消散，不奖励性迸发。
+  // 中心原点的轻量武器（fiend 爪，带 _wpnInfo）与 Boss 轴心武器（_bossWpn）分别取消散锚点。
   _dropWeapon(e) {
     const wp = e._wpn; e._wpn = null;
     if (!wp) return;
-    const A = this._bossWpn(e), d0 = e._wpnDir || 1;
-    Forge.FX.dissolve({
-      cloud: A.cloud, x: wp.x + d0 * (0.5 - A.ox) * A.W * A.s, y: wp.y + (1 - A.oy) * A.H * A.s,
-      scale: A.s, flip: d0, n: 150, dur: 340, mix: Forge.ENEMY_MIX,
-    });
+    const d0 = e._wpnDir || 1;
+    if (e._wpnInfo) {
+      const I = e._wpnInfo;
+      Forge.FX.dissolve({ cloud: I.cloud, x: wp.x, y: wp.y, scale: I.s, flip: d0, n: 120, dur: 320, mix: Forge.ENEMY_MIX });
+      e._wpnInfo = null;
+    } else {
+      const A = this._bossWpn(e);
+      Forge.FX.dissolve({
+        cloud: A.cloud, x: wp.x + d0 * (0.5 - A.ox) * A.W * A.s, y: wp.y + (1 - A.oy) * A.H * A.s,
+        scale: A.s, flip: d0, n: 150, dur: 340, mix: Forge.ENEMY_MIX,
+      });
+    }
     wp.destroy();
   },
 

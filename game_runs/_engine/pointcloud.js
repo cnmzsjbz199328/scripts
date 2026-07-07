@@ -127,6 +127,20 @@ Forge.Cloud = {
       x.closePath(); x.fill();
       x.beginPath();                               // 顶尖
       x.moveTo(116, 28); x.lineTo(127, 2); x.lineTo(138, 28); x.closePath(); x.fill();
+    } else if (kind === 'claw') {
+      // 恶鬼之爪（fiend 扑袭/玩家恶鬼形爪袭）：短拳杆 + 三道平行弯曲爪刃，锋尖朝右
+      cv.width = 220; cv.height = 140;
+      const x = cv.getContext('2d');
+      x.fillStyle = ink;
+      x.fillRect(16, 56, 26, 28);                  // 拳杆
+      for (let i = 0; i < 3; i++) {
+        const y0 = 26 + i * 34, tx = 206 - i * 10, ty = 50 + i * 26;   // 根部高度 / 锋尖略散开
+        x.beginPath();
+        x.moveTo(38, y0);
+        x.quadraticCurveTo(130, y0 - 16, tx, ty);        // 上缘弧至锋尖
+        x.quadraticCurveTo(126, y0 + 14, 38, y0 + 18);   // 下缘弧收回根部
+        x.closePath(); x.fill();
+      }
     } else {
       // 链镰（参考第二行左二）：大钩状新月刃（右侧，尖垂向左下）+ 空心链环（左侧延伸），中距离横扫
       cv.width = 260; cv.height = 130;

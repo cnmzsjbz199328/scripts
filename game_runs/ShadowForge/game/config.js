@@ -47,7 +47,7 @@ Forge.FORM_BY_TYPE = { fiend: Forge.FIEND_FORM, furies: Forge.FURIES_FORM };
 Forge.ENEMY = {
   soul:  { tex: 'soul_walk_0',  anim: 'soul_walk',  hp: 3,  speed: 64,  dmg: 1, scale: 1.0, touchR: 40, glb: true },
   fiend: { tex: 'fiend_idle_0', anim: 'fiend_walk', hp: 4,  speed: 135, dmg: 1, scale: 0.85, touchR: 42, glb: true, absorb: true,
-           lunge: { tele: 450, dist: 190, speed: 620, ms: 260, cd: 1800 } },
+           lunge: { tele: 450, dist: 190, ms: 260, cd: 1800, ws: 0.6 } },   // ws=爪剪影缩放；本体化形为爪突进，见 enemies.js _morphToClaw
   minos: { tex: 'minos_idle_0', anim: 'minos_idle', hp: 26, speed: 44,  dmg: 2, scale: 1.55, touchR: 58, boss: true, glb: true,
            superArmor: true,   // 预备帧只有锤能打断，矛/镰只能干扣血
            swipe: { tele: 650, r: 175, cd: 2800, weapon: 'axe' }, summonMs: 9000, maxAdds: 2,
