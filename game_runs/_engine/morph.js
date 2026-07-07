@@ -2,9 +2,10 @@
  * 起终点云按索引天然配对（同锚点采样），本文件只管"怎么飘"：
  *   wSrc(1→0) + wBlob(中段隆起，带湍流/上浮) + wTgt(0→1)，叠 stagger 参差。
  * 渲染用 Blitter（<1k bob 每特效，并发 3~4 个无压力），每个特效自建自毁。
- * 七个动词：morph 变形 / burst 受击迸溅 / dissolve 死亡消散 / absorb 吸魄归体 /
- *          follow 跟随粒子团（弹丸/拖尾）/ ring 粒子冲击环（预警/命中）/ gather 蓄力聚拢（前摇）。
- * 后三个是通用积木：敌我双方的攻击表现与后续新技能都靠它们组合，不要在游戏侧另写特效。
+ * 八个动词：morph 变形 / burst 受击迸溅 / dissolve 死亡消散 / absorb 吸魄归体 /
+ *          follow 跟随粒子团（弹丸/拖尾）/ ring 粒子冲击环（预警/命中）/ gather 蓄力聚拢（前摇）/
+ *          field 地面粒子场（领域/减速带/寒雾，持续闪烁飘移后整体淡出）。
+ * 后四个是通用积木：敌我双方的攻击表现与后续新技能都靠它们组合，不要在游戏侧另写特效。
  * 依赖调用方注入的 Forge.C.DEPTH / Forge.FXN / Forge.C.INK（见 ShadowForge/game/config.js）。 */
 (function () {
   const sstep = (a, b, x) => {
@@ -291,6 +292,38 @@
             bobs[i].x = o.x + px[i] * (1 - e);
             bobs[i].y = o.y + py[i] * (1 - e);
             bobs[i].alpha = lt <= 0 ? 0 : 0.9 * (0.3 + 0.7 * lt);
+          }
+        },
+        onComplete: () => { b.destroy(); o.onDone && o.onDone(); },
+      });
+    },
+
+    // ── 地面粒子场：铺在地面的扁平椭圆粒子层（领域/减速带/寒雾），面均匀分布、闪烁微腾，dur 内整体淡出 ──
+    // o: { x, y, r, dur, n, sq, tex, mix, depth, onDone }；sq=地面透视压扁比；
+    // depth 可选：地面场常需盖在前景地脊带之上（默认 FX 层会被地脊遮挡），传 DEPTH.FOG 即可
+    field(o) {
+      const n = o.n || 90;
+      const { b, bobs } = this._spawn(o.tex || 'fx_dot', n, o.mix);
+      if (o.depth != null) b.setDepth(o.depth);
+      const sq = o.sq ?? 0.32;
+      const bx = new Float32Array(n), by = new Float32Array(n), ph = new Float32Array(n), amp = new Float32Array(n);
+      for (let i = 0; i < n; i++) {
+        const a = Math.random() * Math.PI * 2, rr = Math.sqrt(Math.random()) * o.r;   // sqrt → 面均匀（非向心聚集）
+        bx[i] = o.x + Math.cos(a) * rr;
+        by[i] = o.y + Math.sin(a) * rr * sq;
+        ph[i] = Math.random() * Math.PI * 2;
+        amp[i] = 3 + Math.random() * 6;
+      }
+      const proxy = { t: 0 };
+      this.scene.tweens.add({
+        targets: proxy, t: 1, duration: o.dur || 3000, ease: 'Linear',
+        onUpdate: () => {
+          const fade = 1 - proxy.t;
+          for (let i = 0; i < n; i++) {
+            const s = proxy.t * 18 + ph[i];   // 随进度推进的闪烁/漂移相位
+            bobs[i].x = bx[i] + Math.sin(s) * amp[i] * 0.5;
+            bobs[i].y = by[i] - Math.abs(Math.sin(s * 0.7)) * 4;   // 微微升腾的寒气
+            bobs[i].alpha = fade * (0.32 + 0.34 * (0.5 + 0.5 * Math.sin(s)));
           }
         },
         onComplete: () => { b.destroy(); o.onDone && o.onDone(); },

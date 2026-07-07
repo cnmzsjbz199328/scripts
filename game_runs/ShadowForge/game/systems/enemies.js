@@ -512,17 +512,14 @@ Object.assign(ArenaScene.prototype, {
     });
   },
 
-  // ── icesoul 死亡地带：持续降速圈，淡出的地面装饰 + 玩家移动速度检测（见 player.js _updatePlayer） ──
+  // ── icesoul 死亡地带：持续降速的寒雾粒子场（消散的粒子一部分沉降在地面），dur 内淡出。
+  // 取代旧的描边椭圆——全粒子化后最后一个几何图形敌意元素；玩家移动速度检测见 player.js _speedFactor ──
   _spawnSlowZone(x, y, r, dur, factor) {
-    const deco = this.add.ellipse(x, Forge.C.FEET_Y - 6, r * 2, r * 0.6, 0x3a6ea8, 0.16)
-      .setStrokeStyle(2, 0x3a6ea8, 0.35).setDepth(Forge.C.DEPTH.FOG);
-    this.slowZones.push({ x, r, factor, deco });
-    this.tweens.add({
-      targets: deco, alpha: 0, duration: dur, ease: 'Sine.easeIn',
-      onComplete: () => {
-        deco.destroy();
-        this.slowZones = this.slowZones.filter((z) => z.deco !== deco);
-      },
+    const zone = { x, r, factor };
+    this.slowZones.push(zone);
+    Forge.FX.field({
+      x, y: Forge.C.FEET_Y - 6, r, dur, sq: 0.32, mix: Forge.ICE_MIX, depth: Forge.C.DEPTH.FOG,
+      onDone: () => { this.slowZones = this.slowZones.filter((z) => z !== zone); },
     });
   },
 

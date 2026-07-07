@@ -73,6 +73,9 @@ Forge.FXN = { morph: 760, burst: 70, kill: 420, absorb: 150, proj: 24, ring: 90,
 // 敌方攻击特效染色：墨色底 + 余烬暗红，与玩家的按关卡渐染区分开（敌我攻击一眼可辨）
 Forge.ENEMY_MIX = { ratio: 0.45, accent: 0x8a2c18 };
 
+// 冰湖寒雾染色：多数粒子冷钢蓝（icesoul 死后的减速粒子场）
+Forge.ICE_MIX = { ratio: 0.7, accent: 0x3a6ea8 };
+
 // 玩家粒子渐染色（按波次）：ratio=混入 accent 色的比例，null=纯墨色
 Forge.C.PALETTE = [
   { ratio: 0,    accent: null      },   // 第一关 · 林波
