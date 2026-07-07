@@ -76,34 +76,74 @@ Forge.Cloud = {
       x.closePath();
       x.fill();
     } else if (kind === 'hammer') {
-      // 战锤：竖柄 + 巨头，头朝上 → 举锤姿态
+      // 战锤（参考 weapon_library_sheet 第二行左一，转为竖持）：竖柄 + 分段圆筒巨头带錾缘，头朝上 → 举锤姿态
       cv.width = 190; cv.height = 200;
       const x = cv.getContext('2d');
       x.fillStyle = ink;
-      x.fillRect(89, 56, 13, 138);                 // 柄
-      const r = 14;                                // 圆角锤头
+      x.fillRect(89, 80, 13, 106);                 // 柄
+      x.fillRect(82, 186, 27, 10);                 // 柄尾帽
+      x.fillRect(46, 18, 98, 56);                  // 锤头主体（圆筒中段）
+      x.fillRect(26, 8, 18, 76); x.fillRect(146, 8, 18, 76);   // 两侧粗錾缘
+      x.fillRect(50, 12, 8, 68); x.fillRect(132, 12, 8, 68);   // 内侧细箍带（上下探出主体）
+    } else if (kind === 'scythe') {
+      // 巨镰（参考第一行左一，satan 终局武器）：横置长柄，左端骨节+垂链，柄上倒钩，右端大新月刃垂落
+      cv.width = 340; cv.height = 170;
+      const x = cv.getContext('2d');
+      x.fillStyle = ink; x.strokeStyle = ink;
+      x.fillRect(38, 51, 232, 9);                  // 长柄
+      x.beginPath(); x.arc(30, 55, 10, 0, Math.PI * 2); x.fill();   // 左端骨球
+      x.beginPath(); x.arc(14, 49, 6, 0, Math.PI * 2); x.fill();    // 骨球外凸
+      x.lineWidth = 4.5;                           // 垂落锁链（空心环）
+      for (let i = 0; i < 3; i++) {
+        x.beginPath(); x.arc(22 - i * 5, 76 + i * 18, 6.5, 0, Math.PI * 2); x.stroke();
+      }
+      x.beginPath();                               // 柄上双倒钩（近刃处）
+      x.moveTo(168, 51); x.lineTo(182, 30); x.lineTo(190, 51); x.closePath(); x.fill();
       x.beginPath();
-      x.moveTo(38 + r, 8); x.lineTo(152 - r, 8); x.quadraticCurveTo(152, 8, 152, 8 + r);
-      x.lineTo(152, 72 - r); x.quadraticCurveTo(152, 72, 152 - r, 72);
-      x.lineTo(38 + r, 72); x.quadraticCurveTo(38, 72, 38, 72 - r);
-      x.lineTo(38, 8 + r); x.quadraticCurveTo(38, 8, 38 + r, 8);
+      x.moveTo(198, 51); x.lineTo(214, 26); x.lineTo(224, 51); x.closePath(); x.fill();
+      x.beginPath();                               // 刃根上挑小尖
+      x.moveTo(252, 48); x.lineTo(274, 16); x.lineTo(280, 50); x.closePath(); x.fill();
+      x.beginPath();                               // 大新月刃：由柄端向下垂扫，尖指左下，中段饱满
+      x.moveTo(262, 32);
+      x.quadraticCurveTo(344, 66, 292, 164);       // 外刃弧至锋尖
+      x.quadraticCurveTo(296, 88, 250, 58);        // 内刃弧收回刃根
       x.closePath(); x.fill();
-      x.fillRect(30, 22, 8, 36); x.fillRect(152, 22, 8, 36);   // 两侧錾缘
-    } else {
-      // 链镰：新月形镰刀头（右侧，尖朝右上）+ 链节（左侧延伸），中距离横扫
-      cv.width = 260; cv.height = 130;
+    } else if (kind === 'axe') {
+      // 审判巨斧（参考第一行左二，minos 武器）：竖柄，右侧不对称大弯刃 + 左侧断折背刺 + 顶尖
+      cv.width = 250; cv.height = 260;
       const x = cv.getContext('2d');
       x.fillStyle = ink;
-      x.beginPath();                               // 新月形刃
-      x.moveTo(150, 70);
-      x.quadraticCurveTo(210, 28, 246, 44);
-      x.quadraticCurveTo(220, 70, 178, 86);
+      x.fillRect(117, 60, 14, 184);                // 柄
+      x.fillRect(111, 242, 26, 12);                // 柄尾帽
+      x.beginPath();                               // 右侧主刃：夸张外弧刃缘，下缘内凹成须(beard)
+      x.moveTo(126, 30);
+      x.quadraticCurveTo(206, 10, 236, 72);        // 外弧至刃缘最右
+      x.quadraticCurveTo(240, 116, 198, 156);      // 刃缘下弧至须尖
+      x.quadraticCurveTo(196, 118, 158, 110);      // 内凹收须
+      x.quadraticCurveTo(136, 104, 126, 96);       // 收回柄身
       x.closePath(); x.fill();
-      for (let i = 0; i < 5; i++) {                 // 链节
-        x.beginPath();
-        x.arc(140 - i * 24, 70 + (i % 2 ? 4 : -4), 9, 0, Math.PI * 2);
-        x.fill();
+      x.beginPath();                               // 左侧断折背刺
+      x.moveTo(124, 46); x.lineTo(66, 30); x.lineTo(58, 40); x.lineTo(104, 70);
+      x.closePath(); x.fill();
+      x.beginPath();                               // 顶尖
+      x.moveTo(116, 28); x.lineTo(127, 2); x.lineTo(138, 28); x.closePath(); x.fill();
+    } else {
+      // 链镰（参考第二行左二）：大钩状新月刃（右侧，尖垂向左下）+ 空心链环（左侧延伸），中距离横扫
+      cv.width = 260; cv.height = 130;
+      const x = cv.getContext('2d');
+      x.fillStyle = ink; x.strokeStyle = ink;
+      x.lineWidth = 5;                             // 链环（空心，比实心圆更像锁链）
+      for (let i = 0; i < 4; i++) {
+        x.beginPath(); x.arc(30 + i * 30, 66 + (i % 2 ? 4 : -4), 10, 0, Math.PI * 2); x.stroke();
       }
+      x.fillRect(128, 58, 20, 14);                 // 链刃连接柄
+      x.beginPath();                               // 大钩新月刃：上弧饱满、锋尖垂向左下
+      x.moveTo(148, 48);
+      x.quadraticCurveTo(228, 6, 248, 68);         // 外弧至最右
+      x.quadraticCurveTo(250, 108, 196, 126);      // 外弧收至下尖
+      x.quadraticCurveTo(224, 92, 214, 66);        // 内弧
+      x.quadraticCurveTo(200, 36, 152, 62);        // 内弧收回连接柄
+      x.closePath(); x.fill();
     }
     scene.textures.addCanvas(key, cv);
     return key;
