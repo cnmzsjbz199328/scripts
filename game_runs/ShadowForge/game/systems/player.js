@@ -212,17 +212,19 @@ Object.assign(ArenaScene.prototype, {
     this.player.setVisible(false);
     window.GameAudio && GameAudio.play('morph');
 
+    const raiseY = C.FEET_Y - 150;   // 举锤过顶：让蓄力弧线看得见，而不是原地哆嗦
     Forge.FX.morph({
       src: { cloud: hCloud, x, y: py, scale: P.scale, flip: dir },
-      dst: { cloud: wCloud, x, y: C.FEET_Y - 26, scale: 1, flip: dir },
+      dst: { cloud: wCloud, x, y: raiseY, scale: 1, flip: dir },
       dur: H.inMs, turb: 24, rise: 34, mix: this._lightMix(),
       onDone: () => {
-        const img = this.add.image(x, C.FEET_Y - 26, wKey)
-          .setOrigin(0.5, 1).setDepth(C.DEPTH.FX).setFlipX(dir < 0);
+        const img = this.add.image(x, raiseY, wKey)
+          .setOrigin(0.5, 1).setDepth(C.DEPTH.FX).setFlipX(dir < 0).setScale(1, 0.94);
         this.tweens.add({
-          targets: img, y: C.FEET_Y + 4, scaleY: 0.86, duration: H.slamMs, ease: 'Cubic.easeIn',
+          targets: img, y: C.FEET_Y + 4, scaleY: 1, duration: H.slamMs, ease: 'Cubic.easeIn',
           onComplete: () => {
-            // 落锤瞬间：冲击环 + AOE 击退 + 顿帧 + 震屏
+            // 落锤瞬间：冲击挤压(宽扁一瞬) + 冲击环 + AOE 击退 + 顿帧 + 震屏
+            this.tweens.add({ targets: img, scaleX: 1.4, scaleY: 0.55, duration: 70, yoyo: true, ease: 'Cubic.easeOut' });
             this._shockRing(x, C.FEET_Y - 8, H.radius, this._lightMix());
             for (const e of this.enemies)
               if (!e.dead && Math.abs(e.x - x) < H.radius)
