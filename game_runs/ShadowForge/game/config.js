@@ -39,7 +39,7 @@ Forge.FIEND_FORM = {
 Forge.FURIES_FORM = {
   tex: 'furies_idle_0', anim: 'furies_walk', scale: 0.85, toast: '化形 · 女妖之躯 — J 掷弹', glb: true,
   ms: 8000, speed: 210, morphMs: 720,
-  throw: { dmg: 2, cd: 900, projSpeed: 560, ms: 700 },
+  throw: { dmg: 2, cd: 900, projSpeed: 560, ms: 700, windup: 160 },   // windup=起手僵直：剥离本体粒子凝弹，期间不能移动（掷弹的变形成本）
 };
 Forge.FORM_BY_TYPE = { fiend: Forge.FIEND_FORM, furies: Forge.FURIES_FORM };
 

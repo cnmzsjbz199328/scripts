@@ -73,6 +73,8 @@ Object.assign(ArenaScene.prototype, {
           e.stateT -= dms;
           if (e.stateT <= 0) {
             e.state = 'walk'; e.atkCd = R.cd;
+            // 剥离本体粒子凝成弹（弹丸源自女妖躯体，非凭空生成）
+            this._peelBurst(this._enemyCloud(e), e.x, e.y - 40, e.def.scale, e.spr.flipX ? -1 : 1, dir, Forge.ENEMY_MIX);
             this._spawnProjectile(e.x, e.y - 40, dir, R.projSpeed, R.dmg);
             window.GameAudio && GameAudio.play('tick');
           }
@@ -435,6 +437,12 @@ Object.assign(ArenaScene.prototype, {
       });
     }
     wp.destroy();
+  },
+
+  // 掷弹起手：从投掷者本体点云剥离一撮粒子，向出手方向迸出——弹丸「是本体的一部分」而非凭空生成。
+  // 敌我共用（furies 敌方 + 玩家女妖形），只差染色 mix。
+  _peelBurst(cloud, x, y, scale, flip, dir, mix) {
+    Forge.FX.burst({ cloud, x, y, scale, flip, n: 40, dur: 320, dirX: dir, mix });
   },
 
   // ── 掷弹通用装配：粒子凝成的小箭矢（实体箭 + follow 粒子尾），敌我共用只差染色 ──

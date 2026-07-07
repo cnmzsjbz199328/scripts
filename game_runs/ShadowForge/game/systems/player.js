@@ -429,28 +429,37 @@ Object.assign(ArenaScene.prototype, {
     });
   },
 
-  // ── 女妖形 J 掷弹：原地扔一枚直线弹丸，不位移（轻量招，不走完整 morph） ──
-  // 弹体与敌方 furies 共用 _makeDart（粒子凝成的箭矢），只是染玩家当前关卡色——"化形夺技"表现一致
+  // ── 女妖形 J 掷弹：起手僵直中剥离本体粒子凝成箭矢再掷出（有变形成本，不是零成本发射）──
+  // 弹体与敌方 furies 共用 _makeDart（粒子凝成的箭矢），只是染玩家当前关卡色——"化形夺技"表现一致。
+  // windup 期间 P.state='throw'：不能移动（成本），但身体仍在＝可被击（与化矛/化雾的无敌区分）
   _furiesThrow() {
     const T = Forge.FURIES_FORM.throw, P = this.P;
     if (P.state !== 'free' || P.cds.throw > 0) return;
-    P.cds.throw = T.cd;
+    P.state = 'throw'; P.cds.throw = T.cd;
     const dir = P.dir, x0 = P.x, y0 = this._pY() - 60;
-    const dart = this._makeDart(x0, y0, dir, this._lightMix());
-    window.GameAudio && GameAudio.play('release');
-    const hit = new Set();
-    const pos = { x: x0 };
-    this.tweens.add({
-      targets: pos, x: x0 + dir * 420, duration: T.ms, ease: 'Linear',
-      onUpdate: () => {
-        dart.setPos(pos.x, y0);
-        for (const e of this.enemies)
-          if (!hit.has(e) && !e.dead && Math.abs(e.x - pos.x) < 40) {
-            hit.add(e);
-            this._hitEnemy(e, T.dmg, dir * 30);
-          }
-      },
-      onComplete: () => dart.die(),
+    window.GameAudio && GameAudio.play('morph');
+    // 起手：从本体点云剥离一撮粒子向出手方向迸出，弹丸源自躯体
+    this._peelBurst(this._playerCloud(), P.x, this._pY(), P.scale, dir, dir, this._lightMix());
+    this.time.delayedCall(T.windup, () => {
+      if (P.state !== 'throw' || this.ended) return;   // 起手被打断（死亡等）则不发弹
+      const dart = this._makeDart(x0, y0, dir, this._lightMix());
+      window.GameAudio && GameAudio.play('release');
+      const hit = new Set();
+      const pos = { x: x0 };
+      this.tweens.add({
+        targets: pos, x: x0 + dir * 420, duration: T.ms, ease: 'Linear',
+        onUpdate: () => {
+          dart.setPos(pos.x, y0);
+          for (const e of this.enemies)
+            if (!hit.has(e) && !e.dead && Math.abs(e.x - pos.x) < 40) {
+              hit.add(e);
+              this._hitEnemy(e, T.dmg, dir * 30);
+            }
+        },
+        onComplete: () => dart.die(),
+      });
+      P.state = 'free';
+      this._flushQueued();
     });
   },
 
@@ -458,7 +467,9 @@ Object.assign(ArenaScene.prototype, {
   _playerHit(dmg, fromX) {
     const P = this.P;
     if (this.ended || P.invuln > 0) return;
-    if (P.state !== 'free' && P.state !== 'hammer') return;   // 化矛/化雾期间没有身体
+    // 有身体的状态才可被击：free / hammer(化锤但人立于地) / throw(掷弹起手僵直，身体仍在)。
+    // 化矛/化雾/化爪/化形过渡期间本体已散作粒子，没有身体 → 免疫（见各招式）
+    if (P.state !== 'free' && P.state !== 'hammer' && P.state !== 'throw') return;
     P.hp = Math.max(0, P.hp - dmg);
     window.GameHUD && GameHUD.setHearts(P.hp, Forge.PLAYER.maxHp);
     P.invuln = Forge.PLAYER.invulnMs;
