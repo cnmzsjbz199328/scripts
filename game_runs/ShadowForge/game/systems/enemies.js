@@ -16,7 +16,7 @@ Object.assign(ArenaScene.prototype, {
     const e = {
       type, def, spr, shadow, x, y,
       hp: def.hp, dead: false,
-      state: 'walk', stateT: 0, atkCd: 800, touchCd: 600, summonT: 0,
+      state: 'walk', stateT: 0, atkCd: 800, summonT: 0,
       skyState: 'idle', skyT: 0, skyStateT: 0,
     };
     // 入场也走粒子凝聚：雾团从上方聚成敌形
@@ -37,12 +37,27 @@ Object.assign(ArenaScene.prototype, {
     for (const e of this.enemies) {
       if (e.dead) continue;
       e.atkCd = Math.max(0, e.atkCd - dms);
-      e.touchCd = Math.max(0, e.touchCd - dms);
       if (e.spr.alpha < 1) continue;               // 凝聚入场中，不行动
       const dx = P.x - e.x, adx = Math.abs(dx), dir = Math.sign(dx) || 1;
 
       if (e.type === 'soul' || e.type === 'icesoul') {
-        e.x += dir * e.def.speed * dt;
+        const ST = e.def.stab;
+        if (e.state === 'walk') {
+          if (ST && adx < ST.reach + 10 && e.atkCd <= 0) {
+            e.state = 'tele'; e.stateT = ST.tele;
+            // 贴身前摇：本体散作粒子化形为短匕（读招信号即变形本身，与 Boss/恶鬼同构）
+            Forge.FX.gather({ x: e.x, y: e.y - e.spr.displayHeight * 0.5, r: 40, dur: ST.tele, n: Forge.FXN.gather, mix: Forge.ENEMY_MIX });
+            this._morphToStab(e, dir, ST);
+          } else {
+            e.x += dir * e.def.speed * dt;
+          }
+        } else if (e.state === 'tele') {
+          e.stateT -= dms;
+          if (e.stateT <= 0) { e.state = 'stab'; e.stateT = ST.ms; this._stabThrust(e, ST); }
+        } else if (e.state === 'stab' || e.state === 'reform') {
+          e.stateT -= dms;
+          if (e.state === 'reform' && e.stateT <= 0) e.state = 'walk';
+        }
 
       } else if (e.type === 'furies') {
         const R = e.def.ranged;
@@ -136,18 +151,8 @@ Object.assign(ArenaScene.prototype, {
       }
 
       e.x = Phaser.Math.Clamp(e.x, C.X_MIN - 10, C.X_MAX + 10);
-      // 接触伤害（纯远程单位 dmg:0 不触发，避免 0 伤害的空反馈；
-      // 只在 walk 态生效——tele/lunge/reform 期间本体已化形为武器，没有"身体"可产生贴身碰撞，
-      // 扑袭伤害由爪实体自己承载，见 _clawDash）
-      if (e.def.dmg > 0 && adx < e.def.touchR && e.touchCd <= 0 && e.state === 'walk') {
-        e.touchCd = 1000;
-        // 攻击方也要有表现：敌人自身点云向玩家方向迸出一小片（否则接触伤害读作"走近自动掉血"）
-        Forge.FX.burst({
-          cloud: this._enemyCloud(e), x: e.x, y: e.y, scale: e.def.scale,
-          flip: e.spr.flipX ? -1 : 1, n: Forge.FXN.touch, dur: 300, dirX: dir, mix: Forge.ENEMY_MIX,
-        });
-        this._playerHit(e.def.dmg, e.x);
-      }
+      // 无被动接触伤害：所有敌方伤害都由化形武器承载（亡魂/冰魂化匕刺、恶鬼化爪扑、
+      // Boss 化斧镰挥砍、女妖掷弹）——"走近自动掉血"违背「变形即招式」，已彻底移除。
       // 动态更新敌人的行走与待机动画
       if (['furies', 'icesoul', 'fiend', 'satan'].includes(e.type)) {
         let activeAnim = `${e.type}_idle`;
@@ -216,6 +221,58 @@ Object.assign(ArenaScene.prototype, {
       this._waCache[kind] = { key, cloud: Forge.Cloud.fromTexture(this, key, 240), W: src.width, H: src.height };
     }
     return this._waCache[kind];
+  },
+
+  // ── 亡魂/冰魂贴身刺击：本体化形为短匕(前摇) → 匕首向玩家侧突刺再抽回(落帧) → 重组回躯体。
+  // 本体不位移（已贴身），只有匕首伸缩；化形期间本体隐藏但可被击（alpha 保持 1）──
+  _morphToStab(e, dir, ST) {
+    const A = this._wpnAssets(ST.weapon), s = ST.ws;
+    const wy = e.y - e.spr.displayHeight * 0.5;   // 匕首持于躯干中段
+    e._wpnDir = dir;
+    e.spr.setVisible(false);
+    Forge.FX.morph({
+      src: { cloud: this._enemyCloud(e), x: e.x, y: e.y, scale: e.def.scale, flip: dir },
+      dst: { cloud: A.cloud, x: e.x, y: wy + A.H * s / 2, scale: s, flip: dir },
+      dur: ST.tele * 0.8, turb: 26, rise: 12, n: 300, mix: Forge.ENEMY_MIX,
+      onDone: () => {
+        if (this.ended || e.dead || e.state !== 'tele') return;
+        e._wpn = this.add.image(e.x, wy, A.key).setOrigin(0.5, 0.5)
+          .setDepth(Forge.C.DEPTH.FX).setFlipX(dir < 0).setScale(s).setAlpha(0.95);
+        e._wpnInfo = { cloud: A.cloud, W: A.W, H: A.H, s, ox: 0.5, oy: 0.5 };
+      },
+    });
+  },
+
+  _stabThrust(e, ST) {
+    const wp = e._wpn, dir = e._wpnDir || 1;
+    if (!wp) {   // 化形被打断/时序错位：直接重聚躯体
+      e.state = 'walk'; e.atkCd = ST.cd;
+      if (!e.dead && !this.ended) e.spr.setVisible(true);
+      return;
+    }
+    const outX = wp.x + dir * ST.reach;
+    let struck = false;
+    window.GameAudio && GameAudio.play('tick');
+    this.tweens.add({
+      targets: wp, x: outX, duration: ST.ms * 0.4, ease: 'Cubic.easeOut', yoyo: true, hold: ST.ms * 0.2,
+      onUpdate: () => {
+        if (e.dead || this.ended) return;
+        if (!struck && Math.abs(this.P.x - wp.x) < 36) { struck = true; this._playerHit(e.def.dmg, wp.x); }
+      },
+      onComplete: () => {
+        if (e.dead || this.ended) return;   // 刺击中被击杀：武器已由 _dropWeapon 善后
+        if (e._wpn === wp) e._wpn = null;
+        const I = e._wpnInfo, ax = wp.x, ay = wp.y + (1 - I.oy) * I.H * I.s;
+        wp.destroy(); e._wpnInfo = null;
+        e.state = 'reform'; e.stateT = 280; e.atkCd = ST.cd;
+        Forge.FX.morph({
+          src: { cloud: I.cloud, x: ax, y: ay, scale: I.s, flip: dir },
+          dst: { cloud: this._enemyCloud(e), x: e.x, y: e.y, scale: e.def.scale, flip: dir },
+          dur: 260, turb: 24, rise: 14, n: 300, mix: Forge.ENEMY_MIX,
+          onDone: () => { if (!e.dead && !this.ended) e.spr.setVisible(true); },
+        });
+      },
+    });
   },
 
   // ── fiend 扑袭化形：本体散作粒子凝成恶鬼之爪(前摇) → 爪实体贯穿突进(落帧) → 重组回躯体。

@@ -127,6 +127,18 @@ Forge.Cloud = {
       x.closePath(); x.fill();
       x.beginPath();                               // 顶尖
       x.moveTo(116, 28); x.lineTo(127, 2); x.lineTo(138, 28); x.closePath(); x.fill();
+    } else if (kind === 'dagger') {
+      // 短匕/尖刺（soul/icesoul 贴身刺击）：横置，细长三角刃尖朝右，短柄带护手
+      cv.width = 160; cv.height = 90;
+      const x = cv.getContext('2d');
+      x.fillStyle = ink;
+      x.fillRect(16, 40, 32, 10);                  // 柄
+      x.fillRect(46, 30, 7, 30);                   // 护手
+      x.beginPath();                               // 刃：细长三角，尖朝右
+      x.moveTo(53, 34);
+      x.quadraticCurveTo(120, 40, 150, 45);        // 上刃至锋尖
+      x.quadraticCurveTo(120, 50, 53, 56);         // 下刃收回护手
+      x.closePath(); x.fill();
     } else if (kind === 'claw') {
       // 恶鬼之爪（fiend 扑袭/玩家恶鬼形爪袭）：短拳杆 + 三道平行弯曲爪刃，锋尖朝右
       cv.width = 220; cv.height = 140;

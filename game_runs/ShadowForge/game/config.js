@@ -45,27 +45,30 @@ Forge.FORM_BY_TYPE = { fiend: Forge.FIEND_FORM, furies: Forge.FURIES_FORM };
 
 // ── 敌人图鉴 ──
 Forge.ENEMY = {
-  soul:  { tex: 'soul_walk_0',  anim: 'soul_walk',  hp: 3,  speed: 64,  dmg: 1, scale: 1.0, touchR: 40, glb: true },
-  fiend: { tex: 'fiend_idle_0', anim: 'fiend_walk', hp: 4,  speed: 135, dmg: 1, scale: 0.85, touchR: 42, glb: true, absorb: true,
+  // 亡魂：贴身即化短匕刺击（reach=进入此距离才化形出手，取代旧的接触伤害半径）
+  soul:  { tex: 'soul_walk_0',  anim: 'soul_walk',  hp: 3,  speed: 64,  dmg: 1, scale: 1.0, glb: true,
+           stab: { reach: 46, tele: 340, ms: 220, cd: 1400, ws: 0.5, weapon: 'dagger' } },   // 贴身化匕刺击，见 enemies.js _morphToStab
+  fiend: { tex: 'fiend_idle_0', anim: 'fiend_walk', hp: 4,  speed: 135, dmg: 1, scale: 0.85, glb: true, absorb: true,
            lunge: { tele: 450, dist: 190, ms: 260, cd: 1800, ws: 0.6 } },   // ws=爪剪影缩放；本体化形为爪突进，见 enemies.js _morphToClaw
-  minos: { tex: 'minos_idle_0', anim: 'minos_idle', hp: 26, speed: 44,  dmg: 2, scale: 1.55, touchR: 58, boss: true, glb: true,
+  minos: { tex: 'minos_idle_0', anim: 'minos_idle', hp: 26, speed: 44,  dmg: 2, scale: 1.55, boss: true, glb: true,
            superArmor: true,   // 预备帧只有锤能打断，矛/镰只能干扣血
            swipe: { tele: 650, r: 175, cd: 2800, weapon: 'axe' }, summonMs: 9000, maxAdds: 2,
            sky: { cd: 5200, tele: 900, r: 95, dmg: 3 } },   // 死亡镰刀天降：锁定读招列，逼玩家横移/雾化躲开而非站桩
   // 复仇女神：保持距离放投掷弹，不近身接触；吸收后 E 化身为它，J 变原地扔弹
-  furies: { tex: 'furies_idle_0', anim: 'furies_walk', hp: 5, speed: 74, dmg: 0, scale: 0.9, touchR: 36, glb: true, absorb: true,
+  furies: { tex: 'furies_idle_0', anim: 'furies_walk', hp: 5, speed: 74, dmg: 0, scale: 0.9, glb: true, absorb: true,
             ranged: { keep: 230, tele: 420, cd: 2000, projSpeed: 360, dmg: 2 } },
-  // 冰湖亡魂：死亡时留一片减速地带（环境后果，不进吸收/化形系统）
-  icesoul: { tex: 'icesoul_idle_0', anim: 'icesoul_walk', hp: 6, speed: 50, dmg: 1, scale: 1.0, touchR: 40, glb: true,
+  // 冰湖亡魂：贴身化匕刺击，死亡时留一片减速地带（环境后果，不进吸收/化形系统）
+  icesoul: { tex: 'icesoul_idle_0', anim: 'icesoul_walk', hp: 6, speed: 50, dmg: 1, scale: 1.0, glb: true,
+             stab: { reach: 46, tele: 360, ms: 230, cd: 1500, ws: 0.5, weapon: 'dagger' },
              leavesSlowZone: { r: 92, dur: 3400, factor: 0.55 } },
   // 终局 Boss：背叛之主，纯 1v1（无召唤），复用 minos 同款"预备帧挥臂"分支（def.swipe）
-  satan: { tex: 'satan_idle_0', anim: 'satan_walk', hp: 34, speed: 48, dmg: 3, scale: 1.35, touchR: 62, boss: true, glb: true, superArmor: true,
+  satan: { tex: 'satan_idle_0', anim: 'satan_walk', hp: 34, speed: 48, dmg: 3, scale: 1.35, boss: true, glb: true, superArmor: true,
            swipe: { tele: 700, r: 190, cd: 2600, weapon: 'scythe' },
            sky: { cd: 4400, tele: 850, r: 100, dmg: 4 } },
 };
 
-// 受击/击杀/攻击类粒子预算（proj=弹丸跟随团 ring=冲击/预警环 gather=前摇聚拢 touch=接触攻击迸溅）
-Forge.FXN = { morph: 760, burst: 70, kill: 420, absorb: 150, proj: 24, ring: 90, gather: 56, touch: 26 };
+// 受击/击杀/攻击类粒子预算（proj=弹丸跟随团 ring=冲击/预警环 gather=前摇聚拢）
+Forge.FXN = { morph: 760, burst: 70, kill: 420, absorb: 150, proj: 24, ring: 90, gather: 56 };
 
 // 敌方攻击特效染色：墨色底 + 余烬暗红，与玩家的按关卡渐染区分开（敌我攻击一眼可辨）
 Forge.ENEMY_MIX = { ratio: 0.45, accent: 0x8a2c18 };
