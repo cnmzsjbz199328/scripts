@@ -393,27 +393,27 @@ Object.assign(ArenaScene.prototype, {
   },
 
   // ── 女妖形 J 掷弹：原地扔一枚直线弹丸，不位移（轻量招，不走完整 morph） ──
-  // 弹体与敌方 furies 同款 FX.follow 粒子团，只是染玩家当前关卡色——"化形成它"表现一致
+  // 弹体与敌方 furies 共用 _makeDart（粒子凝成的箭矢），只是染玩家当前关卡色——"化形夺技"表现一致
   _furiesThrow() {
-    const T = Forge.FURIES_FORM.throw, P = this.P, C = Forge.C;
+    const T = Forge.FURIES_FORM.throw, P = this.P;
     if (P.state !== 'free' || P.cds.throw > 0) return;
     P.cds.throw = T.cd;
     const dir = P.dir, x0 = P.x, y0 = this._pY() - 60;
-    const fx = Forge.FX.follow({ x: x0, y: y0, n: Forge.FXN.proj, rad: 9, life: 260, mix: this._lightMix() });
+    const dart = this._makeDart(x0, y0, dir, this._lightMix());
     window.GameAudio && GameAudio.play('release');
     const hit = new Set();
     const pos = { x: x0 };
     this.tweens.add({
       targets: pos, x: x0 + dir * 420, duration: T.ms, ease: 'Linear',
       onUpdate: () => {
-        fx.setPos(pos.x, y0);
+        dart.setPos(pos.x, y0);
         for (const e of this.enemies)
           if (!hit.has(e) && !e.dead && Math.abs(e.x - pos.x) < 40) {
             hit.add(e);
             this._hitEnemy(e, T.dmg, dir * 30);
           }
       },
-      onComplete: () => fx.die(),
+      onComplete: () => dart.die(),
     });
   },
 

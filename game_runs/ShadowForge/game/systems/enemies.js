@@ -98,18 +98,15 @@ Object.assign(ArenaScene.prototype, {
             e.state = 'tele'; e.stateT = S.tele;
             this.tweens.add({ targets: e.spr, scaleY: e.def.scale * 1.07, duration: S.tele / 2, yoyo: true });
             this._warnRing(e.x, C.FEET_Y - 8, S.r, S.tele);   // 粒子预警圈：标出挥臂半径，给闪避窗口
+            this._condenseSickle(e, dir, S);   // 影粒子在手侧凝成巨镰：与玩家"粒子↔武器"同一套语言
           }
         } else if (e.state === 'tele') {
           e.stateT -= dms;
           if (e.stateT <= 0) {
             e.state = 'walk'; e.atkCd = S.cd;
             this.cameras.main.shake(110, 0.007);
+            this._swingSickle(e);   // 实体巨镰下扫 → 碎裂回粒子
             this._shockRing(e.x, C.FEET_Y - 8, S.r, Forge.ENEMY_MIX);
-            // 挥臂本体：Boss 自身点云向落点方向迸出一大片，攻击"有形"而非只有震屏
-            Forge.FX.burst({
-              cloud: this._enemyCloud(e), x: e.x, y: e.y, scale: e.def.scale,
-              flip: e.spr.flipX ? -1 : 1, n: 90, dur: 380, dirX: dir, mix: Forge.ENEMY_MIX,
-            });
             if (Math.abs(P.x - e.x) < S.r) this._playerHit(e.def.dmg, e.x);
           }
         }
@@ -166,18 +163,98 @@ Object.assign(ArenaScene.prototype, {
     return e._cloud || (e._cloud = Forge.Cloud.fromTexture(this, e.def.tex, Forge.FXN.kill));
   },
 
-  // ── furies 远程弹丸：飞向玩家所在方向的直线弹，命中/出界即消散 ──
-  // 弹体是 FX.follow 跟随粒子团（曾是描边椭圆），die() 后余粒自然衰减 = 消散动画
+  // ── Boss 巨镰：凝形(预备帧) → 下扫(落帧) → 碎裂回粒子。全程纯视觉，
+  // 判定仍是 tele 计时+半径检查，凝形/挥砍不改变任何时长与范围 → 可玩性(闪避窗口)零变化 ──
+  _sickleAssets() {
+    if (!this._sickleA) {
+      const key = Forge.Cloud.weapon(this, 'sickle');
+      this._sickleA = { key, cloud: Forge.Cloud.fromTexture(this, key, 240), W: 260, H: 130 };
+    }
+    return this._sickleA;
+  },
+
+  _condenseSickle(e, dir, S) {
+    const A = this._sickleAssets(), s = 0.8;
+    // 镰刀实体 origin 取链端(0.15,0.5)方便旋扫；点云锚点是底中(0.5,1)，两者换算见 dx/dy
+    const ix = e.x + dir * 10, iy = e.y - e.spr.displayHeight * 0.5;
+    const dx = dir * (0.5 - 0.15) * A.W * s, dy = 0.5 * A.H * s;
+    e._sickleDir = dir;
+    Forge.FX.morph({
+      src: { cloud: this._enemyCloud(e), x: e.x, y: e.y, scale: e.def.scale * 0.6, flip: dir },
+      dst: { cloud: A.cloud, x: ix + dx, y: iy + dy, scale: s, flip: dir },
+      dur: S.tele * 0.72, turb: 26, rise: 10, n: 240, mix: Forge.ENEMY_MIX,
+      onDone: () => {
+        if (this.ended || e.dead || e.state !== 'tele') return;   // 已被打断/击杀：粒子散场即可
+        e._sickle = this.add.image(ix, iy, A.key).setOrigin(0.15, 0.5)
+          .setDepth(Forge.C.DEPTH.FX).setFlipX(dir < 0).setScale(s).setAlpha(0.95);
+      },
+    });
+  },
+
+  _swingSickle(e) {
+    const sk = e._sickle; e._sickle = null;
+    if (!sk) return;   // 凝形被打断过，落帧无镰可挥（仍有冲击环兜底）
+    const d0 = e._sickleDir || 1;
+    this.tweens.add({
+      targets: sk, angle: d0 * 95, duration: 130, ease: 'Cubic.easeIn',
+      onComplete: () => this._shatterSickle(sk, d0, false),
+    });
+  },
+
+  _shatterSickle(sk, d0, gentle) {
+    const A = this._sickleAssets(), s = sk.scaleX;
+    const x = sk.x + d0 * (0.5 - 0.15) * A.W * s, y = sk.y + 0.5 * A.H * s;
+    if (gentle) Forge.FX.dissolve({ cloud: A.cloud, x, y, scale: s, flip: d0, n: 150, dur: 340, mix: Forge.ENEMY_MIX });
+    else Forge.FX.burst({ cloud: A.cloud, x, y, scale: s, flip: d0, n: 150, dur: 420, dirX: d0, mix: Forge.ENEMY_MIX });
+    sk.destroy();
+  },
+
+  // 预备帧被锤打断 / Boss 被击杀时的巨镰善后：温和消散，不奖励性迸发
+  _dropSickle(e) {
+    const sk = e._sickle; e._sickle = null;
+    if (sk) this._shatterSickle(sk, e._sickleDir || 1, true);
+  },
+
+  // ── 掷弹通用装配：粒子凝成的小箭矢（实体箭 + follow 粒子尾），敌我共用只差染色 ──
+  // 敌方 furies 与玩家女妖形都走这里，"化形夺技后招式长一样"靠同一份实现保证
+  _dartAssets() {
+    if (!this._dartA) {
+      const key = Forge.Cloud.weapon(this, 'spear');
+      this._dartA = { key, cloud: Forge.Cloud.fromTexture(this, key, 140), W: 272, H: 150, ORY: 0.47 };
+    }
+    return this._dartA;
+  },
+
+  _makeDart(x, y, dir, mix) {
+    const A = this._dartAssets(), s = 0.28;
+    const img = this.add.image(x, y, A.key).setOrigin(0.5, A.ORY)
+      .setDepth(Forge.C.DEPTH.FX).setScale(s).setFlipX(dir < 0).setAlpha(0.95);
+    const fx = Forge.FX.follow({ x, y, n: Forge.FXN.proj, rad: 9, life: 260, mix });
+    return {
+      setPos(px, py) { img.setPosition(px, py); fx.setPos(px, py); },
+      // 命中/出界：箭矢当场碎裂回粒子（武器由粒子凝成，也散回粒子）
+      die: () => {
+        fx.die();
+        Forge.FX.burst({
+          cloud: A.cloud, x: img.x, y: img.y + (1 - A.ORY) * A.H * s, scale: s, flip: dir,
+          n: 16, dur: 320, dirX: dir, mix,
+        });
+        img.destroy();
+      },
+    };
+  },
+
+  // ── furies 远程弹丸：飞向玩家所在方向的直线弹，命中/出界即碎裂消散 ──
   _spawnProjectile(x, y, dir, speed, dmg) {
-    const fx = Forge.FX.follow({ x, y, n: Forge.FXN.proj, rad: 9, life: 260, mix: Forge.ENEMY_MIX });
-    this.projectiles.push({ x, y, dir, speed, dmg, fx });
+    const dart = this._makeDart(x, y, dir, Forge.ENEMY_MIX);
+    this.projectiles.push({ x, y, dir, speed, dmg, dart });
   },
 
   _updateProjectiles(dms) {
     const dt = dms / 1000, C = Forge.C, P = this.P;
     for (const pr of this.projectiles) {
       pr.x += pr.dir * pr.speed * dt;
-      pr.fx.setPos(pr.x, pr.y);
+      pr.dart.setPos(pr.x, pr.y);
       if (!this.ended && P.invuln <= 0 && (P.state === 'free' || P.state === 'hammer') &&
           Math.abs(pr.x - P.x) < 30 && Math.abs(pr.y - this._pY()) < 60) {
         this._playerHit(pr.dmg, pr.x);
@@ -185,7 +262,7 @@ Object.assign(ArenaScene.prototype, {
       } else if (pr.x < C.X_MIN - 30 || pr.x > C.X_MAX + 30) pr.dead = true;
     }
     this.projectiles = this.projectiles.filter((pr) => {
-      if (pr.dead) pr.fx.die();
+      if (pr.dead) pr.dart.die();
       return !pr.dead;
     });
   },
@@ -211,6 +288,7 @@ Object.assign(ArenaScene.prototype, {
     // 超甲：预备帧中只有锤能打断，其余武器只扣血不打断
     if (e.def.superArmor && e.state === 'tele' && weapon === 'hammer') {
       e.state = 'walk'; e.atkCd = (e.def.swipe && e.def.swipe.cd) || 1500;
+      this._dropSickle(e);   // 凝到一半的巨镰散掉：打断有可见回报
     }
     e.hp -= dmg;
     const flip = e.spr.flipX ? -1 : 1;
@@ -240,6 +318,7 @@ Object.assign(ArenaScene.prototype, {
   _killEnemy(e) {
     e.dead = true;
     this.kills++;
+    this._dropSickle(e);
     this._killSlowmo();
     const flip = e.spr.flipX ? -1 : 1;
     e.spr.setVisible(false); e.shadow.setVisible(false);
