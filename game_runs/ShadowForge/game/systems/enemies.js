@@ -90,25 +90,28 @@ Object.assign(ArenaScene.prototype, {
           if (e.stateT <= 0) { e.state = 'walk'; e.atkCd = L.cd; }
         }
 
-      } else if (e.def.swipe) {   // 宽幅挥臂 Boss 通用分支（minos/satan 共用，靠 def.swipe 判定而非写死 type）
+      } else if (e.def.swipe) {   // 宽幅挥砍 Boss 通用分支（minos/satan 共用，靠 def.swipe 判定而非写死 type）
         const S = e.def.swipe;
         if (e.state === 'walk') {
           e.x += dir * e.def.speed * dt;
           if (adx < S.r - 20 && e.atkCd <= 0) {
             e.state = 'tele'; e.stateT = S.tele;
-            this.tweens.add({ targets: e.spr, scaleY: e.def.scale * 1.07, duration: S.tele / 2, yoyo: true });
-            this._warnRing(e.x, C.FEET_Y - 8, S.r, S.tele);   // 粒子预警圈：标出挥臂半径，给闪避窗口
-            this._condenseWeapon(e, dir, S);   // 影粒子在手侧凝成 Boss 专属武器(斧/镰)：与玩家"粒子↔武器"同一套语言
+            this._warnRing(e.x, C.FEET_Y - 8, S.r, S.tele);   // 粒子预警圈：标出挥砍半径，给闪避窗口
+            this._morphToWeapon(e, dir, S);   // Boss 本体化形为武器——不是持械，是"变成"（与玩家变形即招式同构）
           }
         } else if (e.state === 'tele') {
           e.stateT -= dms;
           if (e.stateT <= 0) {
-            e.state = 'walk'; e.atkCd = S.cd;
+            e.state = 'reform'; e.stateT = 460;   // 挥砍(130ms)+重组(300ms)期间不移动不再攻击
+            e.atkCd = S.cd;
             this.cameras.main.shake(110, 0.007);
-            this._swingWeapon(e);   // 实体武器下扫 → 碎裂回粒子
+            this._swingWeapon(e);   // 武器实体下扫 → 迸溅 → 整体重组回 Boss 躯体
             this._shockRing(e.x, C.FEET_Y - 8, S.r, Forge.ENEMY_MIX);
             if (Math.abs(P.x - e.x) < S.r) this._playerHit(e.def.dmg, e.x);
           }
+        } else if (e.state === 'reform') {
+          e.stateT -= dms;
+          if (e.stateT <= 0) e.state = 'walk';
         }
         // 周期召唤亡魂（限量，避免车轮战失控；summonMs 缺省则跳过——satan 终局不召唤，纯 1v1）
         if (e.def.summonMs) {
@@ -126,8 +129,9 @@ Object.assign(ArenaScene.prototype, {
       }
 
       e.x = Phaser.Math.Clamp(e.x, C.X_MIN - 10, C.X_MAX + 10);
-      // 接触伤害（扑袭中的恶鬼也算；纯远程单位 dmg:0 不触发，避免 0 伤害的空反馈）
-      if (e.def.dmg > 0 && adx < e.def.touchR && e.touchCd <= 0 && e.state !== 'tele') {
+      // 接触伤害（扑袭中的恶鬼也算；纯远程单位 dmg:0 不触发，避免 0 伤害的空反馈；
+      // tele/reform 期间 Boss 没有"身体"——化形为武器时不产生贴身碰撞）
+      if (e.def.dmg > 0 && adx < e.def.touchR && e.touchCd <= 0 && e.state !== 'tele' && e.state !== 'reform') {
         e.touchCd = 1000;
         // 攻击方也要有表现：敌人自身点云向玩家方向迸出一小片（否则接触伤害读作"走近自动掉血"）
         Forge.FX.burst({
@@ -163,10 +167,12 @@ Object.assign(ArenaScene.prototype, {
     return e._cloud || (e._cloud = Forge.Cloud.fromTexture(this, e.def.tex, Forge.FXN.kill));
   },
 
-  // ── Boss 武器：凝形(预备帧) → 挥扫(落帧) → 碎裂回粒子。全程纯视觉，
-  // 判定仍是 tele 计时+半径检查，凝形/挥砍不改变任何时长与范围 → 可玩性(闪避窗口)零变化。
-  // 每种武器的持握/旋扫元数据：s=缩放 ox,oy=实体图原点(旋扫轴心，镰=骨端/斧=柄底)
-  // holdDx,holdHy=持握点相对 Boss 的偏移 a0,a1=起/终摆角(乘 dir)。造型见 weapon_library_sheet 参考图 ──
+  // ── Boss 化形武器：本体散作粒子化形为武器(预备帧) → 武器挥扫(落帧) → 重组回躯体。
+  // 与玩家"变形即招式"完全同构——Boss 不是持械，是变成武器。全程纯视觉：
+  // 判定仍是 tele 计时+半径检查，化形/挥砍不改变时长与范围；化形期间本体隐藏但 alpha=1，
+  // 依然可被攻击(打武器=打 Boss)，超甲规则不变 → 可玩性(闪避窗口/打断窗口)零变化。
+  // 每种武器的化形/旋扫元数据：s=缩放 ox,oy=实体图原点(旋扫轴心，镰=骨端/斧=柄底)
+  // holdDx,holdHy=化形落点相对 Boss 的偏移 a0,a1=起/终摆角(乘 dir)。造型见 weapon_library_sheet 参考图 ──
   _bossWpn(e) {
     const META = {
       scythe: { s: 0.62, ox: 0.09, oy: 0.32, holdDx: 4,  holdHy: 0.62, a0: 0,   a1: 95 },
@@ -185,16 +191,17 @@ Object.assign(ArenaScene.prototype, {
     return this._bwCache[kind];
   },
 
-  _condenseWeapon(e, dir, S) {
+  _morphToWeapon(e, dir, S) {
     const A = this._bossWpn(e);
     const ix = e.x + dir * A.holdDx, iy = e.y - e.spr.displayHeight * A.holdHy;
     // 点云锚点固定为底中(0.5,1)，实体图原点在轴心(ox,oy)，dx/dy 是两者换算
     const dx = dir * (0.5 - A.ox) * A.W * A.s, dy = (1 - A.oy) * A.H * A.s;
     e._wpnDir = dir;
+    e.spr.setVisible(false);   // 影躯散作粒子——化形期间没有"身体"，但仍可被击(alpha 保持 1)
     Forge.FX.morph({
-      src: { cloud: this._enemyCloud(e), x: e.x, y: e.y, scale: e.def.scale * 0.6, flip: dir },
+      src: { cloud: this._enemyCloud(e), x: e.x, y: e.y, scale: e.def.scale, flip: dir },
       dst: { cloud: A.cloud, x: ix + dx, y: iy + dy, scale: A.s, flip: dir },
-      dur: S.tele * 0.72, turb: 26, rise: 10, n: 240, mix: Forge.ENEMY_MIX,
+      dur: S.tele * 0.8, turb: 30, rise: 14, n: 420, mix: Forge.ENEMY_MIX,
       onDone: () => {
         if (this.ended || e.dead || e.state !== 'tele') return;   // 已被打断/击杀：粒子散场即可
         e._wpn = this.add.image(ix, iy, A.key)
@@ -207,25 +214,45 @@ Object.assign(ArenaScene.prototype, {
 
   _swingWeapon(e) {
     const wp = e._wpn; e._wpn = null;
-    if (!wp) return;   // 凝形被打断过，落帧无武器可挥（仍有冲击环兜底）
     const A = this._bossWpn(e), d0 = e._wpnDir || 1;
+    if (!wp) return this._reformBoss(e, A, d0, null);   // 化形被打断的边缘残留：直接重聚躯体
     this.tweens.add({
       targets: wp, angle: d0 * A.a1, duration: 130, ease: 'Cubic.easeIn',
-      onComplete: () => this._shatterWeapon(wp, A, d0, false),
+      onComplete: () => {
+        // 刃口动能残留迸溅，随后武器整体重组回 Boss 躯体（与玩家锤/矛的收尾同构）
+        Forge.FX.burst({
+          cloud: A.cloud, x: wp.x + d0 * (0.5 - A.ox) * A.W * A.s, y: wp.y + (1 - A.oy) * A.H * A.s,
+          scale: A.s, flip: d0, n: 90, dur: 380, dirX: d0, mix: Forge.ENEMY_MIX,
+        });
+        this._reformBoss(e, A, d0, wp);
+      },
     });
   },
 
-  _shatterWeapon(wp, A, d0, gentle) {
-    const x = wp.x + d0 * (0.5 - A.ox) * A.W * A.s, y = wp.y + (1 - A.oy) * A.H * A.s;
-    if (gentle) Forge.FX.dissolve({ cloud: A.cloud, x, y, scale: A.s, flip: d0, n: 150, dur: 340, mix: Forge.ENEMY_MIX });
-    else Forge.FX.burst({ cloud: A.cloud, x, y, scale: A.s, flip: d0, n: 150, dur: 420, dirX: d0, mix: Forge.ENEMY_MIX });
+  // 武器 → 躯体重组：挥砍末速做 drift 惯性（follow-through），落点即 Boss 当前位置
+  _reformBoss(e, A, d0, wp) {
+    const show = () => { if (!e.dead && !this.ended) e.spr.setVisible(true); };
+    if (!wp) return show();
+    const sx = wp.x + d0 * (0.5 - A.ox) * A.W * A.s, sy = wp.y + (1 - A.oy) * A.H * A.s;
     wp.destroy();
+    Forge.FX.morph({
+      src: { cloud: A.cloud, x: sx, y: sy, scale: A.s, flip: d0 },
+      dst: { cloud: this._enemyCloud(e), x: e.x, y: e.y, scale: e.def.scale, flip: d0 },
+      dur: 300, turb: 26, rise: 16, n: 420, drift: { x: d0 * 160 }, mix: Forge.ENEMY_MIX,
+      onDone: show,
+    });
   },
 
-  // 预备帧被锤打断 / Boss 被击杀时的武器善后：温和消散，不奖励性迸发
+  // 化形被锤打断 / Boss 被击杀时的武器善后：已成形的武器温和消散，不奖励性迸发
   _dropWeapon(e) {
     const wp = e._wpn; e._wpn = null;
-    if (wp) this._shatterWeapon(wp, this._bossWpn(e), e._wpnDir || 1, true);
+    if (!wp) return;
+    const A = this._bossWpn(e), d0 = e._wpnDir || 1;
+    Forge.FX.dissolve({
+      cloud: A.cloud, x: wp.x + d0 * (0.5 - A.ox) * A.W * A.s, y: wp.y + (1 - A.oy) * A.H * A.s,
+      scale: A.s, flip: d0, n: 150, dur: 340, mix: Forge.ENEMY_MIX,
+    });
+    wp.destroy();
   },
 
   // ── 掷弹通用装配：粒子凝成的小箭矢（实体箭 + follow 粒子尾），敌我共用只差染色 ──
@@ -301,7 +328,8 @@ Object.assign(ArenaScene.prototype, {
     // 超甲：预备帧中只有锤能打断，其余武器只扣血不打断
     if (e.def.superArmor && e.state === 'tele' && weapon === 'hammer') {
       e.state = 'walk'; e.atkCd = (e.def.swipe && e.def.swipe.cd) || 1500;
-      this._dropWeapon(e);   // 凝到一半的武器散掉：打断有可见回报
+      this._dropWeapon(e);        // 化到一半的武器散掉：打断有可见回报
+      e.spr.setVisible(true);     // 化形被打断：影躯当场重聚
     }
     e.hp -= dmg;
     const flip = e.spr.flipX ? -1 : 1;
