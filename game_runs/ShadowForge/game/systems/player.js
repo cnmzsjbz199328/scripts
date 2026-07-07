@@ -371,26 +371,61 @@ Object.assign(ArenaScene.prototype, {
     });
   },
 
-  // ── 恶鬼形 J 爪袭：短促位移 + 穿击（轻量招，不走完整 morph） ──
+  // ── 恶鬼形 J 爪袭：人躯化爪突进 → 爪穿击 → 爪重组回人躯（与敌恶鬼扑袭完全同构，只染玩家色）──
+  // 化爪期间本体隐藏＝没有身体，突进无敌帧因此自洽（受击豁免的解释与化矛/化雾一致，见 _playerHit）
   _fiendLunge() {
     const L = Forge.FIEND_FORM.lunge, P = this.P, C = Forge.C;
     if (P.state !== 'free' || P.cds.lunge > 0) return;
     P.state = 'lunge'; P.cds.lunge = L.cd;
-    const dir = P.dir;
-    const x1 = Phaser.Math.Clamp(P.x + dir * L.dist, C.X_MIN, C.X_MAX);
-    Forge.FX.burst({ cloud: this._playerCloud(), x: P.x, y: this._pY(), scale: P.scale, flip: dir, n: 36, dirX: -dir, mix: this._lightMix() });
-    window.GameAudio && GameAudio.play('release');
-    const hit = new Set();
-    this.tweens.add({
-      targets: this.player, x: x1, duration: L.ms, ease: 'Cubic.easeOut',
-      onUpdate: () => {
-        for (const e of this.enemies)
-          if (!hit.has(e) && !e.dead && Math.abs(e.x - this.player.x) < 52) {
-            hit.add(e);
-            this._hitEnemy(e, L.dmg, dir * 60);
-          }
+    const dir = P.dir, x0 = P.x, py = this._pY(), s = L.ws;
+    const A = this._wpnAssets('claw');
+    const wCloud = Forge.Cloud.fromTexture(this, A.key, Forge.FXN.morph);
+    const hCloud = this._playerCloud();
+    const wy = py - this.player.displayHeight * 0.45;   // 爪浮在躯干高度
+    this.player.setVisible(false);
+    window.GameAudio && GameAudio.play('morph');
+    Forge.FX.morph({
+      src: { cloud: hCloud, x: x0, y: py, scale: P.scale, flip: dir },
+      dst: { cloud: wCloud, x: x0, y: wy + A.H * s / 2, scale: s, flip: dir },
+      dur: L.inMs, turb: 26, rise: 14, mix: this._lightMix(),
+      onDone: () => {
+        const img = this.add.image(x0, wy, A.key).setOrigin(0.5, 0.5)
+          .setDepth(C.DEPTH.FX).setFlipX(dir < 0).setScale(s).setAlpha(0.95);
+        const x1 = Phaser.Math.Clamp(x0 + dir * L.dist, C.X_MIN, C.X_MAX);
+        const hit = new Set();
+        let trailAcc = 0, lastX = img.x;
+        window.GameAudio && GameAudio.play('release');
+        this.tweens.add({
+          targets: img, x: x1, duration: L.ms, ease: 'Cubic.easeOut',
+          onUpdate: () => {
+            trailAcc += Math.abs(img.x - lastX); lastX = img.x;
+            while (trailAcc >= 28) {
+              trailAcc -= 28;
+              Forge.FX.burst({ cloud: wCloud, x: img.x, y: img.y, scale: s, flip: dir, n: 8, dur: 180, dirX: -dir, mix: this._lightMix() });
+            }
+            for (const e of this.enemies)
+              if (!hit.has(e) && !e.dead && Math.abs(e.x - img.x) < 52) {
+                hit.add(e);
+                Forge.FX.burst({ cloud: wCloud, x: img.x, y: img.y, scale: s, flip: dir, n: 12, dur: 200, dirX: dir, mix: this._lightMix() });
+                this._hitEnemy(e, L.dmg, dir * 60, 'claw');
+              }
+          },
+          onComplete: () => {
+            img.destroy();
+            Forge.FX.morph({
+              src: { cloud: wCloud, x: x1, y: wy + A.H * s / 2, scale: s, flip: dir },
+              dst: { cloud: hCloud, x: x1, y: py, scale: P.scale, flip: dir },
+              dur: L.outMs, turb: 26, rise: 16, drift: { x: dir * 260 }, mix: this._lightMix(),
+              onDone: () => {
+                P.x = x1;
+                this.player.setX(x1).setVisible(true);
+                P.state = 'free';
+                this._flushQueued();
+              },
+            });
+          },
+        });
       },
-      onComplete: () => { P.x = x1; P.state = 'free'; this._flushQueued(); },
     });
   },
 

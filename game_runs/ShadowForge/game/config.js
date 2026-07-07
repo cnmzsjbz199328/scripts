@@ -34,7 +34,7 @@ Forge.MIST   = { cd: 950, ms: 400, dist: 200 };
 Forge.FIEND_FORM = {
   tex: 'fiend_idle_0', anim: 'fiend_walk', scale: 0.85, toast: '化形 · 恶鬼之躯 — J 爪袭', glb: true,
   ms: 8000, speed: 330, morphMs: 720,
-  lunge: { dmg: 2, cd: 550, dist: 160, ms: 130 },
+  lunge: { dmg: 2, cd: 620, dist: 160, inMs: 90, ms: 150, outMs: 110, ws: 0.6 },   // 人躯化爪：短 morph 突进，见 player.js _fiendLunge
 };
 Forge.FURIES_FORM = {
   tex: 'furies_idle_0', anim: 'furies_walk', scale: 0.85, toast: '化形 · 女妖之躯 — J 掷弹', glb: true,
