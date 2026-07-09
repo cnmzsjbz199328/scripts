@@ -52,8 +52,7 @@ Forge.ENEMY = {
            lunge: { tele: 450, dist: 190, ms: 260, cd: 1800, ws: 0.6 } },   // ws=爪剪影缩放；本体化形为爪突进，见 enemies.js _morphToClaw
   minos: { tex: 'minos_idle_0', anim: 'minos_idle', hp: 26, speed: 44,  dmg: 2, scale: 1.55, boss: true, glb: true,
            superArmor: true,   // 预备帧只有锤能打断，矛/镰只能干扣血
-           swipe: { tele: 650, r: 175, cd: 2800, weapon: 'axe' }, summonMs: 9000, maxAdds: 2,
-           sky: { cd: 5200, tele: 900, r: 95, dmg: 3 } },   // 死亡镰刀天降：锁定读招列，逼玩家横移/雾化躲开而非站桩
+           swipe: { tele: 650, r: 175, cd: 2800, weapon: 'axe' }, summonMs: 9000, maxAdds: 2 },   // 巨斧挥砍 + 周期召唤亡魂；天降已收归 satan 终极形态专属
   // 复仇女神：保持距离放投掷弹，不近身接触；吸收后 E 化身为它，J 变原地扔弹
   furies: { tex: 'furies_idle_0', anim: 'furies_walk', hp: 5, speed: 74, dmg: 0, scale: 0.9, glb: true, absorb: true,
             ranged: { keep: 230, tele: 420, cd: 2000, projSpeed: 360, dmg: 2 } },
@@ -63,7 +62,7 @@ Forge.ENEMY = {
              leavesSlowZone: { r: 92, dur: 3400, factor: 0.55 } },
   // 终局 Boss：背叛之主，纯 1v1（无召唤），复用 minos 同款"预备帧挥臂"分支（def.swipe）
   satan: { tex: 'satan_idle_0', anim: 'satan_walk', hp: 34, speed: 48, dmg: 3, scale: 1.35, boss: true, glb: true, superArmor: true,
-           swipe: { tele: 700, r: 190, cd: 2600, weapon: 'scythe' },
+           swipe: { tele: 700, r: 190, cd: 2600, weapon: 'sword' },   // 终极形态·十字长剑：地面剑劈 + 天降凝剑闭环
            sky: { cd: 4400, tele: 850, r: 100, dmg: 4 } },
 };
 

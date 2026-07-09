@@ -19,7 +19,7 @@ Object.assign(ArenaScene.prototype, {
       type, def, spr, shadow, x, y,
       hp: def.hp, dead: false,
       state: 'walk', stateT: 0, atkCd: 800, summonT: 0,
-      skyState: 'idle', skyT: 0, skyStateT: 0,
+      skyT: 0, skyX: 0,   // 天降长剑：skyT=冷却计时，skyX=落剑列（satan 专属，见 _bossSwordSky）
     };
     e._cloud = Forge.Cloud.fromTexture(this, def.tex, Forge.FXN.kill);
     // 入场走粒子凝聚
@@ -72,16 +72,16 @@ Object.assign(ArenaScene.prototype, {
         else if (adx > R.keep + 60) e.x += dir * e.def.speed * dt;
         if (e.state === 'walk' && e.atkCd <= 0) {
           e.state = 'tele'; e.stateT = R.tele;
-          // 投掷前摇：暗红粒子向出手点聚拢，给玩家"要扔了"的可读信号
-          Forge.FX.gather({ x: e.x, y: e.y - 40, r: 48, dur: R.tele, n: Forge.FXN.gather, mix: Forge.ENEMY_MIX });
+          // 投掷前摇：暗红粒子向出手点聚拢，给玩家"要扔了"的可读信号（出手点抬到胸/手高，e.y 因 GLB 留白偏低）
+          Forge.FX.gather({ x: e.x, y: e.y - 95, r: 48, dur: R.tele, n: Forge.FXN.gather, mix: Forge.ENEMY_MIX });
         }
         else if (e.state === 'tele') {
           e.stateT -= dms;
           if (e.stateT <= 0) {
             e.state = 'walk'; e.atkCd = R.cd;
             // 剥离本体粒子凝成弹（弹丸源自女妖躯体，非凭空生成）
-            this._peelBurst(this._enemyCloud(e), e.x, e.y - 40, e.def.scale, e.spr.flipX ? -1 : 1, dir, Forge.ENEMY_MIX);
-            this._spawnProjectile(e.x, e.y - 40, dir, R.projSpeed, R.dmg);
+            this._peelBurst(this._enemyCloud(e), e.x, e.y - 95, e.def.scale, e.spr.flipX ? -1 : 1, dir, Forge.ENEMY_MIX);
+            this._spawnProjectile(e.x, e.y - 95, dir, R.projSpeed, R.dmg);
             window.GameAudio && GameAudio.play('tick');
           }
         }
@@ -127,18 +127,12 @@ Object.assign(ArenaScene.prototype, {
           e.stateT -= dms;
           if (e.stateT <= 0) e.state = 'walk';
         }
-        // 死亡镰刀天降：与近身挥臂独立并行的读招，锁定施放瞬间的玩家列，逼横移/雾化而非站桩硬吃
+        // satan 终极形态·天降长剑闭环：全身化形升空→凝剑俯冲插地→落点重组（sky 已收归 satan 专属）。
+        // 走主状态机 e.state='sky'（而非并行）：升空期挂起近身挥砍、本体 alpha=0 免疫命中，见 _bossSwordSky。
         if (e.def.sky) {
-          if (e.skyState === 'idle') {
-            e.skyT += dms;
-            if (e.skyT >= e.def.sky.cd) {
-              e.skyT = 0; e.skyState = 'tele'; e.skyStateT = e.def.sky.tele; e.skyX = P.x;
-              this._warnRing(e.skyX, C.FEET_Y - 8, e.def.sky.r, e.def.sky.tele);
-              window.GameAudio && GameAudio.play('tick');
-            }
-          } else {
-            e.skyStateT -= dms;
-            if (e.skyStateT <= 0) { e.skyState = 'idle'; this._bossSkyScythe(e, e.skyX); }
+          e.skyT += dms;
+          if (e.skyT >= e.def.sky.cd && e.state === 'walk' && e.spr.alpha >= 1) {
+            e.skyT = 0; e.state = 'sky'; this._bossSwordSky(e, P.x);
           }
         }
         // 周期召唤亡魂（限量，避免车轮战失控；summonMs 缺省则跳过——satan 终局不召唤，纯 1v1）
@@ -183,35 +177,56 @@ Object.assign(ArenaScene.prototype, {
     }
   },
 
-  // ── Boss 天降镰刀：从 Boss 躯体剥离一缕粒子升空、越过锁定列，于高空凝成镰刀+俯冲砸落，纵向窄 AOE。
-  // 与挥砍同构——镰刀来源是 Boss 本体（可见的粒子流），不再凭空召唤。Boss 本体不隐藏（天降是与
-  // 近身挥砍并行的读招，只送出一缕而非整体化形），但「武器源自本体」的因果链在视觉上成立。──
-  _bossSkyScythe(e, x) {
+  // ── satan 终极形态·天降长剑闭环：全身离子化升空 → 高空凝成十字长剑 → 锋尖俯冲插地(纵向 AOE) → 落点重组为本体。
+  // 升空至重组期间本体离场(setVisible(false)+alpha=0 → _hitEnemy 的 alpha<1 守卫使其免疫命中)；"地面空窗"由
+  // 落剑威胁 + 即时重组填补，重组落点=预警列(玩家躲开则自然拉开距离)。剑既是招式也是本体——"变形即招式"的闭环。──
+  _bossSwordSky(e, x0) {
     const S = e.def.sky, C = Forge.C;
-    const wKey = Forge.Cloud.weapon(this, 'sickle');
+    x0 = Phaser.Math.Clamp(x0, C.X_MIN, C.X_MAX);
+    e.skyX = x0;   // 落剑列：供 autobot 危险判定读取（本体 alpha=0 时仍要能躲）
+    const wKey = Forge.Cloud.weapon(this, 'sword');
     const wCloud = Forge.Cloud.fromTexture(this, wKey, Forge.FXN.morph);
+    const eCloud = this._enemyCloud(e);
+    const flip = e.spr.flipX ? -1 : 1;
     const topY = C.FEET_Y - 340;
-    const img = this.add.image(x, topY, wKey)
-      .setOrigin(0.5, 0.5).setDepth(C.DEPTH.FX).setAngle(70).setAlpha(0);
+    // 全身化形：本体离场(免疫命中)，整团点云斜升于高空凝成长剑（原点居中，与 morph 聚拢一致→无跳变）
+    e.spr.setVisible(false).setAlpha(0);
     window.GameAudio && GameAudio.play('morph');
-    // 剥离升空：Boss 躯体的点云化作一缕粒子，斜升越过目标列，于高空重塑为镰刀形
+    this._warnRing(x0, C.FEET_Y - 8, S.r, S.tele);   // 预警圈：落剑列，给闪避窗口
+    const img = this.add.image(x0, topY, wKey)
+      .setOrigin(0.5, 0.5).setDepth(C.DEPTH.FX).setAngle(78).setScale(0.85).setAlpha(0);
     Forge.FX.morph({
-      src: { cloud: this._enemyCloud(e), x: e.x, y: e.y, scale: 0.5, flip: e.spr.flipX ? -1 : 1 },
-      dst: { cloud: wCloud, x, y: topY, scale: 1.3 },
-      dur: 320, turb: 34, rise: 40, n: 420, mix: Forge.ENEMY_MIX,
+      src: { cloud: eCloud, x: e.x, y: e.y, scale: e.def.scale, flip },
+      dst: { cloud: wCloud, x: x0, y: topY, scale: 1.1 },
+      dur: S.tele * 0.7, turb: 34, rise: 44, n: 480, mix: Forge.ENEMY_MIX,
       onDone: () => {
         if (this.ended) { img.destroy(); return; }
         img.setAlpha(1);
         window.GameAudio && GameAudio.play('release');
+        // 俯冲：锋尖回正到近乎垂直(92°)贯穿地脊；原点居中，落点 y 补偿半剑长使锋尖恰抵 FEET_Y
         this.tweens.add({
-          targets: img, y: C.FEET_Y, angle: 96, duration: 220, ease: 'Cubic.easeIn',
+          targets: img, y: C.FEET_Y - 150, angle: 92, duration: 220, ease: 'Cubic.easeIn',
           onComplete: () => {
-            img.destroy();
-            this._shockRing(x, C.FEET_Y - 8, S.r, Forge.ENEMY_MIX);
-            if (!this.ended && Math.abs(this.P.x - x) < S.r) this._playerHit(S.dmg, x);
+            this._shockRing(x0, C.FEET_Y - 8, S.r, Forge.ENEMY_MIX);
+            if (!this.ended && Math.abs(this.P.x - x0) < S.r) this._playerHit(S.dmg, x0);
             this._hitstop(80);
             this.cameras.main.shake(160, 0.01);
             window.GameAudio && GameAudio.play('splashBad');
+            // 落点重组为本体：长剑化回点云、satan 立于落剑列续压（重组期仍 alpha=0 免疫）
+            this.time.delayedCall(90, () => {
+              if (this.ended) { img.destroy(); return; }
+              img.destroy();
+              e.x = x0;
+              Forge.FX.morph({
+                src: { cloud: wCloud, x: x0, y: C.FEET_Y - 150, scale: 0.85, flip },
+                dst: { cloud: eCloud, x: x0, y: e.y, scale: e.def.scale, flip },
+                dur: 300, turb: 28, rise: 18, n: 480, mix: Forge.ENEMY_MIX,
+                onDone: () => {
+                  if (!this.ended && !e.dead) e.spr.setX(x0).setVisible(true).setAlpha(1);
+                  e.state = 'walk'; e.atkCd = 420;   // 落地缓冲后再挥砍，不即时贴脸砍
+                },
+              });
+            });
           },
         });
       },
@@ -359,7 +374,8 @@ Object.assign(ArenaScene.prototype, {
   // holdDx,holdHy=化形落点相对 Boss 的偏移 a0,a1=起/终摆角(乘 dir)。造型见 weapon_library_sheet 参考图 ──
   _bossWpn(e) {
     const META = {
-      scythe: { s: 0.62, ox: 0.09, oy: 0.32, holdDx: 4,  holdHy: 0.62, a0: 0,   a1: 95 },
+      sword:  { s: 0.72, ox: 0.15, oy: 0.5,  holdDx: 24, holdHy: 0.5,  a0: 0,   a1: 42 },   // satan 终极形态·地面剑劈：绕握柄自横持加速下劈（起手角 0 与聚拢一致→无跳变）
+      scythe: { s: 0.62, ox: 0.09, oy: 0.32, holdDx: 4,  holdHy: 0.62, a0: -60, a1: 20 },   // 死神巨镰（暂空置，留待精英/别的 Boss）
       axe:    { s: 0.75, ox: 0.5,  oy: 0.92, holdDx: 30, holdHy: 0.32, a0: -16, a1: 100 },
       sickle: { s: 0.8,  ox: 0.15, oy: 0.5,  holdDx: 10, holdHy: 0.5,  a0: 0,   a1: 95 },
     };
@@ -452,29 +468,31 @@ Object.assign(ArenaScene.prototype, {
     wp.destroy();
   },
 
-  // 掷弹起手：从投掷者本体点云剥离一撮粒子，向出手方向迸出——弹丸「是本体的一部分」而非凭空生成。
-  // 敌我共用（furies 敌方 + 玩家女妖形），只差染色 mix。
+  // 掷弹起手：从投掷者本体点云剥离一大缕粒子，向出手方向迸出——弹丸「是本体掉下的一块」而非凭空生成。
+  // 敌我共用（furies 敌方 + 玩家女妖形），只差染色 mix。n/dur 加大 → 剥离感更明显（走"化形"母题）。
   _peelBurst(cloud, x, y, scale, flip, dir, mix) {
-    Forge.FX.burst({ cloud, x, y, scale, flip, n: 40, dur: 320, dirX: dir, mix });
+    Forge.FX.burst({ cloud, x, y, scale, flip, n: 96, dur: 440, dirX: dir, mix });
   },
 
   // ── 掷弹通用装配：粒子凝成的小箭矢（实体箭 + follow 粒子尾），敌我共用只差染色 ──
   // 敌方 furies 与玩家女妖形都走这里，"化形夺技后招式长一样"靠同一份实现保证
   _dartAssets() {
     if (!this._dartA) {
-      const key = Forge.Cloud.weapon(this, 'spear');
-      this._dartA = { key, cloud: Forge.Cloud.fromTexture(this, key, 140), W: 272, H: 150, ORY: 0.47 };
+      const key = Forge.Cloud.weapon(this, 'shard');   // 四芒旋刃：与长矛直线剪影区分
+      this._dartA = { key, cloud: Forge.Cloud.fromTexture(this, key, 140), W: 90, H: 90, ORY: 0.5 };
     }
     return this._dartA;
   },
 
   _makeDart(x, y, dir, mix) {
-    const A = this._dartAssets(), s = 0.28;
+    const A = this._dartAssets(), s = 0.5;
     const img = this.add.image(x, y, A.key).setOrigin(0.5, A.ORY)
       .setDepth(Forge.C.DEPTH.FX).setScale(s).setFlipX(dir < 0).setAlpha(0.95);
     const fx = Forge.FX.follow({ x, y, n: Forge.FXN.proj, rad: 9, life: 260, mix });
+    const x0 = x;
     return {
-      setPos(px, py) { img.setPosition(px, py); fx.setPos(px, py); },
+      // 自旋：转角随飞行距离累进（~每 140px 一圈），四芒刃转起来一眼别于刚直的矛
+      setPos(px, py) { img.setPosition(px, py); img.setRotation(dir * (px - x0) * 0.045); fx.setPos(px, py); },
       // 命中/出界：箭矢当场碎裂回粒子（武器由粒子凝成，也散回粒子）
       die: () => {
         fx.die();

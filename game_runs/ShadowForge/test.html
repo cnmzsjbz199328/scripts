@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ShadowForge 武器动作轨迹 · 全招式复刻</title>
+  <style>
+    :root {
+      --bg-dark: #07080f; --panel-dark: #0f111c;
+      --accent: #8a3a1e; --accent-hover: #b54a27;
+      --boss: #6a2740; --boss-hover: #8a3355;
+      --text: #e8d6b0; --text-muted: #9a8f7a; --border: #3a2418;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg-dark); color: var(--text);
+      font-family: 'Georgia', 'Segoe UI', serif;
+      min-height: 100vh; display: flex; flex-direction: column; padding: 22px; overflow-x: hidden;
+    }
+    header {
+      margin-bottom: 18px; border-bottom: 2px solid var(--border);
+      padding-bottom: 12px; display: flex; justify-content: space-between; align-items: flex-end;
+    }
+    h1 { font-size: 1.5rem; letter-spacing: 0.06em; }
+    .subtitle { font-size: 0.85rem; color: var(--text-muted); font-style: italic; margin-top: 4px; }
+    .back-link { color: var(--text-muted); text-decoration: none; font-size: 0.9rem; }
+    .back-link:hover { color: var(--text); }
+
+    .stage { display: flex; gap: 18px; align-items: flex-start; }
+    .preview-panel {
+      background: var(--panel-dark); border: 2px solid var(--border);
+      border-radius: 8px; padding: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.7);
+    }
+    .canvas-container {
+      background: radial-gradient(circle at 40% 30%, #232a44 0%, #0c1020 100%);
+      border-radius: 6px; overflow: hidden; line-height: 0;
+    }
+    canvas { display: block; width: 680px; height: 383px; }
+
+    .controls { margin-top: 12px; display: flex; flex-direction: column; gap: 8px; }
+    .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    .row-label {
+      font-size: 0.72rem; letter-spacing: 0.1em; color: var(--text-muted);
+      width: 62px; flex-shrink: 0; text-transform: uppercase;
+    }
+    .btn {
+      background: #25283c; color: var(--text); border: 1px solid var(--border);
+      padding: 7px 13px; border-radius: 4px; font-family: inherit; font-size: 0.85rem;
+      cursor: pointer; transition: background 0.15s, border-color 0.15s;
+    }
+    .btn:hover { background: #343854; }
+    .btn.player.active { background: var(--accent); border-color: var(--accent-hover); }
+    .btn.boss.active { background: var(--boss); border-color: var(--boss-hover); }
+    .btn.opt { border-color: #3f6b3a; }
+    .btn.opt.active { background: #3a7a34; border-color: #4e9a46; }
+    .toggle { display: flex; align-items: center; gap: 7px; font-size: 0.82rem; color: var(--text-muted); margin-top: 4px; }
+    .toggle input { accent-color: var(--accent); cursor: pointer; }
+
+    .notes {
+      flex: 1; min-width: 260px; background: var(--panel-dark);
+      border: 2px solid var(--border); border-radius: 8px; padding: 16px 18px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.7); align-self: stretch;
+    }
+    .notes h2 { font-size: 1rem; border-left: 3px solid var(--accent); padding-left: 8px; margin-bottom: 4px; }
+    .notes .tag { font-size: 0.72rem; color: var(--text-muted); margin-bottom: 12px; letter-spacing: 0.06em; }
+    .notes .meta {
+      font-family: monospace; font-size: 0.76rem; color: #79a1cc;
+      background: #0b0c14; border: 1px solid var(--border); border-radius: 5px;
+      padding: 9px 11px; margin-bottom: 12px; line-height: 1.5; white-space: pre-wrap;
+    }
+    .notes .diag { font-size: 0.88rem; line-height: 1.6; }
+    .notes .diag b { color: #e8a05a; }
+    .legend {
+      margin-top: 14px; font-size: 0.78rem; color: var(--text-muted); line-height: 1.7;
+      border-top: 1px solid var(--border); padding-top: 10px;
+    }
+    .swatch { display: inline-block; width: 11px; height: 11px; border-radius: 2px; vertical-align: middle; margin-right: 6px; }
+  </style>
+</head>
+<body>
+  <header>
+    <div>
+      <h1>ShadowForge 武器动作轨迹 · 全招式复刻</h1>
+      <div class="subtitle">按 player.js / enemies.js 实体段真实 origin·tween 逐帧还原全部武器动作（无调参）</div>
+    </div>
+    <a href="index.html" class="back-link">← 返回游戏</a>
+  </header>
+
+  <div class="stage">
+    <div class="preview-panel">
+      <div class="canvas-container">
+        <canvas id="cv" width="960" height="540"></canvas>
+      </div>
+      <div class="controls">
+        <div class="row">
+          <span class="row-label">玩家</span>
+          <div id="rowPlayer" class="row" style="gap:8px"></div>
+        </div>
+        <div class="row">
+          <span class="row-label">Boss·敌</span>
+          <div id="rowBoss" class="row" style="gap:8px"></div>
+        </div>
+        <div class="row">
+          <span class="row-label" style="color:#7bbf72">优化案</span>
+          <div id="rowOpt" class="row" style="gap:8px"></div>
+        </div>
+        <label class="toggle"><input type="checkbox" id="chkHelper" checked> 显示轴心 / 力臂 / 余晖</label>
+      </div>
+    </div>
+
+    <div class="notes">
+      <h2 id="noteTitle">招式档案</h2>
+      <div class="tag" id="noteTag"></div>
+      <div class="meta" id="noteMeta"></div>
+      <div class="diag" id="noteDiag"></div>
+      <div class="legend">
+        <div><span class="swatch" style="background:#ff3b30"></span>红点 = 旋转轴心 (Phaser setOrigin，tween 绕其旋转/缩放)</div>
+        <div><span class="swatch" style="background:#4fd1ff"></span>青虚线 = 轴心 → 刃锋 力臂（越长，扇形回旋越夸张）</div>
+        <div><span class="swatch" style="background:#5a6a8a"></span>地脊线 = C.FEET_Y (452)</div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ═══════════════════════════════════════════════════════════════
+    // 武器纹理：逐字复制自 _engine/pointcloud.js -> Cloud.weapon(scene, kind)
+    // 复刻器用骨白(#e8d6b0)描绘剪影以便看清（游戏内实为 #0a0d12 墨色）
+    // ═══════════════════════════════════════════════════════════════
+    const ink = '#e8d6b0';
+    const TAU = Math.PI * 2;
+
+    const TEX = {
+      spear: mk(272, 150, x => {
+        x.fillRect(26, 68.5, 176, 4);
+        x.beginPath();
+        x.moveTo(34, 68.5); x.lineTo(10, 52); x.lineTo(6, 52); x.lineTo(18, 68.5); x.closePath();
+        x.moveTo(34, 72.5); x.lineTo(10, 89); x.lineTo(6, 89); x.lineTo(18, 72.5); x.closePath();
+        x.fill();
+        x.beginPath();
+        x.moveTo(202, 70.5); x.lineTo(190, 58);
+        x.quadraticCurveTo(232, 63, 266, 70.5); x.quadraticCurveTo(232, 78, 190, 83);
+        x.lineTo(202, 70.5); x.closePath(); x.fill();
+      }),
+      hammer: mk(190, 200, x => {
+        x.fillRect(89, 80, 13, 106); x.fillRect(82, 186, 27, 10);
+        x.fillRect(46, 18, 98, 56);
+        x.fillRect(26, 8, 18, 76); x.fillRect(146, 8, 18, 76);
+        x.fillRect(50, 12, 8, 68); x.fillRect(132, 12, 8, 68);
+      }),
+      // 玩家 I 键 kind='sickle' → pointcloud else 分支 = 链镰 (260×130)
+      sickle: mk(260, 130, x => {
+        x.strokeStyle = ink; x.lineWidth = 5;
+        for (let i = 0; i < 4; i++) { x.beginPath(); x.arc(30 + i * 30, 66 + (i % 2 ? 4 : -4), 10, 0, TAU); x.stroke(); }
+        x.fillRect(128, 58, 20, 14);
+        x.beginPath(); x.moveTo(148, 48);
+        x.quadraticCurveTo(228, 6, 248, 68); x.quadraticCurveTo(250, 108, 196, 126);
+        x.quadraticCurveTo(224, 92, 214, 66); x.quadraticCurveTo(200, 36, 152, 62);
+        x.closePath(); x.fill();
+      }),
+      // 死神巨镰 kind='scythe'（Boss satan swipe 武器，340×170）
+      scythe: mk(340, 170, x => {
+        x.strokeStyle = ink;
+        x.fillRect(38, 51, 232, 9);
+        x.beginPath(); x.arc(30, 55, 10, 0, TAU); x.fill();
+        x.beginPath(); x.arc(14, 49, 6, 0, TAU); x.fill();
+        x.lineWidth = 4.5;
+        for (let i = 0; i < 3; i++) { x.beginPath(); x.arc(22 - i * 5, 76 + i * 18, 6.5, 0, TAU); x.stroke(); }
+        x.beginPath(); x.moveTo(168, 51); x.lineTo(182, 30); x.lineTo(190, 51); x.closePath(); x.fill();
+        x.beginPath(); x.moveTo(198, 51); x.lineTo(214, 26); x.lineTo(224, 51); x.closePath(); x.fill();
+        x.beginPath(); x.moveTo(252, 48); x.lineTo(274, 16); x.lineTo(280, 50); x.closePath(); x.fill();
+        x.beginPath(); x.moveTo(262, 32); x.quadraticCurveTo(344, 66, 292, 164); x.quadraticCurveTo(296, 88, 250, 58); x.closePath(); x.fill();
+      }),
+      // 审判巨斧 kind='axe'（Boss minos swipe 武器，250×260）
+      axe: mk(250, 260, x => {
+        x.fillRect(117, 60, 14, 184); x.fillRect(111, 242, 26, 12);
+        x.beginPath(); x.moveTo(126, 30);
+        x.quadraticCurveTo(206, 10, 236, 72); x.quadraticCurveTo(240, 116, 198, 156);
+        x.quadraticCurveTo(196, 118, 158, 110); x.quadraticCurveTo(136, 104, 126, 96);
+        x.closePath(); x.fill();
+        x.beginPath(); x.moveTo(124, 46); x.lineTo(66, 30); x.lineTo(58, 40); x.lineTo(104, 70); x.closePath(); x.fill();
+        x.beginPath(); x.moveTo(116, 28); x.lineTo(127, 2); x.lineTo(138, 28); x.closePath(); x.fill();
+      }),
+      // 短匕 kind='dagger'（亡魂/冰魂贴身刺，160×90）
+      dagger: mk(160, 90, x => {
+        x.fillRect(16, 40, 32, 10); x.fillRect(46, 30, 7, 30);
+        x.beginPath(); x.moveTo(53, 34); x.quadraticCurveTo(120, 40, 150, 45); x.quadraticCurveTo(120, 50, 53, 56); x.closePath(); x.fill();
+      }),
+      // 恶鬼之爪 kind='claw'（玩家恶鬼形扑袭 / fiend 敌，220×140）
+      claw: mk(220, 140, x => {
+        x.fillRect(16, 56, 26, 28);
+        for (let i = 0; i < 3; i++) {
+          const y0 = 26 + i * 34, tx = 206 - i * 10, ty = 50 + i * 26;
+          x.beginPath(); x.moveTo(38, y0); x.quadraticCurveTo(130, y0 - 16, tx, ty); x.quadraticCurveTo(126, y0 + 14, 38, y0 + 18); x.closePath(); x.fill();
+        }
+      }),
+      // 【优化案】十字长剑：平直十字护手 + 等宽平直剑身(锋尖处骤收) + 缠柄 + 圆首，尖朝右，中心线 y=60，360×120
+      sword: mk(360, 120, x => {
+        x.beginPath(); x.ellipse(15, 60, 10, 16, 0, 0, TAU); x.fill();    // 圆首(pommel)
+        x.fillRect(22, 53, 62, 14);                                       // 缠柄(grip)
+        x.fillRect(84, 24, 12, 72);                                       // 平直十字护手：横平竖直的直档
+        x.beginPath(); x.arc(90, 24, 6, 0, TAU); x.fill();                // 上档端
+        x.beginPath(); x.arc(90, 96, 6, 0, TAU); x.fill();               // 下档端
+        // 剑身：等宽平直一路到底，近锋尖处才直接收尾成锋
+        x.beginPath();
+        x.moveTo(96, 52); x.lineTo(322, 52); x.lineTo(356, 60);
+        x.lineTo(322, 68); x.lineTo(96, 68); x.closePath(); x.fill();
+      }),
+      // 【优化案】女妖旋刃：四芒飞刃（掷弹用，与矛的直线剪影区分），90×90
+      shard: mk(90, 90, x => {
+        const cx = 45, cy = 45, R = 42, r = 13;
+        x.beginPath();
+        for (let i = 0; i < 8; i++) {
+          const rad = (i % 2 === 0) ? R : r, a = i * Math.PI / 4 - Math.PI / 2;
+          const px = cx + rad * Math.cos(a), py = cy + rad * Math.sin(a);
+          i ? x.lineTo(px, py) : x.moveTo(px, py);
+        }
+        x.closePath(); x.fill();
+        x.save(); x.globalCompositeOperation = 'destination-out';
+        x.beginPath(); x.arc(cx, cy, 6, 0, TAU); x.fill(); x.restore();
+      }),
+    };
+    function mk(w, h, drawFn) {
+      const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
+      const c = cv.getContext('2d'); c.fillStyle = ink; c.strokeStyle = ink; drawFn(c);
+      return cv;
+    }
+
+    // ── 缓动（对齐 Phaser）──
+    const E = {
+      linear: t => t,
+      cubicIn: t => t * t * t,
+      cubicOut: t => (--t) * t * t + 1,
+      sineOut: t => Math.sin(t * Math.PI / 2),
+      // 蓄力猛劈：前 42% 举顶蓄力(几乎不动)，中段 Quart.easeIn 猛抽下，末 10% 触地顿住一小拍
+      chargeSlash: t => {
+        if (t < 0.42) return 0.05 * (t / 0.42);           // 蓄力：刃尖仅微沉 5%，蓄势待发
+        if (t > 0.90) return 1;                            // 触地顿住：重刃砸实、不滑过
+        const u = (t - 0.42) / (0.90 - 0.42);
+        return 0.05 + 0.95 * u * u * u * u;                // Quart.easeIn：慢→快的猛力落差
+      },
+    };
+    const lerp = (a, b, t) => a + (b - a) * t;
+
+    // ── 舞台常量（config.js）──
+    const FEET_Y = 452, PX = 300, BX = 500, dir = 1;
+    const D = deg => deg * Math.PI / 180;
+
+    // ═══════════════════════════════════════════════════════════════
+    // 全部武器动作：tex / origin(ox,oy 比例) / base scale / tip(局部刃锋) / frame(p)
+    // 数值逐一对齐 player.js、enemies.js 实体段
+    // ═══════════════════════════════════════════════════════════════
+    const TORSO = FEET_Y - 70, BTORSO = FEET_Y - 120;
+
+    const MOVES = {
+      // ───────── 玩家 ─────────
+      spear: {
+        group: 'player', label: '化矛突刺 J', tex: 'spear', ox: 0.5, oy: 1.0, scale: 1,
+        tip: [266, 70.5], durMs: 210,
+        meta: `kind 'spear' (272×150)\norigin (0.50,1.00) 柄底\nx → x0+dir·280  Cubic.easeOut\ndur 210ms · 无旋转`,
+        diag: '<b>水平突刺</b>：整支矛平移冲出、不旋转，轴心虽在柄底但不外露。观感基本合理。',
+        frame(p) { const x0 = PX, a = x0 - 14, b = x0 + 280; return { cx: lerp(a, b, E.cubicOut(p)), cy: FEET_Y, ang: 0, sx: 1, sy: 1 }; },
+      },
+      hammer: {
+        group: 'player', label: '化锤震地 K', tex: 'hammer', ox: 0.5, oy: 1.0, scale: 1,
+        tip: [95, 46], durMs: 120, after: 140, ring: true,
+        meta: `kind 'hammer' (190×200)\norigin (0.50,1.00) 柄尾\ny -150→+4  scaleY 0.94→1\nCubic.easeIn 120ms · 无旋转`,
+        diag: '<b>违和源①</b>：锤头在纹理顶端、轴心却在柄尾(oy=1)，招式<b>只平移 Y、不旋转</b>。落定时柄尾贴地、<b>锤面仍悬空 ~150px</b>，命中只靠地面冲击环兜底 —— 「锤面击中、轴心在杆上」即源于此。',
+        frame(p) { return { cx: PX, cy: lerp(FEET_Y - 150, FEET_Y + 4, E.cubicIn(p)), ang: 0, sx: 1, sy: lerp(0.94, 1, p) }; },
+      },
+      sickle: {
+        group: 'player', label: '链镰横扫 I', tex: 'sickle', ox: 0.5, oy: 1.0, scale: 1,
+        tip: [196, 126], durMs: 180,
+        meta: `kind 'sickle' → else 链镰 (260×130)\norigin (0.50,1.00) 柄/链中点\nangle → dir·70°  Sine.easeOut\ndur 180ms · 无 Y 位移`,
+        diag: '<b>违和源②</b>：轴心落在链镰水平中点(ox=0.5)，大钩刃却在最右端。绕柄心转 70°，刃锋划过<b>半径极大的扇形</b>（见青线力臂）—— 正是「以柄部为核心扇形劈下」。',
+        frame(p) { return { cx: PX, cy: FEET_Y, ang: D(70 * E.sineOut(p)), sx: 1, sy: 1 }; },
+      },
+      claw: {
+        group: 'player', label: '恶鬼爪扑 J', tex: 'claw', ox: 0.5, oy: 0.5, scale: 0.6,
+        tip: [206, 50], durMs: 150,
+        meta: `kind 'claw' (220×140)  ws 0.6\norigin (0.50,0.50) 帧心\nx → x0+dir·160  Cubic.easeOut\ndur 150ms · 无旋转 · 浮于躯干`,
+        diag: '<b>恶鬼形扑袭</b>（fiend）：爪悬于躯干高度水平突进，轴心居中、无旋转，爪尖朝前 —— 观感合理。',
+        frame(p) { return { cx: lerp(PX, PX + 160, E.cubicOut(p)), cy: TORSO, ang: 0, sx: 0.6, sy: 0.6 }; },
+      },
+      throw: {
+        group: 'player', label: '女妖掷弹 J', tex: 'spear', ox: 0.5, oy: 0.47, scale: 0.28,
+        tip: [266, 70.5], durMs: 300,
+        meta: `弹丸=spear 缩成 0.28 (箭矢)\norigin (0.50,0.47)\nx → x0+dir·420  Linear\ndur 300ms · 无旋转`,
+        diag: '<b>女妖形掷弹</b>：粒子凝成小箭矢平飞，非近战 —— 无轴心问题。',
+        frame(p) { return { cx: lerp(PX, PX + 420, p), cy: FEET_Y - 60, ang: 0, sx: 0.28, sy: 0.28 }; },
+      },
+
+      // ───────── Boss · 敌 ─────────
+      sky: {
+        group: 'boss', label: 'Boss 天降镰', tex: 'sickle', ox: 0.5, oy: 0.5, scale: 1,
+        tip: [196, 126], durMs: 220, ring: true,
+        meta: `_bossSkyScythe · kind 'sickle' 链镰\norigin (0.50,0.50) 帧心\ny -340→0  angle 70°→96°\nCubic.easeIn 220ms · 高空俯冲`,
+        diag: '<b>天降镰刀</b>：链镰于高空成形后俯冲砸地，绕帧心微旋 70°→96°。轴心居中，刃随本体下坠 —— 纵向 AOE，观感尚可。',
+        frame(p) { const e = E.cubicIn(p); return { cx: BX, cy: lerp(FEET_Y - 340, FEET_Y, e), ang: D(lerp(70, 96, e)), sx: 1, sy: 1 }; },
+      },
+      stab: {
+        group: 'boss', label: '亡魂匕刺', tex: 'dagger', ox: 0.5, oy: 0.5, scale: 0.5,
+        tip: [150, 45], durMs: 240,
+        meta: `_stabThrust · kind 'dagger' (160×90) ws0.5\norigin (0.50,0.50) 帧心\nx 伸出 reach 再抽回 (yoyo)\nCubic.easeOut · 无旋转`,
+        diag: '<b>贴身匕刺</b>：匕首绕帧心伸缩突刺、不旋转，尖端朝敌 —— 观感合理。',
+        frame(p) { const tri = p < 0.4 ? E.cubicOut(p / 0.4) : p < 0.6 ? 1 : E.cubicOut(1 - (p - 0.6) / 0.4); return { cx: BX + 46 * tri, cy: BTORSO, ang: 0, sx: 0.5, sy: 0.5 }; },
+      },
+      swScythe: {
+        group: 'boss', label: 'Boss 挥·巨镰', tex: 'scythe', ox: 0.09, oy: 0.32, scale: 0.62,
+        tip: [292, 164], durMs: 130, ring: true,
+        meta: `_swingWeapon · kind 'scythe' 死神巨镰\nMETA origin (0.09,0.32) 骨端近柄\nangle 0°→95°  Cubic.easeIn 130ms`,
+        diag: '<b>死神巨镰</b>（satan swipe）：轴心设在长柄骨端(ox=0.09)，如握持柄端挥落，刃在远端划出大回旋 —— 这是「持柄挥砍」的正确支点，可作为对照参考。',
+        frame(p) { return { cx: BX, cy: BTORSO, ang: D(lerp(0, 95, E.cubicIn(p))), sx: 0.62, sy: 0.62 }; },
+      },
+      swAxe: {
+        group: 'boss', label: 'Boss 挥·巨斧', tex: 'axe', ox: 0.5, oy: 0.92, scale: 0.75,
+        tip: [236, 72], durMs: 130, ring: true,
+        meta: `_swingWeapon · kind 'axe' 审判巨斧\nMETA origin (0.50,0.92) 柄底\nangle -16°→100°  Cubic.easeIn 130ms`,
+        diag: '<b>审判巨斧</b>（minos swipe）：轴心在柄底(oy=0.92)，斧刃自后仰(-16°)劈至前下(100°)，绕柄底过顶抡砸 —— 大开大合，支点合理。',
+        frame(p) { return { cx: BX, cy: BTORSO + 40, ang: D(lerp(-16, 100, E.cubicIn(p))), sx: 0.75, sy: 0.75 }; },
+      },
+      swSickle: {
+        group: 'boss', label: 'Boss 挥·链镰', tex: 'sickle', ox: 0.15, oy: 0.5, scale: 0.8,
+        tip: [196, 126], durMs: 130, ring: true,
+        meta: `_swingWeapon · kind 'sickle' 链镰\nMETA origin (0.15,0.50) 链端\nangle 0°→95°  Cubic.easeIn 130ms`,
+        diag: '<b>Boss 链镰挥砍</b>：轴心移到链端(ox=0.15)，比玩家的 0.5 更靠柄 —— 同一把链镰，Boss 的支点比玩家更合理，对比即见玩家横扫的问题。',
+        frame(p) { return { cx: BX, cy: BTORSO, ang: D(lerp(0, 95, E.cubicIn(p))), sx: 0.8, sy: 0.8 }; },
+      },
+
+      // ───────── 优化案（首版数值，可微调）─────────
+      hammerOpt: {
+        group: 'opt', label: '锤·抡砸', tex: 'hammer', ox: 0.5, oy: 0.95, scale: 1,
+        tip: [95, 46], durMs: 165, after: 140, ring: true, ringAtTip: true,
+        meta: `【优化】学巨斧：绕柄底抡砸\norigin (0.50,0.95) 柄底\nangle -55°→+93°  Cubic.easeIn (整体逆时针 15°)\ndur 165ms · 锤头下缘正好压地脊`,
+        diag: '<b>改法</b>：轴心移到柄底、加旋转，锤自后仰(-55°)过顶抡到前下(+93°)，<b>锤头划弧砸到地脊、末端不钻地</b>——冲击环落在锤头触地点、不再悬空。代价：变<b>定向</b>重击（判定应收窄身前）。对照原「化锤震地 K」的电梯下坠即见差别。',
+        frame(p) { return { cx: PX, cy: FEET_Y - 72, ang: D(lerp(-55, 93, E.cubicIn(p))), sx: 1, sy: 1 }; },
+      },
+      skySword: {
+        group: 'opt', char: 'boss', label: '天降·长剑', tex: 'sword', ox: 0.99, oy: 0.5, scale: 0.85,
+        tip: [16, 60], durMs: 220, ring: true,
+        meta: `【优化】Boss 天降镰 → 天降长剑\norigin (0.98,0.50) 剑锋(=插地点)\ny -340→0  angle 78°→92°\nCubic.easeIn 220ms · 锋尖朝下俯冲插地`,
+        diag: '<b>改法</b>：天降链镰改十字长剑，轴心设在<b>剑锋(ox=0.98)</b>——即插地点。剑于高空成形后<b>锋尖朝下俯冲</b>，落定角度回正到 92° 垂直贯穿地脊，柄首朝天如神罚落剑。对照原「Boss 天降镰」的横置链镰即见差别。',
+        frame(p) { const e = E.cubicIn(p); return { cx: BX, cy: lerp(FEET_Y - 340, FEET_Y, e), ang: D(lerp(78, 92, e)), sx: 0.85, sy: 0.85 }; },
+      },
+      scytheOpt: {
+        group: 'opt', char: 'boss', label: '巨镰·抡砸', tex: 'scythe', ox: 0.09, oy: 0.32, scale: 0.62,
+        tip: [292, 164], durMs: 150, ring: true, ringAtTip: true,
+        meta: `【优化】死神巨镰挥砍(satan)\norigin (0.09,0.32) 柄骨端 · 支点仍在腰\nangle -60°→+20°  Cubic.easeIn\ndur 150ms · 刃锋末端贴地脊而止`,
+        diag: '<b>改法</b>：死神巨镰造型不变、支点仍在腰(cy 未动)，只把摆角从原来的 0°→95°（越过弧底、刃扎地下 35px）改成 <b>-60°→+20°</b>：刃自高处后仰、单调下扫、<b>末端刚好贴到地脊即停</b>，全程不钻地、也不再甩到身后。对照红行「Boss 挥·巨镰」的钻地即见差别。',
+        frame(p) { return { cx: BX, cy: BTORSO, ang: D(lerp(-60, 20, E.cubicIn(p))), sx: 0.62, sy: 0.62 }; },
+      },
+      swordSlash: {
+        group: 'opt', label: '剑·劈砍', tex: 'sword', ox: 0.15, oy: 0.5, scale: 0.68,
+        tip: [356, 60], durMs: 560, ring: true, ringAtTip: true,
+        meta: `【优化】蓄力猛劈：举顶蓄力 → 猛抽下 → 触地顿住\norigin (0.15,0.50) 握柄 · 支点抬到头顶上方\nangle -100°→+47°  chargeSlash(Quart.easeIn)\ndur 560ms · 大弧程 · 刃锋触地脊而止`,
+        diag: '<b>猛力下劈</b>：轴心在<b>握柄(ox=0.15)</b>、支点举到头顶之上，剑自后顶(-100°)<b>停顿蓄力</b>后 Quart 硬加速抽向前下(+47°)、末端<b>触地顿住一小拍</b>。慢→快的落差 + 大弧程 + 残影长条 = 重刃砸实的力量感。（游戏里再叠顿帧/震屏/火花，力度还能翻倍。）对照原「链镰横扫 I」的中点匀速风车即见差别。',
+        frame(p) { return { cx: PX, cy: FEET_Y - 150, ang: D(lerp(-100, 47, E.chargeSlash(p))), sx: 0.68, sy: 0.68 }; },
+      },
+      throwOpt: {
+        group: 'opt', label: '镖·旋刃', tex: 'shard', ox: 0.5, oy: 0.5, scale: 0.55,
+        tip: [87, 45], durMs: 300,
+        meta: `【优化】独立旋转飞刃\norigin (0.50,0.50) 帧心\nx → x0+dir·420 (直线不变)\n附加自旋 3 圈 · dur 300ms`,
+        diag: '<b>改法</b>：换四芒飞刃造型 + 飞行自旋，<b>轨迹与判定不动</b>（仍直线平飞），只把剪影和自旋拉开——不再复用矛的尖头，与「化矛突刺」的刚直突刺一眼可分。',
+        frame(p) { return { cx: lerp(PX, PX + 420, p), cy: FEET_Y - 60, ang: dir * p * 6 * Math.PI, sx: 0.55, sy: 0.55 }; },
+      },
+    };
+
+    // ── UI 装配 ──
+    const cv = document.getElementById('cv'), ctx = cv.getContext('2d');
+    const chkHelper = document.getElementById('chkHelper');
+    const noteTitle = document.getElementById('noteTitle'), noteTag = document.getElementById('noteTag');
+    const noteMeta = document.getElementById('noteMeta'), noteDiag = document.getElementById('noteDiag');
+    let active = 'spear', t0 = performance.now();
+
+    function makeBtn(id) {
+      const m = MOVES[id];
+      const b = document.createElement('button');
+      b.className = 'btn ' + m.group + (id === active ? ' active' : '');
+      b.textContent = m.label; b.dataset.id = id;
+      b.addEventListener('click', () => {
+        document.querySelectorAll('.btn').forEach(x => x.classList.remove('active'));
+        b.classList.add('active'); active = id; t0 = performance.now(); syncNotes();
+      });
+      return b;
+    }
+    const rowP = document.getElementById('rowPlayer'), rowB = document.getElementById('rowBoss'), rowO = document.getElementById('rowOpt');
+    const rowOf = g => g === 'player' ? rowP : g === 'boss' ? rowB : rowO;
+    for (const id in MOVES) rowOf(MOVES[id].group).appendChild(makeBtn(id));
+
+    function syncNotes() {
+      const m = MOVES[active];
+      noteTitle.textContent = m.label;
+      noteTag.textContent = m.group === 'player' ? '玩家招式 · player.js'
+        : m.group === 'boss' ? 'Boss / 敌招式 · enemies.js'
+        : '优化方案 · 待审查后移植';
+      noteMeta.textContent = m.meta;
+      noteDiag.innerHTML = m.diag;
+    }
+
+    const HOLD_START = 300, HOLD_END = 520;
+
+    function draw(now) {
+      const m = MOVES[active];
+      const squashMs = m.after || 0;
+      const cycle = HOLD_START + m.durMs + squashMs + HOLD_END;
+      const local = (now - t0) % cycle;
+      let p = 0, squashP = -1;
+      if (local < HOLD_START) p = 0;
+      else if (local < HOLD_START + m.durMs) p = (local - HOLD_START) / m.durMs;
+      else if (local < HOLD_START + m.durMs + squashMs) { p = 1; squashP = (local - HOLD_START - m.durMs) / squashMs; }
+      else p = 1;
+
+      const f = m.frame(p);
+      const img = TEX[m.tex], w = img.width, h = img.height;
+      const ox = m.ox * w, oy = m.oy * h;
+      const helper = chkHelper.checked;
+
+      // 背景
+      ctx.clearRect(0, 0, cv.width, cv.height);
+      const g = ctx.createLinearGradient(0, 0, 0, cv.height);
+      g.addColorStop(0, '#2c3350'); g.addColorStop(0.55, '#1a2036'); g.addColorStop(1, '#0e1220');
+      ctx.fillStyle = g; ctx.fillRect(0, 0, cv.width, cv.height);
+      ctx.fillStyle = '#0b0f1c'; ctx.fillRect(0, FEET_Y, cv.width, cv.height - FEET_Y);
+      ctx.strokeStyle = '#5a6a8a'; ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.moveTo(0, FEET_Y); ctx.lineTo(cv.width, FEET_Y); ctx.stroke();
+
+      // 角色占位（脚底 = FEET_Y）：Boss=红@BX，玩家/优化案=蓝@PX（可用 m.char 覆盖阵营）
+      const side = m.char || m.group;
+      const charX = side === 'boss' ? BX : PX;
+      ctx.fillStyle = side === 'boss' ? 'rgba(150,90,110,0.34)' : 'rgba(120,140,180,0.32)';
+      ctx.beginPath(); ctx.ellipse(charX, FEET_Y - 52, 20, 52, 0, 0, TAU); ctx.fill();
+      ctx.strokeStyle = 'rgba(232,214,176,0.32)'; ctx.lineWidth = 1.5; ctx.stroke();
+
+      // 余晖轨迹
+      if (helper) {
+        const steps = 9;
+        for (let i = 1; i <= steps; i++) {
+          const ff = m.frame((i / steps) * p);
+          ctx.save(); ctx.globalAlpha = 0.05 + 0.11 * (i / steps);
+          ctx.translate(ff.cx, ff.cy); ctx.rotate(ff.ang); ctx.scale(dir * ff.sx, ff.sy);
+          ctx.drawImage(img, -ox, -oy); ctx.restore();
+        }
+      }
+
+      // 当前帧实体
+      let sx = f.sx, sy = f.sy;
+      if (squashP >= 0) { const q = squashP < 0.5 ? squashP * 2 : (1 - squashP) * 2; sx = f.sx * (1 + 0.4 * q); sy = f.sy * (1 - 0.45 * q); }
+      ctx.save();
+      ctx.translate(f.cx, f.cy); ctx.rotate(f.ang); ctx.scale(dir * sx, sy);
+      ctx.drawImage(img, -ox, -oy);
+      ctx.restore();
+
+      // 攻击面(锤头/刃锋) 屏幕坐标 = 真正的接触点（用基准 sx/sy，不受落地挤压影响而抖动）
+      const [tx, ty] = m.tip, lx = (tx - ox), ly = (ty - oy), a = f.ang, sxx = dir * f.sx;
+      const rx = f.cx + (lx * sxx) * Math.cos(a) - (ly * f.sy) * Math.sin(a);
+      const ry = f.cy + (lx * sxx) * Math.sin(a) + (ly * f.sy) * Math.cos(a);
+
+      // 地面冲击环：ringAtTip=落在攻击面正下方（锤头/刃锋触地点）；否则落在角色立足点
+      if (m.ring && p >= 1) {
+        const rp = squashP >= 0 ? squashP : 0;
+        const rcx = m.ringAtTip ? rx : charX;
+        ctx.strokeStyle = `rgba(232,160,90,${0.5 * (1 - rp)})`; ctx.lineWidth = 4;
+        ctx.beginPath(); ctx.ellipse(rcx, FEET_Y - 6, 40 + 130 * rp, 14 + 34 * rp, 0, 0, TAU); ctx.stroke();
+      }
+
+      // 轴心 + 力臂
+      if (helper) {
+        ctx.strokeStyle = 'rgba(79,209,255,0.75)'; ctx.lineWidth = 2; ctx.setLineDash([6, 5]);
+        ctx.beginPath(); ctx.moveTo(f.cx, f.cy); ctx.lineTo(rx, ry); ctx.stroke(); ctx.setLineDash([]);
+        ctx.fillStyle = '#4fd1ff'; ctx.beginPath(); ctx.arc(rx, ry, 4, 0, TAU); ctx.fill();
+        ctx.fillStyle = '#ff3b30'; ctx.beginPath(); ctx.arc(f.cx, f.cy, 6, 0, TAU); ctx.fill();
+        ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.stroke();
+        ctx.fillStyle = '#e8d6b0'; ctx.font = '13px monospace';
+        ctx.fillText(`origin(${m.ox.toFixed(2)}, ${m.oy.toFixed(2)})  ${Math.round(f.ang * 180 / Math.PI)}°`, f.cx + 14, f.cy - 12);
+      }
+
+      requestAnimationFrame(draw);
+    }
+
+    syncNotes();
+    requestAnimationFrame(draw);
+  </script>
+</body>
+</html>

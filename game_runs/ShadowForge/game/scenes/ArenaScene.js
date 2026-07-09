@@ -278,6 +278,7 @@ class ArenaScene extends Phaser.Scene {
     window.__scene = this;
     window.__probe = () => ({
       started: self.started, ended: self.ended, won: self.won,
+      lost: self.ended && !self.won,
       hp: self.P.hp, maxHp: Forge.PLAYER.maxHp,
       wave: self.wave, enemies: self.enemies.length, toSpawn: self._toSpawn,
       kills: self.kills, essence: self.P.essence,
@@ -299,13 +300,14 @@ class ArenaScene extends Phaser.Scene {
 
     let near = null, nd = 1e9, threats = 0, danger = false;
     for (const e of this.enemies) {
-      if (e.dead || e.spr.alpha < 1) continue;
+      if (e.dead) continue;
+      // 天降长剑闭环中（本体已离场 alpha=0）且落剑列罩着自己 → 危险（雾化水平位移可脱离锁定列）；须在 alpha 守卫前判
+      if (e.def.sky && e.state === 'sky' && Math.abs(P.x - e.skyX) < e.def.sky.r + 20) danger = true;
+      if (e.spr.alpha < 1) continue;
       const d = Math.abs(e.x - P.x);
       if (d < nd) { nd = d; near = e; }
       if (d < 170) threats++;
       if (e.state === 'lunge' || (e.state === 'tele' && d < 200) || d < 66) danger = true;
-      // 天降镰刀读条中且预警圈罩着自己 → 也算危险（雾化水平位移可脱离锁定列）
-      if (e.def.sky && e.skyState === 'tele' && Math.abs(P.x - e.skyX) < e.def.sky.r + 20) danger = true;
     }
     // 飞向自己且已近的敌方弹丸 → 危险（furies 投掷弹每发 2 伤，站桩硬吃 5 发就死）
     for (const pr of this.projectiles)

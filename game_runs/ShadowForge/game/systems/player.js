@@ -224,30 +224,35 @@ Object.assign(ArenaScene.prototype, {
     this.player.setVisible(false);
     window.GameAudio && GameAudio.play('morph');
 
-    const raiseY = C.FEET_Y - 150;   // 举锤过顶：让蓄力弧线看得见，而不是原地哆嗦
+    // 抡砸几何：轴心在柄底(0.5,0.95)、置于胸高；锤头由过顶(0°=举锤)划弧抡向前下(dir·93°)砸地
+    const OY = 0.95, WH2 = 200;
+    const pvX = x, pvY = C.FEET_Y - 72;
+    const dy = (1 - OY) * WH2;                 // 柄底(点云锚点=底中)相对轴心的落差
+    const hx = x + dir * 144;                  // 锤头落点 x（B 震地波圆心）
     Forge.FX.morph({
       src: { cloud: hCloud, x, y: py, scale: P.scale, flip: dir },
-      dst: { cloud: wCloud, x, y: raiseY, scale: 1, flip: dir },
+      dst: { cloud: wCloud, x: pvX, y: pvY + dy, scale: 1, flip: dir },
       dur: H.inMs, turb: 24, rise: 34, mix: this._lightMix(),
       onDone: () => {
-        const img = this.add.image(x, raiseY, wKey)
-          .setOrigin(0.5, 1).setDepth(C.DEPTH.FX).setFlipX(dir < 0).setScale(1, 0.94);
+        const img = this.add.image(pvX, pvY, wKey)
+          .setOrigin(0.5, OY).setDepth(C.DEPTH.FX).setFlipX(dir < 0).setScale(1, 0.94);
         this.tweens.add({
-          targets: img, y: C.FEET_Y + 4, scaleY: 1, duration: H.slamMs, ease: 'Cubic.easeIn',
+          targets: img, angle: dir * 93, scaleY: 1, duration: H.slamMs, ease: 'Cubic.easeIn',
           onComplete: () => {
             // 落锤瞬间：冲击挤压(宽扁一瞬) + 冲击环 + AOE 击退 + 顿帧 + 震屏
             this.tweens.add({ targets: img, scaleX: 1.4, scaleY: 0.55, duration: 70, yoyo: true, ease: 'Cubic.easeOut' });
-            this._shockRing(x, C.FEET_Y - 8, H.radius, this._lightMix());
+            // B 震地波：冲击环与 AOE 判定都以锤头落点 hx 为心，向两侧扩散（视觉与判定统一到锤头）
+            this._shockRing(hx, C.FEET_Y - 8, H.radius, this._lightMix());
             for (const e of this.enemies)
-              if (!e.dead && Math.abs(e.x - x) < H.radius)
-                this._hitEnemy(e, H.dmg, Math.sign(e.x - x || dir) * H.knock, 'hammer');
+              if (!e.dead && Math.abs(e.x - hx) < H.radius)
+                this._hitEnemy(e, H.dmg, Math.sign(e.x - hx || dir) * H.knock, 'hammer');
             this._hitstop(70);
             this.cameras.main.shake(130, 0.008);
             window.GameAudio && GameAudio.play('splashBad');
             this.time.delayedCall(90, () => {
               img.destroy();
               Forge.FX.morph({
-                src: { cloud: wCloud, x, y: C.FEET_Y + 4, scale: 1, flip: dir },
+                src: { cloud: wCloud, x: pvX, y: pvY + dy, scale: 1, flip: dir },
                 dst: { cloud: hCloud, x, y: py, scale: P.scale, flip: dir },
                 dur: H.outMs, turb: 26, rise: 20, mix: this._lightMix(),
                 onDone: () => { this.player.setVisible(true); P.state = 'free'; this._flushQueued(); },
@@ -265,33 +270,50 @@ Object.assign(ArenaScene.prototype, {
     if (P.state !== 'free' || P.cds.sickle > 0) return;
     P.state = 'sickle'; P.cds.sickle = S.cd;
     const dir = P.dir, x = P.x, py = this._pY();
-    const wKey = Forge.Cloud.weapon(this, 'sickle');
+    const wKey = Forge.Cloud.weapon(this, 'sword');   // 链镰 → 十字长剑：绕握柄劈砍
     const wCloud = Forge.Cloud.fromTexture(this, wKey, Forge.FXN.morph);
     const hCloud = this._playerCloud();
+    // 长剑蓄力猛劈几何：偏心轴心在握柄(ox=0.15,oy=0.5)、支点举到头顶之上，绕手划一道大弧劈落至地脊
+    const OX = 0.15, OY = 0.5, WS = 0.68, WW = 360, WH = 120;
+    const pvX = x, pvY = C.FEET_Y - 150;
+    // 点云锚点=底中(0.5,1)，实体图原点在轴心(OX,OY)，dx/dy 为两者换算（聚拢姿态=水平0°，与举剑前一致→无跳变）
+    const dx = dir * (0.5 - OX) * WW * WS, dy = (1 - OY) * WH * WS;
     this.player.setVisible(false);
     window.GameAudio && GameAudio.play('morph');
 
     Forge.FX.morph({
       src: { cloud: hCloud, x, y: py, scale: P.scale, flip: dir },
-      dst: { cloud: wCloud, x, y: C.FEET_Y, scale: 1, flip: dir },
+      dst: { cloud: wCloud, x: pvX + dx, y: pvY + dy, scale: WS, flip: dir },
       dur: S.inMs, turb: 22, rise: 18, mix: this._lightMix(),
       onDone: () => {
-        const img = this.add.image(x, C.FEET_Y, wKey)
-          .setOrigin(0.5, dir < 0 ? 0 : 1).setDepth(C.DEPTH.FX).setFlipX(dir < 0);
-        this.tweens.add({ targets: img, angle: dir * 70, duration: S.sweepMs, ease: 'Sine.easeOut' });
-        window.GameAudio && GameAudio.play('release');
-        this._hitstop(50);
-        for (const e of this.enemies)
-          if (!e.dead && dir * (e.x - x) > 0 && dir * (e.x - x) < S.range)
-            this._hitEnemy(e, S.dmg, dir * 70, 'sickle');
-        this.time.delayedCall(S.sweepMs, () => {
-          img.destroy();
-          Forge.FX.morph({
-            src: { cloud: wCloud, x, y: C.FEET_Y, scale: 1, flip: dir },
-            dst: { cloud: hCloud, x, y: py, scale: P.scale, flip: dir },
-            dur: S.outMs, turb: 24, rise: 16, mix: this._lightMix(),
-            onDone: () => { this.player.setVisible(true); P.state = 'free'; this._flushQueued(); },
-          });
+        const img = this.add.image(pvX, pvY, wKey)
+          .setOrigin(dir < 0 ? 1 - OX : OX, OY).setDepth(C.DEPTH.FX).setFlipX(dir < 0).setScale(WS);
+        // 蓄力猛劈：水平(0°)聚拢 → 举顶后方(dir·-100°)蓄力 → Quart 硬抽下(dir·47°)触地结算（无跳变：起手即聚拢姿态）
+        this.tweens.add({
+          targets: img, angle: dir * -100, duration: 150, ease: 'Sine.easeOut',   // 举剑蓄力（Sine.easeOut 到顶微顿）
+          onComplete: () => {
+            window.GameAudio && GameAudio.play('release');   // 破空：劈下瞬间
+            this.tweens.add({
+              targets: img, angle: dir * 47, duration: 170, ease: 'Quart.easeIn',   // 猛抽下劈
+              onComplete: () => {
+                // 触地重击：顿帧 + 震屏 + 前向范围结算（刃锋落到地脊才判定）
+                this._hitstop(70);
+                this.cameras.main.shake(120, 0.006);
+                for (const e of this.enemies)
+                  if (!e.dead && dir * (e.x - x) > 0 && dir * (e.x - x) < S.range)
+                    this._hitEnemy(e, S.dmg, dir * 70, 'sickle');
+                this.time.delayedCall(90, () => {
+                  img.destroy();
+                  Forge.FX.morph({
+                    src: { cloud: wCloud, x: pvX + dx, y: pvY + dy, scale: WS, flip: dir },
+                    dst: { cloud: hCloud, x, y: py, scale: P.scale, flip: dir },
+                    dur: S.outMs, turb: 24, rise: 16, mix: this._lightMix(),
+                    onDone: () => { this.player.setVisible(true); P.state = 'free'; this._flushQueued(); },
+                  });
+                });
+              },
+            });
+          },
         });
       },
     });
@@ -448,7 +470,7 @@ Object.assign(ArenaScene.prototype, {
     const T = Forge.FURIES_FORM.throw, P = this.P;
     if (P.state !== 'free' || P.cds.throw > 0) return;
     P.state = 'throw'; P.cds.throw = T.cd;
-    const dir = P.dir, x0 = P.x, y0 = this._pY() - 60;
+    const dir = P.dir, x0 = P.x, y0 = this._pY() - 100;   // 出手点抬到胸/手高（_pY 因 GLB 留白偏低）
     window.GameAudio && GameAudio.play('morph');
     // 起手：从本体点云剥离一撮粒子向出手方向迸出，弹丸源自躯体
     this._peelBurst(this._playerCloud(), P.x, this._pY(), P.scale, dir, dir, this._lightMix());

@@ -153,6 +153,33 @@ Forge.Cloud = {
         x.quadraticCurveTo(126, y0 + 14, 38, y0 + 18);   // 下缘弧收回根部
         x.closePath(); x.fill();
       }
+    } else if (kind === 'sword') {
+      // 十字长剑（欧洲中世纪单握剑）：圆首 + 缠柄 + 平直十字护手 + 等宽平直剑身(锋尖处骤收)，尖朝右，中心线 y=60
+      cv.width = 360; cv.height = 120;
+      const x = cv.getContext('2d');
+      x.fillStyle = ink;
+      x.beginPath(); x.ellipse(15, 60, 10, 16, 0, 0, Math.PI * 2); x.fill();   // 圆首(pommel)
+      x.fillRect(22, 53, 62, 14);                                              // 缠柄(grip)
+      x.fillRect(84, 24, 12, 72);                                              // 平直十字护手
+      x.beginPath(); x.arc(90, 24, 6, 0, Math.PI * 2); x.fill();               // 上档端
+      x.beginPath(); x.arc(90, 96, 6, 0, Math.PI * 2); x.fill();               // 下档端
+      x.beginPath();                                                           // 剑身：等宽平直到底，近锋尖骤收成锋
+      x.moveTo(96, 52); x.lineTo(322, 52); x.lineTo(356, 60);
+      x.lineTo(322, 68); x.lineTo(96, 68); x.closePath(); x.fill();
+    } else if (kind === 'shard') {
+      // 女妖旋刃：四芒飞刃（掷弹弹体，自旋飞行，与长矛的直线剪影区分），中心 45,45
+      cv.width = 90; cv.height = 90;
+      const x = cv.getContext('2d');
+      x.fillStyle = ink;
+      x.beginPath();
+      for (let i = 0; i < 8; i++) {
+        const rad = (i % 2 === 0) ? 42 : 13, a = i * Math.PI / 4 - Math.PI / 2;
+        const px = 45 + rad * Math.cos(a), py = 45 + rad * Math.sin(a);
+        i ? x.lineTo(px, py) : x.moveTo(px, py);
+      }
+      x.closePath(); x.fill();
+      x.save(); x.globalCompositeOperation = 'destination-out';
+      x.beginPath(); x.arc(45, 45, 6, 0, Math.PI * 2); x.fill(); x.restore();  // 中心透孔
     } else {
       // 链镰（参考第二行左二）：大钩状新月刃（右侧，尖垂向左下）+ 空心链环（左侧延伸），中距离横扫
       cv.width = 260; cv.height = 130;
