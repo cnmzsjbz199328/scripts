@@ -175,18 +175,29 @@ class ArenaScene extends Phaser.Scene {
   _startWave(i) {
     this.wave = i;
     const w = Forge.WAVES[i];
+    this.waveKills = 0;
+    this.waveTotal = w.spawns.length || 1;
+    this.waveProgress = 0;
     window.GameHUD && GameHUD.setObjective(`${w.name}`);
     const bgmKeys = ['music_limbo', 'music_wrath', 'music_violence', 'music_fraud', 'music_betrayal'];
     this._playBGM(bgmKeys[i]);
     const card = w.intro ? `${w.name}\n${w.intro}\n${w.hint}` : `${w.name}\n${w.hint}`;
     this._toast(card, w.intro ? 3200 : 2400);
-    if (this.textures.exists(w.bg) && this.bgA.texture.key !== w.bg) {
-      this.bgB.setTexture(w.bg).setDisplaySize(Forge.W, Forge.H).setAlpha(0);
-      this.tweens.add({
-        targets: this.bgB, alpha: 1, duration: 700,
-        onComplete: () => { this.bgA.setTexture(w.bg).setDisplaySize(Forge.W, Forge.H); this.bgB.setAlpha(0); },
-      });
+
+    // 设置当前 bgA 为本波背景并使其完全显示
+    if (this.textures.exists(w.bg)) {
+      this.bgA.setTexture(w.bg).setDisplaySize(Forge.W, Forge.H).setAlpha(1);
     }
+    // 预加载下一波背景到 bgB 且初始不可见
+    if (i + 1 < Forge.WAVES.length) {
+      const nextW = Forge.WAVES[i + 1];
+      if (this.textures.exists(nextW.bg)) {
+        this.bgB.setTexture(nextW.bg).setDisplaySize(Forge.W, Forge.H).setAlpha(0);
+      }
+    } else {
+      this.bgB.setAlpha(0);
+    }
+
     this._toSpawn = w.spawns.length;
     for (const s of w.spawns)
       this.time.delayedCall(s.t, () => {
@@ -195,6 +206,21 @@ class ArenaScene extends Phaser.Scene {
         this._toSpawn--;
         this._checkWave();   // 覆盖"最后一个还没出生时场上已清空"的边界
       });
+  }
+
+  _onEnemyKilled() {
+    const killed = this.waveTotal - this._toSpawn - this.enemies.length;
+    this.waveProgress = Math.min(1, Math.max(0, killed / this.waveTotal));
+    
+    if (this.wave + 1 < Forge.WAVES.length) {
+      this.tweens.add({
+        targets: this.bgB,
+        alpha: this.waveProgress,
+        duration: 900,
+        ease: 'Cubic.easeOut',
+        overwrite: true
+      });
+    }
   }
 
   _checkWave() {

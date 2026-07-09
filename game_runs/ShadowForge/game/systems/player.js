@@ -49,9 +49,28 @@ Object.assign(ArenaScene.prototype, {
     return Forge.Cloud.fromTexture(this, this.P.form === 'dante' ? 'dante_idle_0' : form.tex, Forge.FXN.morph);
   },
 
-  // 玩家粒子渐染色：按当前波次取染色比例，见 config.js PALETTE
+  // 玩家粒子渐染色：结合当前波次的击杀进度（this.waveProgress），向下一关色彩平滑蜕变
   _lightMix() {
-    return Forge.C.PALETTE[this.wave] || null;
+    const curP = Forge.C.PALETTE[this.wave];
+    const nextP = Forge.C.PALETTE[this.wave + 1];
+    if (!curP) return null;
+    if (!nextP || nextP.accent === null) return curP;
+
+    const progress = this.waveProgress || 0;
+    const ratio = curP.ratio + progress * (nextP.ratio - curP.ratio);
+
+    const c1 = curP.accent || Forge.C.INK;
+    const c2 = nextP.accent || Forge.C.INK;
+
+    const r1 = (c1 >> 16) & 0xff, g1 = (c1 >> 8) & 0xff, b1 = c1 & 0xff;
+    const r2 = (c2 >> 16) & 0xff, g2 = (c2 >> 8) & 0xff, b2 = c2 & 0xff;
+
+    const r = Math.round(r1 + progress * (r2 - r1));
+    const g = Math.round(g1 + progress * (g2 - g1));
+    const b = Math.round(b1 + progress * (b2 - b1));
+
+    const accent = (r << 16) | (g << 8) | b;
+    return { ratio, accent };
   },
 
   // 光晕常驻跟随：贴着 this.player 的中心，呼吸式明暗；第一关也显示（灰色光晕）
