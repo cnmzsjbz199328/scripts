@@ -118,7 +118,9 @@ Object.assign(ArenaScene.prototype, {
         } else if (e.state === 'tele') {
           e.stateT -= dms;
           if (e.stateT <= 0) {
-            e.state = 'reform'; e.stateT = 460;   // 挥砍(130ms)+重组(300ms)期间不移动不再攻击
+            // 挥砍 + 重组(300ms)期间不移动不再攻击；十字长剑走蓄力猛劈(更长的抬手+蓄力)，须相应放宽窗口
+            const swingMs = S.weapon === 'sword' ? Forge.SWORD_SLASH.total : 130;
+            e.state = 'reform'; e.stateT = swingMs + 330;
             e.atkCd = S.cd;
             this.cameras.main.shake(110, 0.007);
             this._swingWeapon(e);   // 武器实体下扫 → 落刃瞬间才结算伤害/冲击环 → 迸溅 → 重组回躯体
@@ -418,20 +420,27 @@ Object.assign(ArenaScene.prototype, {
     const wp = e._wpn; e._wpn = null;
     const A = this._bossWpn(e), d0 = e._wpnDir || 1, S = e.def.swipe, C = Forge.C;
     if (!wp) return this._reformBoss(e, A, d0, null);   // 化形被打断的边缘残留：无武器则不致伤，直接重聚躯体
-    this.tweens.add({
-      targets: wp, angle: d0 * A.a1, duration: 130, ease: 'Cubic.easeIn',
-      onComplete: () => {
-        // 落刃瞬间：此刻武器实体扫到地面，才结算冲击环 + 伤害（半径仍以 Boss 立足点为心，与预警圈一致）
-        this._shockRing(e.x, C.FEET_Y - 8, S.r, Forge.ENEMY_MIX);
-        if (!this.ended && !e.dead && Math.abs(this.P.x - e.x) < S.r) this._playerHit(e.def.dmg, e.x);
-        // 刃口动能残留迸溅，随后武器整体重组回 Boss 躯体（与玩家锤/矛的收尾同构）
-        Forge.FX.burst({
-          cloud: A.cloud, x: wp.x + d0 * (0.5 - A.ox) * A.W * A.s, y: wp.y + (1 - A.oy) * A.H * A.s,
-          scale: A.s, flip: d0, n: 90, dur: 380, dirX: d0, mix: Forge.ENEMY_MIX,
-        });
-        this._reformBoss(e, A, d0, wp);
-      },
-    });
+    // 落刃瞬间：此刻武器实体扫到地面，才结算冲击环 + 伤害（半径仍以 Boss 立足点为心，与预警圈一致）
+    const impact = () => {
+      this._shockRing(e.x, C.FEET_Y - 8, S.r, Forge.ENEMY_MIX);
+      if (!this.ended && !e.dead && Math.abs(this.P.x - e.x) < S.r) this._playerHit(e.def.dmg, e.x);
+      // 刃口动能残留迸溅，随后武器整体重组回 Boss 躯体（与玩家锤/矛的收尾同构）
+      Forge.FX.burst({
+        cloud: A.cloud, x: wp.x + d0 * (0.5 - A.ox) * A.W * A.s, y: wp.y + (1 - A.oy) * A.H * A.s,
+        scale: A.s, flip: d0, n: 90, dur: 380, dirX: d0, mix: Forge.ENEMY_MIX,
+      });
+      this._reformBoss(e, A, d0, wp);
+    };
+    if (A.kind === 'sword') {
+      // satan 终极形态·十字长剑：与玩家 _doSickle 同一套蓄力猛劈；触地再叠一记硬顿帧+震屏(重刃砸实)
+      this._swordChargeSlash(wp, {
+        dir: d0, s: A.s, cloud: A.cloud, mix: Forge.ENEMY_MIX,
+        onRelease: () => window.GameAudio && GameAudio.play('release'),
+        onImpact: () => { this._hitstop(70); this.cameras.main.shake(140, 0.008); impact(); },
+      });
+    } else {
+      this.tweens.add({ targets: wp, angle: d0 * A.a1, duration: 130, ease: 'Cubic.easeIn', onComplete: impact });
+    }
   },
 
   // 武器 → 躯体重组：挥砍末速做 drift 惯性（follow-through），落点即 Boss 当前位置
@@ -607,6 +616,7 @@ Object.assign(ArenaScene.prototype, {
     }
     this.time.delayedCall(50, () => { e.spr.destroy(); e.shadow.destroy(); });
     this.enemies = this.enemies.filter(o => o !== e);
+    this._onEnemyKilled();
     this._checkWave();
   },
 });

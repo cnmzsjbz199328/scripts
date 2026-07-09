@@ -30,6 +30,10 @@ Forge.HAMMER = { dmg: 4, cd: 2000, inMs: 160, slamMs: 120, outMs: 270, radius: 1
 Forge.SICKLE = { dmg: 3, cd: 1500, inMs: 150, sweepMs: 180, outMs: 240, range: 150 };   // 中距离横扫，矛=长/镰=中/锤=近
 Forge.MIST   = { cd: 950, ms: 400, dist: 200 };
 
+// ── 十字长剑「蓄力猛劈」共享节拍（玩家 _doSickle 与 satan _swingWeapon 同一套劈法，见 _swordChargeSlash）──
+// 横持 0° 起手(与聚拢一致→无跳变) → 抬到举顶后方(raiseMs) → 蓄力顿(chargeMs) → Quart 猛抽下劈(fallMs) → 触地结算
+Forge.SWORD_SLASH = { raiseMs: 165, chargeMs: 150, fallMs: 175, raiseA: -100, fallA: 47, total: 490 };
+
 // ── 吸收变形：击败可吸收敌得「魄」，E 化身为它（限时）；每种敌各自的 J 招式见下方 form.throw/lunge ──
 Forge.FIEND_FORM = {
   tex: 'fiend_idle_0', anim: 'fiend_walk', scale: 0.85, toast: '化形 · 恶鬼之躯 — J 爪袭', glb: true,

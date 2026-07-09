@@ -264,6 +264,38 @@ Object.assign(ArenaScene.prototype, {
     });
   },
 
+  // ── 十字长剑「蓄力猛劈」共享动作：驱动一把已就位(angle=0 横持)的武器 image 走三段节拍——
+  //    抬手举顶(raiseMs) → 蓄力顿一小拍(chargeMs) → Quart 猛抽下劈(fallMs)，下劈途中沿刃锋连续洒残影刀光。
+  //    玩家 _doSickle 与 satan _swingWeapon 共用，保证同一把剑同一套劈法。落刃结算与收尾交给 onImpact 回调。
+  //    opt: { dir, s(缩放), cloud(残影点云), mix(染色), onRelease(破空瞬间), onImpact(触地结算) }
+  _swordChargeSlash(img, opt) {
+    const K = Forge.SWORD_SLASH, dir = opt.dir, s = opt.s;
+    // 刃锋相对轴心(ox=0.15)的局部 x：tip 356 − 0.15·360 = 302，含缩放与朝向(flipX 时为负)
+    const tipLX = dir * 302 * s;
+    const spark = () => {
+      const r = img.rotation;
+      Forge.FX.burst({
+        cloud: opt.cloud, x: img.x + tipLX * Math.cos(r), y: img.y + tipLX * Math.sin(r),
+        scale: s, flip: dir, n: 7, dur: 190, dirX: dir, mix: opt.mix,
+      });
+    };
+    this.tweens.add({
+      targets: img, angle: dir * K.raiseA, duration: K.raiseMs, ease: 'Sine.easeOut',   // 抬手举顶后方
+      onComplete: () => {
+        this.time.delayedCall(K.chargeMs, () => {                                        // 举顶蓄力顿一小拍——蓄势
+          if (!img.active) return;                                                       // 期间被打断(死亡/击杀)则武器已销毁
+          opt.onRelease && opt.onRelease();                                              // 破空：劈下瞬间
+          let acc = 0, lastA = img.angle;
+          this.tweens.add({
+            targets: img, angle: dir * K.fallA, duration: K.fallMs, ease: 'Quart.easeIn',   // 猛抽下劈：慢→快落差
+            onUpdate: () => { acc += Math.abs(img.angle - lastA); lastA = img.angle; while (acc >= 11) { acc -= 11; spark(); } },   // 每 11° 洒一撮刃光残影
+            onComplete: () => { opt.onImpact && opt.onImpact(); },
+          });
+        });
+      },
+    });
+  },
+
   // ── I 化镰横扫：人→镰(morph) → 原地扇形横扫面前一段范围(实体段) → 镰→人(morph)；矛=长/镰=中/锤=近 ──
   _doSickle() {
     const S = Forge.SICKLE, P = this.P, C = Forge.C;
@@ -288,30 +320,25 @@ Object.assign(ArenaScene.prototype, {
       onDone: () => {
         const img = this.add.image(pvX, pvY, wKey)
           .setOrigin(dir < 0 ? 1 - OX : OX, OY).setDepth(C.DEPTH.FX).setFlipX(dir < 0).setScale(WS);
-        // 蓄力猛劈：水平(0°)聚拢 → 举顶后方(dir·-100°)蓄力 → Quart 硬抽下(dir·47°)触地结算（无跳变：起手即聚拢姿态）
-        this.tweens.add({
-          targets: img, angle: dir * -100, duration: 150, ease: 'Sine.easeOut',   // 举剑蓄力（Sine.easeOut 到顶微顿）
-          onComplete: () => {
-            window.GameAudio && GameAudio.play('release');   // 破空：劈下瞬间
-            this.tweens.add({
-              targets: img, angle: dir * 47, duration: 170, ease: 'Quart.easeIn',   // 猛抽下劈
-              onComplete: () => {
-                // 触地重击：顿帧 + 震屏 + 前向范围结算（刃锋落到地脊才判定）
-                this._hitstop(70);
-                this.cameras.main.shake(120, 0.006);
-                for (const e of this.enemies)
-                  if (!e.dead && dir * (e.x - x) > 0 && dir * (e.x - x) < S.range)
-                    this._hitEnemy(e, S.dmg, dir * 70, 'sickle');
-                this.time.delayedCall(90, () => {
-                  img.destroy();
-                  Forge.FX.morph({
-                    src: { cloud: wCloud, x: pvX + dx, y: pvY + dy, scale: WS, flip: dir },
-                    dst: { cloud: hCloud, x, y: py, scale: P.scale, flip: dir },
-                    dur: S.outMs, turb: 24, rise: 16, mix: this._lightMix(),
-                    onDone: () => { this.player.setVisible(true); P.state = 'free'; this._flushQueued(); },
-                  });
-                });
-              },
+        // 蓄力猛劈（共享 _swordChargeSlash）：水平聚拢 → 举顶蓄力 → Quart 硬抽下劈触地结算（起手即聚拢姿态→无跳变）
+        this._swordChargeSlash(img, {
+          dir, s: WS, cloud: wCloud, mix: this._lightMix(),
+          onRelease: () => window.GameAudio && GameAudio.play('release'),
+          onImpact: () => {
+            // 触地重击：顿帧 + 震屏 + 前向范围结算（刃锋落到地脊才判定）
+            this._hitstop(90);
+            this.cameras.main.shake(130, 0.007);
+            for (const e of this.enemies)
+              if (!e.dead && dir * (e.x - x) > 0 && dir * (e.x - x) < S.range)
+                this._hitEnemy(e, S.dmg, dir * 70, 'sickle');
+            this.time.delayedCall(90, () => {
+              img.destroy();
+              Forge.FX.morph({
+                src: { cloud: wCloud, x: pvX + dx, y: pvY + dy, scale: WS, flip: dir },
+                dst: { cloud: hCloud, x, y: py, scale: P.scale, flip: dir },
+                dur: S.outMs, turb: 24, rise: 16, mix: this._lightMix(),
+                onDone: () => { this.player.setVisible(true); P.state = 'free'; this._flushQueued(); },
+              });
             });
           },
         });
