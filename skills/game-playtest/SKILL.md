@@ -29,7 +29,16 @@ npx tsx skills/game-playtest/play.ts <GameName> [--seconds=90] [--tick=70] [--ou
 由 2× 超采样→比原生 1280 更锐),crf 21:
 ```bash
 cd game_runs/<Game>/playtest
+# 1. 压制标准无声版 mp4：
 ffmpeg -y -i playthrough.webm -vf "scale=1280:-2" -c:v libx264 -pix_fmt yuv420p -crf 21 -preset slow -movflags +faststart playthrough.mp4
+
+# 2. （可选）合并背景音乐 BGM，循环并自动对齐视频长度。<bgm>.mp3 换成该游戏自己的音频
+#    （如 ShadowForge 的 assets/audio/Under_the_Iron_Sky.mp3），两种方法二选一，不要先 A 后 B（会叠双份 BGM）：
+# 方法 A：替代第 1 步——从原始 webm 一步压制并合并 BGM，直接产出带音轨的 playthrough.mp4
+ffmpeg -y -i playthrough.webm -stream_loop -1 -i ../assets/audio/<bgm>.mp3 -map 0:v -map 1:a -vf "scale=1280:-2" -c:v libx264 -pix_fmt yuv420p -crf 21 -preset slow -movflags +faststart -c:a aac -shortest playthrough.mp4
+# 方法 B：接在第 1 步之后——对已压好的无声 mp4 视频流直接拷贝、仅编码音频，产出 playthrough_with_audio.mp4
+ffmpeg -y -i playthrough.mp4 -stream_loop -1 -i ../assets/audio/<bgm>.mp3 -map 0:v -map 1:a -c:v copy -c:a aac -shortest playthrough_with_audio.mp4
+
 # 截帧同样下采样到 1280：ffmpeg -y -ss <t> -i playthrough.webm -vf scale=1280:-2 -vframes 1 frame.png
 # 注意:线条/高细节场景码率高(可能 5-8MB)；纯剪影小很多。转完删 webm(体积大)。优先 mp4，不要全长 gif。
 ```
