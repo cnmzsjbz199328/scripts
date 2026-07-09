@@ -27,9 +27,9 @@ description: 完整复刻 OpenAI hatch-pet 的 9x6 精灵图集生成方案，�
 生成符合 Hatch-Pet 标准的 1728x1040 像素（9列 x 5行）动画图集，并自动完成抠图、对齐和拼合。
 
 ## 自动化工具 (Local Tools)
-- **Prepare**: `npx tsx scripts/prepare.ts <pet_name>`
-- **Process**: `npx tsx scripts/process.ts <pet_name> <row_name> <image_path>`
-- **Assemble**: `npx tsx scripts/assemble.ts <pet_name>`
+- **Prepare**: `npx tsx skills/hatch-pet/prepare.ts <pet_name>`
+- **Process**: `npx tsx skills/hatch-pet/process.ts <pet_name> <row_name> <image_path>`
+- **Assemble**: `npx tsx skills/hatch-pet/assemble.ts <pet_name>`
 
 ## 技术规格
 - **单帧**: 192x208px | **图集**: 1728x1248px (9x6)
@@ -57,7 +57,7 @@ description: 完整复刻 OpenAI hatch-pet 的 9x6 精灵图集生成方案，�
 
 ### 2. 准备阶段
 ```
-npx tsx scripts/prepare.ts MyPet
+npx tsx skills/hatch-pet/prepare.ts MyPet
 ```
 
 ### 3. 生成参考图 ← 外观锚点，必须先完成
@@ -67,7 +67,7 @@ npx tsx scripts/prepare.ts MyPet
 > "Generate a single sprite of a [description] pet, front-facing pose, full body, centered. {STYLE}. #00FF00 background. No shadows. Wide margin."
 
 ```
-npx tsx scripts/process.ts MyPet reference path/to/reference.png
+npx tsx skills/hatch-pet/process.ts MyPet reference path/to/reference.png
 ```
 
 ### 4. 循环生成动画行
@@ -87,12 +87,12 @@ npx tsx scripts/process.ts MyPet reference path/to/reference.png
 
 每次生成后运行：
 ```
-npx tsx scripts/process.ts MyPet <row_name> path/to/grid.png
+npx tsx skills/hatch-pet/process.ts MyPet <row_name> path/to/grid.png
 ```
 
 ### 5. 拼合阶段
 ```
-npx tsx scripts/assemble.ts MyPet
+npx tsx skills/hatch-pet/assemble.ts MyPet
 ```
 最终产物：
 - `pet_runs/MyPet/output/spritesheet.webp` — 1728x1040 透明背景图集

@@ -54,10 +54,10 @@ game_runs/
 
 ## 2. 加载方式（已踩过的坑）
 
-- **用按序 `<script>` 标签 + 命名空间，不用 ES module。** 零基础设施，`file://`（verify 截图）和 Cloudflare 都能跑。
+- **用按序 `<script>` 标签 + 命名空间，不用 ES module。** 零基础设施（无打包器），verify/playtest 自带的本地 http 服务器和 Cloudflare 都能直接跑。
 - **顺序必须是依赖序**：`_engine/*` → `config` → `levels` → `systems/physics/render` → `scenes/*` → `main`。
   `levels.js` 读 `Config`，`scenes` 读全部，`main` 引用各 Scene 类——顺序错了就是 `undefined`。
-- 关卡数据放 `levels.js`（JS 对象），**不强行 `fetch(json)`**（避免 file:// 的 CORS）。
+- 关卡数据放 `levels.js`（JS 对象），**不强行 `fetch(json)`**——保持按序 script 的同步装配，不引入异步启动时序。
   可选：让 `_build.js` 反向把 `levels.js` 导出成规范 `levels.json`，给那些死掉的脚手架 json 一个真实 schema。
 
 ---
@@ -99,9 +99,10 @@ NaN 主体在 `__probe` 里显示成 `x:null`。**抽取后必跑 bot 全关回�
 
 结果：2515 行单体 → 9 文件（最大 combat.js 566 行），PvP 移除省 ~440 行。
 
-### 回归（资源类游戏必须走 http）
-StickmanFighter 用 `this.load.image/spritesheet` 加载 webp → **file:// 被 CORS 拦**，
-测试要起 `python -m http.server`。战斗 RNG 不可复现，故回归不比 kill 数，而是两条**管线覆盖**：
+### 回归（http 由工具自带）
+verify.ts / play.ts 都自带静态 http 服务器，资源加载（`this.load.image/spritesheet`）无需额外处理；
+只有手工开浏览器调试时才需要自己起 `python -m http.server`（`file://` 会被 CORS 拦）。
+战斗 RNG 不可复现，故回归不比 kill 数，而是两条**管线覆盖**：
 - **godmode 全清**：每帧钉血 + `__scene.damageAIEnemy(最近敌, 999)` 强杀 → 走通 kill/wave/boss/win + 真实出拳走 input/combat → 必 `won` 且零报错。
 - **dumb bot**：approach+punch → 必到终局(战败) 且零报错（覆盖 take-damage/gameover）。
 - 加 `window.__scene = this` 调试钩子（无害，供 playtest 读写场景）。
@@ -131,5 +132,5 @@ InkMechanics 已落地，可直接抄：
 5. 回归：bot 全关通过 + 人类路径（菜单/选关/暂停）零报错。
 6. 按需勾选第 5 节精装修清单。
 
-> 回归脚本范式：Playwright `file://` 打开 → `__hudStart()` → 轮询 `__probe()` 直到 `won/lost`；
+> 回归脚本范式：Playwright 经本地 http 服务器打开（verify/playtest 内置）→ `__hudStart()` → 轮询 `__probe()` 直到 `won/lost`；
 > 人类路径用 `addInitScript` 把 `navigator.webdriver` 改 false 走菜单流程。

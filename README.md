@@ -1,122 +1,38 @@
-# Hatch-Pet Scripts
+# Learning / scripts — AI 素材生成 + 网页小游戏工作区
 
-A sprite-sheet generation pipeline that replicates the [OpenAI hatch-pet](https://github.com/openai/skills/tree/main/skills/.curated/hatch-pet) format.
-Produces a **1728 × 1248 px atlas** (9 columns × 6 rows, 192 × 208 px per frame) with transparent background, ready for web animation.
+从早期的单一 hatch-pet 精灵图集流水线，演化为一组 AI 素材生成流水线 + 20 余个 Phaser 网页小游戏的工作区。核心循环：
 
----
+**生成素材（`skills/`）→ 装配进游戏（`game_runs/`）→ 自动验证/试玩 → 部署 showreel（Cloudflare Pages）**
 
-## Prerequisites
-
-- Node.js 18+
-- `npm install` (installs `sharp`, `tsx`, TypeScript)
-
----
-
-## Directory layout
-
-```
-scripts/
-├── prepare.ts          # Initialise a pet run
-├── process.ts          # Chroma-key + slice one animation row
-├── assemble.ts         # Stitch rows into the final atlas
-├── HATCH_PET_SKILL.md  # AI generation guide (prompts & style library)
-├── package.json
-└── pet_runs/           # Runtime output (gitignored)
-    ├── preview.html    # Browser animation viewer
-    ├── registry.js     # Auto-generated pet registry
-    └── <PetName>/
-        ├── manifest.json
-        ├── reference/  # Locked appearance reference frames
-        ├── rows/       # Per-animation extracted frames
-        └── output/
-            ├── spritesheet.webp
-            └── pet.json
-```
-
----
-
-## Workflow
-
-### 1 — Initialise
+## 快速开始
 
 ```bash
-npx tsx scripts/prepare.ts <PetName>
+npm install                                        # sharp / tsx / playwright / three
+npx tsx skills/game-verify/verify.ts <Game>        # 验证某个游戏基本可玩
+npx tsx skills/game-playtest/play.ts <Game>        # bot 自动通关 + 录屏
 ```
 
-Creates `pet_runs/<PetName>/` with the required directory tree and `manifest.json`.
+本地打开游戏：起个静态服务器（如 `python -m http.server`）访问 `game_runs/<Game>/index.html`，或直接打开 `game_runs/index.html` 进 showreel。
 
-### 2 — Generate a reference image (AI step)
+## 目录结构
 
-Ask your AI model to generate a **single-frame, front-facing, full-body** sprite using the prompt from `HATCH_PET_SKILL.md`. Save the result locally, then process it:
+| 目录 | 内容 |
+|------|------|
+| `skills/<name>/` | 各条流水线的脚本 + `SKILL.md`（**用法的唯一权威文档**） |
+| `game_runs/` | Phaser 游戏，每目录一个；`_engine/` 共享引擎层；`MIGRATION.md` 架构样板 |
+| `char_runs/` `pet_runs/` `object_runs/` `texture_runs/` `video_runs/` | 各流水线生成产物（大多 gitignored） |
+| `assets_fbx/` | GLB/FBX 角色素材库（不入库；`inbox/` 待接入、`archive/` 已接入） |
+| `references/` | 设计参考图与外部技能拷贝 |
+| `scratch/` | 生成器工作区（源码入库，渲染产物不入） |
 
-```bash
-npx tsx scripts/process.ts <PetName> reference path/to/reference.png
-```
+## 流水线一览（详见各自 SKILL.md）
 
-This locks the visual appearance used for all subsequent rows.
+- **游戏**：`game-gen`（生成）· `game-verify`（截图断言）· `game-playtest`（bot 通关 + 平衡体检）· `game-fix` / `game-enhance`
+- **角色动画**：`glb-sprite`（3D 骨骼 → 剪影序列帧）· `svg-sprite`（参数化骨骼逐帧 SVG）· `char-sprite` · `hatch-pet`（9×6 图集）
+- **环境/其他**：`svg-ambient`（背景动画元素工厂）· `object-anim` · `material-texture` · `video-sprite` · `studio`
 
-### 3 — Generate each animation row (AI step)
+npm scripts（`pet:*` `texture:*` `video:*` `object:*` `char:*` `game:*`）是常用流水线的快捷入口，见 `package.json`。
 
-For each animation (see table below), generate a **3 × 3 grid image** (9 frames) using the prompts in `HATCH_PET_SKILL.md`, attaching the reference image as visual input. Then process it:
+## 给 AI 协作者
 
-```bash
-npx tsx scripts/process.ts <PetName> <row_name> path/to/grid.png
-```
-
-### 4 — Assemble the atlas
-
-```bash
-npx tsx scripts/assemble.ts <PetName>
-```
-
-Outputs `pet_runs/<PetName>/output/spritesheet.webp` and `pet.json`, and updates `pet_runs/registry.js`.
-
-### 5 — Preview
-
-Open `pet_runs/preview.html` in a browser. Select the pet from the dropdown to play all animations.
-
----
-
-## Animation rows
-
-| Row | Name | Description | Loop | FPS |
-|-----|------|-------------|------|-----|
-| 0 | `hatching` | Hatches from an egg | no | 8 |
-| 1 | `jumping` | Jump and land | no | 8 |
-| 2 | `running-left` | Run cycle to the left | yes | 8 |
-| 3 | `attacking` | Wind-up → strike → recovery | no | 12 |
-| 4 | `swift-to-people` | Transform into a human | no | 8 |
-| 5 | `sleeping` | Curl up and sleep | yes | 8 |
-
----
-
-## Visual styles
-
-Specify a style when using the AI skill. Default is **ghibli**.
-
-| Style | Trigger words | Character |
-|-------|--------------|-----------|
-| `ghibli` *(default)* | ghibli / 吉卜力 / 动漫 | Soft watercolor, expressive eyes, warm palette |
-| `pixel` | pixel / 像素 / 复古 | Thick outlines, limited palette, flat cel shading |
-| `cartoon` | cartoon / 卡通 | Bold outlines, flat bright colours, exaggerated expressions |
-
----
-
-## Image requirements for AI generation
-
-- **Background**: solid `#00FF00`
-- **Grid separators**: thin solid dark-green lines `#006600`
-- **Layout**: 3 × 3 grid (9 equal cells), character centred in each cell with a wide margin — never touching grid lines
-- **Forbidden**: shadows, motion blur, speed lines, translucency, floor textures
-
----
-
-## Atlas specification
-
-| Property | Value |
-|----------|-------|
-| Frame size | 192 × 208 px |
-| Columns | 9 |
-| Rows | 6 |
-| Atlas size | 1728 × 1248 px |
-| Format | WebP, quality 90, transparent |
+架构约定、验证门、素材选型规则见根目录 `CLAUDE.md`；游戏架构细节见 `game_runs/MIGRATION.md`。
