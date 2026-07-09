@@ -526,8 +526,9 @@ Object.assign(ArenaScene.prototype, {
       pr.x += pr.dir * pr.speed * dt;
       pr.dart.setPos(pr.x, pr.y);
       // 命中判定交给统一裁决：_playerHit 内部按 _isSolid/invuln 决定是否受伤，
-      // 只有真正扣了血才销毁弹丸（免疫/无敌时穿身而过，继续飞）
-      if (!this.ended && Math.abs(pr.x - P.x) < 30 && Math.abs(pr.y - this._pY()) < 60) {
+      // 只有真正扣了血才销毁弹丸（免疫/无敌时穿身而过，继续飞）。
+      // 单车道竞技场无跳跃、纵坐标基本固定：与全场（含玩家同款掷弹）一致走纯横向判定，不设纵向门。
+      if (!this.ended && Math.abs(pr.x - P.x) < 30) {
         const before = P.hp;
         this._playerHit(pr.dmg, pr.x);
         if (P.hp < before) pr.dead = true;

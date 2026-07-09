@@ -59,7 +59,7 @@ Forge.ENEMY = {
            swipe: { tele: 650, r: 175, cd: 2800, weapon: 'axe' }, summonMs: 9000, maxAdds: 2 },   // 巨斧挥砍 + 周期召唤亡魂；天降已收归 satan 终极形态专属
   // 复仇女神：保持距离放投掷弹，不近身接触；吸收后 E 化身为它，J 变原地扔弹
   furies: { tex: 'furies_idle_0', anim: 'furies_walk', hp: 5, speed: 74, dmg: 0, scale: 0.9, glb: true, absorb: true,
-            ranged: { keep: 230, tele: 420, cd: 2000, projSpeed: 360, dmg: 2 } },
+            ranged: { keep: 230, tele: 420, cd: 2000, projSpeed: 360, dmg: 1 } },   // 飞镖命中修复后由 2 降 1：此前纵向门失效等于零伤害，全局平衡未计入这条 chip 伤害源
   // 冰湖亡魂：贴身化匕刺击，死亡时留一片减速地带（环境后果，不进吸收/化形系统）
   icesoul: { tex: 'icesoul_idle_0', anim: 'icesoul_walk', hp: 6, speed: 50, dmg: 1, scale: 1.0, glb: true,
              stab: { reach: 46, tele: 360, ms: 230, cd: 1500, ws: 0.5, weapon: 'dagger' },
