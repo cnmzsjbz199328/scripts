@@ -87,7 +87,8 @@ interface Probe {
   catch { console.error('playwright 未安装：npm i -D playwright && npx playwright install chromium'); process.exit(2); }
 
   const srv = await startServer();
-  const url = `http://127.0.0.1:${srv.port}/${gameName}/index.html`;
+  const isArena = gameName === 'ShadowForge';
+  const url = `http://127.0.0.1:${srv.port}/${gameName}/index.html` + (isArena ? '?autoplay' : '');
 
   const pageErrors: string[] = [];
   let browser: any, context: any;
@@ -141,10 +142,12 @@ interface Probe {
     let prevTickY: number | null = null;            // 上一帧 y（俯视绕障用）
     let prevScore = -1, isTopdown = false, goalScore = 0;  // 俯视模式：以 score 计进度/卡死
     const stuckLimit = Math.ceil(6000 / tickMs); // ~6s 无进展判卡死（已含计时门合理等待）
+    let lastProbe: any = null;
 
     while ((Date.now() - t0) / 1000 < maxSeconds) {
       const p = await probe();
       if (!p) { await sleep(tickMs); continue; }
+      lastProbe = p;
       const P = p as any;
 
       // 剧情卡：推进
@@ -168,9 +171,12 @@ interface Probe {
       metrics.finalScore = p.score; metrics.hpRemaining = p.hp; metrics.deaths = p.deaths;
       metrics.maxX = Math.max(metrics.maxX, p.x);
 
-      // 卡死检测：横版按 x 推进；俯视按 score 推进（走位不单调，x 无意义）
+      // 卡死检测：横版按 x 推进；俯视按 score 推进（走位不单调，x 无意义）；与单屏竞技场排除
       isTopdown = (P.moveX !== undefined); goalScore = p.goalScore || goalScore;
-      if (isTopdown) {
+      if (isArena) {
+        // 竞技场不使用位移卡死检测，只检测总时间超时
+        stuckTicks = 0;
+      } else if (isTopdown) {
         if (p.score > prevScore) { prevScore = p.score; stuckTicks = 0; } else stuckTicks++;
         if (stuckTicks > Math.ceil(20000 / tickMs)) { metrics.result = 'stuck'; metrics.stuck = true; metrics.notes.push(`~20s 内 score 无增长（${p.score}/${p.goalScore}），疑似难度过高/不可达`); break; }
       } else {
@@ -179,7 +185,9 @@ interface Probe {
       }
 
       // ── bot 决策 ──
-      if (isTopdown) {
+      if (isArena) {
+        // 竞技场由游戏内置 bot (autoplay) 托管，外部不发送键盘输入干扰
+      } else if (isTopdown) {
         // 俯视：探针给建议方向 moveX/moveY(-1..1)，按四向键走位（躲避+趋目标）
         let mx = P.moveX, my = P.moveY;
         // 被静态障碍顶住（想动却位置停滞）→ 垂直方向绕行一拍
@@ -225,9 +233,12 @@ interface Probe {
     await sleep(metrics.result === 'win' ? 1600 : 400); // 结局多录一会
 
     metrics.durationSec = +((Date.now() - t0) / 1000).toFixed(1);
-    metrics.progressPct = isTopdown
-      ? Math.round(100 * metrics.finalScore / (goalScore || metrics.finalScore || 1))
-      : Math.round(100 * metrics.maxX / (await page.evaluate(() => (window as any).__probe?.()?.cellX ?? 4690)));
+    const lastP = lastProbe || {};
+    metrics.progressPct = isArena
+      ? (lastP.won ? 100 : (lastP.lost ? 99 : Math.min(99, Math.round(100 * (((lastP.wave as number) || 0) + 1) / 5))))
+      : (isTopdown
+        ? Math.round(100 * metrics.finalScore / (goalScore || metrics.finalScore || 1))
+        : Math.round(100 * metrics.maxX / (await page.evaluate(() => (window as any).__probe?.()?.cellX ?? 4690))));
     metrics.runtimeErrors = [...new Set(pageErrors)].slice(0, 8);
 
     // 收尾：保存最终截图 + 视频
