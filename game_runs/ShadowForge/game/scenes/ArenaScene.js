@@ -249,7 +249,7 @@ class ArenaScene extends Phaser.Scene {
     window.GameAudio && GameAudio.play('win');
     this.time.delayedCall(900, () =>
       window.GameHUD && GameHUD.showGameOver(true,
-        `冰面上的倒影终于碎了。\n击杀 ${this.kills} · 剩余生命 ${this.P.hp}/${Forge.PLAYER.maxHp}\n你夺尽众生之形而登顶——屠龙者，终成恶龙。`));
+        `五关皆破，撒旦亦坠。\n击杀 ${this.kills} · 剩余生命 ${this.P.hp}/${Forge.PLAYER.maxHp}\n影可成锋，雾可避锋——变形即武艺。`));
   }
 
   update(_t, delta) {
