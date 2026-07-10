@@ -1,0 +1,113 @@
+/* WyrmsEnd（龙尽之途）— 全局命名空间与调参。
+ * 横版推进 · 动势格斗 · 夺形即堕落：屠龙者一路向东，每杀一位段主便夺其形、失其技，
+ * 抵达龙巢时镜中已是恶龙。骨架按 game_runs/SIDESCROLLER.md 蓝图实现。
+ * 共享引擎（_engine/pointcloud|morph）按约定读 window.Forge.C.DEPTH/FXN/C.INK，
+ * 故本游戏命名空间沿用 Forge（每页只跑一个游戏，不冲突）。 */
+window.Forge = {};
+
+Forge.W = 960;
+Forge.H = 540;
+
+// ── 世界（横版推进的核心差异：世界远宽于屏，摄像机是滑动窗口）──
+Forge.WORLD = {
+  W: 16000,                  // 5 段 × 3200
+  H: 540,
+  FEET_Y: 452,               // 地面基线，同竞技场约定
+};
+
+// ── 摄像机 ──
+Forge.CAM = {
+  lerp: 0.12,                // 横向平滑跟随系数
+  aheadFrac: 0.32,           // 玩家钉在画面左 32% 处，前方多留视野（魂斗罗惯例）
+  leashScreens: 1.5,         // 非锁点敌人落后镜头左缘超此屏数 → 直接清理
+  edgePad: 40,               // 玩家 x 钳制到镜头内的边距
+};
+
+Forge.C = {
+  FEET_Y: 452,
+  GLB_PAD: 24,               // glb-sprite 帧底部透明留白补偿
+  INK: 0x0a0d12,
+  DEPTH: {
+    BG: -100, MID: -90, GROUND: -60, SHADOW: -53, CHAR: -50, RING: -47,
+    FX: -46, FG: -30, FOG: -28, VIGN: -20, TOAST: 90,
+  },
+};
+
+// ── 玩家：横版哲学 = 薄血 + 检查点（死亡回段首），区别于竞技场的 HP 消耗战 ──
+Forge.PLAYER = { maxHp: 6, lives: 3, invulnMs: 900 };
+
+// 形态链（夺形即堕落，不可逆）：骑士 → 半龙（夺爪失剑）→ 翼裔（夺弹失锤）。
+// J/K 指向下方招式表；雾化冲刺(L)全程保留——它是影之天赋，也是堕落的源头。
+Forge.FORMS = {
+  knight:    { tex: 'knight_idle_0',  idle: 'knight_idle',  walk: 'knight_walk',  scale: 1.05, speed: 240, J: 'sword', K: 'hammer' },
+  halfdrake: { tex: 'drake_idle_0',   idle: 'drake_idle',   walk: 'drake_walk',   scale: 0.95, speed: 300, J: 'claw',  K: 'hammer' },
+  winged:    { tex: 'slinger_idle_0', idle: 'slinger_idle', walk: 'slinger_walk', scale: 0.95, speed: 270, J: 'claw',  K: 'shard' },
+};
+Forge.STEAL_TOAST = {
+  halfdrake: '夺形 · 龙爪噬手 —— 剑已握不住了（J 爪袭突进）',
+  winged:    '夺形 · 翼骨破背 —— 锤太重，翼太轻（K 掷旋刃）',
+};
+
+// ── 招式（动势格斗：攻击即位移，招式与推进融为一体）──
+Forge.SWORDDASH = { dmg: 3, cd: 1050, inMs: 130, dashMs: 200, outMs: 220, range: 260, hitW: 60 };
+Forge.CLAW      = { dmg: 2, cd: 620,  dist: 180, inMs: 90, ms: 150, outMs: 110, ws: 0.6 };
+Forge.HAMMER    = { dmg: 4, cd: 1900, inMs: 150, slamMs: 120, outMs: 250, radius: 150, knock: 120 };
+Forge.SHARD     = { dmg: 2, cd: 820,  projSpeed: 560, ms: 700, windup: 150 };
+Forge.MIST      = { cd: 900, ms: 380, dist: 210 };
+
+// 十字长剑「蓄力猛劈」节拍（终局龙王 _swingWeapon 用，与 ShadowForge 同源）
+Forge.SWORD_SLASH = { raiseMs: 165, chargeMs: 150, fallMs: 175, raiseA: -100, fallA: 47, total: 490 };
+
+// ── 敌人图鉴：横版敌人是「移动的障碍」——血薄、成股，威胁在走位时机而非读招 ──
+Forge.ENEMY = {
+  // 龙眷仆从：缓慢逼近，贴身化匕刺击
+  thrall: { tex: 'thrall_walk_0', animWalk: 'thrall_walk', hp: 2, speed: 82, dmg: 1, scale: 1.0, glb: true,
+            stab: { reach: 46, tele: 320, ms: 220, cd: 1300, ws: 0.5, weapon: 'dagger' } },
+  // 幼龙：快速扑袭
+  drake:  { tex: 'drake_idle_0', animWalk: 'drake_walk', animIdle: 'drake_idle', hp: 3, speed: 150, dmg: 1, scale: 0.85, glb: true,
+            lunge: { tele: 420, dist: 190, ms: 250, cd: 1600, ws: 0.6 } },
+  // 龙裔投手：保距掷旋刃
+  slinger: { tex: 'slinger_idle_0', animWalk: 'slinger_walk', animIdle: 'slinger_idle', hp: 2, speed: 80, dmg: 0, scale: 0.9, glb: true,
+             ranged: { keep: 230, tele: 400, cd: 1900, projSpeed: 380, dmg: 1 } },
+  // 精英·爪龙长（第二段锁点主）：杀之夺爪 → halfdrake
+  drakelord: { tex: 'drake_idle_0', animWalk: 'drake_walk', animIdle: 'drake_idle', hp: 10, speed: 125, dmg: 1, scale: 1.2, glb: true,
+               elite: true, steal: 'halfdrake',
+               lunge: { tele: 480, dist: 230, ms: 260, cd: 1400, ws: 0.75 } },
+  // 精英·翼裔巫母（第四段锁点主）：杀之夺翼 → winged
+  slingerqueen: { tex: 'slinger_idle_0', animWalk: 'slinger_walk', animIdle: 'slinger_idle', hp: 12, speed: 92, dmg: 0, scale: 1.15, glb: true,
+                  elite: true, steal: 'winged',
+                  ranged: { keep: 260, tele: 380, cd: 1400, projSpeed: 430, dmg: 1 } },
+  // 龙裔守卫（第三段锁点 Boss）：巨斧挥砍 + 召唤仆从
+  warden: { tex: 'warden_idle_0', animWalk: 'warden_idle', animIdle: 'warden_idle', hp: 14, speed: 48, dmg: 2, scale: 1.5, glb: true,
+            boss: true, superArmor: true,
+            swipe: { tele: 640, r: 175, cd: 2700, weapon: 'axe' }, summonMs: 9000, maxAdds: 2, summonType: 'thrall' },
+  // 终局 · 龙王（第五段锁点 Boss）：十字长剑地劈 + 天降凝剑
+  wyrm:   { tex: 'wyrm_idle_0', animWalk: 'wyrm_walk', animIdle: 'wyrm_idle', hp: 22, speed: 52, dmg: 2, scale: 1.4, glb: true,
+            boss: true, superArmor: true,
+            swipe: { tele: 680, r: 190, cd: 2500, weapon: 'sword' },
+            sky: { cd: 4600, tele: 850, r: 100, dmg: 2 } },
+};
+
+// 粒子预算（同 ShadowForge 约定，引擎读 Forge.FXN）
+Forge.FXN = { morph: 760, burst: 70, kill: 420, absorb: 150, proj: 24, ring: 90, gather: 56 };
+
+// 敌方攻击特效染色（敌我攻击一眼可辨）
+Forge.ENEMY_MIX = { ratio: 0.45, accent: 0x8a2c18 };
+
+// 玩家粒子渐染色：按世界 x 分段取（旅途即堕落，颜色随推进渐染，索引=段）
+Forge.C.PALETTE = [
+  { ratio: 0.25, accent: 0xc08a3a },   // 第一段 · 麦田暖金
+  { ratio: 0.4,  accent: 0x6a6258 },   // 第二段 · 战场灰烬
+  { ratio: 0.5,  accent: 0x3a6ea8 },   // 第三段 · 隘口冷蓝
+  { ratio: 0.65, accent: 0xb03a1a },   // 第四段 · 骨原暗红
+  { ratio: 0.8,  accent: 0xd8a03a },   // 第五段 · 龙巢熔金
+];
+
+// 程序化降级背景的每段配色（agy 真图到位后自动被替换，键名一致）
+Forge.BG_FALLBACK = [
+  { sky: ['#2a1a10', '#1a0f0a', '#0a0605'], hill: '#120a06', hill2: '#0a0504', mid: '#0e0805' },   // 麦田黄昏
+  { sky: ['#1c1a18', '#12100e', '#080706'], hill: '#0e0c0a', hill2: '#080706', mid: '#0a0908' },   // 焦土
+  { sky: ['#10141f', '#0a0d16', '#05070c'], hill: '#0a0d14', hill2: '#06080d', mid: '#0a0c12' },   // 山隘
+  { sky: ['#1a0c08', '#100705', '#080303'], hill: '#0e0604', hill2: '#080302', mid: '#0c0503' },   // 骨原
+  { sky: ['#14202b', '#1c1408', '#0a0703'], hill: '#0c0805', hill2: '#070402', mid: '#0e0a04' },   // 龙巢（上暗下金）
+];
