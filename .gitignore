@@ -40,6 +40,10 @@ game_runs/**/verify-screenshot.png
 # processed outputs next to them deploy; prompts to regenerate live in PROMPTS.md
 game_runs/**/assets/**/raw/
 
+# ...and superseded scene art kept locally as backup — unreferenced by any code,
+# pure deploy dead weight if tracked
+game_runs/**/scene/backup/
+
 # game-playtest full playthrough recordings — local verification/showcase only,
 # NOT version-controlled (large). The 10s preview.mp4 in each game root IS tracked.
 game_runs/**/playtest/
