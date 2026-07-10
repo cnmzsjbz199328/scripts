@@ -180,7 +180,11 @@ interface Probe {
         if (p.score > prevScore) { prevScore = p.score; stuckTicks = 0; } else stuckTicks++;
         if (stuckTicks > Math.ceil(20000 / tickMs)) { metrics.result = 'stuck'; metrics.stuck = true; metrics.notes.push(`~20s 内 score 无增长（${p.score}/${p.goalScore}），疑似难度过高/不可达`); break; }
       } else {
-        if (p.x > prevMaxX + 4) { prevMaxX = p.x; stuckTicks = 0; } else stuckTicks++;
+        // 横版推进的锁点战（SIDESCROLLER.md §6 契约 probe().locked）：镜头锁成单屏打波次，
+        // x 被封在竞技场内属正常战斗，不计位移停滞；锁点内死锁由总时长门兜底
+        if (p.x < prevMaxX - 400) prevMaxX = p.x;   // 检查点重生（x 大幅回退）→ 推进基准复位，否则重生后必误判 stuck
+        if (p.locked) { stuckTicks = 0; }
+        else if (p.x > prevMaxX + 4) { prevMaxX = p.x; stuckTicks = 0; } else stuckTicks++;
         if (stuckTicks > stuckLimit) { metrics.result = 'stuck'; metrics.stuck = true; metrics.notes.push(`坐标在 ~6s 内无前进（x≈${p.x.toFixed(0)}），疑似设计死锁或难度墙`); break; }
       }
 
