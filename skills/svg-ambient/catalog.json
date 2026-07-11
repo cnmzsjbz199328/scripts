@@ -296,6 +296,24 @@
         "trail"
       ],
       "params": []
+    },
+    {
+      "name": "grass",
+      "frames": 8,
+      "fps": 8,
+      "layer": "foreground",
+      "motionType": "loop",
+      "anchor": "bottom",
+      "scalable": true,
+      "palette": [
+        "blade",
+        "blade2",
+        "flower"
+      ],
+      "params": [
+        "blades",
+        "seed"
+      ]
     }
   ]
 }

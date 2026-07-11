@@ -406,6 +406,42 @@ def('wind', { frames: 4, layer: 'mid', palette: { trail: '#e2e8f0' } }, (o) => {
   return out;
 });
 
+// 21. 草丛/芦苇簇（剪影前景件）：根部钉地、梢部随风摆，摆幅随高度放大（Rope 风力
+//     公式烘进帧）。叶片几何由 seed 确定、跨帧不变——只有摆动相位逐帧走，绝不闪烁。
+//     params: blades 叶片数、seed 换簇形；palette.flower 非 'none' 时部分叶尖开花。
+def('grass', { frames: 8, layer: 'foreground', anchor: 'bottom', params: { blades: 9, seed: 1 }, palette: { blade: '#0d111d', blade2: '#1a222e', flower: 'none' } }, (o) => {
+  const P = o.palette, out = [], N = cnt(o.blades || 9, o.density);
+  let s = ((o.seed || 1) * 7919 + 104729) % 2147483647;
+  const rnd = () => (s = (s * 16807) % 2147483647) / 2147483647;
+  // 叶片属性一次生成（帧间共享）：位置/高度/倾斜/相位/宽度/配色/开花
+  const blades = [];
+  for (let i = 0; i < N; i++) {
+    blades.push({
+      bx: 18 + (i / Math.max(1, N - 1)) * 92 + (rnd() - 0.5) * 12,
+      h: 42 + rnd() * 58,
+      lean: (rnd() - 0.5) * 22,
+      phase: rnd() * Math.PI * 2,
+      w: 2.2 + rnd() * 2.6,
+      col: rnd() < 0.4 ? P.blade2 : P.blade,
+      flower: rnd() < 0.3,
+    });
+  }
+  for (let f = 0; f < o.frames; f++) {
+    const ph = (f / o.frames) * Math.PI * 2 * o.speed;
+    let g = '';
+    for (const b of blades) {
+      const sway = Math.sin(ph + b.phase) * (3 + b.h * 0.07);
+      const tx = b.bx + b.lean + sway, ty = 128 - b.h;
+      const cx = b.bx + b.lean * 0.4 + sway * 0.35, cy = 128 - b.h * 0.55;
+      g += `<path d="M ${f1(b.bx - b.w)},128 Q ${f1(cx - b.w * 0.4)},${f1(cy)} ${f1(tx)},${f1(ty)} Q ${f1(cx + b.w * 0.4)},${f1(cy)} ${f1(b.bx + b.w)},128 Z" fill="${b.col}" />`;
+      if (b.flower && P.flower !== 'none')
+        g += `<polygon points="${f1(tx)},${f1(ty - 4)} ${f1(tx + 3)},${f1(ty)} ${f1(tx)},${f1(ty + 4)} ${f1(tx - 3)},${f1(ty)}" fill="${P.flower}" />`;
+    }
+    out.push(doc(g, o.scale));
+  }
+  return out;
+});
+
 // ---- 公共 API --------------------------------------------------------------
 const DEFAULTS = { speed: 1, scale: 1, density: 1 };
 
