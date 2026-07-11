@@ -116,6 +116,61 @@ Object.assign(JourneyScene.prototype, {
       .setAlpha(0).setScrollFactor(0).setDepth(D.FOG);
   },
 
+  /* 前景植被簇（svg-ambient grass）：世界空间撒件 + scrollFactor>1 = 近景视差。
+   * 不走 tileSprite/tilePositionX——每簇独立播摆动循环、相位错开，整条前景不同步摆。
+   * 零 update 开销：视差由 scrollFactor 承担，摆动由 anims 承担。 */
+  _buildForeground() {
+    const D = Forge.C.DEPTH, FRAMES = 8;
+    for (let s = 0; s < 5; s++)
+      for (let v = 0; v < 2; v++) {
+        if (!this.textures.exists(`amb_grass_s${s}v${v}_0`)) continue;
+        if (!this.anims.exists(`fg_s${s}v${v}`))
+          this.anims.create({
+            key: `fg_s${s}v${v}`,
+            frames: Array.from({ length: FRAMES }, (_, i) => ({ key: `amb_grass_s${s}v${v}_${i}` })),
+            frameRate: 7, repeat: -1,
+          });
+      }
+    // 两个前景亚层：与 mid 0.55 / 地面带 1.0 接成单调视差阶梯（1.18 → 1.5），
+    // 破掉单平面"贴草玻璃板"感。深度线索四件套同向：近层大/实/低/快，远亚层小/淡/高/慢。
+    const LAYERS = [
+      { para: 1.18, depth: D.FG,     sMin: 0.55, sMax: 0.95, yMin: 494, yMax: 516, alpha: 0.82, gapMul: 1 },
+      { para: 1.5,  depth: D.FG + 1, sMin: 1.1,  sMax: 1.6,  yMin: 526, yMax: 560, alpha: 1,    gapMul: 2.2 },
+    ];
+    // 每段丛间距倍率（密度即叙事：麦田茂密 → 战场残存 → 隘口/骨原贫瘠 → 龙巢焦土）
+    const SEG_GAP = [1, 1.3, 1.9, 1.6, 2.1];
+    let seed = 90719;
+    const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+    for (const L of LAYERS) {
+      // 屏幕坐标 = x - scrollX*para，scrollX ∈ [0, WORLD_W - W]
+      // → x 需覆盖 [0, (WORLD_W - W)*para + W] 才能全程有前景
+      const span = (Forge.WORLD.W - Forge.W) * L.para + Forge.W;
+      let x = 30 + rnd() * 260;
+      while (x < span) {
+        // 该处居中于屏时的镜头世界中心 → 决定段色板与该段密度
+        const worldCx = Math.max(0, (x - Forge.W * 0.5) / L.para + Forge.W * 0.5);
+        const s = Forge.SEGMENTS[this._segAt(worldCx)].bg;
+        const gap = L.gapMul * SEG_GAP[s];
+        // 丛聚分布而非均匀噪声：1~3 株抱团成丛 + 长短空档 + 15% 秃斑
+        if (rnd() < 0.15) { x += (420 + rnd() * 520) * gap; continue; }
+        const n = 1 + Math.floor(rnd() * 3);
+        let cx = x;
+        for (let k = 0; k < n; k++) {
+          const v = rnd() < 0.5 ? 0 : 1;
+          if (this.anims.exists(`fg_s${s}v${v}`))
+            this.add.sprite(cx, L.yMin + rnd() * (L.yMax - L.yMin), `amb_grass_s${s}v${v}_0`)
+              .setOrigin(0.5, 1).setScrollFactor(L.para, 1).setDepth(L.depth)
+              .setScale(L.sMin + rnd() * (L.sMax - L.sMin))
+              .setFlipX(rnd() < 0.5).setAlpha(L.alpha)
+              .play({ key: `fg_s${s}v${v}`, startFrame: Math.floor(rnd() * FRAMES),
+                      frameRate: 6 + rnd() * 3 });   // 每株摆速不同，不齐刷刷
+          cx += 34 + rnd() * 70;
+        }
+        x = cx + (240 + rnd() * 430) * gap;
+      }
+    }
+  },
+
   _updateParallax() {
     const cam = this.cameras.main.scrollX;
     // 系数直接乘 scrollX（不取反，蓝图 §9 已知坑）

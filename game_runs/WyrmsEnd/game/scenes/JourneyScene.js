@@ -20,6 +20,12 @@ class JourneyScene extends Phaser.Scene {
       this.load.image(`bg${i}_far`, `assets/bg/seg${i + 1}_far.png`);
       this.load.image(`bg${i}_mid`, `assets/bg/seg${i + 1}_mid.png`);
     }
+    // 前景草丛簇（svg-ambient grass 工厂产物，gen_wyrmsend_ambient.mjs 生成）：
+    // 5 段 × 2 变体 × 8 帧，缺帧静默（_buildForeground 会跳过没纹理的变体）
+    for (let s = 0; s < 5; s++)
+      for (let v = 0; v < 2; v++)
+        for (let i = 0; i < 8; i++)
+          this.load.svg(`amb_grass_s${s}v${v}_${i}`, `assets/svg/amb_grass_s${s}v${v}_${i}.svg`, { width: 128, height: 128 });
     // BGM 复用 ShadowForge 曲库（相对路径跨目录引用，缺失静默跳过）
     const BGM = ['Under_the_Iron_Sky', 'Scorch_and_Marrow', 'Judgment_at_the_Iron_Bastion',
                  'Scurrying_Beneath_the_Floorboards', 'Last_Light_in_the_Nave'];
@@ -46,6 +52,7 @@ class JourneyScene extends Phaser.Scene {
     this._makeCommonTextures();
     this._bgEnsureTextures();
     this._buildParallax();
+    this._buildForeground();
     this._buildAnims();
     this._buildPlayer();
 
