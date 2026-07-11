@@ -136,6 +136,6 @@ Object.assign(JourneyScene.prototype, {
     setTex(this.farA, `bg${a}_far`); setTex(this.farB, `bg${b}_far`);
     setTex(this.midA, `bg${a}_mid`); setTex(this.midB, `bg${b}_mid`);
     this.farB.setAlpha(sm); this.midB.setAlpha(sm);
-    this.fogRect.setAlpha(Math.sin(Math.PI * sm) * 0.55);
+    this.fogRect.setAlpha(Math.sin(Math.PI * sm) * 0.22);
   },
 });

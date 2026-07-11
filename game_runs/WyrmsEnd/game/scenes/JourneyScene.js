@@ -64,7 +64,7 @@ class JourneyScene extends Phaser.Scene {
     if (!this.textures.exists('vign')) {
       const cv = this.textures.createCanvas('vign', W, H), ctx = cv.getContext();
       const rg = ctx.createRadialGradient(W / 2, H / 2, H * 0.42, W / 2, H / 2, H * 0.95);
-      rg.addColorStop(0, 'rgba(0,0,0,0)'); rg.addColorStop(1, 'rgba(0,0,0,0.6)');
+      rg.addColorStop(0, 'rgba(0,0,0,0)'); rg.addColorStop(1, 'rgba(0,0,0,0.3)');
       ctx.fillStyle = rg; ctx.fillRect(0, 0, W, H);
       cv.refresh();
     }
