@@ -15,11 +15,14 @@ class JourneyScene extends Phaser.Scene {
     F8('slinger_idle', 'furies_idle'); F8('slinger_walk', 'furies_walk');
     F8('warden_idle', 'minos_idle');
     F8('wyrm_idle', 'satan_idle');     F8('wyrm_walk', 'satan_walk');
-    // 视差层真图（agy 生成，见 PROMPTS.md）：缺图静默，create 时补程序化降级层
-    for (let i = 0; i < 5; i++) {
-      this.load.image(`bg${i}_far`, `assets/bg/seg${i + 1}_far.png`);
-      this.load.image(`bg${i}_mid`, `assets/bg/seg${i + 1}_mid.png`);
-    }
+    // 视差层真图（agy 生成，见 PROMPTS.md）：按 manifest.js（process-bg 产出）只加载
+    // 现存的图，缺席的段 create 时补程序化降级层——不产生 404
+    const BGF = window.WYRM_BG;
+    for (let i = 0; i < 5; i++)
+      for (const kind of ['far', 'mid']) {
+        const f = `seg${i + 1}_${kind}.png`;
+        if (!BGF || BGF.includes(f)) this.load.image(`bg${i}_${kind}`, `assets/bg/${f}`);
+      }
     // 前景草丛簇（svg-ambient grass 工厂产物，gen_wyrmsend_ambient.mjs 生成）：
     // 5 段 × 2 变体 × 8 帧，缺帧静默（_buildForeground 会跳过没纹理的变体）
     for (let s = 0; s < 5; s++)
