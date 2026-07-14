@@ -1,5 +1,19 @@
 [
   {
+    "id": "SlimeVale",
+    "title": "清泉谷的露露 (SlimeVale)",
+    "tagline": "生命如露水流转——三段跳、单格技能、把被偷走的春天弹回来。",
+    "gameType": "arcade",
+    "genre": "ARCADE",
+    "accent": "#3fcf95",
+    "previewBg": "#eaf9f0",
+    "icon": "🫧",
+    "thumbnail": "SlimeVale/scene/cover.png",
+    "previewVideo": "SlimeVale/preview.mp4",
+    "path": "SlimeVale/index.html",
+    "createdAt": "2026-07-14T00:00:00.000Z"
+  },
+  {
     "id": "WyrmsEnd",
     "title": "龙尽之途 (WyrmsEnd)",
     "tagline": "屠龙者终成恶龙——每夺一形，便失一技。",
