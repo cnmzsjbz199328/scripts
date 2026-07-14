@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>清泉谷的露露：SlimeVale</title>
+  <!-- Phaser 用仓库内 vendor 副本（Cloudflare 一并部署）：不依赖外网 CDN，离线/内网 verify 也能跑 -->
+  <script src="../_engine/vendor/phaser-3.60.0.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: linear-gradient(180deg, #d6f2e4, #eefaf2);
+      color: #2c6e57;
+      font-family: 'Trebuchet MS', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      min-height: 100vh; overflow: hidden;
+    }
+    #game-wrapper {
+      position: relative; width: 960px; height: 540px; flex: 0 0 auto;
+      border: 3px solid #a9e2c6; border-radius: 14px;
+      box-shadow: 0 14px 40px rgba(66, 140, 110, 0.28);
+      overflow: hidden; transform-origin: center center;
+      background: #bfe8f5;
+    }
+    #hud {
+      display: none; position: absolute; top: 0; left: 0; right: 0;
+      padding: 10px 16px; gap: 18px; flex-direction: row; align-items: center;
+      background: linear-gradient(to bottom, rgba(255,255,255,0.65), transparent);
+      pointer-events: none; z-index: 10; font-size: 15px; user-select: none;
+    }
+    #hud-hearts { color: #2fae7d; letter-spacing: 2px; text-shadow: 0 1px 0 #fff; }
+    #hud-objective { color: #35795f; flex: 1; text-align: center; font-style: italic; }
+    #hud-score { color: #2c8a9e; font-weight: 700; }
+    .game-overlay {
+      position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+      z-index: 20; background: rgba(226, 247, 236, 0.94);
+      background-size: cover; background-position: center;
+    }
+    .overlay-card {
+      text-align: center; max-width: 640px; padding: 36px 42px;
+      background: rgba(255, 255, 255, 0.94); border: 2px solid #a9e2c6; border-radius: 18px;
+      box-shadow: 0 18px 44px rgba(66, 140, 110, 0.25);
+    }
+    .overlay-card h2 { font-size: 2rem; margin-bottom: 10px; color: #23855f; letter-spacing: 0.1em; }
+    .overlay-card .tagline { font-size: 0.95rem; color: #4d9a7c; margin-bottom: 16px; font-style: italic; }
+    .overlay-card .story-setting { font-size: 0.9rem; color: #4a7a66; line-height: 1.8; margin-bottom: 24px; white-space: pre-line; }
+    .overlay-card .controls-hint { font-size: 0.78rem; color: #7aa38f; line-height: 1.8; margin-top: 14px; }
+    .game-btn {
+      display: inline-block; padding: 12px 38px; font-size: 1rem; font-weight: 700;
+      letter-spacing: 0.12em; border: none; border-radius: 999px; cursor: pointer;
+      transition: transform 0.1s, box-shadow 0.1s;
+      font-family: 'Trebuchet MS', 'PingFang SC', sans-serif;
+    }
+    .game-btn:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(46, 150, 110, 0.35); }
+    #start-btn { background: #3fcf95; color: #ffffff; }
+    #restart-btn { background: #45b8d8; color: #ffffff; }
+    #gameover-title.win { color: #2fae7d; }
+    #gameover-title.lose { color: #e8836f; }
+    #gameover-message { white-space: pre-line; }
+    html, body { width: 100%; height: 100%; }
+  </style>
+</head>
+<body>
+  <div id="game-wrapper">
+    <div id="game-container"></div>
+
+    <div id="hud">
+      <div id="hud-hearts">●●●●●●●●●●●●</div>
+      <div id="hud-objective"><span id="hud-objective-text">第一段</span></div>
+      <div id="hud-score">推进 <span id="hud-score-value">0%</span></div>
+    </div>
+
+    <div id="start-screen" class="game-overlay">
+      <div class="overlay-card">
+        <h2>清泉谷的露露 · SlimeVale</h2>
+        <p class="tagline">生命如露水，在万物之间流转。</p>
+        <p class="story-setting">枯萎之冠偷走了清泉谷的露水：草木灰了头，虫豸红了眼。
+最小的史莱姆露露，揣着仅有的一颗露珠出发了。
+打倒被枯萎侵蚀的伙伴，它们的露水便流回你身上；
+挨了打，你的露水也会流向对方——生命从不消失，只是流转。
+史莱姆的身体一次只记得住一种形状：吃下新的技能包，就会忘掉旧的。</p>
+        <button id="start-btn" class="game-btn" onclick="window.__hudStart()">▶ 出发</button>
+        <p class="controls-hint">
+          A / D 或 ←→ 移动　·　W / ↑ / 空格 跳跃（最多三段）　·　J 使用形状技能<br>
+          所有角色头顶都有血条　·　R 重开　·　M 静音　·　死亡回段首检查点，残命 ×3
+        </p>
+      </div>
+    </div>
+
+    <div id="gameover-screen" class="game-overlay" style="display:none">
+      <div class="overlay-card">
+        <h2 id="gameover-title">FIN</h2>
+        <p id="gameover-message" class="story-setting"></p>
+        <button id="restart-btn" class="game-btn" onclick="location.reload()">↩ 再来一次</button>
+      </div>
+    </div>
+  </div>
+
+  <script>window.GAME_HUD_GLYPHS = { full: '●', empty: '○' };</script>
+  <script src="../_engine/hud.js"></script>
+  <script src="../_engine/audio.js"></script>
+  <script src="game/config.js"></script>
+  <script src="game/levels.js"></script>
+  <script src="../_engine/pointcloud.js"></script>
+  <script src="../_engine/morph.js"></script>
+  <script src="game/scenes/MeadowScene.js"></script>
+  <script src="game/systems/chars.js"></script>
+  <script src="game/systems/bg.js"></script>
+  <script src="game/systems/world.js"></script>
+  <script src="game/systems/player.js"></script>
+  <script src="game/systems/enemies.js"></script>
+  <script src="game/systems/replay.js"></script>
+  <script src="game/main.js"></script>
+  <script>
+    (function () {
+      var W = 960, H = 540, wrap = document.getElementById('game-wrapper');
+      function fit() {
+        if (!wrap) return;
+        var s = Math.min(window.innerWidth / W, window.innerHeight / H, 1);
+        wrap.style.transform = 'scale(' + s + ')';
+      }
+      window.addEventListener('resize', fit);
+      window.addEventListener('orientationchange', fit);
+      fit();
+    })();
+  </script>
+</body>
+</html>
