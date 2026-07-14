@@ -13,6 +13,7 @@ Object.assign(ShadowArenaScene.prototype, {
     this.physics.add.collider(this.p1.sprite, this.floor);
     this.physics.add.collider(this.p2.sprite, this.floor);
     this._buildBars();
+    this._spawnWeaponPickup();
     window.__gameState = { player: this.p1.sprite };
     window.GameHUD?.setObjective(`${CHARS[p1Id].name} VS ${CHARS[p2Id].name}　—　击倒对手！(J 拳 K 腿 S 防 L 必杀)`);
     this.aiNext = 0;
@@ -21,11 +22,35 @@ Object.assign(ShadowArenaScene.prototype, {
 
   _makeFighter(id, x, faceLeft) {
     const def = CHARS[id];
-    const sp = this.physics.add.sprite(x, FLOOR_Y - 60, `${id}_idle_0`).setScale(SCALE);
-    sp.body.setSize(46, 112).setOffset(FRAME_W / 2 - 23, 58);
+    const initialKey = def.glb ? `${id}_${def.weapon}_idle_0` : `${id}_idle_0`;
+    const sp = this.physics.add.sprite(x, FLOOR_Y - 60, initialKey).setScale(SCALE);
+    const fw = def.glb ? def.frameW : FRAME_W;
+    sp.body.setSize(46, 112).setOffset(fw / 2 - 23, 58);
     sp.setCollideWorldBounds(true); sp.setFlipX(faceLeft); sp.setDepth(10);
-    sp.play(`${id}_idle`);
-    return { id, def, sprite: sp, hp: def.hp, maxHp: def.hp, state: 'idle', stateUntil: 0, invuln: 0, atkFrom: 0, atkTo: 0, atkHit: false, facingLeft: faceLeft };
+    sp.play(def.glb ? `${id}_${def.weapon}_idle` : `${id}_idle`);
+    return { id, def, sprite: sp, hp: def.hp, maxHp: def.hp, state: 'idle', stateUntil: 0, invuln: 0, atkFrom: 0, atkTo: 0, atkHit: false, facingLeft: faceLeft, weapon: def.weapon };
+  },
+
+  // 场中一次性武器拾取——只服务本轮"吃道具换武器"试验（对应 SlimeVale 的吃技能包换武器）；
+  // 只有 glb track 的战士（目前是武士）参与，其余战士没有 weapon 字段，判定天然跳过。
+  _spawnWeaponPickup() {
+    const glbFighter = this.fighters.find((f) => f.def.glb && f.weapon === 'bare');
+    this.pickup = glbFighter ? this.add.image(GAME_W / 2, FLOOR_Y - 30, 'samurai_sword_idle_0').setScale(SCALE * 0.55).setDepth(15) : null;
+  },
+
+  _checkPickup() {
+    if (!this.pickup) return;
+    for (const f of this.fighters) {
+      if (!f.def.glb || f.weapon !== 'bare') continue;
+      const dx = f.sprite.x - this.pickup.x, dy = f.sprite.y - this.pickup.y;
+      if (dx * dx + dy * dy < 50 * 50) {
+        f.weapon = 'sword';
+        f.sprite.play(`${f.id}_sword_${f.state === 'walk' ? 'walk' : 'idle'}`, true);
+        this.pickup.destroy(); this.pickup = null;
+        window.GameHUD?.setObjective(`${CHARS[f.id].name} 拾得了利剑！`);
+        break;
+      }
+    }
   },
 
 

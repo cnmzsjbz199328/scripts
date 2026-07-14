@@ -1,12 +1,21 @@
 /* ShadowArena — §4B 原型分割；方法体逐字保留。 */
 Object.assign(ShadowArenaScene.prototype, {
 
+  // glb track 战士：持剑态(weapon==='sword')出招播横扫攻击帧；bare 态出招/其余状态回退 idle/walk
+  // （按 weapon 分支）。命中判定仍走 ACT 表的 stateUntil/伤害数值，与视觉帧解耦。
+  _animKey(f, st) {
+    if (!f.def.glb) return `${f.id}_${st}`;
+    const atk = st === 'punch' || st === 'kick' || st === 'special';
+    if (f.weapon === 'sword' && atk) return `${f.id}_sword_attack`;
+    return `${f.id}_${f.weapon}_${st === 'walk' ? 'walk' : 'idle'}`;
+  },
+
   _setState(f, st) {
     if (f.state === st && (st === 'idle' || st === 'walk' || st === 'block')) return;
     f.state = st;
     const a = ACT[st];
     f.stateUntil = a.dur ? this.time.now + a.dur : (a.loop ? 0 : this.time.now + (a.n / a.fps) * 1000);
-    f.sprite.play(`${f.id}_${st}`, true);
+    f.sprite.play(this._animKey(f, st), true);
   },
 
   _canAct(f) { return f.state === 'idle' || f.state === 'walk' || f.state === 'block'; },
@@ -43,7 +52,7 @@ Object.assign(ShadowArenaScene.prototype, {
     // 前冲步 + 残影
     this.time.delayedCall(a.from - 20, () => { if (f.state === kind) { f.sprite.setVelocityX(a.lunge * dir); this._ghost(f); } });
     this.time.delayedCall(a.from + 30, () => { if (f.state === kind) this._ghost(f); });
-    if (f.def.sword && kind === 'punch') this.time.delayedCall(a.from, () => { if (f.state === kind) this._swordArc(f, dir); });
+    if (f.weapon === 'sword' && kind === 'punch') this.time.delayedCall(a.from, () => { if (f.state === kind) this._swordArc(f, dir); });
   },
 
 
@@ -55,7 +64,7 @@ Object.assign(ShadowArenaScene.prototype, {
     for (const t of [180, 240, 300]) this.time.delayedCall(t, () => { if (f.state === 'special') this._ghost(f); });
     if (sp === 'dash') {
       f.atkFrom = this.time.now + 160; f.atkTo = this.time.now + 420;
-      this.time.delayedCall(150, () => { if (f.state === 'special') { f.sprite.setVelocityX(440 * dir); this._swordArc(f, dir); } });
+      this.time.delayedCall(150, () => { if (f.state === 'special') { f.sprite.setVelocityX(440 * dir); if (f.weapon === 'sword') this._swordArc(f, dir); } });
       this.time.delayedCall(420, () => { if (f.state === 'special') f.sprite.setVelocityX(0); });
     } else if (sp === 'shock') {
       this.time.delayedCall(220, () => this._shock(f, dir));

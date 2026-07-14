@@ -7,16 +7,47 @@ class ShadowArenaScene extends Phaser.Scene {
     this.load.svg('stage', 'assets/svg/stage.svg', { width: GAME_W, height: GAME_H });
     this.load.svg('shuriken', 'assets/svg/shuriken.svg', { width: 24, height: 24 });
     this.load.svg('qiwave', 'assets/svg/qiwave.svg', { width: 44, height: 36 });
-    for (const id of ROSTER)
+    for (const id of ROSTER) {
+      if (CHARS[id].glb) {
+        for (const w of ['bare', 'sword'])
+          for (const act of ['idle', 'walk'])
+            for (let i = 0; i < GLB_ACT[act].n; i++)
+              this.load.image(`${id}_${w}_${act}_${i}`, `assets/3d/${id}_${w}_${act}_${i}.png`);
+        // 持剑横扫攻击帧（剑盾挂件，仅 sword 态出招用）
+        for (let i = 0; i < GLB_ACT.attack.n; i++)
+          this.load.image(`${id}_sword_attack_${i}`, `assets/3d/${id}_sword_attack_${i}.png`);
+        continue;
+      }
       for (const [act, a] of Object.entries(ACT))
         for (let i = 0; i < a.n; i++)
           this.load.svg(`${id}_${act}_${i}`, `assets/svg/${id}_${act}_${i}.svg`, { width: FRAME_W, height: FRAME_H });
+    }
   }
 
 
   create() {
     this.add.image(0, 0, 'stage').setOrigin(0, 0).setDepth(-100);
     for (const id of ROSTER) {
+      if (CHARS[id].glb) {
+        for (const w of ['bare', 'sword']) {
+          for (const act of ['idle', 'walk']) {
+            const key = `${id}_${w}_${act}`;
+            if (this.anims.exists(key)) continue;
+            const a = GLB_ACT[act];
+            this.anims.create({
+              key, frameRate: a.fps, repeat: -1,
+              frames: Array.from({ length: a.n }, (_, i) => ({ key: `${id}_${w}_${act}_${i}` })),
+            });
+          }
+        }
+        // 横扫攻击：非循环，播完停在收招帧
+        const ak = `${id}_sword_attack`;
+        if (!this.anims.exists(ak)) this.anims.create({
+          key: ak, frameRate: GLB_ACT.attack.fps, repeat: 0,
+          frames: Array.from({ length: GLB_ACT.attack.n }, (_, i) => ({ key: `${id}_sword_attack_${i}` })),
+        });
+        continue;
+      }
       for (const [act, a] of Object.entries(ACT)) {
         const key = `${id}_${act}`;
         if (this.anims.exists(key)) continue;
@@ -75,6 +106,7 @@ class ShadowArenaScene extends Phaser.Scene {
     this._faceEachOther();
     this._controlPlayer();
     this._controlAI(time);
+    this._checkPickup();
     for (const f of this.fighters) this._resolveMelee(f);
     for (const f of this.fighters)
       if (['punch', 'kick', 'hurt', 'special'].includes(f.state) && time > f.stateUntil) this._setState(f, 'idle');
