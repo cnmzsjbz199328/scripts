@@ -23,9 +23,10 @@ Object.assign(ShadowArenaScene.prototype, {
   _makeFighter(id, x, faceLeft) {
     const def = CHARS[id];
     const initialKey = def.glb ? `${id}_${def.weapon}_idle_0` : `${id}_idle_0`;
-    const sp = this.physics.add.sprite(x, FLOOR_Y - 60, initialKey).setScale(SCALE);
+    // scaleAdj：GLB 帧角色占比大于 SVG 帧，按 alpha bbox 实测补偿到同台等高
+    const sp = this.physics.add.sprite(x, FLOOR_Y - 60, initialKey).setScale(SCALE * (def.scaleAdj || 1));
     const fw = def.glb ? def.frameW : FRAME_W;
-    sp.body.setSize(46, 112).setOffset(fw / 2 - 23, 58);
+    sp.body.setSize(46, 112).setOffset(fw / 2 - 23, def.bodyOffY || 58);
     sp.setCollideWorldBounds(true); sp.setFlipX(faceLeft); sp.setDepth(10);
     sp.play(def.glb ? `${id}_${def.weapon}_idle` : `${id}_idle`);
     return { id, def, sprite: sp, hp: def.hp, maxHp: def.hp, state: 'idle', stateUntil: 0, invuln: 0, atkFrom: 0, atkTo: 0, atkHit: false, facingLeft: faceLeft, weapon: def.weapon };
@@ -35,7 +36,7 @@ Object.assign(ShadowArenaScene.prototype, {
   // 只有 glb track 的战士（目前是武士）参与，其余战士没有 weapon 字段，判定天然跳过。
   _spawnWeaponPickup() {
     const glbFighter = this.fighters.find((f) => f.def.glb && f.weapon === 'bare');
-    this.pickup = glbFighter ? this.add.image(GAME_W / 2, FLOOR_Y - 30, 'samurai_sword_idle_0').setScale(SCALE * 0.55).setDepth(15) : null;
+    this.pickup = glbFighter ? this.add.image(GAME_W / 2, FLOOR_Y - 30, 'samurai_sword_idle_0').setScale(SCALE * 0.4).setDepth(15) : null;
   },
 
   _checkPickup() {

@@ -13,7 +13,7 @@ Object.assign(ShadowArenaScene.prototype, {
     ROSTER.forEach((id, i) => {
       const x = gap * i + gap / 2;
       const portraitKey = CHARS[id].glb ? `${id}_${CHARS[id].weapon}_idle_0` : `${id}_idle_0`;
-      const s = this.add.image(x, 296, portraitKey).setScale(0.9);
+      const s = this.add.image(x, 296, portraitKey).setScale(0.9 * (CHARS[id].scaleAdj || 1));
       const n = this.add.text(x, 398, CHARS[id].name, { fontFamily: 'Segoe UI, monospace', fontSize: '22px', color: '#2a1c10', fontStyle: 'bold' }).setOrigin(0.5);
       const sp = this.add.text(x, 426, this._spName(CHARS[id].special), { fontFamily: 'Segoe UI, monospace', fontSize: '14px', color: '#6a5236' }).setOrigin(0.5);
       this.selSprites.push(s); this.selGroup.add([s, n, sp]);

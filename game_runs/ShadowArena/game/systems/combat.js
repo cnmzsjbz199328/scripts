@@ -1,12 +1,14 @@
 /* ShadowArena — §4B 原型分割；方法体逐字保留。 */
 Object.assign(ShadowArenaScene.prototype, {
 
-  // glb track 战士：持剑态(weapon==='sword')出招播横扫攻击帧；bare 态出招/其余状态回退 idle/walk
-  // （按 weapon 分支）。命中判定仍走 ACT 表的 stateUntil/伤害数值，与视觉帧解耦。
+  // glb track 战士：出招按武器态选帧——拳/必杀播横扫(attack)，踢在持剑态播下劈(chop)；
+  // bare 无 chop 帧则回退 attack。block/hurt/ko 回退 idle。命中判定仍走 ACT 表，与视觉帧解耦。
   _animKey(f, st) {
     if (!f.def.glb) return `${f.id}_${st}`;
-    const atk = st === 'punch' || st === 'kick' || st === 'special';
-    if (f.weapon === 'sword' && atk) return `${f.id}_sword_attack`;
+    if (st === 'punch' || st === 'kick' || st === 'special') {
+      const move = st === 'kick' && GLB_WEAPON_ACTS[f.weapon].includes('chop') ? 'chop' : 'attack';
+      return `${f.id}_${f.weapon}_${move}`;
+    }
     return `${f.id}_${f.weapon}_${st === 'walk' ? 'walk' : 'idle'}`;
   },
 

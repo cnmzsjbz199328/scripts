@@ -9,13 +9,10 @@ class ShadowArenaScene extends Phaser.Scene {
     this.load.svg('qiwave', 'assets/svg/qiwave.svg', { width: 44, height: 36 });
     for (const id of ROSTER) {
       if (CHARS[id].glb) {
-        for (const w of ['bare', 'sword'])
-          for (const act of ['idle', 'walk'])
+        for (const [w, acts] of Object.entries(GLB_WEAPON_ACTS))
+          for (const act of acts)
             for (let i = 0; i < GLB_ACT[act].n; i++)
               this.load.image(`${id}_${w}_${act}_${i}`, `assets/3d/${id}_${w}_${act}_${i}.png`);
-        // 持剑横扫攻击帧（剑盾挂件，仅 sword 态出招用）
-        for (let i = 0; i < GLB_ACT.attack.n; i++)
-          this.load.image(`${id}_sword_attack_${i}`, `assets/3d/${id}_sword_attack_${i}.png`);
         continue;
       }
       for (const [act, a] of Object.entries(ACT))
@@ -29,23 +26,17 @@ class ShadowArenaScene extends Phaser.Scene {
     this.add.image(0, 0, 'stage').setOrigin(0, 0).setDepth(-100);
     for (const id of ROSTER) {
       if (CHARS[id].glb) {
-        for (const w of ['bare', 'sword']) {
-          for (const act of ['idle', 'walk']) {
+        for (const [w, acts] of Object.entries(GLB_WEAPON_ACTS)) {
+          for (const act of acts) {
             const key = `${id}_${w}_${act}`;
             if (this.anims.exists(key)) continue;
-            const a = GLB_ACT[act];
+            const a = GLB_ACT[act], loop = act === 'idle' || act === 'walk';
             this.anims.create({
-              key, frameRate: a.fps, repeat: -1,
+              key, frameRate: a.fps, repeat: loop ? -1 : 0,   // 攻击类非循环，播完停收招帧
               frames: Array.from({ length: a.n }, (_, i) => ({ key: `${id}_${w}_${act}_${i}` })),
             });
           }
         }
-        // 横扫攻击：非循环，播完停在收招帧
-        const ak = `${id}_sword_attack`;
-        if (!this.anims.exists(ak)) this.anims.create({
-          key: ak, frameRate: GLB_ACT.attack.fps, repeat: 0,
-          frames: Array.from({ length: GLB_ACT.attack.n }, (_, i) => ({ key: `${id}_sword_attack_${i}` })),
-        });
         continue;
       }
       for (const [act, a] of Object.entries(ACT)) {
