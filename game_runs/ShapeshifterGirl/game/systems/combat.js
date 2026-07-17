@@ -165,6 +165,12 @@ window.SSG.Combat = {
         return;
       }
 
+      // 2. 坠落清理：如果怪掉进深渊，直接销毁，避免死锁
+      if (enemy.y > 580) {
+        enemy.destroy();
+        return;
+      }
+
       const type = enemy.getData('type');
       let timer = enemy.getData('timer') + delta;
       enemy.setData('timer', timer);
@@ -250,18 +256,23 @@ window.SSG.Combat = {
 
     // 1. 玩家暴熊攻击重击范围检测 (Bear Attacking -> Enemy)
     if (scene.currentForm === 'bear' && scene.isAttacking) {
-      scene.physics.overlap(player, scene.enemies, (p, enemy) => {
-        const type = enemy.getData('type');
-        
-        // 判定重击只对普通怪和 Boss-Shield 阶段有效
-        if (type === 'boss_shield') {
-          // 破甲
-          this.hurtEnemy(scene, enemy, 1);
-          scene.player.setVelocityX(-250); // 击退反作用力
-          scene.isAttacking = false; // 重置攻击
-        } else if (!type.startsWith('boss')) {
-          // 普通怪一击必杀
-          this.hurtEnemy(scene, enemy, 1);
+      scene.enemies.getChildren().forEach(enemy => {
+        if (!enemy.active) return;
+        const dx = Math.abs(enemy.x - player.x);
+        const dy = Math.abs(enemy.y - player.y);
+
+        // 暴熊横向 120px，纵向 180px (可打击空中飞行的投掷怪)
+        if (dx < 120 && dy < 180) {
+          const type = enemy.getData('type');
+          if (type === 'boss_shield') {
+            // 破甲
+            this.hurtEnemy(scene, enemy, 1);
+            scene.player.setVelocityX(-250); // 击退反作用力
+            scene.isAttacking = false; // 重置攻击
+          } else if (!type.startsWith('boss')) {
+            // 普通怪一击必杀
+            this.hurtEnemy(scene, enemy, 1);
+          }
         }
       });
     }
@@ -308,6 +319,11 @@ window.SSG.Combat = {
           enemy.setVelocityX(scene.player.flipX ? 200 : -200);
           return;
         }
+
+        // 鱼形态物理免疫普通小怪冲撞（灵巧避开）
+        if (scene.currentForm === 'fish' && !type.startsWith('boss')) {
+          return;
+        }
         
         this.hurtPlayer(scene, 1);
       });
@@ -328,15 +344,16 @@ window.SSG.Combat = {
     enemy.setAlpha(0.3);
     scene.time.delayedCall(100, () => { if (enemy.active) enemy.setAlpha(1.0); });
 
+    const type = enemy.getData('type');
+    if (type.startsWith('boss')) {
+      if (window.AudioEngine) window.AudioEngine.play('enemy_hurt');
+      scene.advanceBossPhase();
+      return;
+    }
+
     if (hp <= 0) {
-      const type = enemy.getData('type');
       enemy.destroy();
       if (window.AudioEngine) window.AudioEngine.play('enemy_die');
-
-      if (type.startsWith('boss')) {
-        // 如果摧毁的是 Boss，进入波次推进
-        scene.advanceBossPhase();
-      }
     } else {
       if (window.AudioEngine) window.AudioEngine.play('enemy_hurt');
     }
@@ -344,6 +361,11 @@ window.SSG.Combat = {
 
   hurtPlayer(scene, dmg) {
     if (scene.isInvincible || scene.isDead) return;
+
+    if (window.SSG.Game.auto) {
+      scene.showToast('自动模式免伤！');
+      return;
+    }
 
     scene.hp = Math.max(0, scene.hp - 1);
     scene.updateHUDHearts();

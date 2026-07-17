@@ -126,7 +126,8 @@ window.SSG.Render = {
 
     const C = window.SSG.Config;
     const scrollX = scene.cameras.main.scrollX;
-    const activeLevel = window.SSG.LEVELS[scene.levelIdx];
+    const levelIdx = scene.levelIdx !== undefined ? scene.levelIdx : 0;
+    const activeLevel = window.SSG.LEVELS[levelIdx];
     const palette = C.PALETTES[activeLevel.paletteIdx];
 
     // 1. 绘制天空渐变背景 (不随镜头移动，ScrollFactor = 0)

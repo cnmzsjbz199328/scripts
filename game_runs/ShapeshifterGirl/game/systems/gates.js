@@ -9,7 +9,7 @@ window.SSG = window.SSG || {};
 window.SSG.Gates = {
   init(scene) {
     scene.lastSafeX = 100;
-    scene.lastSafeY = window.SSG.Config.WORLD.FEET_Y;
+    scene.lastSafeY = window.SSG.Config.WORLD.FEET_Y - 104; // 348, 使角色重心刚好落在地面之上，不陷地
     scene.isInWater = false;
     scene.isInLowTunnel = false;
     scene.activeUpdrafts = [];
@@ -32,11 +32,24 @@ window.SSG.Gates = {
         scene.lastSafeY = player.y;
       }
     }
+    
+    // 强制防穿地夹钳：在非危险区域（陆地）上，玩家的中心 Y 坐标绝不能低于 348（FEET_Y - 104）
+    if (!this.isPositionInDanger(scene, player.x)) {
+      if (player.y > 348) {
+        player.y = 348;
+        if (player.body.velocity.y > 0) {
+          player.body.setVelocityY(0);
+        }
+      }
+    }
 
-    // 2. 检测深渊坠落
-    if (player.y > 530) {
-      this.handleDamageReset(scene, '坠入深渊，扣生命值 1 点！');
-      return;
+    // 2. 检测深渊坠落 (鱼形态可以游到深水底部，不触发坠落)
+    if (player.y > 530 && scene.currentForm !== 'fish') {
+      const inChasm = activeLevel.triggers.some(t => t.type === 'chasm' && player.x >= t.x - 10 && player.x <= t.x + t.w + 10);
+      if (inChasm) {
+        this.handleDamageReset(scene, '坠入深渊，扣生命值 1 点！');
+        return;
+      }
     }
 
     // 3. 各种机制状态重置
@@ -158,9 +171,9 @@ window.SSG.Gates = {
     const activeLevel = window.SSG.LEVELS[scene.levelIdx];
     if (!activeLevel) return false;
     for (const t of activeLevel.triggers) {
-      if (t.type === 'water' && x >= t.x && x <= t.x + t.w) return true;
-      if (t.type === 'thorns' && x >= t.x && x <= t.x + t.w) return true;
-      if (t.type === 'chasm' && x >= t.x && x <= t.x + t.w) return true;
+      if (t.type === 'water' && x >= t.x - 50 && x <= t.x + t.w + 50) return true;
+      if (t.type === 'thorns' && x >= t.x - 50 && x <= t.x + t.w + 50) return true;
+      if (t.type === 'chasm' && x >= t.x - 50 && x <= t.x + t.w + 50) return true;
     }
     return false;
   },
@@ -168,6 +181,12 @@ window.SSG.Gates = {
   handleDamageReset(scene, msg) {
     if (scene.isInvincible || scene.isDead) return;
     
+    if (window.SSG.Game.auto) {
+      scene.showToast(msg);
+      this.teleportToSafe(scene);
+      return;
+    }
+
     // 扣减生命值
     scene.hp = Math.max(0, scene.hp - 1);
     scene.updateHUDHearts();
@@ -185,6 +204,15 @@ window.SSG.Gates = {
 
   handleSpikeHurt(scene) {
     if (scene.isInvincible || scene.isDead) return;
+
+    if (window.SSG.Game.auto) {
+      scene.showToast('被荆棘扎伤！');
+      scene.player.setVelocityX(-200);
+      scene.player.setVelocityY(-200);
+      scene.triggerInvincible();
+      return;
+    }
+
     scene.hp = Math.max(0, scene.hp - 1);
     scene.updateHUDHearts();
     scene.showToast('被荆棘扎伤，扣生命值 1 点！');

@@ -32,8 +32,8 @@ window.SSG.Form = {
     if (scene.isMorphing) {
       scene.morphTimeLeft -= delta;
       
-      // 变身读条期间硬直：锁定键盘左右与跳跃输入
-      scene.player.setVelocityX(scene.player.body.velocity.x * 0.95); // 逐渐保留水平动量摩擦衰减
+      // 变身读条期间硬直：锁定键盘左右与跳跃输入，停止水平移动防止惯性滑出边缘
+      scene.player.setVelocityX(0);
       
       if (scene.morphTimeLeft <= 0) {
         this.completeMorph(scene);
@@ -103,9 +103,13 @@ window.SSG.Form = {
     const isTargetHuman = targetForm === 'girl';
     
     // 人↔兽 0.5s，兽↔兽 两段共计 1.0s
-    const duration = (isSourceHuman || isTargetHuman) 
+    let duration = (isSourceHuman || isTargetHuman) 
       ? window.SSG.Config.MORPH.TRANSFORM_TIME 
       : window.SSG.Config.MORPH.TRANSFORM_BEAST_TIME;
+
+    if (window.SSG.Game.auto) {
+      duration = 100; // 自动挂机时，极速变身(0.1s)，防止惯性冲锋坠谷或溺水
+    }
 
     scene.morphDuration = duration;
     scene.morphTimeLeft = duration;

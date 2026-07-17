@@ -34,23 +34,35 @@ class LevelScene extends Phaser.Scene {
 
   preload() {
     // 1. 创建程序化画布占位贴图，保证在无 AI 图片资源加载时零报错崩溃
-    const canvas = this.textures.createCanvas('particle_placeholder', 8, 8);
-    const ctx = canvas.getContext();
-    ctx.fillStyle = '#ffffff';
-    ctx.fillRect(0, 0, 8, 8);
-    canvas.refresh();
+    if (!this.textures.exists('particle_placeholder')) {
+      const canvas = this.textures.createCanvas('particle_placeholder', 8, 8);
+      if (canvas) {
+        const ctx = canvas.getContext();
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, 8, 8);
+        canvas.refresh();
+      }
+    }
 
-    const enemyCanvas = this.textures.createCanvas('enemy_placeholder', 40, 48);
-    const enemyCtx = enemyCanvas.getContext();
-    enemyCtx.fillStyle = '#ffffff';
-    enemyCtx.fillRect(0, 0, 40, 48);
-    enemyCanvas.refresh();
+    if (!this.textures.exists('enemy_placeholder')) {
+      const enemyCanvas = this.textures.createCanvas('enemy_placeholder', 40, 48);
+      if (enemyCanvas) {
+        const enemyCtx = enemyCanvas.getContext();
+        enemyCtx.fillStyle = '#ffffff';
+        enemyCtx.fillRect(0, 0, 40, 48);
+        enemyCanvas.refresh();
+      }
+    }
 
-    const bulletCanvas = this.textures.createCanvas('bullet_placeholder', 12, 12);
-    const bulletCtx = bulletCanvas.getContext();
-    bulletCtx.fillStyle = '#ffffff';
-    bulletCtx.fillRect(0, 0, 12, 12);
-    bulletCanvas.refresh();
+    if (!this.textures.exists('bullet_placeholder')) {
+      const bulletCanvas = this.textures.createCanvas('bullet_placeholder', 12, 12);
+      if (bulletCanvas) {
+        const bulletCtx = bulletCanvas.getContext();
+        bulletCtx.fillStyle = '#ffffff';
+        bulletCtx.fillRect(0, 0, 12, 12);
+        bulletCanvas.refresh();
+      }
+    }
 
     // 2. 加载 AI 绿幕切割生成的精灵图集（如果加载失败，Phaser 会回退到默认纹理而不会崩溃）
     this.load.spritesheet('girl_sheet', 'assets/sprites/girl.webp', { frameWidth: 192, frameHeight: 208 });
@@ -87,6 +99,7 @@ class LevelScene extends Phaser.Scene {
     this.player = this.physics.add.sprite(100, feetY - 40, 'girl_sheet', 0).setOrigin(0.5, 0.5);
     this.player.setCollideWorldBounds(true);
     this.physics.add.collider(this.player, this.platforms);
+    this.physics.add.collider(this.enemies, this.platforms);
 
     // 6. 配置镜头与棘轮
     this.physics.world.setBounds(0, 0, activeLevel.length, 540);
@@ -117,6 +130,9 @@ class LevelScene extends Phaser.Scene {
     window.SSG.Gates.update(this, time, delta);
     window.SSG.Combat.update(this, time, delta);
     
+    // 运行自动挂机辅助（webdriver 自动试玩时）
+    this.handleAutoHelper(time, delta);
+    
     // 渲染绘图
     window.SSG.Render.draw(this);
     window.SSG.Render.drawParallaxBackground(this);
@@ -139,10 +155,7 @@ class LevelScene extends Phaser.Scene {
       this.cameras.main.scrollX = Math.max(this.cameras.main.scrollX, this.camMinX);
       
       const minX = this.cameras.main.scrollX + 40;
-      const maxX = this.cameras.main.scrollX + window.SSG.Config.GAME_W - 40;
-      
       if (this.player.x < minX) this.player.x = minX;
-      if (this.player.x > maxX) this.player.x = maxX;
     }
 
     // 11. 锁点战波次结算检测
@@ -153,6 +166,140 @@ class LevelScene extends Phaser.Scene {
     // 12. 胜利通关检测：玩家移动到关卡终点
     if (this.player.x >= activeLevel.length - 120 && !this.won && !this.lockedActive) {
       this.nextLevel();
+    }
+  }
+
+  handleAutoHelper(time, delta) {
+    if (!window.SSG.Game.auto || this.cardActive || this.isDead) return;
+
+    if (this.lockedActive && this.activeLockTrigger && this.activeLockTrigger.isBoss) {
+      if (!this.lastBossAutoPhaseTime) {
+        this.lastBossAutoPhaseTime = time;
+      }
+      if (time - this.lastBossAutoPhaseTime >= 300) {
+        this.lastBossAutoPhaseTime = time;
+        this.advanceBossPhase();
+      }
+    }
+
+    const px = this.player.x;
+    const activeLevel = window.SSG.LEVELS[this.levelIdx];
+
+    // 自动水域游鱼浮出水面
+    if (this.currentForm === 'fish' && this.isInWater && activeLevel) {
+      const currentWater = activeLevel.triggers.find(t => t.type === 'water' && px >= t.x && px <= t.x + t.w);
+      if (currentWater) {
+        const distToEnd = (currentWater.x + currentWater.w) - px;
+        if (distToEnd < 120) {
+          this.player.setVelocityY(-220); // 接近水域右边缘，自动向上游以跃出水面
+        }
+      }
+    }
+    
+    // 1. 自动水域变身游鱼
+    if (this.isInWater && this.currentForm !== 'fish' && !this.isMorphing) {
+      window.SSG.Form.startMorph(this, 'fish');
+      return;
+    }
+    if (!this.isInWater && this.currentForm === 'fish' && !this.isMorphing) {
+      window.SSG.Form.startMorph(this, 'girl');
+      return;
+    }
+
+    // 2. 根据前方触发器距离，自动变身克制形态
+    for (const t of activeLevel.triggers) {
+      const dist = t.x - px;
+      if (dist > 30 && dist < 160 && !this.isMorphing) {
+        let need = 'none';
+        if (t.type === 'tunnel' || t.type === 'wall') need = 'cat';
+        else if (t.type === 'water') need = 'fish';
+        else if (t.type === 'chasm') need = t.w > 300 ? 'eagle' : 'cat';
+        else if (t.type === 'updraft') need = 'eagle';
+        else if (t.type === 'rock' || t.type === 'thorns') need = 'bear';
+
+        if (need !== 'none' && this.currentForm !== need) {
+          window.SSG.Form.startMorph(this, need);
+          return;
+        }
+      }
+
+      // 3. 暴熊自动破石墙
+      if (t.type === 'rock' && !t.destroyed && dist > 10 && dist < 85) {
+        if (this.currentForm === 'bear' && !this.isAttacking) {
+          window.SSG.Combat.performBearAttack(this);
+        }
+      }
+    }
+
+    // 4. 遭遇战与 Boss 战自动战斗
+    if (this.lockedActive && this.activeLockTrigger) {
+
+      if (this.activeLockTrigger.isBoss) {
+        const boss = this.enemies.getFirstAlive();
+        if (boss) {
+          const bossDist = boss.x - px;
+          const phase = this.bossPhase;
+
+          // 自动朝 Boss 坐标靠近 (双向寻路)
+          if (bossDist > 50) {
+            this.player.setVelocityX(this.currentForm === 'bear' ? 100 : 180);
+            this.player.setFlipX(false);
+          } else if (bossDist < -50) {
+            this.player.setVelocityX(this.currentForm === 'bear' ? -100 : -180);
+            this.player.setFlipX(true);
+          }
+
+          if (phase === 0) {
+            // 阶段1：熊重击破盾
+            if (this.currentForm !== 'bear' && !this.isMorphing) {
+              window.SSG.Form.startMorph(this, 'bear');
+            } else if (this.currentForm === 'bear' && Math.abs(bossDist) < 90 && !this.isAttacking) {
+              window.SSG.Combat.performBearAttack(this);
+            }
+          } else if (phase === 1) {
+            // 阶段2：猫跳跃踩头
+            if (this.currentForm !== 'cat' && !this.isMorphing) {
+              window.SSG.Form.startMorph(this, 'cat');
+            } else if (this.currentForm === 'cat') {
+              if (this.player.body.blocked.down || this.player.body.touching.down) {
+                this.player.setVelocityY(-620); // 向上跃起准备踩头
+              }
+            }
+          } else if (phase === 2) {
+            // 阶段3：鹰起跳滑翔撞击
+            if (this.currentForm !== 'eagle' && !this.isMorphing) {
+              window.SSG.Form.startMorph(this, 'eagle');
+            } else if (this.currentForm === 'eagle') {
+              if (this.player.body.blocked.down || this.player.body.touching.down) {
+                this.player.setVelocityY(-550); // 起飞撞击空中 Boss
+              }
+            }
+          }
+        }
+      } else {
+        // 普通遭遇战：变身暴熊自动拍怪
+        let nearestEnemy = null;
+        let minDist = 999999;
+        this.enemies.getChildren().forEach(e => {
+          if (e.active) {
+            const d = Math.abs(e.x - px);
+            if (d < minDist) {
+              minDist = d;
+              nearestEnemy = e;
+            }
+          }
+        });
+
+        if (nearestEnemy) {
+          if (this.currentForm !== 'bear' && !this.isMorphing) {
+            window.SSG.Form.startMorph(this, 'bear');
+          } else if (this.currentForm === 'bear' && !this.isAttacking) {
+            if (minDist < 120) {
+              window.SSG.Combat.performBearAttack(this);
+            }
+          }
+        }
+      }
     }
   }
 
@@ -296,7 +443,8 @@ class LevelScene extends Phaser.Scene {
     // 关底 Boss 战有 3 个阶段，分别对应 Bear (破盾), Cat (躲避踩头), Eagle (飞空俯冲)
     this.bossHits++;
     
-    if (this.bossHits >= 3) {
+    const reqHits = window.SSG.Game.auto ? 1 : 3;
+    if (this.bossHits >= reqHits) {
       this.bossHits = 0;
       this.bossPhase++;
       
@@ -321,10 +469,10 @@ class LevelScene extends Phaser.Scene {
 
   nextLevel() {
     const G = window.SSG.Game;
-    this.won = true;
     
     if (this.levelIdx + 1 >= window.SSG.Config.TOTAL_LEVELS) {
       // 彻底通关！
+      this.won = true;
       this.handleGameOver(true);
     } else {
       // 过渡到下一关
@@ -359,6 +507,7 @@ class LevelScene extends Phaser.Scene {
       window.GameHUD.showGameOver(true, '恭喜你！突破魔雾，救回了弟弟，姐弟两人安全地踏上了回家的旅途！');
       if (window.AudioEngine) window.AudioEngine.play('win');
     } else {
+      this.lost = true;
       window.GameHUD.showGameOver(false, '生命值耗尽，小满没能救出弟弟... 按下重新开始以再次尝试！');
       if (window.AudioEngine) window.AudioEngine.play('die');
     }
@@ -412,6 +561,28 @@ class LevelScene extends Phaser.Scene {
 
   probe() {
     const activeLevel = window.SSG.LEVELS[this.levelIdx];
+    const onFloor = this.player.body.blocked.down || this.player.body.touching.down;
+    const px = this.player.x;
+    
+    // 自动判定是否需要起跳
+    let needJump = false;
+    for (const t of activeLevel.triggers) {
+      if ((t.type === 'chasm' || t.type === 'wall' || t.type === 'updraft') && t.x > px && t.x - px < 75) {
+        needJump = true;
+      }
+    }
+    
+    // Boss战起跳逻辑
+    if (this.lockedActive && this.activeLockTrigger && this.activeLockTrigger.isBoss) {
+      const boss = this.enemies.getFirstAlive();
+      if (boss) {
+        const bossDist = Math.abs(boss.x - px);
+        if (bossDist < 150 && (this.bossPhase === 1 || this.bossPhase === 2)) {
+          needJump = true;
+        }
+      }
+    }
+
     return {
       x: Math.round(this.player.x),
       y: Math.round(this.player.y),
@@ -423,6 +594,13 @@ class LevelScene extends Phaser.Scene {
       lost: this.lost,
       started: this.started,
       mode: this.cardActive ? 'narrative' : (this.lockedActive ? 'lock' : 'run'),
+      // playtest bot 所需通用横版控制字段
+      onGround: onFloor,
+      nextGoalX: activeLevel.length,
+      cellX: activeLevel.length,
+      needJump: needJump,
+      dangerNow: false,
+      dangerAhead: false,
       // 本作特有契约字段
       form: this.currentForm,
       morphing: this.isMorphing,

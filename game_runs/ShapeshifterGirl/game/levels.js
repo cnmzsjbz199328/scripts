@@ -48,8 +48,8 @@ window.SSG.LEVELS = [
       { at: 1500, type: 'updraft', x: 1600, w: 250 }, // 上升气流
       { at: 1550, type: 'chasm', x: 1500, w: 800 }, // 气流下的深渊
       { at: 2000, type: 'enemy', x: 2200, enemyType: 'thrower' }, // 投掷怪
-      { at: 2600, type: 'updraft', x: 2700, w: 300 },
-      { at: 2650, type: 'chasm', x: 2600, w: 900 },
+      { at: 2500, type: 'updraft', x: 2600, w: 200 },
+      { at: 2550, type: 'chasm', x: 2500, w: 500 },
       { at: 3200, type: 'lock', x: 3200, waves: [
         { spawns: [{ type: 'thrower', dx: 350 }] }
       ]}
