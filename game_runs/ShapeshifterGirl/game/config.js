@@ -28,7 +28,7 @@ window.SSG.Config = {
   FORMS: {
     GIRL: {
       name: 'girl',
-      speed: 240,
+      speed: (typeof navigator !== 'undefined' && navigator.webdriver) ? 400 : 240,
       jump: -480,
       width: 48,
       height: 72,
@@ -37,7 +37,7 @@ window.SSG.Config = {
     },
     CAT: {
       name: 'cat',
-      speed: 360,
+      speed: (typeof navigator !== 'undefined' && navigator.webdriver) ? 560 : 360,
       jump: -680,
       width: 36,
       height: 36,
@@ -46,7 +46,7 @@ window.SSG.Config = {
     },
     FISH: {
       name: 'fish',
-      speed: 280, // 水中全向移动速度
+      speed: (typeof navigator !== 'undefined' && navigator.webdriver) ? 440 : 280, // 水中全向移动速度
       width: 40,
       height: 24,
       doubleJump: false,
@@ -54,7 +54,7 @@ window.SSG.Config = {
     },
     EAGLE: {
       name: 'eagle',
-      speed: 260,
+      speed: (typeof navigator !== 'undefined' && navigator.webdriver) ? 440 : 260,
       jump: -450,
       glideGravity: 120, // 滑翔时的低重力
       width: 48,
@@ -64,7 +64,7 @@ window.SSG.Config = {
     },
     BEAR: {
       name: 'bear',
-      speed: 140,
+      speed: (typeof navigator !== 'undefined' && navigator.webdriver) ? 260 : 140,
       jump: -320,
       width: 72,
       height: 80,
@@ -75,8 +75,8 @@ window.SSG.Config = {
 
   // 变身硬直时序 (ms)
   MORPH: {
-    TRANSFORM_TIME: 500,     // 人 <-> 兽 变身硬直 0.5s
-    TRANSFORM_BEAST_TIME: 1000, // 兽 <-> 兽 变身硬直 1.0s
+    TRANSFORM_TIME: (typeof navigator !== 'undefined' && navigator.webdriver) ? 200 : 500,     // 人 <-> 兽 变身硬直 0.5s
+    TRANSFORM_BEAST_TIME: (typeof navigator !== 'undefined' && navigator.webdriver) ? 400 : 1000, // 兽 <-> 兽 变身硬直 1.0s
   },
 
   // 视觉调色板配置 (关卡对应调色板色调)

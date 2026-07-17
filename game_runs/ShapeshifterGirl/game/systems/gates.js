@@ -241,5 +241,10 @@ window.SSG.Gates = {
     scene.player.x = scene.lastSafeX;
     scene.player.y = scene.lastSafeY;
     scene.triggerInvincible();
+
+    // 如果重置后的点在当前锁死区间之前，必须解锁当前区间以重新进入，避免边界物理死锁
+    if (scene.lockedActive && scene.activeLockTrigger && scene.lastSafeX < scene.activeLockTrigger.x) {
+      scene.unlockPoint();
+    }
   }
 };

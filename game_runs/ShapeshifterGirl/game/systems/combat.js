@@ -177,6 +177,13 @@ window.SSG.Combat = {
       }
 
       const type = enemy.getData('type');
+
+      // 越界 AI 冻结：只在相机可视范围（加 200px 缓冲区）内激活敌人 AI
+      if (enemy.x < camLeft - 200 || enemy.x > camLeft + 1160) {
+        enemy.setVelocityX(0);
+        return;
+      }
+
       let timer = enemy.getData('timer') + delta;
       enemy.setData('timer', timer);
       // 运动相位用全局时钟：timer 每次开火清零，sin(timer) 积分非零会造成持续漂移/下沉

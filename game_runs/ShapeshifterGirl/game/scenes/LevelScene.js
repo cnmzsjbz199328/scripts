@@ -341,6 +341,13 @@ class LevelScene extends Phaser.Scene {
             } else if (this.currentForm === 'eagle') {
               if (this.player.body.blocked.down || this.player.body.touching.down) {
                 this.player.setVelocityY(-550); // 起飞撞击空中 Boss
+              } else {
+                // 空中俯冲/爬升对齐 Boss Y 坐标，确保发生重叠判定
+                if (this.player.y < boss.y - 30) {
+                  this.player.setVelocityY(220); // 俯冲
+                } else if (this.player.y > boss.y + 30) {
+                  this.player.setVelocityY(-220); // 爬升
+                }
               }
             }
           }
