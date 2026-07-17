@@ -403,5 +403,233 @@ window.CHAR_REGISTRY = {
       }
     },
     "spritesheet": "NinjaShade/output/spritesheet.webp"
+  },
+  "SSGirl": {
+    "name": "SSGirl",
+    "type": "char-sprite-v1",
+    "dimensions": {
+      "width": 1728,
+      "height": 832
+    },
+    "frameSize": {
+      "width": 192,
+      "height": 208
+    },
+    "rows": [
+      "idle",
+      "run",
+      "jump",
+      "hurt"
+    ],
+    "animations": {
+      "idle": {
+        "row": 0,
+        "frameCount": 9,
+        "fps": 8,
+        "loop": true
+      },
+      "run": {
+        "row": 1,
+        "frameCount": 9,
+        "fps": 8,
+        "loop": true
+      },
+      "jump": {
+        "row": 2,
+        "frameCount": 9,
+        "fps": 8,
+        "loop": true
+      },
+      "hurt": {
+        "row": 3,
+        "frameCount": 9,
+        "fps": 8,
+        "loop": true
+      }
+    },
+    "spritesheet": "SSGirl/output/spritesheet.webp"
+  },
+  "SSCat": {
+    "name": "SSCat",
+    "type": "char-sprite-v1",
+    "dimensions": {
+      "width": 1728,
+      "height": 624
+    },
+    "frameSize": {
+      "width": 192,
+      "height": 208
+    },
+    "rows": [
+      "idle",
+      "run",
+      "jump"
+    ],
+    "animations": {
+      "idle": {
+        "row": 0,
+        "frameCount": 9,
+        "fps": 8,
+        "loop": true
+      },
+      "run": {
+        "row": 1,
+        "frameCount": 9,
+        "fps": 8,
+        "loop": true
+      },
+      "jump": {
+        "row": 2,
+        "frameCount": 9,
+        "fps": 8,
+        "loop": true
+      }
+    },
+    "spritesheet": "SSCat/output/spritesheet.webp"
+  },
+  "SSFish": {
+    "name": "SSFish",
+    "type": "char-sprite-v1",
+    "dimensions": {
+      "width": 1728,
+      "height": 416
+    },
+    "frameSize": {
+      "width": 192,
+      "height": 208
+    },
+    "rows": [
+      "swim",
+      "idle"
+    ],
+    "animations": {
+      "swim": {
+        "row": 0,
+        "frameCount": 9,
+        "fps": 8,
+        "loop": true
+      },
+      "idle": {
+        "row": 1,
+        "frameCount": 9,
+        "fps": 8,
+        "loop": true
+      }
+    },
+    "spritesheet": "SSFish/output/spritesheet.webp"
+  },
+  "SSEagle": {
+    "name": "SSEagle",
+    "type": "char-sprite-v1",
+    "dimensions": {
+      "width": 1728,
+      "height": 416
+    },
+    "frameSize": {
+      "width": 192,
+      "height": 208
+    },
+    "rows": [
+      "fly",
+      "glide"
+    ],
+    "animations": {
+      "fly": {
+        "row": 0,
+        "frameCount": 9,
+        "fps": 8,
+        "loop": true
+      },
+      "glide": {
+        "row": 1,
+        "frameCount": 9,
+        "fps": 8,
+        "loop": true
+      }
+    },
+    "spritesheet": "SSEagle/output/spritesheet.webp"
+  },
+  "SSBear": {
+    "name": "SSBear",
+    "type": "char-sprite-v1",
+    "dimensions": {
+      "width": 1728,
+      "height": 624
+    },
+    "frameSize": {
+      "width": 192,
+      "height": 208
+    },
+    "rows": [
+      "idle",
+      "walk",
+      "attack"
+    ],
+    "animations": {
+      "idle": {
+        "row": 0,
+        "frameCount": 9,
+        "fps": 8,
+        "loop": true
+      },
+      "walk": {
+        "row": 1,
+        "frameCount": 9,
+        "fps": 8,
+        "loop": true
+      },
+      "attack": {
+        "row": 2,
+        "frameCount": 9,
+        "fps": 8,
+        "loop": true
+      }
+    },
+    "spritesheet": "SSBear/output/spritesheet.webp"
+  },
+  "SSMorph": {
+    "name": "SSMorph",
+    "type": "char-sprite-v1",
+    "dimensions": {
+      "width": 1728,
+      "height": 832
+    },
+    "frameSize": {
+      "width": 192,
+      "height": 208
+    },
+    "rows": [
+      "morph-cat",
+      "morph-fish",
+      "morph-eagle",
+      "morph-bear"
+    ],
+    "animations": {
+      "morph-cat": {
+        "row": 0,
+        "frameCount": 9,
+        "fps": 18,
+        "loop": true
+      },
+      "morph-fish": {
+        "row": 1,
+        "frameCount": 9,
+        "fps": 18,
+        "loop": true
+      },
+      "morph-eagle": {
+        "row": 2,
+        "frameCount": 9,
+        "fps": 18,
+        "loop": true
+      },
+      "morph-bear": {
+        "row": 3,
+        "frameCount": 9,
+        "fps": 18,
+        "loop": true
+      }
+    },
+    "spritesheet": "SSMorph/output/spritesheet.webp"
   }
 };

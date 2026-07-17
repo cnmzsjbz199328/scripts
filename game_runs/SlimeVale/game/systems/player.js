@@ -16,7 +16,7 @@ Object.assign(MeadowScene.prototype, {
     this.P = {
       x: 120, y: C.FEET_Y, vy: 0, jumps: 0, dir: 1,
       hp: Forge.PLAYER.maxHp, state: 'free', skill: 'splash',
-      scale: Forge.PLAYER.scale, invuln: 0, cd: 0, queued: null,
+      scale: Forge.PLAYER.scale, invuln: 0, cd: 0, queued: null, jumpQueued: null,
     };
     this.playerShadow = this.add.ellipse(this.P.x, C.FEET_Y - 8, 66, 12, 0x1d5c3a, 0.28)
       .setDepth(C.DEPTH.SHADOW);
@@ -63,9 +63,19 @@ Object.assign(MeadowScene.prototype, {
   },
 
   _flushQueued() {
-    const q = this.P.queued;
-    this.P.queued = null;
+    const P = this.P;
+    const jt = P.jumpQueued;
+    P.jumpQueued = null;
+    if (jt !== null && this.time.now - jt <= 150) this._doJump();
+    const q = P.queued;
+    P.queued = null;
     if (q && this.time.now - q.t <= 150) q.fn();
+  },
+
+  // 跳跃版输入缓冲：free 立即跳，非 free（放技能中）记录意图，动作落地瞬间补发
+  _queueOrJump() {
+    if (this.P.state === 'free') this._doJump();
+    else this.P.jumpQueued = this.time.now;
   },
 
   // ── 三段跳 ──
@@ -94,7 +104,7 @@ Object.assign(MeadowScene.prototype, {
     if (!this.auto) {
       const K = Phaser.Input.Keyboard.JustDown;
       if (K(this.keys.J)) this._queueOrRun(() => this._useSkill());
-      if (K(this.keys.W) || K(this.keys.UP) || K(this.keys.SPACE)) this._doJump();
+      if (K(this.keys.W) || K(this.keys.UP) || K(this.keys.SPACE)) this._queueOrJump();
     }
     this._updatePlayerShots(dms);
     if (P.state !== 'free') return;
