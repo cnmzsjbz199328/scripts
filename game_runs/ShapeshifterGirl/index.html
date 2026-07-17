@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>百变少女冒险记 (ShapeshifterGirl)</title>
+  <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #060913;
+      color: #fff;
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      overflow: hidden;
+    }
+
+    /* ── game wrapper ── */
+    #game-wrapper {
+      position: relative;
+      border: 3px solid #ff4f4f; /* 珊瑚红主题边框 */
+      border-radius: 8px;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.8);
+      overflow: hidden;
+    }
+
+    /* ── HUD overlay ── */
+    #hud {
+      display: none;
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      padding: 12px 16px;
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+      justify-content: space-between;
+      background: linear-gradient(to bottom, rgba(0,0,0,0.75), transparent);
+      pointer-events: none;
+      z-index: 10;
+      font-size: 15px;
+      user-select: none;
+    }
+
+    #hud-left { display: flex; align-items: center; gap: 16px; }
+    #hud-hearts { color: #ff4f4f; letter-spacing: 2px; font-size: 20px; text-shadow: 0 0 6px rgba(255,79,79,0.6); }
+    #hud-form { color: #00ffcc; font-weight: bold; background: rgba(0,255,204,0.15); padding: 2px 8px; border-radius: 4px; border: 1px solid rgba(0,255,204,0.3); font-size: 13px; }
+    #hud-score { color: #ffaa00; font-weight: 700; text-shadow: 0 0 4px rgba(255,170,0,0.4); }
+    #hud-objective { color: #e2e8f0; font-weight: 500; font-size: 14px; text-shadow: 0 1px 3px rgba(0,0,0,0.8); flex: 1; text-align: center; }
+    #hud-right { display: flex; align-items: center; gap: 10px; }
+
+    /* ── shared overlay styles ── */
+    .game-overlay {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 20;
+      background: rgba(8, 12, 24, 0.95);
+      backdrop-filter: blur(5px);
+    }
+
+    .overlay-card {
+      text-align: center;
+      max-width: 560px;
+      padding: 40px 48px;
+      background: #0f172a;
+      border: 2px solid #ff4f4f;
+      border-radius: 12px;
+      box-shadow: 0 20px 50px rgba(0,0,0,0.6);
+    }
+
+    .overlay-card h2 {
+      font-size: 2.2rem;
+      margin-bottom: 8px;
+      color: #ff4f4f;
+      letter-spacing: 0.05em;
+      text-shadow: 0 0 10px rgba(255,79,79,0.3);
+    }
+
+    .overlay-card .tagline {
+      font-size: 1rem;
+      color: #00ffcc;
+      margin-bottom: 20px;
+      font-style: italic;
+    }
+
+    .overlay-card .story-setting {
+      font-size: 0.9rem;
+      color: #94a3b8;
+      line-height: 1.6;
+      margin-bottom: 28px;
+      text-align: left;
+    }
+
+    .overlay-card .controls-hint {
+      font-size: 0.8rem;
+      color: #64748b;
+      line-height: 1.8;
+      margin-top: 18px;
+      border-top: 1px solid #1e293b;
+      padding-top: 14px;
+    }
+
+    /* ── buttons ── */
+    .game-btn {
+      display: inline-block;
+      padding: 14px 42px;
+      font-size: 1.05rem;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: transform 0.1s, box-shadow 0.1s;
+    }
+
+    .game-btn:hover  { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(255,79,79,0.4); }
+    .game-btn:active { transform: translateY(0); }
+
+    #start-btn   { background: #ff4f4f; color: #fff; }
+    #restart-btn { background: #c0524a; color: #fff; }
+
+    /* ── game-over title colours ── */
+    #gameover-title.win  { color: #00ffcc; text-shadow: 0 0 10px rgba(0,255,204,0.4); }
+    #gameover-title.lose { color: #ff4f4f; text-shadow: 0 0 10px rgba(255,79,79,0.4); }
+
+    /* ── responsive stage scaling ── */
+    html, body { width: 100%; height: 100%; }
+    #game-wrapper {
+      width: 960px; height: 576px;
+      flex: 0 0 auto;
+      transform-origin: center center;
+    }
+  </style>
+</head>
+<body>
+  <div id="game-wrapper">
+    <div id="game-container"></div>
+
+    <!-- HUD overlay -->
+    <div id="hud" style="display:none">
+      <div id="hud-left">
+        <div id="hud-hearts" title="生命值">❤❤❤❤</div>
+        <div id="hud-form">少女</div>
+      </div>
+      <div id="hud-objective"><span id="hud-objective-text">探索林间小径</span></div>
+      <div id="hud-right">
+        <div id="hud-score">进度: <span id="hud-score-value">0%</span></div>
+      </div>
+    </div>
+
+    <!-- Start screen overlay -->
+    <div id="start-screen" class="game-overlay">
+      <div class="overlay-card">
+        <h2>百变少女冒险记</h2>
+        <p class="tagline">掌握自然之灵，拯救被魔雾掳走的弟弟</p>
+        <p class="story-setting">小小的村庄被突如其来的诡异魔雾袭击，弟弟被掳走。少女小满（Xiaoman）戴上神奇的变身项链，踏上救赎之旅。她需要在正确的时机转换形态以通过不同的险阻：猫攀高墙、鱼渡深水、鹰翔峡谷、熊破巨石。一路向东，魔雾之巅就在远方。</p>
+        <button id="start-btn" class="game-btn" onclick="window.__hudStart()">▶ 开始冒险</button>
+        <p class="controls-hint">
+          [ A / D ] 移动 · [ W / Space ] 跳跃 (猫可二段跳，鹰跳起后长按 W 键滑翔)<br>
+          [ 1–5 ] 变换形态 (1:少女 2:猫 3:鱼 4:鹰 5:熊 · 变身需读条)<br>
+          [ J ] 互动/熊形态重击攻击 · [ R ] 重开当前关卡 · [ M ] 静音音效
+        </p>
+      </div>
+    </div>
+
+    <!-- Game over overlay -->
+    <div id="gameover-screen" class="game-overlay" style="display:none">
+      <div class="overlay-card">
+        <h2 id="gameover-title">冒险结束</h2>
+        <p id="gameover-message" class="story-setting"></p>
+        <button id="restart-btn" class="game-btn" onclick="location.reload()">↩ 重新开始</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // 关卡脚手架数据 (符合 verify.ts 与 playtest 契约)
+    window.GAME_CONFIG = {
+      "map": { "width": 18000, "height": 540, "tileWidth": 64, "tileHeight": 64 },
+      "player": { "spawn": { "x": 100, "y": 452 }, "speed": 240 },
+      "renderMode": "parallax-scroller",
+      "engine": "phaser3-custom",
+      "note": "Side-scrolling shape-shifting action platformer with 5 forms, interactive obstacle puzzles, distance triggers, and lock-point wave encounters."
+    };
+    window.TILEMAP_DATA = { "width": 281, "height": 9, "tileWidth": 64, "tileHeight": 64, "layers": { "obstacles": [] } };
+    window.ENTITIES_DATA = [];
+  </script>
+
+  <!-- ── 共享引擎层 ── -->
+  <script src="../_engine/audio.js"></script>
+  <script src="../_engine/hud.js"></script>
+
+  <!-- ── 本游戏：配置 → 数据 → 系统 → 场景 → 控制装配 ── -->
+  <script src="game/config.js"></script>
+  <script src="game/levels.js"></script>
+  <script src="game/systems/form.js"></script>
+  <script src="game/systems/movement.js"></script>
+  <script src="game/systems/combat.js"></script>
+  <script src="game/systems/gates.js"></script>
+  <script src="game/render.js"></script>
+  <script src="game/scenes/BootScene.js"></script>
+  <script src="game/scenes/LevelScene.js"></script>
+  <script src="game/main.js"></script>
+
+  <script>
+    /* 容器自适应缩放 */
+    (function () {
+      var W = 960, H = 576;
+      var wrap = document.getElementById('game-wrapper');
+      function fit() {
+        if (!wrap) return;
+        var s = Math.min(window.innerWidth / W, window.innerHeight / H, 1);
+        wrap.style.transform = 'scale(' + s + ')';
+      }
+      window.addEventListener('resize', fit);
+      window.addEventListener('orientationchange', fit);
+      fit();
+    })();
+  </script>
+</body>
+</html>
