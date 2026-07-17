@@ -69,25 +69,12 @@ window.SSG.Form = {
 
   // 空间检测：防止变大时卡进墙体/天花板
   checkSpaceConstraint(scene, targetFormName) {
-    const player = scene.player;
     const currentConf = this.getFormConfig(scene.currentForm);
     const targetConf = this.getFormConfig(targetFormName);
-    
-    // 如果目标高度大于当前高度，需要向上做空间检测
-    if (targetConf.height > currentConf.height) {
-      const heightDiff = targetConf.height - currentConf.height;
-      const checkY = player.y - currentConf.height / 2 - heightDiff / 2;
-      
-      // 在玩家上方检测碰撞
-      const isBlocked = scene.physics.overlapTiles(player, scene.obstacles, (obj1, tile) => {
-        // 简单重叠检测
-        return tile.collides;
-      });
-      
-      // 这里简易实现：如果当前在矮洞中（Y轴附近有碰撞瓦片），禁止变大
-      if (scene.isInLowTunnel) {
-        return false;
-      }
+
+    // 变大形态时，若正处于矮缝中（头顶是低天花板），禁止变身
+    if (targetConf.height > currentConf.height && scene.isInLowTunnel) {
+      return false;
     }
     return true;
   },
@@ -102,14 +89,10 @@ window.SSG.Form = {
     const isSourceHuman = sourceForm === 'girl';
     const isTargetHuman = targetForm === 'girl';
     
-    // 人↔兽 0.5s，兽↔兽 两段共计 1.0s
-    let duration = (isSourceHuman || isTargetHuman) 
-      ? window.SSG.Config.MORPH.TRANSFORM_TIME 
+    // 人↔兽 0.5s，兽↔兽 两段共计 1.0s（auto 模式同样走真实读条，验证门必须验人类时序）
+    const duration = (isSourceHuman || isTargetHuman)
+      ? window.SSG.Config.MORPH.TRANSFORM_TIME
       : window.SSG.Config.MORPH.TRANSFORM_BEAST_TIME;
-
-    if (window.SSG.Game.auto) {
-      duration = 100; // 自动挂机时，极速变身(0.1s)，防止惯性冲锋坠谷或溺水
-    }
 
     scene.morphDuration = duration;
     scene.morphTimeLeft = duration;

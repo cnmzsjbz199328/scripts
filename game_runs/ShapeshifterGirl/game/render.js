@@ -7,6 +7,12 @@
 window.SSG = window.SSG || {};
 
 window.SSG.Render = {
+  // 动画安全播放：图集缺失（占位渲染模式）时动画不存在，静默跳过而不是抛错
+  safePlay(sprite, key, ignoreIfPlaying) {
+    if (!sprite || !sprite.anims || !sprite.scene || !sprite.scene.anims.exists(key)) return;
+    sprite.play(key, ignoreIfPlaying);
+  },
+
   // 画纸/背景初始化
   init(scene) {
     scene.gfx = scene.add.graphics();
@@ -88,6 +94,19 @@ window.SSG.Render = {
         g.strokeRect(t.x, 0, t.w, feetY - t.h);
       } 
       
+      else if (t.type === 'cleft') {
+        // 绘制可站立高台（少女单跳上不去，猫的高跳/二段跳能上）
+        g.fillStyle(0x3f4f63, 1);
+        g.fillRect(t.x, feetY - t.h, t.w, t.h);
+        g.lineStyle(3, 0x94a3b8, 0.9);
+        g.beginPath();
+        g.moveTo(t.x, feetY - t.h);
+        g.lineTo(t.x + t.w, feetY - t.h);
+        g.strokePath();
+        g.lineStyle(2, 0x1e293b, 0.9);
+        g.strokeRect(t.x, feetY - t.h, t.w, t.h);
+      }
+
       else if (t.type === 'wall') {
         // 绘制不可破高墙
         g.fillStyle(0x1e293b, 1);

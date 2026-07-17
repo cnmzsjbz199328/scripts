@@ -15,6 +15,15 @@ window.SSG.Config = {
     FEET_Y: 452,         // 地面基线
   },
 
+  PHYSICS: {
+    GRAVITY_Y: 1200,     // 基准重力（main.js 与各形态的重力抵消都从这里取）
+  },
+
+  SPRITE: {
+    FRAME_W: 192,        // char-sprite 图集取景框
+    FRAME_H: 208,
+  },
+
   // 变身形态物理参数与配置
   FORMS: {
     GIRL: {

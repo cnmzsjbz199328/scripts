@@ -8,10 +8,13 @@ window.SSG = window.SSG || {};
 
 window.SSG.Gates = {
   init(scene) {
+    const C = window.SSG.Config;
+    scene.standY = C.WORLD.FEET_Y - C.SPRITE.FRAME_H / 2; // 348, 站立时精灵中心（底面贴地）
     scene.lastSafeX = 100;
-    scene.lastSafeY = window.SSG.Config.WORLD.FEET_Y - 104; // 348, 使角色重心刚好落在地面之上，不陷地
+    scene.lastSafeY = scene.standY;
     scene.isInWater = false;
     scene.isInLowTunnel = false;
+    scene.chokeTime = 0;
     scene.activeUpdrafts = [];
     scene.nextGate = { at: 999999, need: 'none' };
   },
@@ -22,6 +25,8 @@ window.SSG.Gates = {
 
     const feetY = window.SSG.Config.WORLD.FEET_Y;
     const onFloor = player.body.blocked.down || player.body.touching.down;
+    const activeLevel = window.SSG.LEVELS[scene.levelIdx];
+    if (!activeLevel) return;
 
     // 1. 动态记录陆地上安全复归点（非水、非刺、非坑的地面上）
     if (onFloor && !scene.isInWater && !scene.isInThorns && player.x > 50) {
@@ -32,19 +37,19 @@ window.SSG.Gates = {
         scene.lastSafeY = player.y;
       }
     }
-    
-    // 强制防穿地夹钳：在非危险区域（陆地）上，玩家的中心 Y 坐标绝不能低于 348（FEET_Y - 104）
+
+    // 强制防穿地夹钳：在非危险区域（陆地）上，中心 Y 绝不能低于站立基线
     if (!this.isPositionInDanger(scene, player.x)) {
-      if (player.y > 348) {
-        player.y = 348;
+      if (player.y > scene.standY) {
+        player.y = scene.standY;
         if (player.body.velocity.y > 0) {
           player.body.setVelocityY(0);
         }
       }
     }
 
-    // 2. 检测深渊坠落 (鱼形态可以游到深水底部，不触发坠落)
-    if (player.y > 530 && scene.currentForm !== 'fish') {
+    // 2. 检测深渊坠落：明显跌破站立基线即判定（世界底边会拦住刚体，等不到掉出屏幕）
+    if (scene.currentForm !== 'fish' && player.y > scene.standY + 60) {
       const inChasm = activeLevel.triggers.some(t => t.type === 'chasm' && player.x >= t.x - 10 && player.x <= t.x + t.w + 10);
       if (inChasm) {
         this.handleDamageReset(scene, '坠入深渊，扣生命值 1 点！');
@@ -59,8 +64,6 @@ window.SSG.Gates = {
     scene.isInUpdraft = false;
 
     // 4. 扫描所有触发器，更新玩家机制状态
-    const activeLevel = window.SSG.LEVELS[scene.levelIdx];
-    if (!activeLevel) return;
 
     let nearestGateX = 999999;
     let nearestGateNeed = 'none';
@@ -71,6 +74,7 @@ window.SSG.Gates = {
         let needForm = 'none';
         if (trigger.type === 'tunnel') needForm = 'cat';
         else if (trigger.type === 'wall') needForm = 'cat';
+        else if (trigger.type === 'cleft') needForm = 'cat';
         else if (trigger.type === 'water') needForm = 'fish';
         else if (trigger.type === 'chasm') needForm = 'eagle';
         else if (trigger.type === 'updraft') needForm = 'eagle';
@@ -87,14 +91,27 @@ window.SSG.Gates = {
       const px = player.x;
       const py = player.y;
 
+      // 教学提示：接近提示点时显示一次
+      if (trigger.type === 'hint' && !trigger.shown && px >= trigger.at - 240) {
+        trigger.shown = true;
+        scene.showToast(trigger.text);
+      }
+
       if (trigger.type === 'water') {
-        // 水域检测：如果玩家横坐标在水域内，且纵坐标在地面基线下/水里
         if (px >= trigger.x && px <= trigger.x + trigger.w) {
-          scene.isInWater = true;
-          // 非鱼入深水，呛水弹回
-          if (scene.currentForm !== 'fish') {
-            this.handleDamageReset(scene, '呛水！非鱼形态无法通过深水！');
-            return;
+          if (scene.currentForm === 'fish') {
+            // 鱼的浮力判定保持纯 x 区间：出水跃起、贴面游动的手感依赖它
+            scene.isInWater = true;
+          } else if (player.body.bottom > feetY - 20) {
+            // 非鱼且身体真正没入水面（跳跃/滑翔从水面上方越过不算入水）
+            scene.isInWater = true;
+            // 呛水宽限 650ms：给「入水瞬间起手变鱼」(§2.2 空中变身技巧)留出真实读条窗口，
+            // 拖延不变身才受罚弹回
+            scene.chokeTime += delta;
+            if (scene.chokeTime > 650) {
+              this.handleDamageReset(scene, '呛水！非鱼形态无法通过深水！');
+              return;
+            }
           }
         }
       }
@@ -163,6 +180,11 @@ window.SSG.Gates = {
       }
     }
 
+    // 呛水计时只在持续没水时累积
+    if (!scene.isInWater || scene.currentForm === 'fish') {
+      scene.chokeTime = 0;
+    }
+
     // 更新场景全局 nextGate 契约变量
     scene.nextGate = { at: nearestGateX, need: nearestGateNeed };
   },
@@ -180,14 +202,8 @@ window.SSG.Gates = {
 
   handleDamageReset(scene, msg) {
     if (scene.isInvincible || scene.isDead) return;
-    
-    if (window.SSG.Game.auto) {
-      scene.showToast(msg);
-      this.teleportToSafe(scene);
-      return;
-    }
 
-    // 扣减生命值
+    // 扣减生命值（auto 模式同样扣血，验证门必须验真实规则）
     scene.hp = Math.max(0, scene.hp - 1);
     scene.updateHUDHearts();
     
@@ -204,14 +220,6 @@ window.SSG.Gates = {
 
   handleSpikeHurt(scene) {
     if (scene.isInvincible || scene.isDead) return;
-
-    if (window.SSG.Game.auto) {
-      scene.showToast('被荆棘扎伤！');
-      scene.player.setVelocityX(-200);
-      scene.player.setVelocityY(-200);
-      scene.triggerInvincible();
-      return;
-    }
 
     scene.hp = Math.max(0, scene.hp - 1);
     scene.updateHUDHearts();

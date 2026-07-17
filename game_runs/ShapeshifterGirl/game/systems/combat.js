@@ -13,7 +13,7 @@ window.SSG.Combat = {
     scene.attackTimeLeft = 0;
     scene.isInvincible = false;
     scene.invincibleTimeLeft = 0;
-    scene.bossPhase = 0; // Boss 阶段: 0-未触发, 1-熊破盾, 2-猫踩头, 3-鹰击落
+    scene.bossPhase = 0; // Boss 阶段（对应 waves 下标）: 0-熊破盾, 1-猫踩头, 2-鹰击落
     scene.bossHits = 0;
 
     // 绑定攻击键 J
@@ -118,14 +118,12 @@ window.SSG.Combat = {
 
   spawnEnemy(scene, type, x, y) {
     const feetY = window.SSG.Config.WORLD.FEET_Y;
-    
-    // 如果是飞行类小怪，在半空中生出
-    let spawnY = y - 40;
-    if (type === 'thrower' || type === 'boss_fly') {
-      spawnY = feetY - 140;
-    }
 
-    const enemy = scene.physics.add.sprite(x, spawnY, 'enemy_placeholder');
+    const enemy = scene.physics.add.sprite(x, y - 40, 'enemy_placeholder');
+    // 必须先入组再配置 body：physics group 的 add 会重置 body 配置，
+    // 之前 allowGravity/collideWorldBounds 全被 add 抹掉（投掷怪缓沉、Boss 掉穿地面的根因之一）
+    scene.enemies.add(enemy);
+
     enemy.setData('type', type);
     enemy.setData('hp', type.startsWith('boss') ? 3 : 1); // 普通怪 1 血，Boss 各阶段 3 血
     enemy.setData('state', 'active');
@@ -148,7 +146,14 @@ window.SSG.Combat = {
       }
     }
 
-    scene.enemies.add(enemy);
+    // 定位：飞行怪悬空；站地怪 body 底面精确贴住地面基线——
+    // 生成时若嵌入平台超过 Arcade OVERLAP_BIAS 会被判 embedded 直接掉穿（Boss 秒消失的根因之二）
+    if (type === 'thrower' || type === 'boss_fly') {
+      enemy.y = feetY - 140;
+    } else {
+      enemy.y = feetY - enemy.body.height / 2;
+    }
+
     return enemy;
   },
 
@@ -174,23 +179,24 @@ window.SSG.Combat = {
       const type = enemy.getData('type');
       let timer = enemy.getData('timer') + delta;
       enemy.setData('timer', timer);
+      // 运动相位用全局时钟：timer 每次开火清零，sin(timer) 积分非零会造成持续漂移/下沉
+      const phase = scene.time.now;
 
       // 2. 简单的 AI 运动行为
       if (type === 'patrol') {
         // 巡逻小怪：左右往复游走
         const speed = 100;
-        const dir = Math.sin(timer * 0.003) > 0 ? 1 : -1;
+        const dir = Math.sin(phase * 0.003) > 0 ? 1 : -1;
         enemy.setVelocityX(dir * speed);
         enemy.setFlipX(dir > 0);
-      } 
-      
+      }
+
       else if (type === 'thrower') {
-        // 投掷小怪：在半空中盘旋，每隔 2s 朝玩家扔能量子弹
-        const speedY = Math.sin(timer * 0.005) * 50;
-        enemy.setVelocityY(speedY);
+        // 投掷小怪：在半空中盘旋，每隔 2.6s 朝玩家扔能量子弹（playtest 数据调优）
+        enemy.setVelocityY(Math.sin(phase * 0.005) * 50);
         enemy.setVelocityX(0);
 
-        if (timer >= 2000) {
+        if (timer >= 2600) {
           enemy.setData('timer', 0);
           this.shootBullet(scene, enemy.x - 30, enemy.y, -250, 0);
         }
@@ -198,18 +204,20 @@ window.SSG.Combat = {
       
       // Boss 三阶段 AI 逻辑
       else if (type === 'boss_shield') {
-        // 阶段1：地面重装状态，缓步向玩家逼近，具有全身紫光盾特效
-        enemy.setVelocityX(-40);
+        // 阶段1：地面重装状态，缓步向玩家逼近（追踪方向，不会无脑走左掉进沟）
+        const dir = scene.player.x < enemy.x ? -1 : 1;
+        enemy.setVelocityX(dir * 40);
+        enemy.setFlipX(dir > 0);
         if (timer >= 3000) {
           enemy.setData('timer', 0);
-          this.shootBullet(scene, enemy.x - 50, enemy.y + 20, -300, 0);
+          this.shootBullet(scene, enemy.x + dir * 50, enemy.y + 20, dir * 300, 0);
         }
       }
       
       else if (type === 'boss_bullets') {
         // 阶段2：悬浮疯狂抛洒弹幕，每 1.2s 连射
-        enemy.setVelocityX(Math.sin(timer * 0.004) * 80);
-        enemy.y = feetY - 120 + Math.sin(timer * 0.006) * 30;
+        enemy.setVelocityX(Math.sin(phase * 0.004) * 80);
+        enemy.y = feetY - 120 + Math.sin(phase * 0.006) * 30;
 
         if (timer >= 1200) {
           enemy.setData('timer', 0);
@@ -222,7 +230,7 @@ window.SSG.Combat = {
       
       else if (type === 'boss_fly') {
         // 阶段3：在高空飞速掠过，尝试在上方投掷炸弹
-        enemy.setVelocityX(Math.sin(timer * 0.002) * 200);
+        enemy.setVelocityX(Math.sin(phase * 0.002) * 200);
         enemy.y = feetY - 220;
 
         if (timer >= 1500) {
@@ -243,11 +251,11 @@ window.SSG.Combat = {
 
   shootBullet(scene, x, y, vx, vy) {
     const bullet = scene.physics.add.sprite(x, y, 'bullet_placeholder');
+    scene.bullets.add(bullet); // 先入组再配置（同 spawnEnemy，add 会重置 body）
     bullet.setTint(0xff0000);
     bullet.body.setSize(12, 12);
     bullet.body.setAllowGravity(false);
     bullet.setVelocity(vx, vy);
-    scene.bullets.add(bullet);
     if (window.AudioEngine) window.AudioEngine.play('shoot');
   },
 
@@ -265,10 +273,11 @@ window.SSG.Combat = {
         if (dx < 120 && dy < 180) {
           const type = enemy.getData('type');
           if (type === 'boss_shield') {
-            // 破甲
+            // 破甲；命中成功给短无敌，防止同帧身体接触判定反伤
             this.hurtEnemy(scene, enemy, 1);
             scene.player.setVelocityX(-250); // 击退反作用力
             scene.isAttacking = false; // 重置攻击
+            scene.triggerInvincible();
           } else if (!type.startsWith('boss')) {
             // 普通怪一击必杀
             this.hurtEnemy(scene, enemy, 1);
@@ -288,6 +297,7 @@ window.SSG.Combat = {
             this.hurtEnemy(scene, enemy, 1);
             player.setVelocityY(-450); // 弹起
             scene.catJumpsCount = 0; // 重置跳跃
+            scene.triggerInvincible(); // 踩头成功不吃同帧接触反伤
             if (window.AudioEngine) window.AudioEngine.play('hit_stamp');
           }
         }
@@ -302,6 +312,7 @@ window.SSG.Combat = {
           // 对三阶段 Boss 俯冲撞击起效，或秒杀飞行投掷怪
           this.hurtEnemy(scene, enemy, 1);
           player.setVelocityY(-150); // 撞击轻微反弹
+          scene.triggerInvincible(); // 俯冲命中不吃同帧接触反伤
           if (window.AudioEngine) window.AudioEngine.play('hit_dive');
         }
       });
@@ -361,11 +372,6 @@ window.SSG.Combat = {
 
   hurtPlayer(scene, dmg) {
     if (scene.isInvincible || scene.isDead) return;
-
-    if (window.SSG.Game.auto) {
-      scene.showToast('自动模式免伤！');
-      return;
-    }
 
     scene.hp = Math.max(0, scene.hp - 1);
     scene.updateHUDHearts();

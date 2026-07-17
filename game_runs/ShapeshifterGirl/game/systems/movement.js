@@ -29,15 +29,20 @@ window.SSG.Movement = {
     const player = scene.player;
     if (!player || !player.body) return;
 
-    // 获取形态配置
+    const C = window.SSG.Config;
     const config = window.SSG.Form.getFormConfig(formName);
-    
+
+    // 占位渲染层：素材缺失时切换到对应形态的程序化剪影贴图
+    if (scene.usePlaceholders) {
+      player.setTexture('ph_' + formName);
+    }
+
     // 调整 Arcade 物理包围盒大小
     player.body.setSize(config.width, config.height);
-    
-    // 根据 192x208 居中对齐公式计算偏移量，以确保底面对齐地面
-    const offsetX = 96 - config.width / 2;
-    const offsetY = 208 - config.height;
+
+    // 按取景框居中对齐公式计算偏移量，确保底面对齐地面
+    const offsetX = C.SPRITE.FRAME_W / 2 - config.width / 2;
+    const offsetY = C.SPRITE.FRAME_H - config.height;
     player.body.setOffset(offsetX, offsetY);
 
     // 默认启用重力
@@ -47,7 +52,7 @@ window.SSG.Movement = {
     // 针对特定形态做初始化配置
     if (formName === 'fish') {
       if (scene.isInWater) {
-        player.body.setGravityY(-1200); // 抵消全局重力
+        player.body.setGravityY(-C.PHYSICS.GRAVITY_Y); // 抵消全局重力
         player.body.setDrag(200, 200);
       }
     } else if (formName === 'bear') {
@@ -94,7 +99,7 @@ window.SSG.Movement = {
       // 🐟 鱼形态逻辑
       if (scene.isInWater) {
         // 在水中：无重力全向游动
-        player.body.setGravityY(-1200); // 抵消基准重力
+        player.body.setGravityY(-window.SSG.Config.PHYSICS.GRAVITY_Y); // 抵消基准重力
         player.body.setDrag(150, 150);
 
         let vx = 0;
@@ -106,52 +111,37 @@ window.SSG.Movement = {
 
         if (vx !== 0) player.setVelocityX(vx);
         if (vy !== 0) player.setVelocityY(vy);
-        
+
         // 游泳朝向
         if (vx < 0) player.setFlipX(false);
         else if (vx > 0) player.setFlipX(true);
 
-        // 播放游泳动画
-        if (player.anims && player.anims.currentAnim?.key !== 'swim') {
-          player.play('swim', true);
-        }
+        window.SSG.Render.safePlay(player, 'swim', true);
       } else {
-        if (window.SSG.Game.auto) {
-          // 自动测试模式下：免除搁浅阻力，允许缓慢前进以防死锁，并不触发自动变身计时
-          player.body.setGravityY(0);
-          player.body.setDrag(0, 0);
-          player.setVelocityX(config.speed * 0.7);
-          
-          if (player.anims && player.anims.currentAnim?.key !== 'swim') {
-            player.play('swim', true);
-          }
-        } else {
-          // 陆地脱水：重力生效，丧失横向移速，原地扑腾
-          player.body.setGravityY(0);
-          player.body.setDrag(100, 0);
-          player.setVelocityX(0);
+        // 陆地脱水：重力生效，丧失横向移速，原地扑腾（auto 同样走真实规则，
+        // 自动辅助会立即起手变回人形）
+        player.body.setGravityY(0);
+        player.body.setDrag(100, 0);
+        player.setVelocityX(0);
 
-          // 扑腾：周期性向上跳跃，伴随小震动
-          scene.fishLandTimer += delta;
-          if (scene.fishLandTimer >= 1000) {
-            scene.fishLandTimer = 0;
-            player.setVelocityY(-150);
-            player.setAngle(player.angle === 90 ? 0 : 90); // 左右翻滚
-            if (window.AudioEngine) window.AudioEngine.play('flop');
-          }
+        // 扑腾：周期性向上跳跃，伴随小震动
+        scene.fishLandTimer += delta;
+        if (scene.fishLandTimer >= 1000) {
+          scene.fishLandTimer = 0;
+          player.setVelocityY(-150);
+          player.setAngle(player.angle === 90 ? 0 : 90); // 左右翻滚
+          if (window.AudioEngine) window.AudioEngine.play('flop');
+        }
 
-          // 提示玩家
+        // 触发自动变回人形的计时器保护（提示只在搁浅开始时给一次，避免每帧刷 HUD）
+        if (!scene.fishAutoMorphTimer) {
           scene.showToast('游鱼搁浅！1.5秒后自动恢复人身...');
-          
-          // 触发自动变回人形的计时器保护
-          if (!scene.fishAutoMorphTimer) {
-            scene.fishAutoMorphTimer = scene.time.delayedCall(1500, () => {
-              scene.fishAutoMorphTimer = null;
-              if (scene.currentForm === 'fish' && !scene.isInWater) {
-                window.SSG.Form.startMorph(scene, 'girl');
-              }
-            });
-          }
+          scene.fishAutoMorphTimer = scene.time.delayedCall(1500, () => {
+            scene.fishAutoMorphTimer = null;
+            if (scene.currentForm === 'fish' && !scene.isInWater && !scene.isMorphing) {
+              window.SSG.Form.startMorph(scene, 'girl');
+            }
+          });
         }
       }
     } else {
@@ -185,43 +175,37 @@ window.SSG.Movement = {
       if (leftPressed) {
         player.setVelocityX(-config.speed);
         player.setFlipX(false); // 统一面向左
-        
-        if (onFloor && player.anims) {
-          player.play(runAnim, true);
-        }
+
+        if (onFloor) window.SSG.Render.safePlay(player, runAnim, true);
       } else if (rightPressed) {
         player.setVelocityX(config.speed);
         player.setFlipX(true); // 水平翻转面向右
-        
-        if (onFloor && player.anims) {
-          player.play(runAnim, true);
-        }
+
+        if (onFloor) window.SSG.Render.safePlay(player, runAnim, true);
       } else {
         player.setVelocityX(0);
-        if (onFloor && player.anims && !scene.isAttacking) {
-          player.play(idleAnim, true);
+        if (onFloor && !scene.isAttacking) {
+          window.SSG.Render.safePlay(player, idleAnim, true);
         }
       }
 
-      // 🦅 鹰形态滑翔判定 (空中下坠时按住跳跃)
+      // 🦅 鹰形态滑翔判定：跳起后按住跳跃键才滑翔（与开局说明一致；auto 模式视同按住）
       if (form === 'eagle') {
         const isAutoGliding = window.SSG.Game.auto && !onFloor;
-        if (!onFloor && (jumpPressed || isAutoGliding || player.body.velocity.y > 0)) {
+        if (!onFloor && (jumpPressed || isAutoGliding)) {
           scene.isGliding = true;
           // 应用极小重力
-          player.body.setGravityY(-1200 + config.glideGravity);
+          player.body.setGravityY(-window.SSG.Config.PHYSICS.GRAVITY_Y + config.glideGravity);
           // 水平滑行漂移，减缓阻力
           player.body.setDragX(50);
-          
-          if (player.anims) player.play('glide', true);
+
+          window.SSG.Render.safePlay(player, 'glide', true);
         } else {
           scene.isGliding = false;
           player.body.setGravityY(0);
           player.body.setDragX(0);
-          
-          if (!onFloor && player.anims) {
-            player.play('fly', true);
-          }
+
+          if (!onFloor) window.SSG.Render.safePlay(player, 'fly', true);
         }
       }
 
@@ -230,14 +214,14 @@ window.SSG.Movement = {
         if (onFloor) {
           player.setVelocityY(config.jump);
           if (window.AudioEngine) window.AudioEngine.play('jump');
-          if (player.anims && form !== 'bear') player.play(jumpAnim, false);
+          if (form !== 'bear') window.SSG.Render.safePlay(player, jumpAnim, false);
         } else if (form === 'cat' && scene.catJumpsCount < 1) {
           // 二段跳
           scene.catJumpsCount++;
           player.setVelocityY(config.jump * 0.9);
           if (window.AudioEngine) window.AudioEngine.play('jump_double');
           if (window.SSG.Render) window.SSG.Render.playDoubleJumpFX(scene, player);
-          if (player.anims) player.play('cat_jump', false);
+          window.SSG.Render.safePlay(player, 'cat_jump', false);
         }
       }
     }

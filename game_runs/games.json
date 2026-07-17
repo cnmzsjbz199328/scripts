@@ -1,5 +1,19 @@
 [
   {
+    "id": "ShapeshifterGirl",
+    "title": "百变少女冒险记 (ShapeshifterGirl)",
+    "tagline": "猫翻高墙、鱼渡深水、鹰滑峡谷、熊破巨石——在正确的时机，变成正确的动物。",
+    "gameType": "arcade",
+    "genre": "ARCADE",
+    "accent": "#ff4f4f",
+    "previewBg": "#eef5ec",
+    "icon": "🐱",
+    "thumbnail": "ShapeshifterGirl/scene/panorama.png",
+    "previewVideo": "ShapeshifterGirl/preview.mp4",
+    "path": "ShapeshifterGirl/index.html",
+    "createdAt": "2026-07-17T00:00:00.000Z"
+  },
+  {
     "id": "SlimeVale",
     "title": "清泉谷的露露 (SlimeVale)",
     "tagline": "生命如露水流转——三段跳、单格技能、把被偷走的春天弹回来。",

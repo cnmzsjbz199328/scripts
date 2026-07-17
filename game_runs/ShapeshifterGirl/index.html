@@ -133,7 +133,7 @@
     /* ── responsive stage scaling ── */
     html, body { width: 100%; height: 100%; }
     #game-wrapper {
-      width: 960px; height: 576px;
+      width: 960px; height: 540px; /* 与 Phaser 画布 960x540 对齐，避免底部空带 */
       flex: 0 0 auto;
       transform-origin: center center;
     }
@@ -181,6 +181,9 @@
   </div>
 
   <script>
+    // HUD 心形字形与初始 ❤❤❤❤ 保持一致（_engine/hud.js 默认是 ◆◇）
+    window.GAME_HUD_GLYPHS = { full: '❤', empty: '♡' };
+
     // 关卡脚手架数据 (符合 verify.ts 与 playtest 契约)
     window.GAME_CONFIG = {
       "map": { "width": 18000, "height": 540, "tileWidth": 64, "tileHeight": 64 },

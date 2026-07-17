@@ -12,6 +12,17 @@ class LevelScene extends Phaser.Scene {
 
   init(data) {
     this.levelIdx = data.idx || 0;
+
+    // 关卡数据是全局可变对象：重开/重玩前复位运行时标记（碎石已毁/怪已生成/锁点已触发/提示已显示）
+    const lvl = window.SSG.LEVELS[this.levelIdx];
+    if (lvl) {
+      for (const t of lvl.triggers) {
+        delete t.destroyed;
+        delete t.spawned;
+        delete t.triggered;
+        delete t.shown;
+      }
+    }
     this.hp = window.SSG.Config.MAX_HP;
     this.won = false;
     this.lost = false;
@@ -64,13 +75,14 @@ class LevelScene extends Phaser.Scene {
       }
     }
 
-    // 2. 加载 AI 绿幕切割生成的精灵图集（如果加载失败，Phaser 会回退到默认纹理而不会崩溃）
-    this.load.spritesheet('girl_sheet', 'assets/sprites/girl.webp', { frameWidth: 192, frameHeight: 208 });
-    this.load.spritesheet('cat_sheet', 'assets/sprites/cat.webp', { frameWidth: 192, frameHeight: 208 });
-    this.load.spritesheet('fish_sheet', 'assets/sprites/fish.webp', { frameWidth: 192, frameHeight: 208 });
-    this.load.spritesheet('eagle_sheet', 'assets/sprites/eagle.webp', { frameWidth: 192, frameHeight: 208 });
-    this.load.spritesheet('bear_sheet', 'assets/sprites/bear.webp', { frameWidth: 192, frameHeight: 208 });
-    this.load.spritesheet('morph_sheet', 'assets/sprites/morph.webp', { frameWidth: 192, frameHeight: 208 });
+    // 2. 加载 AI 绿幕切割生成的精灵图集（加载失败时走占位剪影渲染层，见 createPlaceholderTextures）
+    const F = { frameWidth: window.SSG.Config.SPRITE.FRAME_W, frameHeight: window.SSG.Config.SPRITE.FRAME_H };
+    this.load.spritesheet('girl_sheet', 'assets/sprites/girl.webp', F);
+    this.load.spritesheet('cat_sheet', 'assets/sprites/cat.webp', F);
+    this.load.spritesheet('fish_sheet', 'assets/sprites/fish.webp', F);
+    this.load.spritesheet('eagle_sheet', 'assets/sprites/eagle.webp', F);
+    this.load.spritesheet('bear_sheet', 'assets/sprites/bear.webp', F);
+    this.load.spritesheet('morph_sheet', 'assets/sprites/morph.webp', F);
     this.load.image('panorama', 'scene/panorama.png');
   }
 
@@ -94,12 +106,30 @@ class LevelScene extends Phaser.Scene {
     // 4. 构建当前关卡的实体地面物理块（跳过深渊和水域，实现自然下坠坠亡与落水）
     this.buildLevelPlatforms(activeLevel);
 
+    // 4.5 占位渲染层（US-2.2）：图集缺失时生成程序化剪影贴图，删掉 assets 仍可完整通关
+    this.usePlaceholders = !this.textures.exists('girl_sheet');
+    if (this.usePlaceholders) {
+      this.createPlaceholderTextures();
+    }
+
     // 5. 产生玩家角色精灵
-    // 主角默认以 192x208 尺寸生出，使用 girl_sheet 纹理
-    this.player = this.physics.add.sprite(100, feetY - 40, 'girl_sheet', 0).setOrigin(0.5, 0.5);
+    this.player = this.physics.add.sprite(100, feetY - 40, this.usePlaceholders ? 'ph_girl' : 'girl_sheet', 0).setOrigin(0.5, 0.5);
     this.player.setCollideWorldBounds(true);
     this.physics.add.collider(this.player, this.platforms);
     this.physics.add.collider(this.enemies, this.platforms);
+
+    // Movement.init 时 player 还不存在，这里补上初始形态的包围盒收缩
+    // （否则初始 hitbox 是整个 192x208 取景框）
+    window.SSG.Movement.applyFormPhysics(this, this.currentForm);
+
+    // R 键重开当前关卡（即开即玩契约：无暂停菜单，重试用 R）
+    this.input.keyboard.on('keydown-R', () => {
+      if (this.cardActive) return;
+      window.GameHUD.hideGameOver();
+      const hudEl = document.getElementById('hud');
+      if (hudEl) hudEl.style.display = 'flex';
+      window.SSG.Game.startLevel(this.levelIdx);
+    });
 
     // 6. 配置镜头与棘轮
     this.physics.world.setBounds(0, 0, activeLevel.length, 540);
@@ -119,8 +149,52 @@ class LevelScene extends Phaser.Scene {
       window.AudioEngine.playBGM(activeLevel.bgm);
     }
 
+    // 8.5 形态提示图标（DESIGN §2.2：首两关显示教学兜底，后三关不再提示）
+    if (this.levelIdx < 2) {
+      const ICONS = { cat: '🐱', fish: '🐟', eagle: '🦅', bear: '🐻' };
+      const NEED = { tunnel: 'cat', wall: 'cat', cleft: 'cat', water: 'fish', chasm: 'eagle', updraft: 'eagle', rock: 'bear', thorns: 'bear' };
+      for (const t of activeLevel.triggers) {
+        const need = NEED[t.type];
+        if (!need) continue;
+        const iconY = feetY - (t.h || 40) - 46;
+        const icon = this.add.text(t.x + (t.w || 60) / 2, iconY, ICONS[need], { fontSize: '30px' }).setOrigin(0.5).setDepth(5);
+        this.tweens.add({ targets: icon, y: iconY - 10, duration: 900, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+      }
+    }
+
     // 9. 显示当前关卡叙事卡
     this._showCard(activeLevel.intro[0], activeLevel.intro[1], null, '开始冒险');
+  }
+
+  // 占位渲染层：按形态配置生成程序化剪影贴图（底面与物理包围盒对齐）
+  createPlaceholderTextures() {
+    const C = window.SSG.Config;
+    const FW = C.SPRITE.FRAME_W;
+    const FH = C.SPRITE.FRAME_H;
+
+    for (const key of Object.keys(C.FORMS)) {
+      const f = C.FORMS[key];
+      const texKey = 'ph_' + f.name;
+      if (this.textures.exists(texKey)) continue;
+
+      const canvas = this.textures.createCanvas(texKey, FW, FH);
+      if (!canvas) continue;
+      const ctx = canvas.getContext();
+
+      // 躯干剪影：底面贴住取景框底部
+      const bx = FW / 2 - f.width / 2;
+      const by = FH - f.height;
+      ctx.fillStyle = '#' + f.color.toString(16).padStart(6, '0');
+      ctx.fillRect(bx, by, f.width, f.height);
+
+      // 头部亮点，给出朝向感
+      ctx.beginPath();
+      ctx.arc(FW / 2 + f.width * 0.2, by + Math.max(8, f.height * 0.2), Math.max(5, Math.min(12, f.height * 0.2)), 0, Math.PI * 2);
+      ctx.fillStyle = '#ffffff';
+      ctx.fill();
+
+      canvas.refresh();
+    }
   }
 
   update(time, delta) {
@@ -163,24 +237,17 @@ class LevelScene extends Phaser.Scene {
       this.checkLockWaveProgress();
     }
 
-    // 12. 胜利通关检测：玩家移动到关卡终点
-    if (this.player.x >= activeLevel.length - 120 && !this.won && !this.lockedActive) {
+    // 12. 胜利通关检测：玩家移动到关卡终点（cardActive 守卫防止每帧重复叠卡）
+    if (this.player.x >= activeLevel.length - 120 && !this.won && !this.lost && !this.cardActive && !this.lockedActive) {
       this.nextLevel();
     }
   }
 
   handleAutoHelper(time, delta) {
+    // 控制级自动辅助：只做「人类玩家也能做的操作」（按形态键、走位、按攻击键），
+    // 不改变任何数值规则。skills/game-playtest 的外部 bot 负责移动/跳跃，
+    // 这里补齐它尚不理解的形态谜题（play.ts 目前不消费 nextGate 契约）。
     if (!window.SSG.Game.auto || this.cardActive || this.isDead) return;
-
-    if (this.lockedActive && this.activeLockTrigger && this.activeLockTrigger.isBoss) {
-      if (!this.lastBossAutoPhaseTime) {
-        this.lastBossAutoPhaseTime = time;
-      }
-      if (time - this.lastBossAutoPhaseTime >= 300) {
-        this.lastBossAutoPhaseTime = time;
-        this.advanceBossPhase();
-      }
-    }
 
     const px = this.player.x;
     const activeLevel = window.SSG.LEVELS[this.levelIdx];
@@ -207,12 +274,12 @@ class LevelScene extends Phaser.Scene {
     }
 
     // 2. 根据前方触发器距离，自动变身克制形态
+    // （水域不做提前变身：鱼在岸上会搁浅锁死，改为上面的入水反应式变身 + 呛水读条宽限）
     for (const t of activeLevel.triggers) {
       const dist = t.x - px;
       if (dist > 30 && dist < 160 && !this.isMorphing) {
         let need = 'none';
-        if (t.type === 'tunnel' || t.type === 'wall') need = 'cat';
-        else if (t.type === 'water') need = 'fish';
+        if (t.type === 'tunnel' || t.type === 'wall' || t.type === 'cleft') need = 'cat';
         else if (t.type === 'chasm') need = t.w > 300 ? 'eagle' : 'cat';
         else if (t.type === 'updraft') need = 'eagle';
         else if (t.type === 'rock' || t.type === 'thorns') need = 'bear';
@@ -235,18 +302,20 @@ class LevelScene extends Phaser.Scene {
     if (this.lockedActive && this.activeLockTrigger) {
 
       if (this.activeLockTrigger.isBoss) {
-        const boss = this.enemies.getFirstAlive();
+        // 必须按 type 找 Boss：getFirstAlive() 会拿到组里更早生成的路怪（如身后的投掷怪），
+        // 导致辅助朝反方向推、把玩家钉死在锁区边界
+        const boss = this.enemies.getChildren().find(e => e.active && String(e.getData('type')).startsWith('boss'));
         if (boss) {
           const bossDist = boss.x - px;
           const phase = this.bossPhase;
 
-          // 自动朝 Boss 坐标靠近 (双向寻路)
+          // 自动朝 Boss 坐标靠近 (双向寻路；flipX 约定：true=面向右)
           if (bossDist > 50) {
             this.player.setVelocityX(this.currentForm === 'bear' ? 100 : 180);
-            this.player.setFlipX(false);
+            this.player.setFlipX(true);
           } else if (bossDist < -50) {
             this.player.setVelocityX(this.currentForm === 'bear' ? -100 : -180);
-            this.player.setFlipX(true);
+            this.player.setFlipX(false);
           }
 
           if (phase === 0) {
@@ -305,6 +374,7 @@ class LevelScene extends Phaser.Scene {
 
   registerAnimations() {
     const registerAnim = (key, sheetKey, startRow, frameCount = 9, fps = 8, loop = true) => {
+      if (!this.textures.exists(sheetKey)) return; // 占位模式：图集缺失则不注册，safePlay 会静默跳过
       if (!this.anims.exists(key)) {
         this.anims.create({
           key: key,
@@ -372,6 +442,15 @@ class LevelScene extends Phaser.Scene {
       this.physics.add.existing(plat, true);
       this.platforms.add(plat);
     }
+
+    // cleft 高台：可站立的实体平台（少女单跳 96px 上不去 100 高台，猫能上——L1 教学意图）
+    for (const t of activeLevel.triggers) {
+      if (t.type === 'cleft') {
+        const plat = this.add.zone(t.x + t.w / 2, feetY - t.h / 2, t.w, t.h);
+        this.physics.add.existing(plat, true);
+        this.platforms.add(plat);
+      }
+    }
   }
 
   startLockPoint(trigger) {
@@ -404,16 +483,23 @@ class LevelScene extends Phaser.Scene {
 
     sceneToast(this, `遭遇战！波次 ${this.currentWaveIdx + 1}/${trigger.waves.length}`);
 
-    // 根据配置生出敌人
+    // 根据配置生出敌人（打 lockSpawn 标记：解锁判定只看竞技场敌人，
+    // 不受关卡途中残留的路怪影响——如被鱼绕过、掉在水底的巡逻怪）
     wave.spawns.forEach(spawn => {
       const sx = this.lockX + spawn.dx;
-      window.SSG.Combat.spawnEnemy(this, spawn.type, sx, window.SSG.Config.WORLD.FEET_Y);
+      const e = window.SSG.Combat.spawnEnemy(this, spawn.type, sx, window.SSG.Config.WORLD.FEET_Y);
+      e.setData('lockSpawn', true);
     });
   }
 
   checkLockWaveProgress() {
-    // 检测当前屏幕内所有敌人是否被消灭
-    if (this.enemies.countActive() === 0 && this.bullets.countActive() === 0) {
+    // Boss 锁点的阶段推进完全由 advanceBossPhase 驱动：阶段间隙会清场 1s，
+    // 若这里继续按「敌人清零」推进，会与延迟重生竞争、复制出双份 Boss
+    if (this.activeLockTrigger && this.activeLockTrigger.isBoss) return;
+
+    // 检测竞技场（本锁点生成的）敌人是否被消灭
+    const arenaAlive = this.enemies.getChildren().some(e => e.active && e.getData('lockSpawn'));
+    if (!arenaAlive && this.bullets.countActive() === 0) {
       // 增加波次
       this.currentWaveIdx++;
       const trigger = this.activeLockTrigger;
@@ -442,8 +528,8 @@ class LevelScene extends Phaser.Scene {
   advanceBossPhase() {
     // 关底 Boss 战有 3 个阶段，分别对应 Bear (破盾), Cat (躲避踩头), Eagle (飞空俯冲)
     this.bossHits++;
-    
-    const reqHits = window.SSG.Game.auto ? 1 : 3;
+
+    const reqHits = 3; // auto 模式同样要真实命中 3 次，验证门验的必须是人类规则
     if (this.bossHits >= reqHits) {
       this.bossHits = 0;
       this.bossPhase++;
@@ -488,7 +574,7 @@ class LevelScene extends Phaser.Scene {
 
   triggerInvincible() {
     this.isInvincible = true;
-    this.invincibleTimeLeft = 1000; // 无敌闪烁 1s
+    this.invincibleTimeLeft = 1400; // 无敌闪烁 1.4s（playtest 数据调优：1s 时 bot 通关余血≤1）
   }
 
   updateHUDHearts() {
@@ -567,14 +653,14 @@ class LevelScene extends Phaser.Scene {
     // 自动判定是否需要起跳
     let needJump = false;
     for (const t of activeLevel.triggers) {
-      if ((t.type === 'chasm' || t.type === 'wall' || t.type === 'updraft') && t.x > px && t.x - px < 75) {
+      if ((t.type === 'chasm' || t.type === 'wall' || t.type === 'updraft' || t.type === 'cleft') && t.x > px && t.x - px < 75) {
         needJump = true;
       }
     }
     
     // Boss战起跳逻辑
     if (this.lockedActive && this.activeLockTrigger && this.activeLockTrigger.isBoss) {
-      const boss = this.enemies.getFirstAlive();
+      const boss = this.enemies.getChildren().find(e => e.active && String(e.getData('type')).startsWith('boss'));
       if (boss) {
         const bossDist = Math.abs(boss.x - px);
         if (bossDist < 150 && (this.bossPhase === 1 || this.bossPhase === 2)) {

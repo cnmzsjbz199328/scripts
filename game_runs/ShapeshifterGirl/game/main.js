@@ -57,8 +57,8 @@ window.__advanceCard = () => {
   }
 };
 
-// Phaser configuration
-const config = {
+// Phaser 装配（不留裸全局，基准重力唯一真源在 Config.PHYSICS）
+window.SSG.Game._phaser = new Phaser.Game({
   type: Phaser.AUTO,
   width: window.SSG.Config.GAME_W,
   height: window.SSG.Config.GAME_H,
@@ -67,11 +67,9 @@ const config = {
   physics: {
     default: 'arcade',
     arcade: {
-      gravity: { y: 1200 }, // 基准重力
+      gravity: { y: window.SSG.Config.PHYSICS.GRAVITY_Y },
       debug: false
     }
   },
   scene: [window.SSG.BootScene, window.SSG.LevelScene]
-};
-
-window.SSG.Game._phaser = new Phaser.Game(config);
+});
