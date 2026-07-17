@@ -408,17 +408,17 @@ class LevelScene extends Phaser.Scene {
     registerAnim('fish_idle', 'fish_sheet', 1, 9, 6, true);
 
     // 飞鹰动画 (eagle_sheet)
-    registerAnim('fly', 'eagle_sheet', 0, 9, 10, true);
-    registerAnim('glide', 'eagle_sheet', 1, 9, 6, true);
+    registerAnim('fly', 'eagle_sheet', 0, 8, 10, true);   // 原第5帧尺寸异常已删
+    registerAnim('glide', 'eagle_sheet', 1, 8, 6, true);  // 原第1帧正面离群帧已删
 
     // 暴熊动画 (bear_sheet)
-    registerAnim('bear_idle', 'bear_sheet', 0, 9, 5, true);
+    registerAnim('bear_idle', 'bear_sheet', 0, 8, 5, true); // 原第6帧尺寸异常已删
     registerAnim('bear_walk', 'bear_sheet', 1, 9, 8, true);
     registerAnim('attack', 'bear_sheet', 2, 9, 12, false);
 
     // 变身形态动画集 (morph_sheet)
     registerAnim('morph-cat', 'morph_sheet', 0, 9, 18, false);
-    registerAnim('morph-fish', 'morph_sheet', 1, 9, 18, false);
+    registerAnim('morph-fish', 'morph_sheet', 1, 8, 18, false); // 原第7帧项链丢失已删
     registerAnim('morph-eagle', 'morph_sheet', 2, 9, 18, false);
     registerAnim('morph-bear', 'morph_sheet', 3, 9, 18, false);
   }

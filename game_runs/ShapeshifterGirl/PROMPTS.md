@@ -62,10 +62,15 @@
 
 模板（同时附带 panorama + 对应形态参考图）：
 
-> "Using the panorama and character reference, generate a 3×3 grid of 9 sequential frames showing [动作描述]. Side view facing LEFT. {STYLE}. Separate frames with thin solid DARK GREEN lines (#006600). Character centered in each cell, wide margin. #00FF00 background. No shadows."
+> "Using the panorama and character reference, generate a 3×3 grid of 9 sequential frames showing [动作描述]. Side view facing LEFT. {STYLE}. Separate frames with thin solid DARK GREEN lines (#006600). Character centered in each cell, wide margin. #00FF00 background. No shadows. The panorama is a STYLE reference ONLY and must NOT appear in the image — all 9 cells contain ONLY the character on pure #00FF00, absolutely no trees, sky or ground. Each of the 9 frames must show a CLEARLY DIFFERENT phase of the motion cycle. The character occupies the SAME height in every cell."
 
 > 横版游戏所有行**统一左侧视角**，向右由引擎 `setFlipX` 翻转（省一半生成成本）。
 > 网格线必须深绿 #006600 细实线，**禁止黑色**。
+>
+> ⚠️ 模板末尾三句是 2026-07 审查后新增的硬约束，重生成时**不得删减**，分别针对三类已发生的翻车：
+> ① panorama 被当成实景背景画进格子（girl_jump/girl_hurt 全军覆没的死因）；
+> ② 9 帧几乎完全相同、无动画信息（fish_swim/cat_idle 的死因）；
+> ③ 格间角色尺寸剧烈抖动（eagle_fly 第 5 帧、bear_idle 第 6 帧缩成迷你版的死因）。
 
 ### 少女（Girl，4 行）
 
@@ -114,7 +119,9 @@
 
 模板（同时附带 panorama + 少女参考图 + 目标动物参考图，共 3 张参照）：
 
-> "Using the panorama, the girl reference and the [动物] reference, generate a 3×3 grid of 9 sequential frames showing the girl smoothly metamorphosing into the [动物]. Frame 1 must EXACTLY match the girl reference; frame 9 must EXACTLY match the [动物] reference; frames 2–8 show a gradual believable in-between transformation, body wrapped in swirling turquoise light streaming from her crescent pendant, the pendant visible in every frame. Side view facing LEFT. {STYLE}. Separate frames with thin solid DARK GREEN lines (#006600). Character centered in each cell, wide margin. #00FF00 background. No shadows."
+> "Using the panorama, the girl reference and the [动物] reference, generate a 3×3 grid of 9 sequential frames showing the girl smoothly metamorphosing into the [动物]. Frame 1 must EXACTLY match the girl reference; frame 9 must EXACTLY match the [动物] reference; frames 2–8 show a gradual believable in-between transformation, body wrapped in swirling turquoise light streaming from her crescent pendant, the pendant visible in every frame. Side view facing LEFT. {STYLE}. Separate frames with thin solid DARK GREEN lines (#006600). Character centered in each cell, wide margin. #00FF00 background. No shadows. The transformation must progress STRICTLY MONOTONICALLY — each frame is more animal than the previous one, NEVER reverting toward human. All 9 frames face the SAME direction (LEFT) and the character occupies the SAME height in every cell. The swirling light intensity rises smoothly to a peak at frame 5 then fades smoothly to zero at frame 9."
+
+> ⚠️ 末尾三句为 2026-07 审查新增硬约束，针对已发生的翻车：morph_cat 帧 4-9 全是重复成品猫（过渡塌缩）、morph_eagle 帧 3 全鹰→帧 4 退回人头鹰身且行内左右翻面、morph_fish 光效强弱无序导致播放闪烁。
 
 | 文件 | 行名 | 附带参考 | fps/loop |
 |---|---|---|---|
@@ -169,9 +176,61 @@ cp char_runs/SSGirl/output/spritesheet.webp game_runs/ShapeshifterGirl/assets/sp
 cp char_runs/SSGirl/output/char.json        game_runs/ShapeshifterGirl/assets/sprites/girl.json
 ```
 
-## 5. 验收清单（每张图切割后）
+## 5. 重生成工单与后期处理台账（2026-07 全量审查产出）
+
+### 5.1 两个前置决策点（决定工单范围，生图前必须先定）
+
+**决策 A：眼罩去留。** girl_ref 首次生成时 AI 自行给主角加了"白色独眼罩+脸部绑带"（DESIGN/PROMPTS 均无此设定），之后所有图链式参照它，导致**全部 23 张图每一帧都带眼罩**（鱼是贴片、鹰的眼罩飘在头侧、熊成了护目镜带）。脚本擦不掉，只能生图层面二选一：
+- **A1 接受眼罩为角色设定**（成本低，现存素材全保留）：则重生的每张图提示词**必须加**
+  `wearing the same white square eye patch with a thin white head strap as the reference, consistent in every frame`，否则新旧图闪变；
+- **A2 消除眼罩**（成本 = 全套链式重生）：从 girl_ref 起重生全部 ref 和全部动作/变身行，每张提示词**必须加**
+  `both big amber eyes fully visible, NO eye patch, NO bandage, NO strap on face`。
+
+**决策 B：熊形态。** 现存熊是**双足直立、穿少女斗篷+上衣的拟人熊**；§2 规格是四足动物熊（idle 四足嗅探 / walk 四足步态 / attack 立起拍地）。二选一：
+- **B1 认账拟人熊**（成本低）：改 §2 熊行的 [动作描述] 为双足版本，DESIGN 的拍地攻击判定改为前拳横击（现 bear_attack 即此形态，已在游戏内工作）；
+- **B2 回归四足**：重生 bear_ref + bear 三行 + morph_bear，共 5 张。
+
+### 5.2 重生成清单（脚本救不了、必须重新生图）
+
+按优先级排序。生成后一律先过「避坑铁律」目检，再走 §4 切割：
+
+| 优先级 | 文件 | 死因 | 重生成要点（在 §2 模板基础上追加） |
+|---|---|---|---|
+| 🔥 P0 | `girl_jump.png` | 每格完整森林实景背景，脏图**正在游戏里显示** | 模板已含防实景硬约束；跳跃弧线四阶段（蓄力/起跳/滞空/落地）分布在 9 帧 |
+| 🔥 P0 | `girl_hurt.png` | 同上全实景 + 末 3 帧转成正面 | 追加 `side view facing LEFT in ALL 9 frames, never front-facing` |
+| P1 | `fish_idle.png` | `assets/raw/` 里是 600×600 占位图；已切的 rows/idle 是旧版绿鱼（配色/无项链，与 swim 不是同一条鱼） | 按 §2 原模板重生；接入后把 LevelScene 的 fish_idle 从借用 swim 行恢复为 `row=1` |
+| P1 | `fish_swim.png` | 9 帧几乎完全相同，无摆尾相位，游戏里等于静态图 | 追加 `exaggerated S-curve tail swing, tail position clearly different in every frame` |
+| P1 | `cat_idle.png` | 正面坐姿（非左侧视）+ 帧间几乎无差异 | 追加 `side view facing LEFT`；尾巴摆动相位逐帧明确不同 |
+| P2 | `morph_cat.png` | 过渡塌缩：帧 3 猫身人脸、帧 4-9 是 6 张重复成品猫；帧 1 朝右与猫帧朝左行内翻面；帧 3-4 出现 cat_ref 没有的橙色围脖 | 模板已含单调性/同向/同高硬约束；追加 `no extra fur ruff or collar not present in the cat reference` |
+| P2 | `morph_eagle.png` | 帧序回退（帧 3 全鹰→帧 4 人头鹰身）、朝向左右横跳、尺寸抖动全场最重、帧 1 正面 | 模板已含硬约束，无额外追加；生成后逐帧检查单调性，不合格重跑（预算按 2×） |
+| 视决策 | 5 张 `*_ref.png` | 全带眼罩（决策 A2 时重生）；bear_ref 额外穿衣（决策 B2 时重生） | 决策 A/B 对应的提示词句必须加入 |
+| 视决策 | 其余全部动作/变身行 | 仅决策 A2（消除眼罩）时进入工单 | 同上链式重生，参照新 ref |
+
+### 5.3 重生成图片的交付注意事项
+
+1. **切割前逐图过「避坑铁律」目检**（本文件开头）：纯绿幕、无文字水印、深绿网格线、朝左、变身连贯。凡有一项不过就重跑生图，不要指望切割脚本兜底。
+2. **朝向兜底**：若新图质量好但原生朝右，不必重跑生图——切割后在 `char_runs/<Name>/rows/<行>/` 对该行 9 个单帧 PNG 逐个水平镜像再 assemble（参见 5.4 台账；**不能整图镜像 raw，会把行内帧序反掉**）。
+3. **frameCount 联动**：删过帧的行如被重生成（恢复 9 帧），需把 [LevelScene.js](game/scenes/LevelScene.js) `registerAnim` 对应行的 frameCount 从 8 改回 9（现改动清单见 5.4）。
+4. **验证门**：任何素材接入后按序跑 `npx tsx skills/game-verify/verify.ts ShapeshifterGirl` → `npx tsx skills/game-playtest/play.ts ShapeshifterGirl`，全绿才算落地。
+
+### 5.4 已做脚本后期处理的行（重跑 process.ts 前必读）
+
+> 2026-07 审查后在 `char_runs/*/rows/` 单帧层做过镜像与删帧，**raw 源图未同步**。
+> 对下列行重跑 `process.ts` 会冲掉修复，必须重新执行同样的后期处理再 assemble。
+
+- **镜像为朝左**（源图原生朝右）：SSGirl idle/run、SSCat jump、SSEagle fly/glide、SSBear idle/walk/attack、SSMorph morph-bear。
+- **删帧左移（行剩 8 帧，游戏侧 `registerAnim` frameCount=8 已同步）**：
+  - SSEagle fly 原第 5 帧（尺寸骤小）、glide 原第 1 帧（正面离群帧）
+  - SSBear idle 原第 6 帧（尺寸骤小）
+  - SSMorph morph-fish 原第 7 帧（项链丢失+画风漂移）
+- **fish_idle 动画临时指向 swim 行**（LevelScene.js）：rows/idle 现存素材是旧版绿鱼、与 swim 行不是同一条鱼，待按 §2 重新生成后恢复 `row=1`。
+- cat_jump 末帧的地面投影已被绿幕算法抠掉，无需处理；morph_bear 帧 5 纯漩涡属规格允许的光效掩盖，保留。
+
+## 6. 验收清单（每张图切割后）
 
 - [ ] 每行 9 帧完整、无跨格粘连（process 校验通过）
+- [ ] 帧间角色尺寸一致（警惕单帧突然缩成迷你版：eagle_fly 帧 5、bear_idle 帧 6 前科）
+- [ ] 帧间有明确动作差异，不是同一姿势复制 9 份（fish_swim、cat_idle 前科）
 - [ ] 透明背景无绿边残留
 - [ ] 5 个形态**剪影颜色与取景框一致**（多形态同角色的硬要求）
 - [ ] 三件「同一人」信号齐全：青绿月牙项链 / 珊瑚红点缀 / 琥珀色眼睛
