@@ -58,6 +58,11 @@ game_runs/_showreel/*
 scratch/*.png
 scratch/*.webp
 
+# Video sprite runs — 源视频(外部AI生成,不可再生)+manifest(分段参数/scale,可复现抽帧)+test.html 入库；
+# 抽出的帧 png 可由 process.ts 从 mp4+manifest 重放再生，不入库
+video_runs/**/animations/
+video_runs/**/output/
+
 # AI tool workspaces
 .gemini/
 

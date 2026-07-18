@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<title>SSBearVideo — 视频轨熊素材预览</title>
+<style>
+  body { margin: 0; font-family: system-ui, sans-serif; background: #1e2129; color: #ddd; }
+  header { padding: 12px 20px; background: #14161c; }
+  header h1 { margin: 0; font-size: 18px; }
+  header p { margin: 4px 0 0; font-size: 12px; color: #8a92a5; }
+  .controls { display: flex; flex-wrap: wrap; gap: 8px; padding: 12px 20px; align-items: center; }
+  button { background: #2e3442; color: #ddd; border: 1px solid #444c5e; border-radius: 6px; padding: 6px 14px; cursor: pointer; font-size: 13px; }
+  button:hover { background: #3a4254; }
+  button.active { background: #4a6cd4; border-color: #4a6cd4; color: #fff; }
+  label { font-size: 13px; display: flex; align-items: center; gap: 4px; }
+  #stage-wrap { display: flex; justify-content: center; padding: 10px 0 4px; }
+  #stage { position: relative; width: 384px; height: 416px; background-size: 32px 32px; }
+  #stage.checker { background-color: #262b36;
+    background-image: linear-gradient(45deg, #2f3542 25%, transparent 25%, transparent 75%, #2f3542 75%),
+                      linear-gradient(45deg, #2f3542 25%, transparent 25%, transparent 75%, #2f3542 75%);
+    background-position: 0 0, 16px 16px; }
+  #stage.green { background: #00994d; background-image: none; }
+  #stage.night { background: #10121a; background-image: none; }
+  #stage img { position: absolute; inset: 0; width: 384px; height: 416px; image-rendering: auto; display: none; }
+  #baseline { position: absolute; left: 0; right: 0; top: 404px; height: 0; border-top: 1px dashed rgba(255,80,80,.75); pointer-events: none; display: none; }
+  #baseline::after { content: "y=202 基线"; position: absolute; right: 4px; top: -16px; font-size: 11px; color: rgba(255,120,120,.9); }
+  #info { text-align: center; font-size: 13px; color: #8a92a5; padding-bottom: 8px; min-height: 18px; }
+  #strips { padding: 8px 20px 24px; }
+  #strips h2 { font-size: 14px; color: #aab2c5; margin: 18px 0 6px; }
+  .strip { display: flex; gap: 2px; overflow-x: auto; background: #262b36; padding: 6px; border-radius: 8px; width: fit-content; max-width: 100%; }
+  .strip img { width: 96px; height: 104px; background:
+    linear-gradient(45deg, #333a48 25%, transparent 25%, transparent 75%, #333a48 75%) 0 0 / 16px 16px,
+    linear-gradient(45deg, #333a48 25%, transparent 25%, transparent 75%, #333a48 75%) 8px 8px / 16px 16px, #2a303d; border-radius: 4px; }
+  .flip img { transform: scaleX(-1); }
+</style>
+</head>
+<body>
+<header>
+  <h1>SSBearVideo — 绿幕视频 → 序列帧（锚点对齐管线试点）</h1>
+  <p>源：Girl_transforms_into_bear_202607181453.mp4（24fps / 10s）· 统一 scale=0.3251 · 基线 y=202 · 单帧 192×208（2× 显示）</p>
+</header>
+
+<div class="controls">
+  <span style="font-size:13px;color:#8a92a5">动画：</span>
+  <button data-anim="morph">变身 morph (18fps · once)</button>
+  <button data-anim="idle">站立 idle (6fps · loop)</button>
+  <button data-anim="walk">行走 walk (8fps · loop)</button>
+  <button data-anim="attack">攻击 attack (12fps · once)</button>
+  <button id="seq">▶ 完整串演</button>
+  <span style="width:16px"></span>
+  <label><input type="checkbox" id="flip"> 镜像（朝右）</label>
+  <label><input type="checkbox" id="showbase" checked> 基线</label>
+  <label>背景
+    <select id="bg">
+      <option value="checker">棋盘格</option>
+      <option value="night">深色</option>
+      <option value="green">绿幕</option>
+    </select>
+  </label>
+</div>
+
+<div id="stage-wrap"><div id="stage" class="checker"><div id="baseline"></div></div></div>
+<div id="info"></div>
+
+<div id="strips"></div>
+
+<script>
+const ANIMS = {
+  morph:  { count: 9,  fps: 18, loop: false, label: '变身 morph' },
+  idle:   { count: 6,  fps: 6,  loop: true,  label: '站立 idle' },
+  walk:   { count: 9,  fps: 8,  loop: true,  label: '行走 walk' },
+  attack: { count: 12, fps: 12, loop: false, label: '攻击 attack' },
+};
+const stage = document.getElementById('stage');
+const info = document.getElementById('info');
+const frames = {};   // name -> [img]
+let timer = null, current = null;
+
+for (const [name, a] of Object.entries(ANIMS)) {
+  frames[name] = [];
+  for (let i = 0; i < a.count; i++) {
+    const img = new Image();
+    img.src = `animations/${name}/frame_${i}.png`;
+    stage.appendChild(img);
+    frames[name].push(img);
+  }
+}
+
+function stop() { if (timer) { clearInterval(timer); timer = null; } }
+function hideAll() { for (const k in frames) frames[k].forEach(im => im.style.display = 'none'); }
+
+function play(name, onDone) {
+  stop(); hideAll();
+  current = name;
+  document.querySelectorAll('[data-anim]').forEach(b => b.classList.toggle('active', b.dataset.anim === name));
+  const a = ANIMS[name];
+  let i = 0;
+  const show = () => {
+    frames[name].forEach((im, k) => im.style.display = k === i ? 'block' : 'none');
+    info.textContent = `${a.label} — 帧 ${i + 1}/${a.count} @ ${a.fps}fps${a.loop ? ' · 循环' : ''}`;
+  };
+  show();
+  timer = setInterval(() => {
+    i++;
+    if (i >= a.count) {
+      if (a.loop) i = 0;
+      else { stop(); i = a.count - 1; show(); if (onDone) onDone(); return; }
+    }
+    show();
+  }, 1000 / a.fps);
+}
+
+document.querySelectorAll('[data-anim]').forEach(b => b.onclick = () => play(b.dataset.anim));
+
+// 完整串演：变身 → 站立(2s) → 行走(3s) → 攻击 → 定格
+document.getElementById('seq').onclick = () => {
+  play('morph', () => {
+    play('idle');
+    setTimeout(() => {
+      play('walk');
+      setTimeout(() => play('attack'), 3000);
+    }, 2000);
+  });
+};
+
+document.getElementById('flip').onchange = e => stage.classList.toggle('flip', e.target.checked);
+document.getElementById('showbase').onchange = e =>
+  document.getElementById('baseline').style.display = e.target.checked ? 'block' : 'none';
+document.getElementById('bg').onchange = e => {
+  stage.className = e.target.value;
+};
+document.getElementById('baseline').style.display = 'block';
+
+// 底部帧条
+const strips = document.getElementById('strips');
+for (const [name, a] of Object.entries(ANIMS)) {
+  const h = document.createElement('h2');
+  h.textContent = `${a.label} · ${a.count} 帧 · ${a.fps}fps · ${a.loop ? 'loop' : 'once'}`;
+  strips.appendChild(h);
+  const div = document.createElement('div');
+  div.className = 'strip';
+  for (let i = 0; i < a.count; i++) {
+    const im = new Image();
+    im.src = `animations/${name}/frame_${i}.png`;
+    im.title = `frame_${i}`;
+    div.appendChild(im);
+  }
+  strips.appendChild(div);
+}
+
+play('morph');
+</script>
+</body>
+</html>

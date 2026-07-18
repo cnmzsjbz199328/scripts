@@ -380,12 +380,13 @@ class LevelScene extends Phaser.Scene {
   }
 
   registerAnimations() {
-    const registerAnim = (key, sheetKey, startRow, frameCount = 9, fps = 8, loop = true) => {
+    // cols = 该图集每行的格数（视频轨图集列数不一，行步长 = startRow * cols）
+    const registerAnim = (key, sheetKey, startRow, frameCount = 9, fps = 8, loop = true, cols = 9) => {
       if (!this.textures.exists(sheetKey)) return; // 占位模式：图集缺失则不注册，safePlay 会静默跳过
       if (!this.anims.exists(key)) {
         this.anims.create({
           key: key,
-          frames: this.anims.generateFrameNumbers(sheetKey, { start: startRow * 9, end: startRow * 9 + frameCount - 1 }),
+          frames: this.anims.generateFrameNumbers(sheetKey, { start: startRow * cols, end: startRow * cols + frameCount - 1 }),
           frameRate: fps,
           repeat: loop ? -1 : 0
         });
@@ -398,27 +399,27 @@ class LevelScene extends Phaser.Scene {
     registerAnim('jump', 'girl_sheet', 2, 9, 10, false);
     registerAnim('hurt', 'girl_sheet', 3, 9, 10, false);
 
-    // 灵猫动画 (cat_sheet)
-    registerAnim('cat_idle', 'cat_sheet', 0, 9, 6, true);
-    registerAnim('cat_run', 'cat_sheet', 1, 9, 12, true);
-    registerAnim('cat_jump', 'cat_sheet', 2, 9, 10, false);
+    // 灵猫形态（视觉为猎豹，video-sprite 轨，12 列图集）
+    registerAnim('cat_idle', 'cat_sheet', 0, 8, 6, true, 12);
+    registerAnim('cat_run', 'cat_sheet', 1, 7, 12, true, 12);
+    registerAnim('cat_jump', 'cat_sheet', 2, 12, 12, false, 12);
 
-    // 游鱼动画 (fish_sheet)
-    registerAnim('swim', 'fish_sheet', 0, 9, 8, true);
-    registerAnim('fish_idle', 'fish_sheet', 1, 9, 6, true);
+    // 游鱼动画 (fish_sheet, video-sprite 轨)
+    registerAnim('swim', 'fish_sheet', 0, 8, 8, true);
+    registerAnim('fish_idle', 'fish_sheet', 1, 9, 5, true);
 
-    // 飞鹰动画 (eagle_sheet)
-    registerAnim('fly', 'eagle_sheet', 0, 8, 10, true);   // 原第5帧尺寸异常已删
-    registerAnim('glide', 'eagle_sheet', 1, 8, 6, true);  // 原第1帧正面离群帧已删
+    // 飞鹰动画 (eagle_sheet, video-sprite 轨，10 列图集)
+    registerAnim('fly', 'eagle_sheet', 0, 10, 10, true, 10);
+    registerAnim('glide', 'eagle_sheet', 1, 9, 6, true, 10);
 
     // 暴熊动画 (bear_sheet)
     registerAnim('bear_idle', 'bear_sheet', 0, 8, 5, true); // 原第6帧尺寸异常已删
     registerAnim('bear_walk', 'bear_sheet', 1, 9, 8, true);
     registerAnim('attack', 'bear_sheet', 2, 9, 12, false);
 
-    // 变身形态动画集 (morph_sheet)
+    // 变身形态动画集 (morph_sheet, video-sprite 轨全四行)
     registerAnim('morph-cat', 'morph_sheet', 0, 9, 18, false);
-    registerAnim('morph-fish', 'morph_sheet', 1, 8, 18, false); // 原第7帧项链丢失已删
+    registerAnim('morph-fish', 'morph_sheet', 1, 9, 18, false);
     registerAnim('morph-eagle', 'morph_sheet', 2, 9, 18, false);
     registerAnim('morph-bear', 'morph_sheet', 3, 9, 18, false);
   }
