@@ -12,6 +12,8 @@
 
 ### 1. 核心排查与限制条件
 * 🚫 **严禁出现背景元素**：背景必须是绝对纯净的单色绿幕 `#00FF00`。**绝对不能包含树木、草地、石头、水花或天空等任何背景细节**。如果生成结果中出现了这些元素，必须重新生成或在 Prompt 中加强限制，否则去绿幕算法会将背景连同人物边缘抠坏。
+* 🚫 **严禁绿幕以外的底色**：纯白/米白/灰色底同样无法被 chroma-key 抠除（girl_jump 第二轮重生即因白底整行报废，9 帧不透明白卡直接进了游戏）。收图第一眼先确认底色是 `#00FF00`，白底一票否决。
+* 🚫 **每格只能有一个角色主体**：AI 偶发在单元格里画出 2 条缩小副本（fish_swim 二轮帧 2/4/5 前科），切割脚本会把多主体一起截进帧，游戏里出现"分身"。
 * 🚫 **严禁包含文字或水印**：生成的图片中**绝对不能出现文字、拼音、英文字母、标签、数字或手写签名**（例如 AI 有时会自动在 `cat_run` 图片边缘添加 "cat" 等小文字）。必须确保所有单元格都是干净的角色主体。
 * ⚠️ **变身渐变图（morph_*.png）必须保证连贯过渡**：
   - 变身连续帧不是简单的「人」加「动物」，必须是 **1-9 帧由人形逐渐变为动物形态的流畅形变过程**。
@@ -38,7 +40,9 @@
 
 **主角外观锚（所有角色描述共用）：**
 
-> a cheerful 10-year-old adventurer girl named Xiaoman, short dark-brown twin buns, big amber eyes, coral-red hooded travel cape, mustard-yellow tunic, teal shorts, small leather satchel, glowing turquoise crescent pendant on her chest
+> ✅ **人设定稿（2026-07-18 复审裁决）：兜帽麻花辫版。** 首轮生图跑出的「棕发双丸子头 + 白色眼罩」版（现存 girl_ref / girl_jump / girl_hurt 即此版）**作废**；以现役 girl.webp idle/run 两行的造型为唯一人形基准，锚文案已按定稿改写如下，重生任何含人形的图都用这一段：
+
+> a cheerful 10-year-old adventurer girl named Xiaoman, long black hair in a single braid, coral-red hooded travel cape with the hood worn UP over her head, mustard-yellow tunic with pale ruffled hem, teal shorts, brown boots, small brown leather satchel, glowing turquoise crescent pendant on her chest, both big amber eyes fully visible, NO eye patch, NO bandage, NO strap on her face
 
 **变身形态一致性规则**：每个动物形态必须保留三件「同一人」信号——①胸前发光的青绿月牙项链 ②珊瑚红配色出现在耳朵/鳍/翅尖 ③琥珀色眼睛。提示词里已写入，重生成时不要删。
 
@@ -176,35 +180,37 @@ cp char_runs/SSGirl/output/spritesheet.webp game_runs/ShapeshifterGirl/assets/sp
 cp char_runs/SSGirl/output/char.json        game_runs/ShapeshifterGirl/assets/sprites/girl.json
 ```
 
-## 5. 重生成工单与后期处理台账（2026-07 全量审查产出）
+## 5. 重生成工单与后期处理台账（2026-07 首轮审查 + 2026-07-18 复审）
 
-### 5.1 两个前置决策点（决定工单范围，生图前必须先定）
+> **2026-07-18 复审结论**（对 commit 74637a7 "P0/P1/P2 完成" 的逐 sheet 核验，含逐帧 alpha/包围盒量化审计）：
+> bear 三行全场最佳、girl run 与 cat idle/run 达标、六张 sheet 装配规格统一（192×208、脚底基线恒 202）✅；
+> 但 **girl_jump 二轮重生是白底未抠、正在游戏里显示白卡**，girl_hurt 仍有正面帧，且 jump/hurt 用的是作废人设；
+> fish 两行仍不是同一条鱼、swim 出现多主体帧；morph_cat/morph_eagle 尺寸单调性依旧崩坏。工单更新见 5.2。
 
-**决策 A：眼罩去留。** girl_ref 首次生成时 AI 自行给主角加了"白色独眼罩+脸部绑带"（DESIGN/PROMPTS 均无此设定），之后所有图链式参照它，导致**全部 23 张图每一帧都带眼罩**（鱼是贴片、鹰的眼罩飘在头侧、熊成了护目镜带）。脚本擦不掉，只能生图层面二选一：
-- **A1 接受眼罩为角色设定**（成本低，现存素材全保留）：则重生的每张图提示词**必须加**
-  `wearing the same white square eye patch with a thin white head strap as the reference, consistent in every frame`，否则新旧图闪变；
-- **A2 消除眼罩**（成本 = 全套链式重生）：从 girl_ref 起重生全部 ref 和全部动作/变身行，每张提示词**必须加**
-  `both big amber eyes fully visible, NO eye patch, NO bandage, NO strap on face`。
+### 5.1 前置决策点（均已裁决）
 
-**决策 B：熊形态。** 现存熊是**双足直立、穿少女斗篷+上衣的拟人熊**；§2 规格是四足动物熊（idle 四足嗅探 / walk 四足步态 / attack 立起拍地）。二选一：
-- **B1 认账拟人熊**（成本低）：改 §2 熊行的 [动作描述] 为双足版本，DESIGN 的拍地攻击判定改为前拳横击（现 bear_attack 即此形态，已在游戏内工作）；
-- **B2 回归四足**：重生 bear_ref + bear 三行 + morph_bear，共 5 张。
+**决策 A：眼罩去留 —— ✅ 已裁决（2026-07-18）：人形定稿为兜帽麻花辫版，无眼罩。** 原 A1/A2 二选一作废，落地规则：
+- 人形唯一基准 = 现役 girl.webp idle/run 行造型，§0 锚文案已按定稿改写，重生任何含人形的图（girl_* 与 morph_* 前段帧）一律参照它；
+- girl_ref 现货（丸子头+眼罩）作废，按 5.2 重生（有零成本抽帧方案）；
+- 动物形态现货中的"眼罩"（猫/鱼/鹰的白贴片、熊的护目镜带）**认账为形态特征保留**，不进重生工单——四套动物行质量达标，不值得为消除眼罩链式翻新；若未来整体翻新再一并消除。
 
-### 5.2 重生成清单（脚本救不了、必须重新生图）
+**决策 B：熊形态 —— ✅ 已裁决：B1 认账拟人熊。** 已落地（bear 三行为双足版并在游戏内工作，复审质量全场最佳），§2 熊行描述如与现货冲突以现货为准。
 
-按优先级排序。生成后一律先过「避坑铁律」目检，再走 §4 切割：
+### 5.2 重生成清单（2026-07-18 复审版；脚本救不了、必须重新生图）
 
-| 优先级 | 文件 | 死因 | 重生成要点（在 §2 模板基础上追加） |
+首轮工单执行结果：`cat_idle` ✅ 修复达标并已出场；其余各张复审未过、死因更新如下。生成后一律先过「避坑铁律」目检（含新增的**白底否决**与**单主体**两条），再走 §4 切割：
+
+| 优先级 | 文件 | 死因（2026-07-18 复审） | 重生成要点（在 §2 模板基础上追加） |
 |---|---|---|---|
-| 🔥 P0 | `girl_jump.png` | 每格完整森林实景背景，脏图**正在游戏里显示** | 模板已含防实景硬约束；跳跃弧线四阶段（蓄力/起跳/滞空/落地）分布在 9 帧 |
-| 🔥 P0 | `girl_hurt.png` | 同上全实景 + 末 3 帧转成正面 | 追加 `side view facing LEFT in ALL 9 frames, never front-facing` |
-| P1 | `fish_idle.png` | `assets/raw/` 里是 600×600 占位图；已切的 rows/idle 是旧版绿鱼（配色/无项链，与 swim 不是同一条鱼） | 按 §2 原模板重生；接入后把 LevelScene 的 fish_idle 从借用 swim 行恢复为 `row=1` |
-| P1 | `fish_swim.png` | 9 帧几乎完全相同，无摆尾相位，游戏里等于静态图 | 追加 `exaggerated S-curve tail swing, tail position clearly different in every frame` |
-| P1 | `cat_idle.png` | 正面坐姿（非左侧视）+ 帧间几乎无差异 | 追加 `side view facing LEFT`；尾巴摆动相位逐帧明确不同 |
-| P2 | `morph_cat.png` | 过渡塌缩：帧 3 猫身人脸、帧 4-9 是 6 张重复成品猫；帧 1 朝右与猫帧朝左行内翻面；帧 3-4 出现 cat_ref 没有的橙色围脖 | 模板已含单调性/同向/同高硬约束；追加 `no extra fur ruff or collar not present in the cat reference` |
-| P2 | `morph_eagle.png` | 帧序回退（帧 3 全鹰→帧 4 人头鹰身）、朝向左右横跳、尺寸抖动全场最重、帧 1 正面 | 模板已含硬约束，无额外追加；生成后逐帧检查单调性，不合格重跑（预算按 2×） |
-| 视决策 | 5 张 `*_ref.png` | 全带眼罩（决策 A2 时重生）；bear_ref 额外穿衣（决策 B2 时重生） | 决策 A/B 对应的提示词句必须加入 |
-| 视决策 | 其余全部动作/变身行 | 仅决策 A2（消除眼罩）时进入工单 | 同上链式重生，参照新 ref |
+| 🔥 P0 | `girl_ref.png` | 现货是作废的丸子头+眼罩版，后续所有图链式参照必错 | 按 §0 新锚重生；**零成本替代方案**：直接从 `char_runs/SSGirl/rows/idle/` 抽一帧干净帧作新 ref（已是定稿造型、侧视左向，天然对齐 morph 首帧） |
+| 🔥 P0 | `girl_jump.png` | 二轮重生**白底未抠**：9 帧全是 182×182 不透明白卡，**正在游戏里显示**；且人设仍是作废丸子头+眼罩版 | 底色必须纯 `#00FF00`（铁律新条）；参照新 girl_ref；跳跃弧线四阶段（蓄力/起跳/滞空/落地）分布 9 帧 |
+| 🔥 P0 | `girl_hurt.png` | 人设作废版；f6/f7/f9 仍正面平静站姿；行内眼罩时有时无 | 参照新 girl_ref；保留 `side view facing LEFT in ALL 9 frames, never front-facing`；受击表情（皱眉/闭眼）贯穿全行 |
+| P1 | `fish_idle.png` | 二轮接入的仍是绿色 Q 版鱼：与 swim 行橙红鱼完全不同鱼，月牙项链/琥珀眼/珊瑚红三信号全缺 | 附 fish_ref 按 §2 模板重生；接入后把 LevelScene 的 `fish_idle` 恢复 `row=1`（过渡期先指回 swim 行，见 5.5） |
+| P1 | `fish_swim.png` | 二轮图帧 2 是迷你双鱼（填充仅 6%）、帧 4/5 每帧两条鱼（多主体），行内体型混乱 | 铁律新条「每格单主体」；保留 `exaggerated S-curve tail swing, tail position clearly different in every frame`；重生前可删帧兜底（见 5.5） |
+| P2 | `morph_cat.png` | 依旧尺寸塌缩：帧填充率 5→11→10→7→53→39→38→4→4%（迷你↔巨大横跳）；首帧是短发无斗篷路人，非人形基准 | 参照新 girl_ref + cat_ref；模板同高/单调硬约束**逐帧验收**，不合格重跑（预算 2×） |
+| P2 | `morph_eagle.png` | 首两帧是蓝裙短发女孩（完全另一个人）；末两帧骤缩至填充 8%/16% | 同上（预算 2×） |
+| P3 | `morph_bear.png` | 首两帧人形迷你（填充 9%/6%），中后段合格 | 视预算重生；不重生则接受变熊首瞬间的缩放跳变 |
+| P3 | `eagle_glide.png` | glide 行体型仅约 fly 行六成，空中 fly↔glide 切换瞬间鸟突然缩小 | 视预算重生，追加 `the eagle occupies the SAME size as in the flying animation reference`；或引擎侧对 glide 行补偿 scale |
 
 ### 5.3 重生成图片的交付注意事项
 
@@ -212,6 +218,8 @@ cp char_runs/SSGirl/output/char.json        game_runs/ShapeshifterGirl/assets/sp
 2. **朝向兜底**：若新图质量好但原生朝右，不必重跑生图——切割后在 `char_runs/<Name>/rows/<行>/` 对该行 9 个单帧 PNG 逐个水平镜像再 assemble（参见 5.4 台账；**不能整图镜像 raw，会把行内帧序反掉**）。
 3. **frameCount 联动**：删过帧的行如被重生成（恢复 9 帧），需把 [LevelScene.js](game/scenes/LevelScene.js) `registerAnim` 对应行的 frameCount 从 8 改回 9（现改动清单见 5.4）。
 4. **验证门**：任何素材接入后按序跑 `npx tsx skills/game-verify/verify.ts ShapeshifterGirl` → `npx tsx skills/game-playtest/play.ts ShapeshifterGirl`，全绿才算落地。
+5. **人设帧验收**：凡含人形的图（girl_* 全部、morph_* 前段帧）逐帧核对是否为**兜帽麻花辫定稿版**（§0）——上一轮 girl_jump/girl_hurt 返工即因人设漂移未在收图时拦截。
+6. **底色验收**：收图先看底色，非纯 `#00FF00` 直接打回（girl_jump 二轮白底前科），不要等切割后才发现。
 
 ### 5.4 已做脚本后期处理的行（重跑 process.ts 前必读）
 
@@ -223,16 +231,31 @@ cp char_runs/SSGirl/output/char.json        game_runs/ShapeshifterGirl/assets/sp
   - SSEagle fly 原第 5 帧（尺寸骤小）、glide 原第 1 帧（正面离群帧）
   - SSBear idle 原第 6 帧（尺寸骤小）
   - SSMorph morph-fish 原第 7 帧（项链丢失+画风漂移）
-- **fish_idle 动画临时指向 swim 行**（LevelScene.js）：rows/idle 现存素材是旧版绿鱼、与 swim 行不是同一条鱼，待按 §2 重新生成后恢复 `row=1`。
-- cat_jump 末帧的地面投影已被绿幕算法抠掉，无需处理；morph_bear 帧 5 纯漩涡属规格允许的光效掩盖，保留。
+- ~~fish_idle 动画临时指向 swim 行~~ **已失效（2026-07-18）**：commit 94a87cc 把 `fish_idle` 恢复成了 `row=1`，但接入的仍是绿色 Q 版鱼——需先改回 swim 行过渡（见 5.5），待 fish_idle 重生后再恢复 `row=1`。
+- cat_jump 末帧的地面投影已被绿幕算法抠掉，无需处理；morph_bear 帧 5 纯漩涡属规格允许的光效掩盖，保留（morph_fish 帧 5 漩涡同理）。
+
+### 5.5 可脚本兜底的待办（2026-07-18 复审新增；不用重新生图，rows 层处理后 assemble，游戏侧 frameCount 同步）
+
+按 5.4 的删帧左移/单帧镜像套路执行，处理完记入 5.4 台账：
+
+1. **fish_idle 先止血（纯游戏代码改动，可立即做）**：[LevelScene.js](game/scenes/LevelScene.js) 的 `fish_idle` 从 `row=1`（绿鱼）临时改回借用 swim 行——现状玩家变鱼悬停时直接看到"换了一条鱼"。
+2. **fish_swim 删帧左移**：删现第 2/4/5 帧（迷你双鱼与多主体帧），剩 6 帧循环仍成立，`registerAnim('swim', …)` frameCount 同步 6。
+3. **eagle fly 再删一帧**：现第 5 帧为俯冲离群姿态（与其余悬停扑翼不连贯），删后剩 7 帧，frameCount 同步 7。
+4. **cat_jump 第 5/6 帧朝右**：rows 层对这两帧单帧水平镜像后 assemble（行内其余帧朝左）。
+5. **girl idle 首帧离群**：第 1 帧缺辫子与项链光、循环回首帧跳变，删帧左移剩 8 帧，frameCount 同步 8。
+6. **元数据同步（低优先）**：`assets/sprites/*.json` 的 frameCount/loop 与游戏注册值已漂移（eagle/bear/morph-fish 实际末列为空帧仍写 9）；json 目前无消费方不炸，但重跑 assemble 时顺手对齐，避免未来工具读到空帧。
 
 ## 6. 验收清单（每张图切割后）
 
+- [ ] **底色为纯 `#00FF00` 绿幕**，白/灰底一票否决（girl_jump 二轮前科）
+- [ ] **每格只有一个角色主体**（fish_swim 二轮帧 2/4/5 前科）
+- [ ] **人形帧为兜帽麻花辫定稿版**（§0），无眼罩无丸子头（girl_jump/girl_hurt、morph_cat/morph_eagle 前科）
 - [ ] 每行 9 帧完整、无跨格粘连（process 校验通过）
-- [ ] 帧间角色尺寸一致（警惕单帧突然缩成迷你版：eagle_fly 帧 5、bear_idle 帧 6 前科）
+- [ ] 帧间角色尺寸一致（警惕单帧突然缩成迷你版：eagle_fly 帧 5、bear_idle 帧 6、morph 各行首末帧前科）
+- [ ] **行与行之间体型一致**——同形态各动作行的角色占格高度差 ≤10%（eagle fly↔glide 差四成前科）
 - [ ] 帧间有明确动作差异，不是同一姿势复制 9 份（fish_swim、cat_idle 前科）
 - [ ] 透明背景无绿边残留
 - [ ] 5 个形态**剪影颜色与取景框一致**（多形态同角色的硬要求）
-- [ ] 三件「同一人」信号齐全：青绿月牙项链 / 珊瑚红点缀 / 琥珀色眼睛
-- [ ] **变身渐变行：首帧=人形参考、末帧=动物参考、9 帧项链不丢**（最易漂移，逐帧检查；不合格重跑，预算按普通行 2×）
-- [ ] 所有行朝向左；背景带左右边缘 150px 纯绿、可无缝平铺
+- [ ] 三件「同一人」信号齐全：青绿月牙项链 / 珊瑚红点缀 / 琥珀色眼睛（fish_idle 绿鱼三缺前科）
+- [ ] **变身渐变行：首帧=人形定稿、末帧=动物参考、9 帧项链不丢、尺寸单调不横跳**（最易漂移，逐帧检查；不合格重跑，预算按普通行 2×）
+- [ ] 所有行朝向左、行内无中途翻面（cat_jump 帧 5/6 前科）；背景带左右边缘 150px 纯绿、可无缝平铺
