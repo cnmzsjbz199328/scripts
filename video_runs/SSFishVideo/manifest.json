@@ -3,8 +3,8 @@
   "created_at": "2026-07-18T06:05:42.653Z",
   "animations": {
     "swim": {
-      "frameCount": 8,
-      "fps": 8,
+      "frameCount": 15,
+      "fps": 24,
       "loop": true,
       "status": "completed",
       "segment": [
@@ -12,11 +12,11 @@
         7.4583
       ],
       "scale": 0.2862,
-      "updated_at": "2026-07-18T06:07:34.624Z"
+      "updated_at": "2026-07-18T06:57:54.384Z"
     },
     "idle": {
-      "frameCount": 9,
-      "fps": 5,
+      "frameCount": 21,
+      "fps": 10,
       "loop": true,
       "status": "completed",
       "segment": [
@@ -24,11 +24,11 @@
         5.0833
       ],
       "scale": 0.2862,
-      "updated_at": "2026-07-18T06:07:56.939Z"
+      "updated_at": "2026-07-18T06:57:56.914Z"
     },
     "morph": {
-      "frameCount": 9,
-      "fps": 18,
+      "frameCount": 18,
+      "fps": 36,
       "loop": false,
       "status": "completed",
       "segment": [
@@ -36,7 +36,7 @@
         3
       ],
       "scale": 0.2862,
-      "updated_at": "2026-07-18T06:07:59.302Z"
+      "updated_at": "2026-07-18T06:57:59.457Z"
     }
   }
 }

@@ -3,8 +3,8 @@
   "created_at": "2026-07-18T05:28:30.795Z",
   "animations": {
     "walk": {
-      "frameCount": 9,
-      "fps": 8,
+      "frameCount": 21,
+      "fps": 17,
       "loop": true,
       "status": "completed",
       "segment": [
@@ -12,11 +12,11 @@
         6.7917
       ],
       "scale": 0.3251,
-      "updated_at": "2026-07-18T05:35:34.365Z"
+      "updated_at": "2026-07-18T06:58:02.041Z"
     },
     "morph": {
-      "frameCount": 9,
-      "fps": 18,
+      "frameCount": 18,
+      "fps": 36,
       "loop": false,
       "status": "completed",
       "segment": [
@@ -24,7 +24,7 @@
         3.625
       ],
       "scale": 0.3251,
-      "updated_at": "2026-07-18T05:36:22.153Z"
+      "updated_at": "2026-07-18T06:58:04.617Z"
     },
     "idle": {
       "frameCount": 6,

@@ -42,9 +42,9 @@
 
 <div class="controls">
   <span style="font-size:13px;color:#8a92a5">动画：</span>
-  <button data-anim="morph">变身 morph (18fps · once)</button>
-  <button data-anim="idle">悬浮 idle (5fps · loop)</button>
-  <button data-anim="swim">游动 swim (8fps · loop)</button>
+  <button data-anim="morph">变身 morph (36fps · once)</button>
+  <button data-anim="idle">悬浮 idle (10fps · loop)</button>
+  <button data-anim="swim">游动 swim (24fps · loop)</button>
   <button id="seq">▶ 完整串演</button>
   <span style="width:16px"></span>
   <label><input type="checkbox" id="flip"> 镜像（朝右）</label>
@@ -65,9 +65,9 @@
 
 <script>
 const ANIMS = {
-  morph: { count: 9, fps: 18, loop: false, label: '变身 morph' },
-  idle:  { count: 9, fps: 5,  loop: true,  label: '悬浮 idle' },
-  swim:  { count: 8, fps: 8,  loop: true,  label: '游动 swim' },
+  morph: { count: 18, fps: 36, loop: false, label: '变身 morph' },
+  idle:  { count: 21, fps: 10, loop: true,  label: '悬浮 idle' },
+  swim:  { count: 15, fps: 24, loop: true,  label: '游动 swim' },
 };
 const stage = document.getElementById('stage');
 const info = document.getElementById('info');

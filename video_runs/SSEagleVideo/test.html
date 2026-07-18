@@ -42,9 +42,9 @@
 
 <div class="controls">
   <span style="font-size:13px;color:#8a92a5">动画：</span>
-  <button data-anim="morph">变身 morph (18fps · once)</button>
-  <button data-anim="fly">振翅 fly (10fps · loop)</button>
-  <button data-anim="glide">滑翔 glide (6fps · loop)</button>
+  <button data-anim="morph">变身 morph (36fps · once)</button>
+  <button data-anim="fly">振翅 fly (24fps · loop)</button>
+  <button data-anim="glide">滑翔 glide (12fps · loop)</button>
   <button id="seq">▶ 完整串演</button>
   <span style="width:16px"></span>
   <label><input type="checkbox" id="flip"> 镜像（朝右）</label>
@@ -65,9 +65,9 @@
 
 <script>
 const ANIMS = {
-  morph: { count: 9,  fps: 18, loop: false, label: '变身 morph' },
-  fly:   { count: 10, fps: 10, loop: true,  label: '振翅 fly' },
-  glide: { count: 9,  fps: 6,  loop: true,  label: '滑翔 glide' },
+  morph: { count: 18, fps: 36, loop: false, label: '变身 morph' },
+  fly:   { count: 20, fps: 24, loop: true,  label: '振翅 fly' },
+  glide: { count: 17, fps: 12, loop: true,  label: '滑翔 glide' },
 };
 const stage = document.getElementById('stage');
 const info = document.getElementById('info');

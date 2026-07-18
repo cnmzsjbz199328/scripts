@@ -399,29 +399,29 @@ class LevelScene extends Phaser.Scene {
     registerAnim('jump', 'girl_sheet', 2, 9, 10, false);
     registerAnim('hurt', 'girl_sheet', 3, 9, 10, false);
 
-    // 灵猫形态（视觉为猎豹，video-sprite 轨，12 列图集）
-    registerAnim('cat_idle', 'cat_sheet', 0, 8, 6, true, 12);
-    registerAnim('cat_run', 'cat_sheet', 1, 7, 12, true, 12);
-    registerAnim('cat_jump', 'cat_sheet', 2, 12, 12, false, 12);
+    // 灵猫形态（视觉为猎豹，video-sprite 轨原生密度，21 列图集）
+    registerAnim('cat_idle', 'cat_sheet', 0, 21, 21, true, 21);
+    registerAnim('cat_run', 'cat_sheet', 1, 14, 24, true, 21);
+    registerAnim('cat_jump', 'cat_sheet', 2, 21, 21, false, 21);
 
-    // 游鱼动画 (fish_sheet, video-sprite 轨)
-    registerAnim('swim', 'fish_sheet', 0, 8, 8, true);
-    registerAnim('fish_idle', 'fish_sheet', 1, 9, 5, true);
+    // 游鱼动画 (fish_sheet, video-sprite 轨原生密度，21 列图集)
+    registerAnim('swim', 'fish_sheet', 0, 15, 24, true, 21);
+    registerAnim('fish_idle', 'fish_sheet', 1, 21, 10, true, 21);
 
-    // 飞鹰动画 (eagle_sheet, video-sprite 轨，10 列图集)
-    registerAnim('fly', 'eagle_sheet', 0, 10, 10, true, 10);
-    registerAnim('glide', 'eagle_sheet', 1, 9, 6, true, 10);
+    // 飞鹰动画 (eagle_sheet, video-sprite 轨原生密度，20 列图集)
+    registerAnim('fly', 'eagle_sheet', 0, 20, 24, true, 20);
+    registerAnim('glide', 'eagle_sheet', 1, 17, 12, true, 20);
 
-    // 暴熊动画 (bear_sheet)
-    registerAnim('bear_idle', 'bear_sheet', 0, 8, 5, true); // 原第6帧尺寸异常已删
-    registerAnim('bear_walk', 'bear_sheet', 1, 9, 8, true);
-    registerAnim('attack', 'bear_sheet', 2, 9, 12, false);
+    // 暴熊动画 (bear_sheet，21 列混排：idle/attack 现货 + walk 视频轨 21 帧)
+    registerAnim('bear_idle', 'bear_sheet', 0, 8, 5, true, 21); // 原第6帧尺寸异常已删
+    registerAnim('bear_walk', 'bear_sheet', 1, 21, 17, true, 21);
+    registerAnim('attack', 'bear_sheet', 2, 9, 12, false, 21);
 
-    // 变身形态动画集 (morph_sheet, video-sprite 轨全四行)
-    registerAnim('morph-cat', 'morph_sheet', 0, 9, 18, false);
-    registerAnim('morph-fish', 'morph_sheet', 1, 9, 18, false);
-    registerAnim('morph-eagle', 'morph_sheet', 2, 9, 18, false);
-    registerAnim('morph-bear', 'morph_sheet', 3, 9, 18, false);
+    // 变身形态动画集 (morph_sheet, video-sprite 轨全四行，18 帧 @36fps = 0.5s 读条不变)
+    registerAnim('morph-cat', 'morph_sheet', 0, 18, 36, false, 18);
+    registerAnim('morph-fish', 'morph_sheet', 1, 18, 36, false, 18);
+    registerAnim('morph-eagle', 'morph_sheet', 2, 18, 36, false, 18);
+    registerAnim('morph-bear', 'morph_sheet', 3, 18, 36, false, 18);
   }
 
   buildLevelPlatforms(activeLevel) {

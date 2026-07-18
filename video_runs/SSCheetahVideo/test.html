@@ -42,10 +42,10 @@
 
 <div class="controls">
   <span style="font-size:13px;color:#8a92a5">动画：</span>
-  <button data-anim="morph">变身 morph (18fps · once)</button>
-  <button data-anim="idle">静坐 idle (6fps · loop)</button>
-  <button data-anim="run">奔跑 run (12fps · loop)</button>
-  <button data-anim="jump">扑跃 jump (12fps · once)</button>
+  <button data-anim="morph">变身 morph (36fps · once)</button>
+  <button data-anim="idle">静坐 idle (21fps · loop)</button>
+  <button data-anim="run">奔跑 run (24fps · loop)</button>
+  <button data-anim="jump">扑跃 jump (21fps · once)</button>
   <button id="seq">▶ 完整串演</button>
   <span style="width:16px"></span>
   <label><input type="checkbox" id="flip"> 镜像（朝右）</label>
@@ -66,10 +66,10 @@
 
 <script>
 const ANIMS = {
-  morph: { count: 9,  fps: 18, loop: false, label: '变身 morph' },
-  idle:  { count: 8,  fps: 6,  loop: true,  label: '静坐 idle' },
-  run:   { count: 7,  fps: 12, loop: true,  label: '奔跑 run' },
-  jump:  { count: 12, fps: 12, loop: false, label: '扑跃 jump' },
+  morph: { count: 18, fps: 36, loop: false, label: '变身 morph' },
+  idle:  { count: 21, fps: 21, loop: true,  label: '静坐 idle' },
+  run:   { count: 14, fps: 24, loop: true,  label: '奔跑 run' },
+  jump:  { count: 21, fps: 21, loop: false, label: '扑跃 jump' },
 };
 const stage = document.getElementById('stage');
 const info = document.getElementById('info');

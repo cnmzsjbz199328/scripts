@@ -250,8 +250,9 @@ cp char_runs/SSGirl/output/char.json        game_runs/ShapeshifterGirl/assets/sp
 > 图生图网格质量不可控（人设漂移/尺寸横跳/多主体）→ 改用 **AI 绿幕视频 → `skills/video-sprite` 锚点对齐抽帧**（`--anchor` 质心X+全段基线+统一scale，`--pick` 绕叠化鬼影帧）。
 > 素材源与分段参数在 `video_runs/SS{Cheetah,Fish,Eagle,Bear}Video/`（源 mp4 + manifest 入库，帧可重放再生；各目录 test.html 可预览）。
 
-- **灵猫形态视觉改为猎豹**（决策：家猫训练数据偏置招地板+叠化，猎豹体型差异也更小）；白眼罩猫造型退役，anim key/形态名仍为 `cat`。cat.webp 现为 **12 列**（idle 8f / run 7f / jump 12f）。
-- fish.webp（swim 8f / idle 9f，同一条鱼）、eagle.webp **10 列**（fly 10f / glide 9f，同体型）、morph.webp 四行全换（各 9f，猎豹行为真渐进形变）。bear.webp 三行保留现货（复审全场最佳），仅 morph-bear 行换视频版。
+- **灵猫形态视觉改为猎豹**（决策：家猫训练数据偏置招地板+叠化，猎豹体型差异也更小）；白眼罩猫造型退役，anim key/形态名仍为 `cat`。cat.webp **21 列**（idle 21f@21 / run 14f@24 / jump 21f@21）。
+- fish.webp **21 列**（swim 15f@24 / idle 21f@10，同一条鱼）、eagle.webp **20 列**（fly 20f@24 / glide 17f@12，同体型）、morph.webp 四行全换（各 **18f@36 = 0.5s 读条不变**，猎豹行为真渐进形变）。bear.webp **21 列混排**：idle/attack 保留现货（复审全场最佳），walk 换视频轨 21f@17。
+- **帧密度原则（勿再沿用图生图 9 帧惯性）**：视频轨帧免费，循环动作保留**原生 24fps 整周期零抽稀**，once 动作帧数×fps 保持时长不变；唯一硬约束是纹理宽度 ≤21 列（192×21=4032 < 4096 老 GPU 上限）。
 - [LevelScene.js](game/scenes/LevelScene.js) `registerAnim` 新增 **cols 参数**（行步长 = startRow×cols），frameCount/fps 已同步；`assets/sprites/*.json` 元数据已随装配重写。
 - **5.4/5.5 台账中涉及 cat/fish/eagle/morph 的工单全部作废**（fish_idle 止血、fish_swim 删帧、eagle fly 删帧、cat_jump 镜像、morph_cat/morph_eagle 重生、eagle_glide 体型）；§5.2 的 P1/P2 同此。**仍然开放**：girl idle 首帧离群（5.5-5）、girl_hurt 行内第 5/6 帧偏小与末段静态帧（新版已非白卡，降级为打磨项）。
 - 变身提示词方法论更新：把 transformation 写成 **(a)(b)(c) 三个各一秒、含具体中间形态的子阶段**才能得到真渐进（只写 smoothly metamorphoses 必得叠化）；负面清单加 no sparkles / no breath clouds / no dust；勿写 "invisible ground line"（招地板）。
