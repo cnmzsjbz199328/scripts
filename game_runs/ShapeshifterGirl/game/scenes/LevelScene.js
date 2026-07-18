@@ -612,7 +612,9 @@ class LevelScene extends Phaser.Scene {
     this.cardActive = true;
     this._pendingCardCb = cb;
 
-    const cont = this.add.container(0, 0).setDepth(200);
+    // setScrollFactor(0)：卡片必须钉在屏幕坐标——关卡中途/终点弹卡时相机已滚远，
+    // 画在世界原点会整卡不可见，玩家被 cardActive 锁输入却看不到任何提示（人类必卡，auto 自动推进测不出）
+    const cont = this.add.container(0, 0).setDepth(200).setScrollFactor(0);
     // 磨砂暗底
     const dim = this.add.rectangle(0, 0, C.GAME_W, C.GAME_H, 0x060913, 0.85).setOrigin(0, 0);
     // 卡片边框
@@ -627,10 +629,12 @@ class LevelScene extends Phaser.Scene {
     cont.add([dim, panel, t, b, hint]);
     this.cardGfx = cont;
 
-    // 键盘监听
-    this.input.keyboard.once('keydown-SPACE', () => this._advanceCard());
-    this.input.keyboard.once('keydown-ENTER', () => this._advanceCard());
-    
+    // 键盘 + 鼠标监听（提示文案承诺了"点击"，必须真的可点）；句柄存起来，推进时成对清理
+    this._cardKeyHandler = () => this._advanceCard();
+    this.input.keyboard.once('keydown-SPACE', this._cardKeyHandler);
+    this.input.keyboard.once('keydown-ENTER', this._cardKeyHandler);
+    this.input.once('pointerdown', this._cardKeyHandler);
+
     // 如果是自动验证，延迟自动点击
     if (window.SSG.Game.auto) {
       this.time.delayedCall(600, () => this._advanceCard());
@@ -640,7 +644,15 @@ class LevelScene extends Phaser.Scene {
   _advanceCard() {
     if (!this.cardActive) return;
     this.cardActive = false;
-    
+
+    // 清掉未触发的 once 监听，避免残留监听器在下一张卡之外的时机误触
+    if (this._cardKeyHandler) {
+      this.input.keyboard.off('keydown-SPACE', this._cardKeyHandler);
+      this.input.keyboard.off('keydown-ENTER', this._cardKeyHandler);
+      this.input.off('pointerdown', this._cardKeyHandler);
+      this._cardKeyHandler = null;
+    }
+
     if (this.cardGfx) {
       this.cardGfx.destroy();
       this.cardGfx = null;
