@@ -137,22 +137,93 @@
 > fps/loop 落地位置：`char_runs/<Name>/manifest.json`（prepare 后手动改）。
 > 图未到位前，游戏内 transform 态用**等时长**白光渐变占位（时序即最终版，图到只换视觉）。
 
-## 3. 背景剪影带（10 张，WyrmsEnd v2 抠像轨）
+## 3. 背景剪影带（10 张，抠图+渲染 v2，参照 WyrmsEnd 落地版）
 
-天空/雾/光晕全部由代码绘制（气氛唯一真源在 `config.js`），AI 图只出**剪影形状**。模板：
+> **架构（2026-07-18 定稿）**：AI 只出**绿幕黑剪影形状** → `tools/process-bg.mjs` 抠像 + screen 提色 →
+> 天空/雾/光晕全部代码绘制（气氛唯一真源 = `config.js` 的 ATMOS，阶段 B 新增）。
+> 目标观感对齐 ShadowForge 全景那种「层叠剪影 + 空气透视明度阶梯 + 雾」，但气氛由代码统一，
+> 图与图之间不需要碰运气对色。**没有图游戏也能跑**（程序化降级），图到位自动替换。
+> 明度阶梯：代码天空 > far（亮、靠天色）> mid（深、饱和）> 地面带；全彩角色永远最突出。
 
-> "Flat solid black silhouette shapes of [场景内容]. [Far-background: silhouette band fills roughly the lower half, tallest shapes at most 60% of canvas height | Middle-ground: varied heights and spacing, generous gaps of plain background], everything anchored to the bottom edge, no floating pieces. Margins: no shapes within 150px of the left and right edges (edges must be solid pure green #00FF00). Background: solid pure green #00FF00, flat, no gradient, for chroma keying. CRITICAL: seamless horizontal tiling, left and right edges match perfectly. Size 1920x540. No text, no watermark."
+### 3.1 生成命令（逐条复制到终端运行，产物直接落到 `assets/bg/raw/`）
 
-| 文件（`assets/bg/raw/`） | [场景内容] |
-|---|---|
-| `l1_far.png` / `l1_mid.png` | sunlit forest: rolling treeline with one giant hollow tree / mushrooms, ferns, mossy stumps, hanging vines |
-| `l2_far.png` / `l2_mid.png` | moonlit stream valley: low riverbank hills with a stone bridge arch / reeds, lily pads on poles, leaning willow trees |
-| `l3_far.png` / `l3_mid.png` | windy canyon: layered mesa cliffs with rock arches / hoodoo rock spires, dead twisted junipers, rope-bridge posts |
-| `l4_far.png` / `l4_mid.png` | crystal cave interior: cave floor mounds with giant crystal clusters, stalactite fringe hanging from top edge (at most 25% height) / broken pillars, crystal shards, mine-cart rails |
-| `l5_far.png` / `l5_mid.png` | ominous cloud castle: jagged castle towers and broken battlements on a cloud bank / torn banners on poles, spiked fences, floating rock chunks on thin stems |
+#### far 远景带（5 张）
 
-> 接缝不齐重跑该条即可；左右 150px 纯绿 Margin 约束保证平铺，重跑时不要删。
+```bash
+agy --dangerously-skip-permissions --add-dir "C:/Users/tj169/Flinders/work/Learning/scripts/game_runs/ShapeshifterGirl" --print "Generate an image using your nano banana image tool and save the PNG to C:/Users/tj169/Flinders/work/Learning/scripts/game_runs/ShapeshifterGirl/assets/bg/raw/l1_far.png . Subject: flat solid black silhouette shapes of a whimsical sunlit forest treeline: rolling canopy of round fluffy treetops, one giant hollow tree with a door-shaped opening, a few tall slender pines. Far-background layer for a side-scrolling game: two overlapping ridge lines with gently varied heights, the silhouette band fills roughly the lower half of the canvas, tallest shapes reach at most 60% of canvas height, everything anchored to the bottom edge with no floating pieces. Margins: no shapes within 150px of the left and right edges (left and right edges must be solid pure green #00FF00). Background: solid pure green #00FF00 filling everything that is not silhouette, flat with no gradient, for chroma keying. CRITICAL: seamless horizontal tiling, left and right edges match perfectly. Size 1920x540. No text, no letters, no watermark, no logo."
+```
+
+```bash
+agy --dangerously-skip-permissions --add-dir "C:/Users/tj169/Flinders/work/Learning/scripts/game_runs/ShapeshifterGirl" --print "Generate an image using your nano banana image tool and save the PNG to C:/Users/tj169/Flinders/work/Learning/scripts/game_runs/ShapeshifterGirl/assets/bg/raw/l2_far.png . Subject: flat solid black silhouette shapes of a moonlit stream valley skyline: low rolling riverbank hills, one arched stone bridge spanning between two hills, a few leaning willow trees with long drooping branches. Far-background layer for a side-scrolling game: two overlapping ridge lines with gently varied heights, the silhouette band fills roughly the lower half of the canvas, tallest shapes reach at most 60% of canvas height, everything anchored to the bottom edge with no floating pieces. Margins: no shapes within 150px of the left and right edges (left and right edges must be solid pure green #00FF00). Background: solid pure green #00FF00 filling everything that is not silhouette, flat with no gradient, for chroma keying. CRITICAL: seamless horizontal tiling, left and right edges match perfectly. Size 1920x540. No text, no letters, no watermark, no logo."
+```
+
+```bash
+agy --dangerously-skip-permissions --add-dir "C:/Users/tj169/Flinders/work/Learning/scripts/game_runs/ShapeshifterGirl" --print "Generate an image using your nano banana image tool and save the PNG to C:/Users/tj169/Flinders/work/Learning/scripts/game_runs/ShapeshifterGirl/assets/bg/raw/l3_far.png . Subject: flat solid black silhouette shapes of a windy desert canyon skyline: layered flat-topped mesa cliffs, one natural rock arch, scattered tall hoodoo rock spires. Far-background layer for a side-scrolling game: two overlapping mesa ridge lines with sharply varied heights, the silhouette band fills roughly the lower half of the canvas, tallest shapes reach at most 60% of canvas height, everything anchored to the bottom edge with no floating pieces. Margins: no shapes within 150px of the left and right edges (left and right edges must be solid pure green #00FF00). Background: solid pure green #00FF00 filling everything that is not silhouette, flat with no gradient, for chroma keying. CRITICAL: seamless horizontal tiling, left and right edges match perfectly. Size 1920x540. No text, no letters, no watermark, no logo."
+```
+
+```bash
+agy --dangerously-skip-permissions --add-dir "C:/Users/tj169/Flinders/work/Learning/scripts/game_runs/ShapeshifterGirl" --print "Generate an image using your nano banana image tool and save the PNG to C:/Users/tj169/Flinders/work/Learning/scripts/game_runs/ShapeshifterGirl/assets/bg/raw/l4_far.png . Subject: flat solid black silhouette shapes of the inside of a giant crystal cave: cave floor mounds with clusters of large pointed crystals rising from the bottom, and a fringe of stalactites hanging down from the cave ceiling at the top. Far-background layer for a side-scrolling game: floor shapes anchored to the bottom edge filling roughly the lower half of the canvas, stalactites anchored to the top edge reaching down at most 25% of canvas height, generous open gap of plain background between ceiling and floor shapes, no floating pieces. Margins: no shapes within 150px of the left and right edges (left and right edges must be solid pure green #00FF00). Background: solid pure green #00FF00 filling everything that is not silhouette, flat with no gradient, for chroma keying. CRITICAL: seamless horizontal tiling, left and right edges match perfectly. Size 1920x540. No text, no letters, no watermark, no logo."
+```
+
+```bash
+agy --dangerously-skip-permissions --add-dir "C:/Users/tj169/Flinders/work/Learning/scripts/game_runs/ShapeshifterGirl" --print "Generate an image using your nano banana image tool and save the PNG to C:/Users/tj169/Flinders/work/Learning/scripts/game_runs/ShapeshifterGirl/assets/bg/raw/l5_far.png . Subject: flat solid black silhouette shapes of an ominous storm-cloud castle skyline: jagged castle towers with spiky rooftops, broken battlement walls, all rising from a rolling cloud bank along the bottom. Far-background layer for a side-scrolling game: two overlapping ridge lines with sharply varied heights, the silhouette band fills roughly the lower half of the canvas, tallest towers reach at most 60% of canvas height, everything anchored to the bottom edge with no floating pieces. Margins: no shapes within 150px of the left and right edges (left and right edges must be solid pure green #00FF00). Background: solid pure green #00FF00 filling everything that is not silhouette, flat with no gradient, for chroma keying. CRITICAL: seamless horizontal tiling, left and right edges match perfectly. Size 1920x540. No text, no letters, no watermark, no logo."
+```
+
+#### mid 中景带（5 张）
+
+```bash
+agy --dangerously-skip-permissions --add-dir "C:/Users/tj169/Flinders/work/Learning/scripts/game_runs/ShapeshifterGirl" --print "Generate an image using your nano banana image tool and save the PNG to C:/Users/tj169/Flinders/work/Learning/scripts/game_runs/ShapeshifterGirl/assets/bg/raw/l1_mid.png . Subject: flat solid black silhouette shapes of giant spotted mushrooms, curled ferns, mossy tree stumps and one wooden signpost with two blank arrow boards, all standing on a thin black ground strip along the bottom edge. Middle-ground layer for a side-scrolling game: varied heights and spacing, generous gaps of plain background between shapes. Margins: no shapes within 150px of the left and right edges (left and right edges must be solid pure green #00FF00). Background: solid pure green #00FF00 filling everything that is not silhouette, flat with no gradient, for chroma keying. CRITICAL: seamless horizontal tiling, left and right edges match perfectly. Size 1920x540. No text, no letters, no watermark, no logo."
+```
+
+```bash
+agy --dangerously-skip-permissions --add-dir "C:/Users/tj169/Flinders/work/Learning/scripts/game_runs/ShapeshifterGirl" --print "Generate an image using your nano banana image tool and save the PNG to C:/Users/tj169/Flinders/work/Learning/scripts/game_runs/ShapeshifterGirl/assets/bg/raw/l2_mid.png . Subject: flat solid black silhouette shapes of tall reeds and cattails, lily pads on tall bent stems, wooden dock posts and one leaning willow sapling, all standing on a thin black ground strip along the bottom edge. Middle-ground layer for a side-scrolling game: varied heights and spacing, generous gaps of plain background between shapes. Margins: no shapes within 150px of the left and right edges (left and right edges must be solid pure green #00FF00). Background: solid pure green #00FF00 filling everything that is not silhouette, flat with no gradient, for chroma keying. CRITICAL: seamless horizontal tiling, left and right edges match perfectly. Size 1920x540. No text, no letters, no watermark, no logo."
+```
+
+```bash
+agy --dangerously-skip-permissions --add-dir "C:/Users/tj169/Flinders/work/Learning/scripts/game_runs/ShapeshifterGirl" --print "Generate an image using your nano banana image tool and save the PNG to C:/Users/tj169/Flinders/work/Learning/scripts/game_runs/ShapeshifterGirl/assets/bg/raw/l3_mid.png . Subject: flat solid black silhouette shapes of hoodoo rock spires, dead twisted juniper trees and rope-bridge posts with slack ropes, all standing on a thin black ground strip along the bottom edge. Middle-ground layer for a side-scrolling game: varied heights and spacing, generous gaps of plain background between shapes. Margins: no shapes within 150px of the left and right edges (left and right edges must be solid pure green #00FF00). Background: solid pure green #00FF00 filling everything that is not silhouette, flat with no gradient, for chroma keying. CRITICAL: seamless horizontal tiling, left and right edges match perfectly. Size 1920x540. No text, no letters, no watermark, no logo."
+```
+
+```bash
+agy --dangerously-skip-permissions --add-dir "C:/Users/tj169/Flinders/work/Learning/scripts/game_runs/ShapeshifterGirl" --print "Generate an image using your nano banana image tool and save the PNG to C:/Users/tj169/Flinders/work/Learning/scripts/game_runs/ShapeshifterGirl/assets/bg/raw/l4_mid.png . Subject: flat solid black silhouette shapes of broken stone pillars, clusters of sharp crystal shards, one abandoned mine-cart on a short rail track and wooden support beams, all standing on a thin black ground strip along the bottom edge. Middle-ground layer for a side-scrolling game: varied heights and spacing, generous gaps of plain background between shapes. Margins: no shapes within 150px of the left and right edges (left and right edges must be solid pure green #00FF00). Background: solid pure green #00FF00 filling everything that is not silhouette, flat with no gradient, for chroma keying. CRITICAL: seamless horizontal tiling, left and right edges match perfectly. Size 1920x540. No text, no letters, no watermark, no logo."
+```
+
+```bash
+agy --dangerously-skip-permissions --add-dir "C:/Users/tj169/Flinders/work/Learning/scripts/game_runs/ShapeshifterGirl" --print "Generate an image using your nano banana image tool and save the PNG to C:/Users/tj169/Flinders/work/Learning/scripts/game_runs/ShapeshifterGirl/assets/bg/raw/l5_mid.png . Subject: flat solid black silhouette shapes of torn banners on tilted poles, spiked iron fences, chained boulders and small floating rock chunks connected to the ground by thin stone stems, all standing on a thin black ground strip along the bottom edge. Middle-ground layer for a side-scrolling game: varied heights and spacing, generous gaps of plain background between shapes. Margins: no shapes within 150px of the left and right edges (left and right edges must be solid pure green #00FF00). Background: solid pure green #00FF00 filling everything that is not silhouette, flat with no gradient, for chroma keying. CRITICAL: seamless horizontal tiling, left and right edges match perfectly. Size 1920x540. No text, no letters, no watermark, no logo."
+```
+
+### 3.2 收图目检（每张 10 秒，不过关就重跑该条）
+
+- [ ] 底色纯绿 `#00FF00`、剪影纯黑扁平（不要灰度渐变、不要彩色）
+- [ ] 剪影贴底（far 的钟乳石例外：贴顶 ≤25% 高）、无悬空碎片
+- [ ] 左右 150px 边缘是纯绿（保平铺无缝；处理脚本会复检并报告）
+- [ ] 无文字/字母/水印（l1_mid 的路牌必须是空板）
+- [ ] far 剪影带高度 ≤60% 画布、mid 各件之间留有大段纯绿空档
+
+### 3.3 处理命令（10 张齐了跑一次即可，缺图自动跳过）
+
+```bash
+node game_runs/ShapeshifterGirl/tools/process-bg.mjs
+```
+
+脚本做四件事：① chroma-key 抠像+去绿边 ② 剪影贴底对齐 ③ **screen 提色**——黑剪影按下表提到各关气氛色（far 亮靠天色 = 空气透视，mid 深饱和；这就是「渲染」的一半，另一半天空/雾/光在阶段 B 由游戏代码画）④ margin/接缝验收 + 产出 `assets/bg/manifest.js`（script 标签加载，守「不 fetch json」铁律）。
+
+| 关 | FAR_LIFT（远景提色） | MID_LIFT（中景提色） |
+|---|---|---|
+| L1 暖绿森林 | `#a8c496` 雾感草绿 | `#3d6b3f` 深林绿 |
+| L2 月光溪谷 | `#7d92b8` 月光蓝灰 | `#2a3d66` 深夜蓝 |
+| L3 黄昏峡谷 | `#d99a5e` 霞光琥珀 | `#8a4a28` 焦赭 |
+| L4 暗紫洞穴 | `#8a6aa8` 紫晶雾 | `#462a66` 深紫 |
+| L5 红黑云顶 | `#8a3a3a` 余烬红 | `#4a161e` 暗酒红 |
+
+> 提色数值是首版，游戏内接入后可只改 `tools/process-bg.mjs` 表格重跑，不动图。
 > 环境动效（草、萤火、水波纹）不生图，走 `svg-ambient`（代码是唯一真源）。
+>
+> ✅ **阶段 A/B/C 均已落地（2026-07-18）**：10 张剪影带全部生成并处理入位（l3_far 曾生成为纯绿空图，
+> 由 agy 补生成一次）；游戏侧 `Config.ATMOS` 为气氛唯一真源，render.js 装配
+> 天空→far(0.25)→雾带→mid(0.55)→地面带(世界锚定分段, 深渊留口垫坑影)→漂尘/萤火→暗角，
+> L4 有黑暗视界（invertAlpha 光圈遮罩+项链微光）；可交互地形（高台/矮缝/巨石/高墙）
+> 用暖土棕/石灰色+描边与剪影背景拉开，防止混层。五关节拍已按「教学→变奏→考试」翻新。
+> 双验证门全绿（bot 70.3s 通关，剩 2 心）。剪影带重生成后只需重跑 process-bg，无需改代码。
 
 ## 4. 切割与接入命令（图齐一个形态就可跑一个）
 
@@ -245,7 +316,12 @@ cp char_runs/SSGirl/output/char.json        game_runs/ShapeshifterGirl/assets/sp
 5. **girl idle 首帧离群**：第 1 帧缺辫子与项链光、循环回首帧跳变，删帧左移剩 8 帧，frameCount 同步 8。
 6. **元数据同步（低优先）**：`assets/sprites/*.json` 的 frameCount/loop 与游戏注册值已漂移（eagle/bear/morph-fish 实际末列为空帧仍写 9）；json 目前无消费方不炸，但重跑 assemble 时顺手对齐，避免未来工具读到空帧。
 
-### 5.6 视频轨迁移（2026-07-18 落地）：cat/fish/eagle/morph 四图集已由绿幕视频管线整体替换
+### 5.6 视频轨迁移（2026-07-18 落地）：全部六张图集完成视频轨/混排替换
+
+> **girl.webp 也已替换（视频轨收官）**：idle 21f@12 / run 20f@24 / jump 21f@24 / hurt 21f@24，21 列，scale 0.2982。
+> §5.5-5（girl idle 首帧离群）与 girl_hurt 帧尺寸瑕疵随替换一并清除。
+> ⚠️ 遗留裁决项：jump 滞空段与 hurt 中段模型画成了**正面视角**（提示词要求全程侧视未被遵守）——表现力尚可，
+> 如判不达标，重生成时在提示词加 "she keeps facing LEFT even in the air / during the flinch, never turns toward the camera"。
 
 > 图生图网格质量不可控（人设漂移/尺寸横跳/多主体）→ 改用 **AI 绿幕视频 → `skills/video-sprite` 锚点对齐抽帧**（`--anchor` 质心X+全段基线+统一scale，`--pick` 绕叠化鬼影帧）。
 > 素材源与分段参数在 `video_runs/SS{Cheetah,Fish,Eagle,Bear}Video/`（源 mp4 + manifest 入库，帧可重放再生；各目录 test.html 可预览）。

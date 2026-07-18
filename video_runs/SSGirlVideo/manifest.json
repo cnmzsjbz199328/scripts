@@ -1,0 +1,54 @@
+{
+  "name": "SSGirlVideo",
+  "created_at": "2026-07-18T12:35:00.305Z",
+  "animations": {
+    "idle": {
+      "frameCount": 21,
+      "fps": 12,
+      "loop": true,
+      "status": "completed",
+      "segment": [
+        1.4167,
+        2.2917
+      ],
+      "scale": 0.2982,
+      "updated_at": "2026-07-18T12:38:18.668Z"
+    },
+    "run": {
+      "frameCount": 20,
+      "fps": 24,
+      "loop": true,
+      "status": "completed",
+      "segment": [
+        4,
+        4.8333
+      ],
+      "scale": 0.2982,
+      "updated_at": "2026-07-18T12:38:21.422Z"
+    },
+    "jump": {
+      "frameCount": 21,
+      "fps": 24,
+      "loop": false,
+      "status": "completed",
+      "segment": [
+        5.25,
+        7.0417
+      ],
+      "scale": 0.2982,
+      "updated_at": "2026-07-18T12:38:24.310Z"
+    },
+    "hurt": {
+      "frameCount": 21,
+      "fps": 24,
+      "loop": false,
+      "status": "completed",
+      "segment": [
+        7.0833,
+        9.0417
+      ],
+      "scale": 0.2982,
+      "updated_at": "2026-07-18T12:38:27.371Z"
+    }
+  }
+}

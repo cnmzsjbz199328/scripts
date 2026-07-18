@@ -1,7 +1,13 @@
 /* game/levels.js — 关卡数据（数据驱动单一真源）
  * ─────────────────────────────────────────────────────────────────────────
- * 声明式定义 5 个关卡的长度、背景纹理、色调调色板、以及空间触发器。
- * 触发器包括：高墙、矮洞、深水区、宽壕沟、上升气流、裂石墙、荆棘丛、敌人生出与锁点波次。
+ * 声明式定义 5 个关卡的长度、色调、以及空间触发器（加关卡不写代码）。
+ * 触发器类型：hint / cleft(高台) / tunnel(矮缝) / wall(高墙) / water(深水) /
+ *   chasm(壕沟) / updraft(上升气流) / rock(裂石墙) / thorns(荆棘) / enemy / lock。
+ * 节拍设计铁律（2026-07-18 翻新版）：
+ *  - 每关「教学 → 变奏 → 考试」三段式，8~10 个节拍，空跑段 ≤450px；
+ *  - 危险区（water/chasm/thorns）之间必须留 ≥150px 安全地面（lastSafeX 复归点依赖它）；
+ *  - 相邻需变身节拍间距 ≥250px（auto 辅助的 30~160px 前瞻变身窗口不互相打架）；
+ *  - chasm 宽 ≤300 猫可跳，>300 需鹰（gates/auto 同源判定）；宽渊配 updraft 助滑翔。
  */
 window.SSG = window.SSG || {};
 
@@ -13,11 +19,20 @@ window.SSG.LEVELS = [
     paletteIdx: 0,
     bgm: 'bgm_forest',
     triggers: [
-      // 高台/矮缝教学
-      { at: 800, type: 'hint', text: '前方高台：按 [2] 变猫以跳得更高' },
-      { at: 1200, type: 'cleft', x: 1300, w: 200, h: 100, hint: 'cleft' }, // 高台
-      { at: 1800, type: 'tunnel', x: 2000, w: 160, h: 42, hint: 'low-tunnel' }, // 矮缝 (高42, 只有猫高36能过，人高72过不去)
-      { at: 2800, type: 'wall', x: 3000, w: 80, h: 220 }, // 终点高墙 (高220, 需要猫跳高-680爬过)
+      // ── 教学段：高台 → 矮缝 ──
+      { at: 500, type: 'hint', text: '前方高台：按 [2] 变猫，跳得更高还能二段跳' },
+      { at: 700, type: 'cleft', x: 700, w: 200, h: 100 },
+      { at: 1100, type: 'cleft', x: 1100, w: 180, h: 140 },        // 变奏：更高，需二段跳
+      { at: 1400, type: 'hint', text: '矮缝只有猫的小身板能钻过去' },
+      { at: 1550, type: 'tunnel', x: 1550, w: 160, h: 42 },
+      // ── 变奏段：小沟 + 台缝连击 ──
+      { at: 1900, type: 'chasm', x: 1900, w: 220 },                // 猫跳可过
+      { at: 2350, type: 'cleft', x: 2350, w: 160, h: 120 },
+      { at: 2650, type: 'tunnel', x: 2650, w: 180, h: 42 },
+      { at: 2980, type: 'chasm', x: 2980, w: 250 },
+      // ── 考试段：终点高墙 ──
+      { at: 3150, type: 'hint', text: '终点高墙：猫二段跳翻越！' },
+      { at: 3330, type: 'wall', x: 3330, w: 80, h: 220 },
     ]
   },
   {
@@ -27,13 +42,20 @@ window.SSG.LEVELS = [
     paletteIdx: 1,
     bgm: 'bgm_stream',
     triggers: [
-      { at: 600, type: 'chasm', x: 700, w: 250 }, // 壕沟
-      { at: 1000, type: 'water', x: 1100, w: 600 }, // 深水区 (x: 1100-1700)
-      { at: 1400, type: 'enemy', x: 1400, enemyType: 'patrol' }, // 水中巡逻怪
-      { at: 2000, type: 'water', x: 2100, w: 800, hasTunnel: true }, // 第二片水域 + 底部通道
-      { at: 2300, type: 'enemy', x: 2400, enemyType: 'patrol' },
+      // ── 教学段：猫复习 → 首片水域 ──
+      { at: 400, type: 'hint', text: '溪谷水深：按 [3] 变鱼渡水，人形落水会呛水！' },
+      { at: 600, type: 'tunnel', x: 600, w: 160, h: 42 },
+      { at: 950, type: 'water', x: 950, w: 450 },
+      { at: 1200, type: 'enemy', x: 1200, enemyType: 'patrol' },   // 水中游弋，绕行
+      // ── 变奏段：陆水交替强制切换 ──
+      { at: 1700, type: 'chasm', x: 1700, w: 240 },                // 猫跳沟
+      { at: 2150, type: 'water', x: 2150, w: 650, hasTunnel: true }, // 水下通道
+      { at: 2450, type: 'enemy', x: 2450, enemyType: 'patrol' },
+      { at: 2950, type: 'cleft', x: 2950, w: 180, h: 100 },
+      // ── 考试段：滩头遭遇战 ──
       { at: 3200, type: 'lock', x: 3200, waves: [
-        { spawns: [{ type: 'patrol', dx: 300 }] }
+        { spawns: [{ type: 'patrol', dx: 300 }] },
+        { spawns: [{ type: 'patrol', dx: 260 }, { type: 'patrol', dx: 420 }] },
       ]}
     ]
   },
@@ -44,34 +66,47 @@ window.SSG.LEVELS = [
     paletteIdx: 2,
     bgm: 'bgm_canyon',
     triggers: [
-      { at: 600, type: 'chasm', x: 750, w: 600 }, // 宽壕沟 (需要鹰滑翔)
-      { at: 1500, type: 'updraft', x: 1600, w: 250 }, // 上升气流
-      { at: 1550, type: 'chasm', x: 1500, w: 800 }, // 气流下的深渊
-      { at: 2000, type: 'enemy', x: 2200, enemyType: 'thrower' }, // 投掷怪
-      { at: 2500, type: 'updraft', x: 2600, w: 200 },
-      { at: 2550, type: 'chasm', x: 2500, w: 500 },
-      { at: 3200, type: 'lock', x: 3200, waves: [
-        { spawns: [{ type: 'thrower', dx: 350 }] }
+      // ── 教学段：中渊滑翔 → 气流跨渊 ──
+      { at: 400, type: 'hint', text: '按 [4] 变鹰：跳起后按住 [W] 滑翔，乘上升气流可飞高' },
+      { at: 550, type: 'chasm', x: 550, w: 380 },
+      { at: 1200, type: 'chasm', x: 1200, w: 550 },
+      { at: 1350, type: 'updraft', x: 1350, w: 220 },
+      // ── 变奏段：投掷怪 + 猫缝复习 ──
+      { at: 1950, type: 'enemy', x: 1950, enemyType: 'thrower' },
+      { at: 2150, type: 'tunnel', x: 2150, w: 160, h: 42 },
+      // ── 考试段：双气流接力跨大渊 → 崖顶遭遇战 ──
+      { at: 2450, type: 'chasm', x: 2450, w: 650 },
+      { at: 2570, type: 'updraft', x: 2570, w: 180 },
+      { at: 2900, type: 'updraft', x: 2900, w: 160 },
+      { at: 3250, type: 'lock', x: 3250, waves: [
+        { spawns: [{ type: 'thrower', dx: 350 }] },
+        { spawns: [{ type: 'patrol', dx: 280 }, { type: 'thrower', dx: 430 }] },
       ]}
     ]
   },
   {
     name: '碎岩洞窟 (L4)',
-    intro: ['第四关 · 碎岩洞窟', '黑暗洞窟中遍地是尖锐的荆棘丛与封路的碎石巨岩。\n按 [5] 变身成熊：熊形态厚重结实，能踏过荆棘丛而不受伤害。\n按 [J] 进行重击，可以拍碎阻挡前路的碎石墙！'],
+    intro: ['第四关 · 碎岩洞窟', '黑暗洞窟中遍地是尖锐的荆棘丛与封路的碎石巨岩，只有项链的微光照亮四周。\n按 [5] 变身成熊：熊形态厚重结实，能踏过荆棘丛而不受伤害。\n按 [J] 进行重击，可以拍碎阻挡前路的碎石墙！'],
     length: 3600,
     paletteIdx: 3,
     bgm: 'bgm_cave',
     triggers: [
-      { at: 600, type: 'rock', x: 800, w: 60, h: 180 }, // 裂石墙 (需要熊J击碎)
-      { at: 1200, type: 'thorns', x: 1300, w: 400 }, // 荆棘丛 (熊踩着不掉血，其他扣血)
-      { at: 1800, type: 'lock', x: 1800, waves: [
-        { spawns: [{ type: 'patrol', dx: 300 }, { type: 'patrol', dx: 450 }] }
+      // ── 教学段：碎岩 → 荆棘 ──
+      { at: 350, type: 'hint', text: '黑暗洞窟：熊 [5] 能踏荆棘、按 [J] 拍碎巨岩' },
+      { at: 550, type: 'rock', x: 550, w: 60, h: 180 },
+      { at: 850, type: 'thorns', x: 850, w: 300 },
+      // ── 变奏段：战斗密度拉满 ──
+      { at: 1350, type: 'enemy', x: 1350, enemyType: 'patrol' },
+      { at: 1550, type: 'rock', x: 1550, w: 60, h: 180 },
+      { at: 1800, type: 'thorns', x: 1800, w: 420 },
+      { at: 2450, type: 'lock', x: 2450, waves: [
+        { spawns: [{ type: 'patrol', dx: 300 }, { type: 'patrol', dx: 450 }] },
+        { spawns: [{ type: 'patrol', dx: 280 }, { type: 'thrower', dx: 420 }] },
       ]},
-      { at: 2400, type: 'rock', x: 2600, w: 60, h: 180 },
-      { at: 2500, type: 'thorns', x: 2700, w: 500 },
-      { at: 3200, type: 'lock', x: 3200, waves: [
-        { spawns: [{ type: 'patrol', dx: 300 }, { type: 'thrower', dx: 400 }] }
-      ]}
+      // ── 考试段：黑暗中缝隙变奏 + 最后一道岩荆 ──
+      { at: 2850, type: 'tunnel', x: 2850, w: 180, h: 42 },
+      { at: 3100, type: 'rock', x: 3100, w: 60, h: 180 },
+      { at: 3250, type: 'thorns', x: 3250, w: 180 },
     ]
   },
   {
@@ -81,13 +116,16 @@ window.SSG.LEVELS = [
     paletteIdx: 4,
     bgm: 'bgm_boss',
     triggers: [
-      { at: 500, type: 'rock', x: 650, w: 60, h: 180 },
-      { at: 800, type: 'water', x: 900, w: 400 },
-      { at: 1400, type: 'chasm', x: 1500, w: 700 },
-      { at: 1500, type: 'updraft', x: 1650, w: 200 },
-      { at: 1700, type: 'enemy', x: 1800, enemyType: 'thrower' },
-      { at: 2200, type: 'thorns', x: 2300, w: 400 },
-      // 关底三阶段 Boss 锁点
+      // ── 混合验收段：五形态全用一遍 ──
+      { at: 350, type: 'hint', text: '最后的试炼：读懂障碍，提前找变身窗口！' },
+      { at: 400, type: 'rock', x: 400, w: 60, h: 180 },
+      { at: 700, type: 'water', x: 700, w: 350 },
+      { at: 1300, type: 'chasm', x: 1300, w: 500 },
+      { at: 1420, type: 'updraft', x: 1420, w: 180 },
+      { at: 2000, type: 'tunnel', x: 2000, w: 160, h: 42 },
+      { at: 2320, type: 'thorns', x: 2320, w: 280 },
+      { at: 2650, type: 'rock', x: 2650, w: 60, h: 180 },   // Boss 前热身：破甲用熊
+      // ── 关底三阶段 Boss 锁点 ──
       { at: 2800, type: 'lock', x: 2800, isBoss: true, waves: [
         { spawns: [{ type: 'boss_shield', dx: 400 }] },   // 阶段1：熊破甲
         { spawns: [{ type: 'boss_bullets', dx: 400 }] },  // 阶段2：猫躲弹幕踩头

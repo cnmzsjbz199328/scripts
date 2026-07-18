@@ -84,6 +84,12 @@ class LevelScene extends Phaser.Scene {
     this.load.spritesheet('bear_sheet', 'assets/sprites/bear.webp', F);
     this.load.spritesheet('morph_sheet', 'assets/sprites/morph.webp', F);
     this.load.image('panorama', 'scene/panorama.png');
+
+    // 3. 背景剪影带（抠图+渲染轨）：只加载 manifest 里真实存在的图，
+    // 缺席的层由 render.js 程序化降级剪影补位（键名 bg_l1_far … bg_l5_mid）
+    for (const f of (window.SSG_BG || [])) {
+      this.load.image('bg_' + f.replace('.png', ''), 'assets/bg/' + f);
+    }
   }
 
   create() {
@@ -393,11 +399,11 @@ class LevelScene extends Phaser.Scene {
       }
     };
 
-    // 少女动画 (girl_sheet)
-    registerAnim('idle', 'girl_sheet', 0, 9, 6, true);
-    registerAnim('run', 'girl_sheet', 1, 9, 10, true);
-    registerAnim('jump', 'girl_sheet', 2, 9, 10, false);
-    registerAnim('hurt', 'girl_sheet', 3, 9, 10, false);
+    // 少女动画 (girl_sheet, video-sprite 轨原生密度，21 列图集)
+    registerAnim('idle', 'girl_sheet', 0, 21, 12, true, 21);
+    registerAnim('run', 'girl_sheet', 1, 20, 24, true, 21);
+    registerAnim('jump', 'girl_sheet', 2, 21, 24, false, 21);
+    registerAnim('hurt', 'girl_sheet', 3, 21, 24, false, 21);
 
     // 灵猫形态（视觉为猎豹，video-sprite 轨原生密度，21 列图集）
     registerAnim('cat_idle', 'cat_sheet', 0, 21, 21, true, 21);
