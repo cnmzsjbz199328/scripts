@@ -79,6 +79,7 @@ class LevelScene extends Phaser.Scene {
     window.SSG.Movement.init(this);
     window.SSG.Gates.init(this);
     window.SSG.Combat.init(this);
+    window.SSG.Collect.init(this);
 
     // 3. 注册动画
     this.registerAnimations();
@@ -297,6 +298,7 @@ class LevelScene extends Phaser.Scene {
     window.SSG.Movement.handleInput(this, time, delta);
     window.SSG.Gates.update(this, time, delta);
     window.SSG.Combat.update(this, time, delta);
+    window.SSG.Collect.update(this, time, delta);
     
     // 运行自动挂机辅助（webdriver 自动试玩时）
     this.handleAutoHelper(time, delta);
