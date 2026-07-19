@@ -1,0 +1,66 @@
+{
+  "name": "sword",
+  "created_at": "2026-07-19T13:31:12.816Z",
+  "animations": {
+    "walk": {
+      "frameCount": 16,
+      "fps": 8,
+      "loop": true,
+      "status": "completed",
+      "segment": [
+        2,
+        4
+      ],
+      "scale": 0.1422,
+      "updated_at": "2026-07-19T13:31:28.799Z"
+    },
+    "idle": {
+      "frameCount": 16,
+      "fps": 8,
+      "loop": true,
+      "status": "completed",
+      "segment": [
+        0,
+        2
+      ],
+      "scale": 0.1422,
+      "updated_at": "2026-07-19T13:31:44.483Z"
+    },
+    "attack": {
+      "frameCount": 20,
+      "fps": 5,
+      "loop": false,
+      "status": "completed",
+      "scale": 0.1422,
+      "updated_at": "2026-07-19T13:31:50.124Z"
+    },
+    "guard": {
+      "frameCount": 20,
+      "fps": 5,
+      "loop": false,
+      "status": "completed",
+      "scale": 0.1422,
+      "updated_at": "2026-07-19T13:31:55.715Z"
+    },
+    "hurt": {
+      "frameCount": 8,
+      "fps": 8,
+      "loop": false,
+      "status": "completed",
+      "segment": [
+        0,
+        1
+      ],
+      "scale": 0.1422,
+      "updated_at": "2026-07-19T13:32:00.008Z"
+    },
+    "down": {
+      "frameCount": 20,
+      "fps": 5,
+      "loop": false,
+      "status": "completed",
+      "scale": 0.1422,
+      "updated_at": "2026-07-19T13:32:05.960Z"
+    }
+  }
+}

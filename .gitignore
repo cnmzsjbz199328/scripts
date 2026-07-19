@@ -68,3 +68,14 @@ video_runs/**/output/
 
 # FBX/GLB 角色素材库 — 大二进制不入库（inbox 待体检接入 / archive 已接入归档）
 assets_fbx/
+
+# BladeTrinity reference assets and video clips
+references/BladeTrinity/
+game_runs/BladeTrinity/*.jpg
+game_runs/BladeTrinity/*.png
+game_runs/BladeTrinity/*.webp
+game_runs/BladeTrinity/*.json
+game_runs/BladeTrinity/assets/
+game_runs/BladeTrinity/sword/
+game_runs/BladeTrinity/water/
+game_runs/BladeTrinity/north/
