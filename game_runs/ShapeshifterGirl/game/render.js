@@ -60,6 +60,10 @@ window.SSG.Render = {
     const farKey = scene.textures.exists(`bg_l${i + 1}_far`) ? `bg_l${i + 1}_far` : this._makeFallbackBand(scene, i, 'far', A);
     scene.bgFar = scene.add.tileSprite(0, 0, W, H, farKey).setOrigin(0).setScrollFactor(0).setDepth(-56);
 
+    // 2.5 背景滚动丘陵：软圆丘剪影带，给远景补一层起伏与纵深（视差 0.4，介于 far/mid 之间）
+    this._makeHillsTexture(scene, i, A, H);
+    scene.bgHills = scene.add.tileSprite(0, 0, W, H, `ssg_hills${i}`).setOrigin(0).setScrollFactor(0).setDepth(-54);
+
     // 3. 雾带（白雾团贴图，运行时染段色）
     this._makeHazeTexture(scene, W);
     scene.bgHaze = scene.add.tileSprite(0, H - 340, W, 240, 'ssg_haze').setOrigin(0)
@@ -71,6 +75,12 @@ window.SSG.Render = {
 
     // 5. 地面带：世界锚定分段（深渊/水域留口），深渊口垫坑影渐变
     this._buildGroundBand(scene, i, A, inLevel ? lvl.triggers : [], inLevel ? lvl.length : W);
+
+    // 5.5 前景遮挡层：每关主题草丛/芦苇/岩刺/晶簇/火棘，视差 1.2×（快于世界）画在角色之前，
+    //     角色从其后掠过 → 立刻有前后纵深，打破"平地走廊"观感（透明顶、只压屏幕底部）
+    this._makeFrontTexture(scene, i, A);
+    scene.bgFront = scene.add.tileSprite(0, H - 160, W, 160, `ssg_front${i}`).setOrigin(0)
+      .setScrollFactor(0).setDepth(10);
 
     // 6. 漂尘/萤火（屏幕空间，drawParallaxBackground 里驱动）
     this._makeDustTexture(scene);
@@ -175,6 +185,94 @@ window.SSG.Render = {
     return key;
   },
 
+  // 背景滚动丘陵：两排前后错落的软圆丘剪影（整数波数 → 可平铺无缝），坐落于地平线附近
+  _makeHillsTexture(scene, i, A, H) {
+    const key = `ssg_hills${i}`;
+    if (scene.textures.exists(key)) return key;
+    const W = 1024;
+    const cv = scene.textures.createCanvas(key, W, H), ctx = cv.getContext();
+    const base = H - 150;
+    const drawRow = (color, amp, waves, yOff, ph) => {
+      ctx.fillStyle = color;
+      ctx.beginPath(); ctx.moveTo(0, H);
+      for (let x = 0; x <= W; x += 6) {
+        let y = base + yOff;
+        for (let w = 0; w < waves.length; w++) y -= amp[w] * Math.sin((x / W) * Math.PI * 2 * waves[w] + ph + w * 1.3);
+        ctx.lineTo(x, y);
+      }
+      ctx.lineTo(W, H); ctx.closePath(); ctx.fill();
+    };
+    // 后排（更淡更高）+ 前排（更深更矮），两排制造纵深
+    drawRow(A.farFb, [26, 12], [2, 5], -34, i * 1.7);
+    drawRow(A.midFb, [34, 16], [3, 7], 14, i * 2.9);
+    cv.refresh();
+    return key;
+  },
+
+  // 前景遮挡层：每关主题剪影丛（透明顶，只在底部约 150px 长内容），深色压暗，快视差掠过
+  _makeFrontTexture(scene, i, A) {
+    const key = `ssg_front${i}`;
+    if (scene.textures.exists(key)) return key;
+    const W = 720, H = 160;
+    const cv = scene.textures.createCanvas(key, W, H), ctx = cv.getContext();
+    const deep = A.groundDeep, lip = A.groundLip;
+    let seed = 9176 + i * 613;
+    const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+
+    // 底土条：始终有一条深色地脚锚住前景
+    ctx.fillStyle = deep;
+    ctx.fillRect(0, H - 26, W, 26);
+
+    const clump = (cx) => {
+      const kind = i; // 0森林草丛 1溪芦苇 2峡岩刺 3洞晶簇 4顶火棘
+      const scale = 0.8 + rnd() * 0.7;
+      const hh = (70 + rnd() * 60) * scale;
+      const baseY = H - 20;
+      if (kind === 0) { // 草丛：一簇细长草叶
+        ctx.fillStyle = deep;
+        for (let b = -3; b <= 3; b++) {
+          const bx = cx + b * (7 + rnd() * 4), bh = hh * (0.55 + rnd() * 0.5), lean = (rnd() - 0.5) * 16;
+          ctx.beginPath(); ctx.moveTo(bx - 4, baseY); ctx.quadraticCurveTo(bx + lean, baseY - bh * 0.6, bx + lean * 1.4, baseY - bh);
+          ctx.quadraticCurveTo(bx + lean, baseY - bh * 0.6, bx + 4, baseY); ctx.closePath(); ctx.fill();
+        }
+      } else if (kind === 1) { // 芦苇：直杆 + 深穗头
+        ctx.strokeStyle = deep; ctx.lineWidth = 3.5;
+        for (let b = -2; b <= 2; b++) {
+          const bx = cx + b * 12, bh = hh * (0.7 + rnd() * 0.5);
+          ctx.beginPath(); ctx.moveTo(bx, baseY); ctx.lineTo(bx + (rnd() - 0.5) * 8, baseY - bh); ctx.stroke();
+          ctx.fillStyle = deep; ctx.beginPath();
+          ctx.ellipse(bx + (rnd() - 0.5) * 8, baseY - bh, 4, 12, 0, 0, Math.PI * 2); ctx.fill();
+        }
+      } else if (kind === 2) { // 岩刺：错落尖三角
+        ctx.fillStyle = deep;
+        for (let b = -1; b <= 2; b++) {
+          const bx = cx + b * 22, bh = hh * (0.5 + rnd() * 0.7), bw = 16 + rnd() * 16;
+          ctx.beginPath(); ctx.moveTo(bx - bw / 2, baseY); ctx.lineTo(bx + (rnd() - 0.5) * 12, baseY - bh); ctx.lineTo(bx + bw / 2, baseY); ctx.closePath(); ctx.fill();
+        }
+      } else if (kind === 3) { // 晶簇：棱角水晶 + 淡高光棱
+        for (let b = -1; b <= 2; b++) {
+          const bx = cx + b * 20, bh = hh * (0.6 + rnd() * 0.8), bw = 12 + rnd() * 12;
+          ctx.fillStyle = deep;
+          ctx.beginPath(); ctx.moveTo(bx, baseY); ctx.lineTo(bx - bw / 2, baseY - bh * 0.5); ctx.lineTo(bx + (rnd() - 0.5) * 8, baseY - bh); ctx.lineTo(bx + bw / 2, baseY - bh * 0.45); ctx.closePath(); ctx.fill();
+          ctx.fillStyle = lip; ctx.globalAlpha = 0.22;
+          ctx.beginPath(); ctx.moveTo(bx, baseY); ctx.lineTo(bx + (rnd() - 0.5) * 8, baseY - bh); ctx.lineTo(bx + bw / 2, baseY - bh * 0.45); ctx.closePath(); ctx.fill();
+          ctx.globalAlpha = 1;
+        }
+      } else { // 火棘：尖锐棘刺 + 暗红根
+        ctx.fillStyle = deep;
+        for (let b = -2; b <= 2; b++) {
+          const bx = cx + b * 15, bh = hh * (0.5 + rnd() * 0.7);
+          ctx.beginPath(); ctx.moveTo(bx - 6, baseY); ctx.lineTo(bx + (rnd() - 0.5) * 6, baseY - bh); ctx.lineTo(bx + 6, baseY); ctx.closePath(); ctx.fill();
+        }
+      }
+    };
+
+    // 沿宽度撒 4~5 丛，留出缝隙让角色可见（不做满遮挡）
+    for (let c = 0; c < 5; c++) clump(70 + c * 150 + (rnd() - 0.5) * 40);
+    cv.refresh();
+    return key;
+  },
+
   _makeHazeTexture(scene, W) {
     if (scene.textures.exists('ssg_haze')) return;
     const H = 240;
@@ -235,7 +333,7 @@ window.SSG.Render = {
     // 地脊轮廓（整数波数 → 可平铺）
     ctx.beginPath(); ctx.moveTo(0, bandH);
     for (let x = 0; x <= W; x += 6)
-      ctx.lineTo(x, this._ridgeY(x, W, fringe * 0.55, [[3, 3.2], [7, 2.2], [13, 1.4]], i * 0.9));
+      ctx.lineTo(x, this._ridgeY(x, W, fringe * 0.55, [[3, 9], [7, 5], [13, 3]], i * 0.9));
     ctx.lineTo(W, bandH); ctx.closePath();
     const g = ctx.createLinearGradient(0, 0, 0, bandH);
     g.addColorStop(0, A.groundTop); g.addColorStop(1, A.groundDeep);
@@ -244,7 +342,7 @@ window.SSG.Render = {
     ctx.strokeStyle = A.groundLip; ctx.lineWidth = 3; ctx.globalAlpha = 0.9;
     ctx.beginPath();
     for (let x = 0; x <= W; x += 6) {
-      const y = this._ridgeY(x, W, fringe * 0.55, [[3, 3.2], [7, 2.2], [13, 1.4]], i * 0.9);
+      const y = this._ridgeY(x, W, fringe * 0.55, [[3, 9], [7, 5], [13, 3]], i * 0.9);
       if (x === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
     }
     ctx.stroke();
@@ -264,7 +362,7 @@ window.SSG.Render = {
   _buildGroundBand(scene, i, A, triggers, length) {
     const C = window.SSG.Config;
     const feetY = C.WORLD.FEET_Y, H = C.GAME_H;
-    const fringe = 12;                       // 地脊高出脚底基线的高度（角色脚底沉入其后 → 接地）
+    const fringe = 38;                       // 草脊起伏带高出脚底基线的幅度（脚底始终踩在滚动草丘的谷线上 → 接地）
     const bandTop = feetY - fringe;
     const bandH = H - bandTop;
     const key = this._makeGroundTexture(scene, i, A, bandH, fringe);
@@ -300,8 +398,10 @@ window.SSG.Render = {
     if (!scene.bgFar) return;
     const cam = scene.cameras.main.scrollX, tn = scene.time.now;
     scene.bgFar.tilePositionX = cam * 0.25;
+    if (scene.bgHills) scene.bgHills.tilePositionX = cam * 0.40;
     scene.bgHaze.tilePositionX = cam * 0.38 + tn * 0.006;
     scene.bgMid.tilePositionX = cam * 0.55;
+    if (scene.bgFront) scene.bgFront.tilePositionX = cam * 1.20; // 前景快视差：世界向左退时它更快掠过
 
     const W = window.SSG.Config.GAME_W;
     const dt = scene.game.loop.delta / 1000;

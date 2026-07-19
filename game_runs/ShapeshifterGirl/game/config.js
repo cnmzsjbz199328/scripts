@@ -19,6 +19,9 @@ window.SSG.Config = {
     GRAVITY_Y: 1200,     // 基准重力（main.js 与各形态的重力抵消都从这里取）
   },
 
+  // 非鱼落水的「扑腾挣扎」宽限：给玩家按 [3] 变鱼的时间（岸上提前变鱼会搁浅，落水秒死不合理）
+  WATER_GRACE_MS: 3000,
+
   SPRITE: {
     FRAME_W: 192,        // char-sprite 图集取景框
     FRAME_H: 208,

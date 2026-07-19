@@ -105,11 +105,21 @@ window.SSG.Gates = {
           } else if (player.body.bottom > feetY - 20) {
             // 非鱼且身体真正没入水面（跳跃/滑翔从水面上方越过不算入水）
             scene.isInWater = true;
-            // 呛水宽限 650ms：给「入水瞬间起手变鱼」(§2.2 空中变身技巧)留出真实读条窗口，
-            // 拖延不变身才受罚弹回
+            // 呛水宽限：落水后有一段「扑腾挣扎」时间去按 [3] 变鱼——岸上提前变鱼会搁浅锁死，
+            // 落水秒死也不合理，所以给约 3s 缓冲；超时才受罚弹回（WATER_GRACE_MS 见 config）
+            const graceMs = window.SSG.Config.WATER_GRACE_MS;
             scene.chokeTime += delta;
-            if (scene.chokeTime > 650) {
-              this.handleDamageReset(scene, '呛水！非鱼形态无法通过深水！');
+            // 扑腾浮力：非鱼落水不像石头直沉，而是在水面附近挣扎起伏，让玩家看清并有余裕变身
+            const surfaceY = feetY - 20;
+            if (player.body.velocity.y > 40) player.body.setVelocityY(player.body.velocity.y * 0.6);
+            if (player.y > surfaceY + 30) player.body.setVelocityY(-120); // 沉太深则被浮力顶回水面
+            // 临近超时前 0.8s 给出警示（只提示一次），逼玩家反应
+            if (scene.chokeTime > graceMs - 800 && !scene._chokeWarned) {
+              scene._chokeWarned = true;
+              scene.showToast('快按 [3] 变鱼！要呛水了！');
+            }
+            if (scene.chokeTime > graceMs) {
+              this.handleDamageReset(scene, '呛水！非鱼形态无法长时间待在深水！');
               return;
             }
           }
@@ -180,9 +190,10 @@ window.SSG.Gates = {
       }
     }
 
-    // 呛水计时只在持续没水时累积
+    // 呛水计时只在持续没水时累积；离水/变鱼即清零并复位警示
     if (!scene.isInWater || scene.currentForm === 'fish') {
       scene.chokeTime = 0;
+      scene._chokeWarned = false;
     }
 
     // 更新场景全局 nextGate 契约变量
