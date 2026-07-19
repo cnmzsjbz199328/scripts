@@ -119,7 +119,8 @@ window.SSG.Combat = {
   spawnEnemy(scene, type, x, y) {
     const feetY = window.SSG.Config.WORLD.FEET_Y;
 
-    const enemy = scene.physics.add.sprite(x, y - 40, 'enemy_placeholder');
+    const tex = type.startsWith('boss') ? 'foe_boss' : (type === 'thrower' ? 'foe_thrower' : 'foe_patrol');
+    const enemy = scene.physics.add.sprite(x, y - 40, tex);
     // 必须先入组再配置 body：physics group 的 add 会重置 body 配置，
     // 之前 allowGravity/collideWorldBounds 全被 add 抹掉（投掷怪缓沉、Boss 掉穿地面的根因之一）
     scene.enemies.add(enemy);
@@ -130,17 +131,16 @@ window.SSG.Combat = {
     enemy.setData('timer', 0);
     enemy.setCollideWorldBounds(true);
 
-    // 用高保真色彩区分占位敌人
+    // 造型贴图自带身份，不再用 tint 方块区分；仅给 Boss 三阶段一层极淡色偏以助读
     if (type === 'patrol') {
-      enemy.setTint(0xff3333); // 红色巡逻怪
       enemy.body.setSize(40, 48);
     } else if (type === 'thrower') {
-      enemy.setTint(0xff8800); // 橘色投掷怪
       enemy.body.setSize(36, 40);
       enemy.body.setAllowGravity(false); // 飞行悬浮
     } else if (type.startsWith('boss')) {
-      enemy.setTint(0xcc00ff); // 紫色 Boss
       enemy.body.setSize(80, 96);
+      const accent = { boss_shield: 0xd8c8ff, boss_bullets: 0xc8ecff, boss_fly: 0xffd8c0 }[type];
+      if (accent) enemy.setTint(accent);
       if (type === 'boss_fly') {
         enemy.body.setAllowGravity(false);
       }
@@ -257,9 +257,8 @@ window.SSG.Combat = {
   },
 
   shootBullet(scene, x, y, vx, vy) {
-    const bullet = scene.physics.add.sprite(x, y, 'bullet_placeholder');
+    const bullet = scene.physics.add.sprite(x, y, 'orb_bullet');
     scene.bullets.add(bullet); // 先入组再配置（同 spawnEnemy，add 会重置 body）
-    bullet.setTint(0xff0000);
     bullet.body.setSize(12, 12);
     bullet.body.setAllowGravity(false);
     bullet.setVelocity(vx, vy);

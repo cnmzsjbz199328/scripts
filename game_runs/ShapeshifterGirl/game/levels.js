@@ -95,18 +95,19 @@ window.SSG.LEVELS = [
       { at: 350, type: 'hint', text: '黑暗洞窟：熊 [5] 能踏荆棘、按 [J] 拍碎巨岩' },
       { at: 550, type: 'rock', x: 550, w: 60, h: 180 },
       { at: 850, type: 'thorns', x: 850, w: 300 },
-      // ── 变奏段：战斗密度拉满 ──
+      // ── 变奏段：巡逻怪 + 岩荆连打 + 黑暗矮缝 ──
       { at: 1350, type: 'enemy', x: 1350, enemyType: 'patrol' },
       { at: 1550, type: 'rock', x: 1550, w: 60, h: 180 },
-      { at: 1800, type: 'thorns', x: 1800, w: 420 },
-      { at: 2450, type: 'lock', x: 2450, waves: [
-        { spawns: [{ type: 'patrol', dx: 300 }, { type: 'patrol', dx: 450 }] },
-        { spawns: [{ type: 'patrol', dx: 280 }, { type: 'thrower', dx: 420 }] },
+      { at: 1800, type: 'thorns', x: 1800, w: 300 },
+      { at: 2150, type: 'hint', text: '黑暗中的矮缝：变猫 [2] 才能钻过去' },
+      { at: 2250, type: 'tunnel', x: 2250, w: 160, h: 42 },
+      { at: 2550, type: 'rock', x: 2550, w: 60, h: 180 },
+      { at: 2780, type: 'thorns', x: 2780, w: 200 },
+      // ── 考试段：关底遭遇战收尾（锁点竞技场放在所有机关之后，不圈住任何需变身的机关）──
+      { at: 3150, type: 'lock', x: 3150, waves: [
+        { spawns: [{ type: 'patrol', dx: 250 }, { type: 'patrol', dx: 400 }] },
+        { spawns: [{ type: 'patrol', dx: 250 }, { type: 'thrower', dx: 400 }] },
       ]},
-      // ── 考试段：黑暗中缝隙变奏 + 最后一道岩荆 ──
-      { at: 2850, type: 'tunnel', x: 2850, w: 180, h: 42 },
-      { at: 3100, type: 'rock', x: 3100, w: 60, h: 180 },
-      { at: 3250, type: 'thorns', x: 3250, w: 180 },
     ]
   },
   {

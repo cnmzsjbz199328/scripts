@@ -44,36 +44,10 @@ class LevelScene extends Phaser.Scene {
   }
 
   preload() {
-    // 1. 创建程序化画布占位贴图，保证在无 AI 图片资源加载时零报错崩溃
-    if (!this.textures.exists('particle_placeholder')) {
-      const canvas = this.textures.createCanvas('particle_placeholder', 8, 8);
-      if (canvas) {
-        const ctx = canvas.getContext();
-        ctx.fillStyle = '#ffffff';
-        ctx.fillRect(0, 0, 8, 8);
-        canvas.refresh();
-      }
-    }
-
-    if (!this.textures.exists('enemy_placeholder')) {
-      const enemyCanvas = this.textures.createCanvas('enemy_placeholder', 40, 48);
-      if (enemyCanvas) {
-        const enemyCtx = enemyCanvas.getContext();
-        enemyCtx.fillStyle = '#ffffff';
-        enemyCtx.fillRect(0, 0, 40, 48);
-        enemyCanvas.refresh();
-      }
-    }
-
-    if (!this.textures.exists('bullet_placeholder')) {
-      const bulletCanvas = this.textures.createCanvas('bullet_placeholder', 12, 12);
-      if (bulletCanvas) {
-        const bulletCtx = bulletCanvas.getContext();
-        bulletCtx.fillStyle = '#ffffff';
-        bulletCtx.fillRect(0, 0, 12, 12);
-        bulletCanvas.refresh();
-      }
-    }
+    // 1. 程序化画布贴图：软边粒子 + 三类敌人生物剪影 + 能量弹（替代旧的纯色方块占位，
+    //    敌人/Boss 不再是 tint 方块，从第一天就是有造型的魔雾生物）
+    window.SSG.Render._makeSoftDot(this, 'particle_placeholder');
+    this.createCreatureTextures();
 
     // 2. 加载 AI 绿幕切割生成的精灵图集（加载失败时走占位剪影渲染层，见 createPlaceholderTextures）
     const F = { frameWidth: window.SSG.Config.SPRITE.FRAME_W, frameHeight: window.SSG.Config.SPRITE.FRAME_H };
@@ -156,20 +130,134 @@ class LevelScene extends Phaser.Scene {
     }
 
     // 8.5 形态提示图标（DESIGN §2.2：首两关显示教学兜底，后三关不再提示）
+    //     用「关卡色描边圆徽 + 目标形态精灵缩略像」替代系统 emoji——徽章风格与画面统一，
+    //     且直接复用角色图集，玩家看到的就是要变的那只动物的样子。
     if (this.levelIdx < 2) {
-      const ICONS = { cat: '🐱', fish: '🐟', eagle: '🦅', bear: '🐻' };
+      const C = window.SSG.Config;
       const NEED = { tunnel: 'cat', wall: 'cat', cleft: 'cat', water: 'fish', chasm: 'eagle', updraft: 'eagle', rock: 'bear', thorns: 'bear' };
+      const formColor = (name) => {
+        const f = Object.values(C.FORMS).find(fm => fm.name === name);
+        return f ? f.color : 0xffffff;
+      };
       for (const t of activeLevel.triggers) {
         const need = NEED[t.type];
         if (!need) continue;
-        const iconY = feetY - (t.h || 40) - 46;
-        const icon = this.add.text(t.x + (t.w || 60) / 2, iconY, ICONS[need], { fontSize: '30px' }).setOrigin(0.5).setDepth(5);
-        this.tweens.add({ targets: icon, y: iconY - 10, duration: 900, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+        const bx = t.x + (t.w || 60) / 2;
+        const iconY = feetY - (t.h || 40) - 48;
+        const col = formColor(need);
+        const ring = this.add.circle(bx, iconY, 21, 0x0d1424, 0.9).setStrokeStyle(3, col, 1).setDepth(5);
+        let thumb;
+        const sheetKey = need + '_sheet';
+        if (this.textures.exists(sheetKey)) {
+          thumb = this.add.image(bx, iconY, sheetKey, 0).setDepth(6);
+          thumb.setScale(34 / Math.max(thumb.width, thumb.height));
+        } else {
+          thumb = this.add.circle(bx, iconY, 11, col).setDepth(6);
+        }
+        this.tweens.add({ targets: [ring, thumb], y: iconY - 10, duration: 900, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
       }
     }
 
     // 9. 显示当前关卡叙事卡
     this._showCard(activeLevel.intro[0], activeLevel.intro[1], null, '开始冒险');
+  }
+
+  // 敌人生物贴图：程序化画三类魔雾生物 + 能量弹（透明底，剪影造型，配色统一走紫罗兰魔雾系）
+  createCreatureTextures() {
+    const draw = (key, w, h, fn) => {
+      if (this.textures.exists(key)) return;
+      const cv = this.textures.createCanvas(key, w, h);
+      if (!cv) return;
+      const ctx = cv.getContext();
+      ctx.clearRect(0, 0, w, h);
+      fn(ctx, w, h);
+      cv.refresh();
+    };
+
+    // 巡逻小妖：紫罗兰矮妖，双角、黄眼、小脚
+    draw('foe_patrol', 44, 50, (ctx, w, h) => {
+      ctx.fillStyle = 'rgba(0,0,0,0.22)';
+      ctx.beginPath(); ctx.ellipse(w / 2, h - 3, w * 0.38, 4, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#2a1240'; // 角
+      ctx.beginPath(); ctx.moveTo(13, 15); ctx.lineTo(7, 1); ctx.lineTo(18, 13); ctx.closePath(); ctx.fill();
+      ctx.beginPath(); ctx.moveTo(31, 15); ctx.lineTo(37, 1); ctx.lineTo(26, 13); ctx.closePath(); ctx.fill();
+      const g = ctx.createLinearGradient(0, 8, 0, h); // 身体
+      g.addColorStop(0, '#8a4fb0'); g.addColorStop(1, '#3d1d5c');
+      ctx.fillStyle = g;
+      ctx.beginPath(); ctx.ellipse(w / 2, h * 0.6, w * 0.42, h * 0.42, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#2a1240'; // 脚
+      ctx.beginPath(); ctx.ellipse(15, h - 4, 6, 4, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(29, h - 4, 6, 4, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#ffe23a'; // 眼
+      ctx.beginPath(); ctx.ellipse(16, 26, 4, 5, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(28, 26, 4, 5, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#1a0e28';
+      ctx.beginPath(); ctx.ellipse(16, 27, 1.6, 2.4, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(28, 27, 1.6, 2.4, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = '#1a0e28'; ctx.lineWidth = 1.6; // 嘴
+      ctx.beginPath(); ctx.moveTo(18, 36); ctx.quadraticCurveTo(22, 33, 26, 36); ctx.stroke();
+    });
+
+    // 投掷怪：悬浮独眼幽魂，青光晕 + 波浪下摆
+    draw('foe_thrower', 46, 46, (ctx, w, h) => {
+      const halo = ctx.createRadialGradient(w / 2, h / 2, 3, w / 2, h / 2, w / 2);
+      halo.addColorStop(0, 'rgba(120,200,255,0.45)'); halo.addColorStop(1, 'rgba(120,200,255,0)');
+      ctx.fillStyle = halo; ctx.fillRect(0, 0, w, h);
+      const g = ctx.createLinearGradient(0, 6, 0, h);
+      g.addColorStop(0, '#5a7fc0'); g.addColorStop(1, '#243a68');
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.moveTo(10, h * 0.52);
+      ctx.quadraticCurveTo(10, 8, w / 2, 8);
+      ctx.quadraticCurveTo(w - 10, 8, w - 10, h * 0.52);
+      // 波浪下摆（三瓣幽魂裙）
+      ctx.lineTo(w - 10, h - 10);
+      ctx.quadraticCurveTo(w * 0.7, h - 2, w * 0.66, h - 12);
+      ctx.quadraticCurveTo(w / 2, h - 1, w * 0.34, h - 12);
+      ctx.quadraticCurveTo(w * 0.3, h - 2, 10, h - 10);
+      ctx.closePath(); ctx.fill();
+      ctx.fillStyle = '#eaf6ff'; // 大眼
+      ctx.beginPath(); ctx.arc(w / 2, h * 0.44, 7.5, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#0e3f8a';
+      ctx.beginPath(); ctx.arc(w / 2, h * 0.44, 3.6, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#fff';
+      ctx.beginPath(); ctx.arc(w / 2 + 1.5, h * 0.44 - 1.5, 1.3, 0, Math.PI * 2); ctx.fill();
+    });
+
+    // Boss：魔雾巨兽——双角、红眼、獠牙巨口
+    draw('foe_boss', 96, 116, (ctx, w, h) => {
+      ctx.fillStyle = 'rgba(0,0,0,0.25)';
+      ctx.beginPath(); ctx.ellipse(w / 2, h - 5, w * 0.4, 7, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#1a0822'; // 角
+      ctx.beginPath(); ctx.moveTo(26, 30); ctx.lineTo(8, 2); ctx.lineTo(38, 22); ctx.closePath(); ctx.fill();
+      ctx.beginPath(); ctx.moveTo(70, 30); ctx.lineTo(88, 2); ctx.lineTo(58, 22); ctx.closePath(); ctx.fill();
+      const g = ctx.createLinearGradient(0, 10, 0, h);
+      g.addColorStop(0, '#8a2ea0'); g.addColorStop(1, '#2a0e3a');
+      ctx.fillStyle = g;
+      ctx.beginPath(); ctx.ellipse(w / 2, h * 0.56, w * 0.45, h * 0.46, 0, 0, Math.PI * 2); ctx.fill();
+      // 发光红眼
+      for (const ex of [37, 59]) {
+        const eg = ctx.createRadialGradient(ex, 54, 1, ex, 54, 11);
+        eg.addColorStop(0, '#ffe0a0'); eg.addColorStop(0.4, '#ff3b3b'); eg.addColorStop(1, 'rgba(255,40,40,0)');
+        ctx.fillStyle = eg; ctx.beginPath(); ctx.arc(ex, 54, 11, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#3a0a0a'; ctx.beginPath(); ctx.ellipse(ex, 55, 2.4, 4, 0, 0, Math.PI * 2); ctx.fill();
+      }
+      // 獠牙巨口
+      ctx.fillStyle = '#160620';
+      ctx.beginPath(); ctx.ellipse(w / 2, 82, 22, 11, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#fff';
+      for (let k = -2; k <= 2; k++) {
+        const fx = w / 2 + k * 8;
+        ctx.beginPath(); ctx.moveTo(fx - 3, 76); ctx.lineTo(fx, 86); ctx.lineTo(fx + 3, 76); ctx.closePath(); ctx.fill();
+      }
+    });
+
+    // 能量弹：橙心红晕软球
+    draw('orb_bullet', 16, 16, (ctx, w, h) => {
+      const g = ctx.createRadialGradient(w / 2, h / 2, 1, w / 2, h / 2, w / 2);
+      g.addColorStop(0, '#fff6c0'); g.addColorStop(0.4, '#ff8a3b'); g.addColorStop(1, 'rgba(255,60,30,0)');
+      ctx.fillStyle = g; ctx.fillRect(0, 0, w, h);
+    });
   }
 
   // 占位渲染层：按形态配置生成程序化剪影贴图（底面与物理包围盒对齐）
@@ -277,6 +365,18 @@ class LevelScene extends Phaser.Scene {
     if (!this.isInWater && this.currentForm === 'fish' && !this.isMorphing) {
       window.SSG.Form.startMorph(this, 'girl');
       return;
+    }
+
+    // 1.5 卡在矮缝/高墙前的兜底自救：被 gates 钉在 x-10 处时 dist≈10，落在常规 30~160
+    //     变身窗口之外，auto 再也不会触发变猫 → 死锁。这里补一层「已顶到闸门就变猫脱困」，
+    //     纯控制级操作（人类被钉住时同样按 [2]），不改任何数值规则。
+    if (!this.isMorphing && this.currentForm !== 'cat') {
+      const pinned = activeLevel.triggers.find(t =>
+        (t.type === 'tunnel' || t.type === 'wall') && px >= t.x - 20 && px <= t.x + (t.w || 60));
+      if (pinned) {
+        window.SSG.Form.startMorph(this, 'cat');
+        return;
+      }
     }
 
     // 2. 根据前方触发器距离，自动变身克制形态

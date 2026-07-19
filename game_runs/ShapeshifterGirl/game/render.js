@@ -18,14 +18,26 @@ window.SSG.Render = {
 
   _hex(str) { return parseInt(str.slice(1), 16); },
 
+  // 软边圆点贴图：径向渐变，粒子/岩屑/变身特效共用（替代旧的硬方块占位）
+  _makeSoftDot(scene, key) {
+    if (scene.textures.exists(key)) return;
+    const S = 16;
+    const cv = scene.textures.createCanvas(key, S, S);
+    if (!cv) return;
+    const ctx = cv.getContext();
+    const rg = ctx.createRadialGradient(S / 2, S / 2, 0, S / 2, S / 2, S / 2);
+    rg.addColorStop(0, 'rgba(255,255,255,1)');
+    rg.addColorStop(0.45, 'rgba(255,255,255,0.9)');
+    rg.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = rg; ctx.fillRect(0, 0, S, S);
+    cv.refresh();
+  },
+
   init(scene) {
     scene.gfx = scene.add.graphics(); // 动态地形层（先于 player 创建 → 渲染在角色之后、背景之前）
 
-    // 初始化粒子管理器（Phaser 3 内置）
-    if (!scene.textures.exists('particle_placeholder')) {
-      const cv = scene.textures.createCanvas('particle_placeholder', 8, 8);
-      if (cv) { const ctx = cv.getContext(); ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, 8, 8); cv.refresh(); }
-    }
+    // 初始化粒子管理器（Phaser 3 内置）——软边圆点，替代旧的 8×8 硬方块
+    this._makeSoftDot(scene, 'particle_placeholder');
     scene.particles = scene.add.particles(0, 0, 'particle_placeholder', { active: false });
 
     this.buildBackground(scene);
@@ -398,19 +410,32 @@ window.SSG.Render = {
       }
 
       else if (t.type === 'tunnel') {
-        // 矮缝：整块悬顶岩体 + 洞口垂檐（石灰色系，与剪影背景/土台都拉开）
+        // 矮缝悬顶：用关卡自身土岩色（不再冷灰穿帮），顶部向暗渐隐 → 读作从洞顶垂下的岩体而非通天柱
         const ceilBottom = feetY - t.h;
-        g.fillStyle(0x3a4150, 1);
+        g.fillStyle(deep, 1);
         g.fillRect(t.x, 0, t.w, ceilBottom);
-        g.fillStyle(0x000000, 0.25);
-        g.fillRect(t.x, ceilBottom - 26, t.w, 26);
-        g.fillStyle(0x2b303c, 1); // 垂檐尖齿
-        for (let x = t.x; x < t.x + t.w; x += 22) {
+        // 顶部渐隐入暗（分带叠黑，模拟越往上越深的洞顶）
+        for (let b = 0; b < 5; b++) {
+          g.fillStyle(0x000000, 0.14);
+          g.fillRect(t.x, 0, t.w, ceilBottom * (1 - b * 0.18));
+        }
+        // 两侧受光棱边，给悬岩体积感
+        g.fillStyle(lip, 0.16);
+        g.fillRect(t.x, 0, 7, ceilBottom);
+        g.fillRect(t.x + t.w - 7, 0, 7, ceilBottom);
+        // 洞口内阴影带
+        g.fillStyle(0x000000, 0.32);
+        g.fillRect(t.x, ceilBottom - 24, t.w, 24);
+        // 垂檐钟乳尖齿（同岩色，长短错落）
+        g.fillStyle(deep, 1);
+        for (let x = t.x; x < t.x + t.w; x += 20) {
+          const dh = 9 + ((x * 5) % 9);
           g.beginPath();
-          g.moveTo(x, ceilBottom); g.lineTo(x + 11, ceilBottom + 10 + ((x * 5) % 7)); g.lineTo(x + 22, ceilBottom);
+          g.moveTo(x, ceilBottom); g.lineTo(x + 10, ceilBottom + dh); g.lineTo(x + 20, ceilBottom);
           g.closePath(); g.fillPath();
         }
-        g.lineStyle(2, 0x9aa4b8, 0.6);
+        // 洞口岩唇亮线（呼应关卡色）
+        g.lineStyle(2, lip, 0.7);
         g.lineBetween(t.x, ceilBottom, t.x + t.w, ceilBottom);
       }
 
