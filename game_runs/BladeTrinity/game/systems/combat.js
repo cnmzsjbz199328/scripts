@@ -126,11 +126,34 @@ Object.assign(BladeTrinityScene.prototype, {
     if (target.hp <= 0) this._ko(target);
   },
 
+  // 倒地贴地。图集六行统一按站立取景，倒地末帧的躺姿因此整体偏高：后背悬在
+  // 地面线上方 8~16 纹理px（× SCALE 即 15~30 屏幕px），在零透视的水平台面前
+  // 一眼可见。见 BT.DOWN_DROP 的量法。
+  //
+  // 实现：抬高 body 的纹理偏移，让重力自己把人沉下去——不动 sprite.y，不停物理。
+  // body 底原本 = 纹理 202（脚底基线），改成 202-drop 后，世界下边界仍把 body 底
+  // 顶在 FLOOR_Y，于是纹理整体下移 drop×SCALE，躺姿后背落到地面线上。
+  //
+  // ⚠️ 别用「等 down 动画播完再 tween sprite.y」那种写法，两个坑：
+  // 1) 时序对不上。down 是 16 帧 @13fps = 1231ms，而 KO_HOLD 只有 950ms——
+  //    结算画面和 playtest 截图都发生在动画播完之前，tween 根本还没起步，
+  //    截图里看不到任何变化（实测仍悬空 8px）。
+  // 2) 推 sprite.y 会被 setCollideWorldBounds 原样顶回来，除非先关物理；
+  //    而一关物理，倒地瞬间还在腾空的情况就会定在半空。
+  // 代价：倒地序列前半段人还站着，那段会跟着一起沉 ~23px。1.2 秒的坠落过程里
+  // 看不出来，且前景接地条会盖住这一带。
+  _settleDown(f) {
+    const drop = BT.DOWN_DROP[f.id] || 0;
+    if (!drop) return;
+    f.sprite.body.setOffset(BT.FRAME_W / 2 - 26, 84 - drop);
+  },
+
   _ko(loser) {
     loser.state = 'down';
     loser.stateUntil = Infinity;
     loser.sprite.play(`${loser.id}_down`, true);
     loser.sprite.setVelocityX(0);
+    this._settleDown(loser);
     this.phase = 'over';
     const win = loser === this.p2;
     if (win) this._won = true; else this._lost = true;
