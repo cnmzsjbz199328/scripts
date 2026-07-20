@@ -157,11 +157,5 @@ Object.assign(BladeTrinityScene.prototype, {
     this.phase = 'over';
     const win = loser === this.p2;
     if (win) this._won = true; else this._lost = true;
-    const me = BT.SCHOOLS[this.p1.id].name, foe = BT.SCHOOLS[this.p2.id].name;
-    this.time.delayedCall(BT.KO_HOLD, () => {
-      window.GameHUD?.showGameOver(win, win
-        ? `${me} 胜。${foe} 的剑落在台上——剑术的高下，从来只在一瞬的读招之间。`
-        : `${foe} 胜。${me} 单膝跪地……换个流派，再战一场？`);
-    });
   },
 });

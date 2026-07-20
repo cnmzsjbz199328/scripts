@@ -117,11 +117,6 @@
     .game-btn:active { transform: translateY(0); }
 
     #start-btn   { background: #2563eb; color: #fff; }
-    #restart-btn { background: #dc2626; color: #fff; }
-
-    /* ── game-over title colours ── */
-    #gameover-title.win  { color: #4ade80; }
-    #gameover-title.lose { color: #f87171; }
 
     /* ── responsive stage scaling (canvas + HUD scale together) ── */
     html, body { width: 100%; height: 100%; }
@@ -153,17 +148,9 @@
       </div>
     </div>
 
-    <!-- Game over overlay -->
-    <div id="gameover-screen" class="game-overlay" style="display:none">
-      <div class="overlay-card">
-        <h2 id="gameover-title">GAME OVER</h2>
-        <p id="gameover-message" class="story-setting"></p>
-        <button id="restart-btn" class="game-btn" onclick="location.reload()">↩ RESTART</button>
-      </div>
-    </div>
   </div>
 
-  <!-- 共享引擎层（格斗自绘血条，不用 ♥ HUD；仅用 onStart/setObjective/showGameOver） -->
+  <!-- 共享引擎层（格斗自绘血条，不用 ♥ HUD；仅用 onStart/setObjective） -->
   <script src="../_engine/hud.js"></script>
   <!-- 数据：config(命名空间) → atlases(图集元数据) → data(数值/帧数据) -->
   <script src="game/config.js"></script>
