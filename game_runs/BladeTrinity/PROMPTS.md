@@ -525,3 +525,66 @@ any edge. No motion blur, every frame a crisp readable pose.
 - 循环动作（idle / walk）：保留原生 24fps 整周期，零抽稀。
 - once 动作（attack / guard / hurt / down）：帧数 × fps 保持时长不变。
 - **唯一硬约束**：纹理宽度 ≤ 21 列（192 × 21 = 4032 < 4096，老 GPU 上限）。
+
+---
+
+## 9. 三层背景素材生产提示词
+
+### 关键约束（三张图必须严格遵守）
+- **画布比例**：16:9（1920x1080）。
+- **地面线位置**：固定在画面高度的 88%（FLOOR_Y 476 / GAME_H 540）。
+- **透视限制**：纵深只能出现在战斗线之后和之前，战斗线本身是一条水平带——严禁画向后退去的、角色站在中间的透视地板（会与“角色永远在同一条 z 线、永不缩放”打架）。
+
+---
+
+### 9.1 远景 `bg_far.png` — 全彩不透明，不走绿幕
+背景无主体需抠图，整张图保留，避免绿幕边缘残留绿边。
+
+```
+Subject: interior of an ancient Japanese kendo dojo at dusk, viewed straight-on in flat side elevation. Deep receding coffered wooden ceiling beams and a row of shoji paper screens along the back wall, warm sunset light pouring through them from behind. Distant mountain ridges faintly visible through one open screen. Style: painted 2D game background, dusk palette of deep violet #3a2550, dusty rose #7a3f52, burnt orange #c9714a, amber #e8a15c. Soft atmospheric haze increasing with distance. Composition: strictly symmetrical, horizontal. The dojo floor line must sit at exactly 88 percent of the image height, running perfectly level edge to edge. Everything below that line is dark flat floor. Keep the middle 60 percent of the image visually quiet and low-contrast. Size 1920x1080 16:9. No characters, no people, no text, no letters, no watermark, no logo, no UI, no foreground objects.
+```
+
+---
+
+### 9.2 中景 `bg_mid.png` — 绿幕，站在战斗线之后
+
+```
+Subject: midground dojo elements isolated on a pure chroma green background: two heavy dark wooden pillars, one at the far left edge and one at the far right edge, each standing on a stone base, with a hanging paper lantern glowing warm amber near the top of each. A low dark wooden weapon rack against the wall on the left holding wooden bokken. Style: painted 2D game asset, dusk lighting, silhouetted and darker than the background, deep plum and near-black wood tones with warm amber rim light on the lantern side. Composition: the pillar bases must rest on a level line at exactly 88 percent of the image height. The entire middle 60 percent of the image must be EMPTY pure green from top to bottom. Background must be solid pure chroma green #00FF00 with no gradient, no shadow cast onto the green, no glow bleeding onto the green. Size 1920x1080 16:9. No characters, no people, no text, no letters, no watermark, no logo.
+```
+
+---
+
+### 9.3 前景 `bg_fore.png` — 绿幕，接地三明治的上层
+压住脚和头发解决悬浮，中央保持低矮不遮挡步法。
+
+```
+Subject: a foreground strip of dojo floor seen very close to the camera, isolated on pure chroma green. A polished dark wooden floorboard edge runs horizontally across the entire bottom of the image, its top edge slightly uneven and organic, with a thin warm amber highlight catching the last sunset light along the top edge. Scattered fallen cherry blossom petals and a few loose wooden splinters resting on it. At the extreme left and right edges only, the foreground rises higher into a blurred out-of-focus dark stone step corner. Style: painted 2D game asset, very dark near-silhouette values, slightly soft focus to read as close to camera, dusk palette. Composition: CRITICAL - across the middle 70 percent of the image the foreground strip must be SHORT, its top edge no higher than 84 percent of the image height, leaving everything above it pure green. Only the outermost 15 percent on each side may rise higher. Background must be solid pure chroma green #00FF00, no gradient, no shadow on the green, no glow bleeding onto the green. Size 1920x1080 16:9. No characters, no people, no text, no letters, no watermark, no logo.
+```
+
+
+---
+
+### 9.4 ⚠️ 实际产出与提示词的偏差（2026-07 首次生成实测）
+
+**上面三段提示词里的「地面线固定在 88%」，三张图一张都没遵守。** 模型对
+"exactly 88 percent of the image height" 这类数值构图约束基本不响应，实测：
+
+| 层 | 关键线 | 实测（源图 1920×1080） | 提示词要求 |
+|---|---|---|---|
+| far | 地板线 | y=703（65.1%） | 88% |
+| mid | 柱础底 | y=894（82.8%） | 88% |
+| fore | 中央木板顶边 | y=769（71.2%） | ≤84% |
+| fore | 两侧石阶顶 | y=471（43.6%） | 仅最外 15% 可高 |
+
+**结论：不要指望提示词把地面线钉准，改在装配侧吸收。** 每层单独定标
+`scale = 目标屏幕 y ÷ 源图实测 y`，三层都 origin(0.5,0) 贴顶居中，
+超出画布的部分自然裁掉。落地参数见 `game/config.js` 的 `BT.BG`。
+
+重新生图后**必须重新量这四条线并更新 `BT.BG` 的 scale**，否则角色会浮在
+地板线上方或陷进去——量法见 `tools/process-bg.mjs` 旁的分析脚本思路：
+逐列求首个不透明行取中位（fore/mid），或找最强水平边（far）。
+
+其余可复用的经验：
+- 抠图质量本身没问题（残留绿 0%，无"静默产纯绿空图"）——绿幕那步提示词是有效的。
+- 「中央必须留空」对 mid **要求过严**：mid 在角色之后（depth -50），左侧刀架
+  越界到中央反而更好看，不构成遮挡。真正需要守住中央的只有 fore。

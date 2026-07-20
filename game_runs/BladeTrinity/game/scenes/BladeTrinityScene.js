@@ -10,6 +10,12 @@ class BladeTrinityScene extends Phaser.Scene {
       this.load.spritesheet(id, `assets/sprites/${id}.webp`,
         { frameWidth: BT.FRAME_W, frameHeight: BT.FRAME_H });
     }
+    // 背景三层。manifest 由 tools/process-bg.mjs 生成（缺哪张就不在表里），
+    // 据此跳过缺图的层，而不是让 Phaser 去 404。
+    const have = window.BLADE_BG || [];
+    for (const l of BT.BG) {
+      if (have.includes(`${l.key}.webp`)) this.load.image(l.key, `assets/bg/${l.key}.webp`);
+    }
   }
 
   create() {

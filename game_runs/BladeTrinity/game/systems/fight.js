@@ -70,51 +70,20 @@ Object.assign(BladeTrinityScene.prototype, {
     bar(BT.GAME_W - 40 - W, this.p2.hp / this.p2.maxHp, BT.SCHOOLS[this.p2.id].barColor, true);
   },
 
-  // ─────────── 舞台（全代码绘制，不用图片素材）───────────
+  // ─────────── 舞台（背景三层贴图，见 BT.BG 的定标推导）───────────
+  // 原先是全代码绘制的天空/远山/石台。换成道场实拍层的动机不是好看，而是：
+  // 完全水平、零透视的台面给了眼睛一把精确的尺子，任何接地误差都藏不住
+  // （倒地悬浮就是这么被看出来的）。前景木板压在角色脚上后，接触线不再可审。
   _buildStage() {
     const W = BT.GAME_W, H = BT.GAME_H, FY = BT.FLOOR_Y;
-    const g = this.add.graphics().setDepth(-100);
-
-    // 天空：暮色渐变（分带填充，避免引入贴图）
-    const sky = [[0x1a1430, 0], [0x3a2550, 0.30], [0x7a3f52, 0.55], [0xc9714a, 0.74], [0xe8a15c, 0.86]];
-    for (let i = 0; i < sky.length - 1; i++) {
-      const [c0, t0] = sky[i], [c1, t1] = sky[i + 1];
-      const y0 = H * t0, y1 = H * t1, steps = 14;
-      for (let s = 0; s < steps; s++) {
-        const c = Phaser.Display.Color.Interpolate.ColorWithColor(
-          Phaser.Display.Color.IntegerToColor(c0),
-          Phaser.Display.Color.IntegerToColor(c1), steps, s);
-        g.fillStyle(Phaser.Display.Color.GetColor(c.r, c.g, c.b), 1);
-        g.fillRect(0, y0 + (y1 - y0) * s / steps, W, (y1 - y0) / steps + 1);
-      }
+    for (const l of BT.BG) {
+      if (!this.textures.exists(l.key)) continue;
+      this.add.image(W / 2, 0, l.key).setOrigin(0.5, 0).setScale(l.scale).setDepth(l.depth);
     }
-    // 落日
-    g.fillStyle(0xffd9a0, 0.9); g.fillCircle(W * 0.5, FY - 118, 46);
-    g.fillStyle(0xffd9a0, 0.18); g.fillCircle(W * 0.5, FY - 118, 78);
-
-    // 远山剪影两层
-    const ridge = (baseY, amp, seed, color, alpha) => {
-      g.fillStyle(color, alpha);
-      g.beginPath(); g.moveTo(0, H);
-      for (let x = 0; x <= W; x += 24) {
-        const y = baseY - Math.abs(Math.sin((x + seed) * 0.0042)) * amp
-                        - Math.sin((x + seed) * 0.011) * amp * 0.28;
-        g.lineTo(x, y);
-      }
-      g.lineTo(W, H); g.closePath(); g.fillPath();
-    };
-    ridge(FY - 54, 96, 0, 0x4a2f46, 1);
-    ridge(FY - 22, 58, 620, 0x2e1c30, 1);
-
-    // 斗技台：石面 + 台沿高光
-    g.fillStyle(0x241826, 1); g.fillRect(0, FY, W, H - FY);
-    g.fillStyle(0x3a2a3c, 1); g.fillRect(0, FY, W, 8);
-    g.fillStyle(0xffca8a, 0.30); g.fillRect(0, FY, W, 3);
-    for (let x = 0; x < W; x += 64) {
-      g.fillStyle(0x1a1020, 0.55); g.fillRect(x, FY + 8, 2, H - FY - 8);
-    }
-    // 台边警示：被逼到这里剑神流会破防
+    // 台边警示：被逼到这里剑神流会破防。depth 25 压在前景（20）之上——
+    // 它是玩法提示，不能被前景木板盖掉。
     const m = BT.DEFENSE.brace.edgeMargin;
+    const g = this.add.graphics().setDepth(25);
     g.fillStyle(0xff8a3b, 0.16);
     g.fillRect(0, FY, m, H - FY); g.fillRect(W - m, FY, m, H - FY);
   },
