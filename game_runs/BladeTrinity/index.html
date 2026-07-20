@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>三剑流：光之太刀</title>
+  <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #0b0f19;
+      color: #fff;
+      font-family: 'Segoe UI', monospace;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      overflow: hidden;
+    }
+
+    /* ── game wrapper ── */
+    #game-wrapper {
+      position: relative;
+      border: 3px solid #c9714a;
+      border-radius: 8px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.6);
+      overflow: hidden;
+    }
+
+    /* ── HUD overlay ── */
+    #hud {
+      display: none;
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      padding: 10px 14px;
+      gap: 18px;
+      flex-direction: row;
+      align-items: center;
+      background: linear-gradient(to bottom, rgba(0,0,0,0.55), transparent);
+      pointer-events: none;
+      z-index: 10;
+      font-size: 15px;
+      user-select: none;
+    }
+
+    #hud-hearts { color: #f87171; letter-spacing: 2px; font-size: 18px; }
+    #hud-score  { color: #fbbf24; }
+    #hud-objective { color: #a5f3fc; flex: 1; text-align: center; }
+    #hud-day    { color: #86efac; margin-left: auto; }
+
+    /* ── shared overlay styles ── */
+    .game-overlay {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 20;
+      background: rgba(8, 12, 24, 0.88);
+      backdrop-filter: blur(3px);
+    }
+
+    .overlay-card {
+      text-align: center;
+      max-width: 520px;
+      padding: 36px 40px;
+      background: rgba(15, 23, 42, 0.95);
+      border: 1px solid #334155;
+      border-radius: 12px;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.5);
+    }
+
+    .overlay-card h2 {
+      font-size: 2rem;
+      margin-bottom: 8px;
+      color: #f1f5f9;
+      letter-spacing: 0.08em;
+    }
+
+    .overlay-card .tagline {
+      font-size: 0.95rem;
+      color: #94a3b8;
+      margin-bottom: 16px;
+      font-style: italic;
+    }
+
+    .overlay-card .story-setting {
+      font-size: 0.88rem;
+      color: #64748b;
+      line-height: 1.6;
+      margin-bottom: 24px;
+    }
+
+    .overlay-card .controls-hint {
+      font-size: 0.78rem;
+      color: #475569;
+      line-height: 1.8;
+      margin-top: 14px;
+    }
+
+    /* ── buttons ── */
+    .game-btn {
+      display: inline-block;
+      padding: 12px 36px;
+      font-size: 1rem;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: transform 0.1s, box-shadow 0.1s;
+    }
+
+    .game-btn:hover  { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(0,0,0,0.4); }
+    .game-btn:active { transform: translateY(0); }
+
+    #start-btn   { background: #2563eb; color: #fff; }
+    #restart-btn { background: #dc2626; color: #fff; }
+
+    /* ── game-over title colours ── */
+    #gameover-title.win  { color: #4ade80; }
+    #gameover-title.lose { color: #f87171; }
+
+    /* ── responsive stage scaling (canvas + HUD scale together) ── */
+    html, body { width: 100%; height: 100%; }
+    #game-wrapper {
+      width: 960px; height: 540px;
+      flex: 0 0 auto;
+      transform-origin: center center;
+    }
+  </style>
+</head>
+<body>
+  <div id="game-wrapper">
+    <div id="game-container"></div>
+
+    <!-- HUD overlay -->
+    <div id="hud">
+      <div id="hud-objective"><span id="hud-objective-text">选择流派，登台对决！</span></div>
+    </div>
+
+    <!-- Start screen overlay -->
+    <div id="start-screen" class="game-overlay">
+      <div class="overlay-card">
+        <h2>三剑流：光之太刀</h2>
+        <p class="tagline">剑神的一击、水神的卸力、北神的骗招——三种剑理，同一座台。</p>
+        <p class="story-setting">暮色压上山巅的斗技台。三条剑术的路径在此交汇：剑神流以极速抢先手，一刀定生死；水神流不抢，看你出招、卸你的力、还你一剑；北神流不讲章法，虚一刀实一刀，专骗你交出防御的那一瞬。谁克谁，不在属性表上，在你读不读得懂对面的预备动作。</p>
+        <button id="start-btn" class="game-btn" onclick="window.__hudStart()">▶ START GAME</button>
+        <p class="controls-hint">
+          Controls: A/D 移动 · W 跳 · J 斩 · S 或 K 防御（各流派不同）</p>
+      </div>
+    </div>
+
+    <!-- Game over overlay -->
+    <div id="gameover-screen" class="game-overlay" style="display:none">
+      <div class="overlay-card">
+        <h2 id="gameover-title">GAME OVER</h2>
+        <p id="gameover-message" class="story-setting"></p>
+        <button id="restart-btn" class="game-btn" onclick="location.reload()">↩ RESTART</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 共享引擎层（格斗自绘血条，不用 ♥ HUD；仅用 onStart/setObjective/showGameOver） -->
+  <script src="../_engine/hud.js"></script>
+  <!-- 数据：config(命名空间) → atlases(图集元数据) → data(数值/帧数据) -->
+  <script src="game/config.js"></script>
+  <script src="assets/sprites/atlases.js"></script>
+  <script src="game/data.js"></script>
+  <!-- 场景核心 + 系统模块（MIGRATION.md §4B 原型分割） -->
+  <script src="game/scenes/BladeTrinityScene.js"></script>
+  <script src="game/systems/select.js"></script>
+  <script src="game/systems/fight.js"></script>
+  <script src="game/systems/combat.js"></script>
+  <script src="game/systems/defense.js"></script>
+  <script src="game/systems/loop.js"></script>
+  <!-- Phaser 装配 -->
+  <script src="game/main.js"></script>
+  <script>
+    /* Fit the whole stage (canvas + HUD overlays) to the viewport so everything
+       scales as one piece — keeps HUD proportions correct at any screen size. */
+    (function () {
+      var W = 960, H = 540;
+      var wrap = document.getElementById('game-wrapper');
+      function fit() {
+        if (!wrap) return;
+        var s = Math.min(window.innerWidth / W, window.innerHeight / H, 1);
+        wrap.style.transform = 'scale(' + s + ')';
+      }
+      window.addEventListener('resize', fit);
+      window.addEventListener('orientationchange', fit);
+      fit();
+    })();
+  </script>
+</body>
+</html>

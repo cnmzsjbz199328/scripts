@@ -109,6 +109,11 @@ mkdir -p game_runs/BladeTrinity/assets/sprites
 node -e "
 const sharp=require('sharp'),fs=require('fs');
 const D='game_runs/BladeTrinity/assets/sprites/';
+const FW=192, FH=208;
+// 素材规格是【全部朝左】。sword 的 12 段源视频里角色朝右（模型没遵守提示词的
+// facing LEFT 约束），这里在装配时镜像回规格，而不是在游戏代码里为它开特例。
+// ⚠️ 必须【逐格】翻转：整张 flop 会把帧顺序也倒过来。
+const MIRROR={sword:true, water:false, north:false};
 (async()=>{
  const meta={};
  for(const n of ['sword','water','north']){
@@ -121,8 +126,20 @@ const D='game_runs/BladeTrinity/assets/sprites/';
     if(g>m*1.12){const e=g-m; data[p+1]=m;
       data[p]=Math.min(255,r+e*0.5); data[p+2]=Math.min(255,b+e*0.5);}
   }
-  await sharp(Buffer.from(data),{raw:{width:W,height:H,channels:C}}).webp({quality:92})
-    .toFile(D+n+'.webp');
+  let img=sharp(Buffer.from(data),{raw:{width:W,height:H,channels:C}});
+  if(MIRROR[n]){
+    const base=await img.png().toBuffer();
+    const cells=[];
+    for(let r=0;r<H/FH;r++) for(let c=0;c<W/FW;c++){
+      cells.push({ input: await sharp(base)
+        .extract({left:c*FW,top:r*FH,width:FW,height:FH}).flop().png().toBuffer(),
+        left:c*FW, top:r*FH });
+    }
+    img=sharp({create:{width:W,height:H,channels:4,
+      background:{r:0,g:0,b:0,alpha:0}}}).composite(cells);
+    console.log('  mirror '+n+'（源视频朝右，镜像回朝左规格）');
+  }
+  await img.webp({quality:92}).toFile(D+n+'.webp');
   const j=JSON.parse(fs.readFileSync('video_runs/'+n+'/output/sprite.json','utf8'));
   meta[n]={frameSize:j.frameSize,dimensions:j.dimensions,animations:j.animations};
   console.log('  ok '+n);

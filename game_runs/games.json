@@ -98,18 +98,18 @@
     "createdAt": "2026-06-24T00:00:00.000Z"
   },
   {
-    "id": "ShadowArena",
-    "title": "影斗：剪影格斗场",
-    "tagline": "黎明的天光为幕，四位黑影武者，一场一对一的宿命对决。",
+    "id": "BladeTrinity",
+    "title": "三剑流：光之太刀",
+    "tagline": "剑神的一击、水神的卸力、北神的骗招——三种剑理，同一座台。",
     "gameType": "side-scroller",
-    "genre": "BEAT-EM-UP",
-    "accent": "#f97316",
-    "previewBg": "#100804",
-    "icon": "👊",
+    "genre": "FIGHTING",
+    "accent": "#c9714a",
+    "previewBg": "#1a1430",
+    "icon": "⚔️",
     "thumbnail": null,
-    "previewVideo": "ShadowArena/preview.mp4",
-    "path": "ShadowArena/index.html",
-    "createdAt": "2026-06-21T08:00:46.897Z"
+    "previewVideo": "BladeTrinity/preview.mp4",
+    "path": "BladeTrinity/index.html",
+    "createdAt": "2026-07-20T05:10:46.227Z"
   },
   {
     "id": "MoonRonin",

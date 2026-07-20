@@ -339,7 +339,7 @@
       // Primary-b: addKeys('W,A,S,D,J,K,L,SPACE,ENTER') string shorthand.
       // Several games register keys this way instead of KeyCodes.X, so the
       // regex above misses them and their action buttons silently vanish
-      // (e.g. ShadowArena J/K/L, DustOutlaw J, the SPACE-jump platformers).
+      // (e.g. BladeTrinity J/K, DustOutlaw J, the SPACE-jump platformers).
       const ak = /addKeys\s*\(\s*['"`]([^'"`]+)['"`]/g;
       while ((m = ak.exec(text)) !== null) {
         m[1].split(',').forEach(raw => {
