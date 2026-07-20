@@ -1,66 +1,78 @@
 {
   "name": "water",
-  "created_at": "2026-07-19T13:32:18.872Z",
+  "created_at": "2026-07-19T14:08:31.737Z",
   "animations": {
     "walk": {
-      "frameCount": 16,
-      "fps": 8,
+      "frameCount": 21,
+      "fps": 13,
       "loop": true,
       "status": "completed",
       "segment": [
-        2,
-        4
+        2.333,
+        3.958
       ],
-      "scale": 0.1422,
-      "updated_at": "2026-07-19T13:32:24.038Z"
+      "scale": 0.2556,
+      "updated_at": "2026-07-19T14:08:34.695Z"
     },
     "idle": {
-      "frameCount": 16,
-      "fps": 8,
+      "frameCount": 21,
+      "fps": 12,
       "loop": true,
       "status": "completed",
       "segment": [
-        0,
-        2
+        0.5,
+        2.292
       ],
-      "scale": 0.1422,
-      "updated_at": "2026-07-19T13:32:42.544Z"
+      "scale": 0.2556,
+      "updated_at": "2026-07-19T14:08:37.733Z"
     },
     "attack": {
-      "frameCount": 20,
-      "fps": 5,
-      "loop": false,
-      "status": "completed",
-      "scale": 0.1422,
-      "updated_at": "2026-07-19T13:32:48.362Z"
-    },
-    "guard": {
-      "frameCount": 20,
-      "fps": 5,
-      "loop": false,
-      "status": "completed",
-      "scale": 0.1422,
-      "updated_at": "2026-07-19T13:32:54.368Z"
-    },
-    "hurt": {
-      "frameCount": 8,
+      "frameCount": 21,
       "fps": 8,
       "loop": false,
       "status": "completed",
       "segment": [
-        0,
-        1
+        0.333,
+        3
       ],
-      "scale": 0.1422,
-      "updated_at": "2026-07-19T13:32:58.539Z"
+      "scale": 0.2556,
+      "updated_at": "2026-07-19T14:08:40.845Z"
     },
-    "down": {
-      "frameCount": 20,
-      "fps": 5,
+    "guard": {
+      "frameCount": 21,
+      "fps": 7,
       "loop": false,
       "status": "completed",
-      "scale": 0.1422,
-      "updated_at": "2026-07-19T13:33:04.188Z"
+      "segment": [
+        0.167,
+        3.167
+      ],
+      "scale": 0.2556,
+      "updated_at": "2026-07-19T14:08:43.974Z"
+    },
+    "hurt": {
+      "frameCount": 18,
+      "fps": 10,
+      "loop": false,
+      "status": "completed",
+      "segment": [
+        0,
+        1.833
+      ],
+      "scale": 0.2556,
+      "updated_at": "2026-07-19T14:08:46.872Z"
+    },
+    "down": {
+      "frameCount": 16,
+      "fps": 13,
+      "loop": false,
+      "status": "completed",
+      "segment": [
+        1.833,
+        3.083
+      ],
+      "scale": 0.2556,
+      "updated_at": "2026-07-19T14:08:49.679Z"
     }
   }
 }

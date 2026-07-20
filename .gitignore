@@ -69,13 +69,7 @@ video_runs/**/output/
 # FBX/GLB 角色素材库 — 大二进制不入库（inbox 待体检接入 / archive 已接入归档）
 assets_fbx/
 
-# BladeTrinity reference assets and video clips
+# BladeTrinity 原始素材 — 参考图 + 绿幕源视频，大二进制不入库
+# 注意：game_runs/BladeTrinity/ 下的 webp/png/json 是成品图集，必须入库
+#（Cloudflare CI 部署要读，见 CLAUDE.md 产物入库规则），不要在这里忽略
 references/BladeTrinity/
-game_runs/BladeTrinity/*.jpg
-game_runs/BladeTrinity/*.png
-game_runs/BladeTrinity/*.webp
-game_runs/BladeTrinity/*.json
-game_runs/BladeTrinity/assets/
-game_runs/BladeTrinity/sword/
-game_runs/BladeTrinity/water/
-game_runs/BladeTrinity/north/

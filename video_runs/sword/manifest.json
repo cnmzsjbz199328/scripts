@@ -1,66 +1,78 @@
 {
   "name": "sword",
-  "created_at": "2026-07-19T13:31:12.816Z",
+  "created_at": "2026-07-19T14:07:48.988Z",
   "animations": {
     "walk": {
-      "frameCount": 16,
-      "fps": 8,
+      "frameCount": 21,
+      "fps": 12,
       "loop": true,
       "status": "completed",
       "segment": [
-        2,
-        4
+        2.167,
+        3.958
       ],
-      "scale": 0.1422,
-      "updated_at": "2026-07-19T13:31:28.799Z"
+      "scale": 0.2959,
+      "updated_at": "2026-07-19T14:07:51.958Z"
     },
     "idle": {
-      "frameCount": 16,
-      "fps": 8,
+      "frameCount": 21,
+      "fps": 12,
       "loop": true,
       "status": "completed",
       "segment": [
-        0,
-        2
+        0.333,
+        2.125
       ],
-      "scale": 0.1422,
-      "updated_at": "2026-07-19T13:31:44.483Z"
+      "scale": 0.2959,
+      "updated_at": "2026-07-19T14:07:54.978Z"
     },
     "attack": {
-      "frameCount": 20,
-      "fps": 5,
+      "frameCount": 21,
+      "fps": 10,
       "loop": false,
       "status": "completed",
-      "scale": 0.1422,
-      "updated_at": "2026-07-19T13:31:50.124Z"
+      "segment": [
+        0.5,
+        2.667
+      ],
+      "scale": 0.2959,
+      "updated_at": "2026-07-19T14:07:57.950Z"
     },
     "guard": {
-      "frameCount": 20,
-      "fps": 5,
+      "frameCount": 21,
+      "fps": 9,
       "loop": false,
       "status": "completed",
-      "scale": 0.1422,
-      "updated_at": "2026-07-19T13:31:55.715Z"
+      "segment": [
+        0.333,
+        2.667
+      ],
+      "scale": 0.2959,
+      "updated_at": "2026-07-19T14:08:00.970Z"
     },
     "hurt": {
-      "frameCount": 8,
-      "fps": 8,
+      "frameCount": 18,
+      "fps": 10,
       "loop": false,
       "status": "completed",
       "segment": [
         0,
-        1
+        1.833
       ],
-      "scale": 0.1422,
-      "updated_at": "2026-07-19T13:32:00.008Z"
+      "scale": 0.2959,
+      "updated_at": "2026-07-19T14:08:03.906Z"
     },
     "down": {
-      "frameCount": 20,
-      "fps": 5,
+      "frameCount": 16,
+      "fps": 13,
       "loop": false,
       "status": "completed",
-      "scale": 0.1422,
-      "updated_at": "2026-07-19T13:32:05.960Z"
+      "segment": [
+        1.833,
+        3.083
+      ],
+      "scale": 0.2959,
+      "updated_at": "2026-07-19T14:08:06.754Z"
     }
   }
 }

@@ -1,144 +1,121 @@
-# BladeTrinity Visual Assets & Sprite Pipeline Guide
+# BladeTrinity 素材流水线
 
-This guide documents the directories, source materials, processed sprite sheets, and exact CLI commands for the three sword fighting schools (**Sword God / 剑神流**, **Water God / 水神流**, **North God / 北神流**) to ensure full reproducibility and ease of future integration.
+三剑流格斗游戏。取材自《无职转生》三大剑术流派：
+**剑神流**（先手极速 · 一击必杀）、**水神流**（后发制人 · 受流反击）、**北神流**（奇诡骗招 · 变招夺械）。
 
----
-
-## 1. Material & Deliverable Locations
-
-All materials are organized to distinguish between source files, raw video clips, and final deliverables. Binary assets are git-ignored, while documentation and configurations are version-controlled.
-
-```
-Learning/scripts/
-├── references/BladeTrinity/               <-- Local Raw Workspace (Git-Ignored)
-│   ├── ref/                                <-- Source References
-│   │   ├── Weixin Image_*.jpg              <-- Original WeChat reference files
-│   │   ├── group.jpg                       <-- Unified group photo with separators
-│   │   ├── ref_sword.png                   <-- Sliced costume (Sword)
-│   │   ├── ref_water.png                   <-- Sliced costume (Water)
-│   │   └── ref_north.png                   <-- Sliced costume (North)
-│   └── clips/                              <-- AI-Generated raw input videos (12 files)
-│       ├── sword_*.mp4
-│       ├── water_*.mp4
-│       └── north_*.mp4
-│
-├── video_runs/                            <-- Frame Extraction Temp Workspace
-│   ├── sword/manifest.json                <-- Tracked manifest (Scale/fps config)
-│   ├── water/manifest.json                <-- Tracked manifest (Scale/fps config)
-│   └── north/manifest.json                <-- Tracked manifest (Scale/fps config)
-│
-└── game_runs/BladeTrinity/                <-- Game Deliverables (Local & Ignored)
-    ├── PROMPTS.md                         <-- Tracked design prompts (Tracked)
-    ├── README.md                          <-- Tracked guides and commands (Tracked)
-    ├── group.jpg                          <-- Reference copy (Ignored)
-    ├── ref_*.png                          <-- Sliced reference copies (Ignored)
-    │
-    ├── [sword|water|north].webp           <-- Flat deliverables (Ignored)
-    ├── [sword|water|north].json           <-- Flat metadata (Ignored)
-    └── assets/sprites/                    <-- Structured deliverables (Ignored)
-        ├── [sword|water|north].webp        
-        └── [sword|water|north].json
-```
+素材走 `skills/video-sprite` 视频轨：AI 绿幕视频 → 锚点对齐抽帧 → 图集。
+提示词真源见 [PROMPTS.md](PROMPTS.md)。
 
 ---
 
-## 2. Git Version Control Status
+## 1. 目录
 
-To keep the repository clean and light, the following files are **tracked** or **ignored** according to [scripts/.gitignore](file:///C:/Users/tj169/Flinders/work/Learning/scripts/.gitignore):
+```
+references/BladeTrinity/          <-- 原始素材（gitignored，见 .gitignore）
+├── ref/                          <-- 参考图 + 定妆图 + 补边版首帧
+└── clips/                        <-- 12 段 AI 绿幕源视频
 
-* **Tracked Files (Version Controlled)**:
-  * `game_runs/BladeTrinity/PROMPTS.md` (Design specifications)
-  * `game_runs/BladeTrinity/README.md` (This document)
-  * `video_runs/[sword|water|north]/manifest.json` (Scale parameters, frame count metadata, and configuration definitions)
-* **Ignored Files (Local Only)**:
-  * All raw videos (`references/BladeTrinity/clips/*.mp4`)
-  * All reference images (`references/BladeTrinity/ref/*`, `game_runs/BladeTrinity/*.jpg`, `game_runs/BladeTrinity/*.png`)
-  * Final spritesheet images and metadata (`game_runs/BladeTrinity/*.webp`, `game_runs/BladeTrinity/*.json`, `game_runs/BladeTrinity/assets/`)
-  * Temporary animation frames (`video_runs/[sword|water|north]/animations/`)
+video_runs/{sword,water,north}/   <-- 抽帧工作区
+└── manifest.json                 <-- 入库：分段/帧数/scale 参数记录
+
+game_runs/BladeTrinity/
+├── PROMPTS.md                    <-- 提示词真源
+├── README.md                     <-- 本文件
+├── tools/rebuild.sh              <-- 一键重建（唯一权威的复现方式）
+└── assets/sprites/               <-- 入库：成品图集（Cloudflare CI 部署要读）
+    ├── {sword,water,north}.webp
+    └── atlases.js                <-- 元数据（window.BT.ATLAS）
+```
+
+> 入库规则：`game_runs/` 下的 webp/png **必须入库**（CLAUDE.md 铁律，Cloudflare CI 部署依赖），
+> 只有 `references/BladeTrinity/` 整个目录不入库。
+>
+> 元数据是 **`atlases.js` 而非 sprite.json**，两个原因叠加：
+> `game_runs/**/*.json` 被全局 gitignore（只放行 `games.json`），
+> 且架构铁律要求 `<script>` 标签加载、不 fetch json。
+> 游戏侧读 `window.BT.ATLAS[角色].animations[动作]` 拿 row / frameCount / fps / loop。
 
 ---
 
-## 3. Reprocessing & Reproducing Sprites
+## 2. 重建
 
-If you need to regenerate the spritesheets from the raw MP4 clips, execute the following commands in the workspace root:
-
-### Step 1: Initialize the Runs
 ```bash
-npx tsx skills/video-sprite/prepare.ts sword
-npx tsx skills/video-sprite/prepare.ts water
-npx tsx skills/video-sprite/prepare.ts north
+bash game_runs/BladeTrinity/tools/rebuild.sh
 ```
 
-### Step 2: Run processing
-All character frames are aligned in **Anchor Mode (`--anchor`)** to prevent shifting and jittering. All clips share a unified scale of **`0.1422`** to ensure height and baseline matching.
+脚本是复现的唯一权威来源，参数不要手抄到别处——分段帧号、统一 scale、去黑边裁切框
+三者互相耦合，改一个另外两个就得跟着重算。脚本内注释写了每个决定的理由。
 
-#### A. Sword God (剑神流)
+四个步骤：预裁去黑边 → 探测各行 scale → 统一 scale 重跑 → 去绿溢色并安装。
+
+---
+
+## 3. 三个坑（改参数前必读）
+
+**① 源视频有黑边，必须预裁。**
+源片 1280×720，但首帧参考图是 1152×1152 正方形，模型左右各补了 279px 黑色 pillarbox。
+chroma-key 只抠绿不抠黑 → 黑边被当成前景 → 撑爆 bbox → 角色被压成指甲盖大小。
+裁切框 `crop=712:716:284:2` 比黑边再往内 4px，因为 x=279 那一列是 `rgb(30,52,26)` 的暗绿接缝，
+离纯绿距离 205 > 阈值 110，会被判成前景形成一条竖线。
+
+> ⚠️ 修这个坑**不要去改 `skills/video-sprite/process.ts`**。那是全部游戏共用的抠图层，
+> 曾经被写死过 `if (width === 1280 && (x < 280 || x >= 1000)) 抹掉alpha`，
+> 等于让任何项目的 1280 宽视频都被静默削掉左右两条。已还原，别再犯。
+
+**② 统一 scale 取六行的最小值，不是走路值。**
+攻击帧 bbox 可达 651×548，按走路 scale（0.44）缩放会变成 290×244，
+远超 192×208 的格子，刀和身体都会被切。取最小值代价是角色在格内偏小，但行内绝对一致。
+游戏里放大显示即可。
+
+**③ 分段边界靠数据定，不是照抄提示词的设计时间。**
+AI 不会严格按提示词的时间表走。实际做法是逐帧算抠图 bbox 的宽高比 / 质心 / 顶端 y：
+- **倒地时刻** = `w/h` 升到高位后完全恒定的那一帧（如 sword_hit 从 f72 起恒定 3.54）
+- **stance 开头几帧**是从定妆姿势过渡，必须跳过；north 前 16 帧在转身（含正面和背面），
+  绝不能进 idle 循环
+
+---
+
+## 4. 成品规格
+
+三张图集均 **4032×1248**（6 行 × 21 列，192×208/格）。
+21 列是硬上限：192×21 = 4032 < 4096，老 GPU 纹理宽度限制。
+
+| 行 | 动画 | 帧数 | 备注 |
+|----|------|------|------|
+| 0 | walk | 21 | loop |
+| 1 | idle | 21 | loop |
+| 2 | attack | 21 | once |
+| 3 | guard | 21 | once |
+| 4 | hurt | 18 | once，踉跄 |
+| 5 | down | 16 | once，倒地，末帧静止 |
+
+fps 按各段实际时长反算（7–13fps 不等），见各自 `sprite.json`。
+统一 scale：sword `0.2959` / water `0.2556` / north `0.2796`。
+
+---
+
+## 5. 验收
+
+图集**必须逐张目检**，只看脚本报告不算数——上一版就是因为跳过目检，
+带着满格黑边和指甲盖大的角色进了库。
+
 ```bash
-# Idle (Looping breathing, 0s-2s)
-npx tsx skills/video-sprite/process.ts sword idle references/BladeTrinity/clips/sword_stance.mp4 --anchor --start=0.0 --end=2.0 --frames=16 --fps=8 --scale=0.1422
-
-# Walk (Looping step, 2s-4s)
-npx tsx skills/video-sprite/process.ts sword walk references/BladeTrinity/clips/sword_stance.mp4 --anchor --start=2.0 --end=4.0 --frames=16 --fps=8 --scale=0.1422
-
-# Attack (Brutal slash, 0s-4s)
-npx tsx skills/video-sprite/process.ts sword attack references/BladeTrinity/clips/sword_attack.mp4 --anchor --frames=20 --fps=5 --scale=0.1422 --no-loop
-
-# Guard (Braced block, 0s-4s)
-npx tsx skills/video-sprite/process.ts sword guard references/BladeTrinity/clips/sword_guard.mp4 --anchor --frames=20 --fps=5 --scale=0.1422 --no-loop
-
-# Hurt (Staggered reaction, first 1s of hit)
-npx tsx skills/video-sprite/process.ts sword hurt references/BladeTrinity/clips/sword_hit.mp4 --anchor --start=0.0 --end=1.0 --frames=8 --fps=8 --scale=0.1422 --no-loop
-
-# Down (Knockdown fall, 0s-4s of hit)
-npx tsx skills/video-sprite/process.ts sword down references/BladeTrinity/clips/sword_hit.mp4 --anchor --frames=20 --fps=5 --scale=0.1422 --no-loop
+# 铺到洋红底上看（透明区一眼可见，绿色残留也藏不住）
+node -e "
+const sharp=require('sharp');
+(async()=>{for(const n of ['sword','water','north']){
+  const b=await sharp('game_runs/BladeTrinity/assets/sprites/'+n+'.webp')
+    .flatten({background:{r:255,g:0,b:255}}).toBuffer();
+  await sharp(b).resize(1680).png().toFile('/tmp/'+n+'_view.png');
+}})();"
 ```
 
-#### B. Water God (水神流)
-```bash
-# Idle (Looping breathing, 0s-2s)
-npx tsx skills/video-sprite/process.ts water idle references/BladeTrinity/clips/water_stance.mp4 --anchor --start=0.0 --end=2.0 --frames=16 --fps=8 --scale=0.1422
+逐项确认：
 
-# Walk (Looping glide, 2s-4s)
-npx tsx skills/video-sprite/process.ts water walk references/BladeTrinity/clips/water_stance.mp4 --anchor --start=2.0 --end=4.0 --frames=16 --fps=8 --scale=0.1422
-
-# Attack (Horizontal swing, 0s-4s)
-npx tsx skills/video-sprite/process.ts water attack references/BladeTrinity/clips/water_attack.mp4 --anchor --frames=20 --fps=5 --scale=0.1422 --no-loop
-
-# Guard (Yielding deflection parry, 0s-4s)
-npx tsx skills/video-sprite/process.ts water guard references/BladeTrinity/clips/water_guard.mp4 --anchor --frames=20 --fps=5 --scale=0.1422 --no-loop
-
-# Hurt (Staggered reaction, first 1s of hit)
-npx tsx skills/video-sprite/process.ts water hurt references/BladeTrinity/clips/water_hit.mp4 --anchor --start=0.0 --end=1.0 --frames=8 --fps=8 --scale=0.1422 --no-loop
-
-# Down (Knockdown fall, 0s-4s of hit)
-npx tsx skills/video-sprite/process.ts water down references/BladeTrinity/clips/water_hit.mp4 --anchor --frames=20 --fps=5 --scale=0.1422 --no-loop
-```
-
-#### C. North God (北神流)
-```bash
-# Idle (Looping sway, 0s-2s)
-npx tsx skills/video-sprite/process.ts north idle references/BladeTrinity/clips/north_stance.mp4 --anchor --start=0.0 --end=2.0 --frames=16 --fps=8 --scale=0.1422
-
-# Walk (Looping irregular crawl, 2s-4s)
-npx tsx skills/video-sprite/process.ts north walk references/BladeTrinity/clips/north_stance.mp4 --anchor --start=2.0 --end=4.0 --frames=16 --fps=8 --scale=0.1422
-
-# Attack (Feint-to-stab, 0s-4s)
-npx tsx skills/video-sprite/process.ts north attack references/BladeTrinity/clips/north_attack.mp4 --anchor --frames=20 --fps=5 --scale=0.1422 --no-loop
-
-# Guard (Spin deflection, 0s-4s)
-npx tsx skills/video-sprite/process.ts north guard references/BladeTrinity/clips/north_guard.mp4 --anchor --frames=20 --fps=5 --scale=0.1422 --no-loop
-
-# Hurt (Staggered reaction, first 1s of hit)
-npx tsx skills/video-sprite/process.ts north hurt references/BladeTrinity/clips/north_hit.mp4 --anchor --start=0.0 --end=1.0 --frames=8 --fps=8 --scale=0.1422 --no-loop
-
-# Down (Knockdown fall, 0s-4s of hit)
-npx tsx skills/video-sprite/process.ts north down references/BladeTrinity/clips/north_hit.mp4 --anchor --frames=20 --fps=5 --scale=0.1422 --no-loop
-```
-
-### Step 3: Assemble Spritesheets
-```bash
-npx tsx skills/video-sprite/assemble.ts sword
-npx tsx skills/video-sprite/assemble.ts water
-npx tsx skills/video-sprite/assemble.ts north
-```
-*Note: Copies of the final outputs are located inside `game_runs/BladeTrinity/` for convenience.*
+- [ ] 格内**没有黑色竖条**（全图近黑不透明像素应在几百量级；废图时期是每格约 1017 个）
+- [ ] 角色**占满格子**，不是缩在中间一小块
+- [ ] 六行角色**大小一致**，不忽大忽小
+- [ ] 攻击/格挡行**没有大块绿色三角**（去溢色后应是淡色刀光）
+- [ ] 倒地行**末帧是躺姿且静止**，身体没被格子边缘切掉
+- [ ] 剪影面积在各帧间有**真实变化**（举剑过顶 vs 躺地差异应显著；
+      若全程恒定在 ±5% 内，说明抠的是黑边不是角色）
