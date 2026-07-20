@@ -13,6 +13,10 @@ BT.FRAME_H = 208;
 // 角色因此只占格高约 60%，这里放大回格斗游戏该有的体量
 BT.SCALE = 1.9;
 
+// 命中框半宽（纹理 26px × SCALE）。刀尖碰到对手躯干边缘即算命中，
+// 所以攻击距离 = 当前帧刀长 + 这个半宽。
+BT.BODY_HALF_W = 26 * BT.SCALE;
+
 // MIGRATION.md 要求的空全局（部分工具链会读）
 window.GAME_CONFIG = {};
 window.TILEMAP_DATA = {};

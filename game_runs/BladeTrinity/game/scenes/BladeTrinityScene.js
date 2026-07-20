@@ -70,7 +70,12 @@ class BladeTrinityScene extends Phaser.Scene {
         act: 1, deaths: 0, deathBudget: 1,
         won: !!this._won, lost: !!this._lost,
         cardActive: false, started: this.phase === 'fight',
+        // nextGoalX 填对手坐标。试过改成"自己的交战位置"（reach*0.8 处）让 bot
+        // 停在射程边缘，六局全输 —— bot 站住不动后反而被 AI 压着打。
         nextGoalX: e.sprite.x, worldW: BT.GAME_W, cellX: BT.GAME_W,
+        // attack 保持"在射程内就报 true"：Phaser 的 JustDown 事件会留到下一次
+        // update 才被读取，密集按反而更容易卡到可行动的那一帧。
+        // 试过改成只在 _canAct 时上报，bot 胜率反而从 3/5 掉到 2/6。
         moveX: inRange ? 0 : Math.sign(dx), moveY: 0, attack: inRange,
         dangerNow: false, dangerAhead: false,
       };
@@ -93,6 +98,8 @@ class BladeTrinityScene extends Phaser.Scene {
 
     this._faceEachOther();
     this._controlPlayer(time);
+    // 供 _resolveMelee 做时间轴扫掠用（低帧率下窗口可能整个夹在两帧之间）
+    if (this._prevTime === undefined) this._prevTime = time;
     this._controlAI(time);
     for (const f of this.fighters) this._tickDefense(f, time);
     for (const f of this.fighters) this._resolveMelee(f);
@@ -105,5 +112,6 @@ class BladeTrinityScene extends Phaser.Scene {
       this._setState(f, 'idle');
     }
     this._fighterPhysics();
+    this._prevTime = time;
   }
 }

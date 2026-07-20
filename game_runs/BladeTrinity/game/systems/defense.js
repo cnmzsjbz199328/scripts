@@ -91,7 +91,12 @@ Object.assign(BladeTrinityScene.prototype, {
       // 水神流受流：按下防御后 perfect 毫秒内为完美窗口
       const d = BT.DEFENSE.parry;
       const held = this.time.now - target.guardFrom;
-      if (held <= d.perfect) {
+      // ⚠️ 完美受流【只对玩家开放】。AI 是读 opp.state==='attack' 反应式交防御的，
+      // guardFrom 永远刚刚开始，等于每次都完美 —— 玩家零伤害 + 被卸力硬直 520ms
+      // + AI 拿 ×1.8 反击，这是人类反应速度做不到的白送优势。
+      // （playtest 里 bot 因此长期被压制，胜率掉到两三成。）
+      // 完美格挡是玩家的读招技术，AI 只吃普通格挡的减伤。
+      if (held <= d.perfect && target === this.p1) {
         // 完美：对手被卸力硬直，自己获得反击窗口
         this._setState(attacker, 'stun', d.attackerStun);
         attacker.sprite.setVelocityX(0);
@@ -112,10 +117,11 @@ Object.assign(BladeTrinityScene.prototype, {
 
   // 反击窗口内伤害加成——水神流「后发制人」的收益兑现处
   _damageOf(f) {
-    const base = BT.ATTACK[f.id].dmg;
+    let dmg = BT.ATTACK[f.id].dmg;
     if (f.riposteUntil && this.time.now < f.riposteUntil) {
-      return Math.round(base * BT.DEFENSE.parry.riposteBonus);
+      dmg *= BT.DEFENSE.parry.riposteBonus;
     }
-    return base;
+    if (f === this.p2) dmg *= BT.AI.damageScale;   // 难度旋钮，只作用于电脑一侧
+    return Math.round(dmg);
   },
 });

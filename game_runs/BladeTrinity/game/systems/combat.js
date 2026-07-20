@@ -22,6 +22,19 @@ Object.assign(BladeTrinityScene.prototype, {
   // 能否行动：idle/walk/guard 可以，出招/受击/硬直/倒地不行
   _canAct(f) { return f.state === 'idle' || f.state === 'walk' || f.state === 'guard'; },
 
+  // 走路：格斗游戏里角色恒定面向对手，往身后走是【撤步】而不是转身。
+  // 只有一条 walk 行，撤步时正着播会看着像"倒着走"——所以撤步倒放动画。
+  _setWalk(f, vx) {
+    const back = vx !== 0 && (vx > 0) === f.facingLeft;   // 移动方向与朝向相反
+    if (f.state === 'walk' && f.walkBack === back) return;
+    f.state = 'walk';
+    f.stateUntil = 0;
+    f.walkBack = back;
+    const key = `${f.id}_walk`;
+    if (back) f.sprite.anims.playReverse(key, true);
+    else f.sprite.play(key, true);
+  },
+
   _opp(f) { return f === this.p1 ? this.p2 : this.p1; },
 
   // ─────────── 特效 ───────────
@@ -107,6 +120,8 @@ Object.assign(BladeTrinityScene.prototype, {
       blocked ? 0x9fd0ff : 0xff5544, blocked ? 10 : 16, blocked ? 1.8 : 2.5);
     this.cameras.main.shake(blocked ? 60 : 135, blocked ? 0.003 : 0.008);
 
+    // 试过加"已进入判定的招式不被打断"（对拼）：双方都不被打断后 AI 因出手更
+    // 频繁而获利，playtest 六局全输。受击照常打断攻击。
     if (!blocked) this._setState(target, 'hurt');
     if (target.hp <= 0) this._ko(target);
   },
