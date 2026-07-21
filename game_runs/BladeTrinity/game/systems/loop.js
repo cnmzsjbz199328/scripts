@@ -19,6 +19,12 @@ Object.assign(BladeTrinityScene.prototype, {
   _controlPlayer(time) {
     const f = this.p1, sp = f.sprite, onGround = sp.body.blocked.down;
     if (this._handleCharge(f, time)) return;   // 蓄力中/起手：独占操作，原地锁死
+    // 移形换影：SPACE 瞬移，按住上 = 升空，否则 = 缩地（无敌+残影+冷却，不耗蓝）
+    if (Phaser.Input.Keyboard.JustDown(this.keys.SPACE)) {
+      const up = this.keys.W.isDown || this.cursors.up.isDown;
+      this._doBlink(f, up ? 'rise' : 'ground', time);
+      return;
+    }
     if (Phaser.Input.Keyboard.JustDown(this.keys.J)) return this._attack(f);
     if (Phaser.Input.Keyboard.JustDown(this.keys.K)) return this._startDefense(f, time);
 
