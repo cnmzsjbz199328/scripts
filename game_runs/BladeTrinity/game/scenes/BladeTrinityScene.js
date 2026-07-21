@@ -67,28 +67,30 @@ class BladeTrinityScene extends Phaser.Scene {
       }
       const a = this.p1, e = this.p2;
       if (!a || !e) return null;
+      const fighting = this.phase === 'fight';   // interlude/over 时 bot 应待机
       const sp = a.sprite, dx = e.sprite.x - sp.x, dist = Math.abs(dx);
-      const inRange = dist < a.def.reach + 6;
+      const inRange = fighting && dist < a.def.reach + 6;
       return {
         x: sp.x, y: sp.y, vx: sp.body.velocity.x, onGround: sp.body.blocked.down,
         hp: a.hp, maxHp: a.maxHp,
         score: e.maxHp - e.hp, goalScore: e.maxHp,
-        act: 1, deaths: 0, deathBudget: 1,
+        // act = 当前第几场擂台；deathBudget/deaths 沿用单命契约（玩家倒下即 lost）
+        act: (this.round || 0) + 1, deaths: 0, deathBudget: 1,
         won: !!this._won, lost: !!this._lost,
-        cardActive: false, started: this.phase === 'fight',
+        cardActive: false, started: fighting,
         // nextGoalX 填对手坐标。试过改成"自己的交战位置"（reach*0.8 处）让 bot
         // 停在射程边缘，六局全输 —— bot 站住不动后反而被 AI 压着打。
-        nextGoalX: e.sprite.x, worldW: BT.GAME_W, cellX: BT.GAME_W,
+        nextGoalX: fighting ? e.sprite.x : sp.x, worldW: BT.GAME_W, cellX: BT.GAME_W,
         // attack 保持"在射程内就报 true"：Phaser 的 JustDown 事件会留到下一次
         // update 才被读取，密集按反而更容易卡到可行动的那一帧。
         // 试过改成只在 _canAct 时上报，bot 胜率反而从 3/5 掉到 2/6。
-        moveX: inRange ? 0 : Math.sign(dx), moveY: 0, attack: inRange,
+        moveX: !fighting ? 0 : inRange ? 0 : Math.sign(dx), moveY: 0, attack: inRange,
         dangerNow: false, dangerAhead: false,
       };
     };
   }
 
-  update(time) {
+  update(time, delta) {
     if (this.phase === 'select') {
       if (Phaser.Input.Keyboard.JustDown(this.keys.A) ||
           Phaser.Input.Keyboard.JustDown(this.cursors.left)) this._selectMove(-1);
@@ -99,8 +101,13 @@ class BladeTrinityScene extends Phaser.Scene {
           Phaser.Input.Keyboard.JustDown(this.keys.ENTER)) this._selectConfirm();
       return;
     }
-    if (this.phase === 'over') { this._fighterPhysics(); return; }
+    // over / interlude：战斗逻辑停摆，只让物理把倒地/站立姿态收干净
+    if (this.phase === 'over' || this.phase === 'interlude') { this._fighterPhysics(); return; }
     if (this.phase !== 'fight') return;
+
+    // 蓝随时间回复（用户定：计时回复，不靠打中/防御）
+    for (const f of this.fighters) f.mp = Math.min(f.maxMp, f.mp + BT.MP.regen * delta / 1000);
+    this._drawBars();
 
     this._faceEachOther();
     this._controlPlayer(time);

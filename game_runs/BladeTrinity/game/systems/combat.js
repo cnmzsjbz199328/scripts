@@ -154,8 +154,20 @@ Object.assign(BladeTrinityScene.prototype, {
     loser.sprite.play(`${loser.id}_down`, true);
     loser.sprite.setVelocityX(0);
     this._settleDown(loser);
-    this.phase = 'over';
-    const win = loser === this.p2;
-    if (win) this._won = true; else this._lost = true;
+
+    if (loser === this.p1) {          // 玩家倒下 → 整场擂台失败
+      this.phase = 'over';
+      this._lost = true;
+      return;
+    }
+    // 玩家胜这一场
+    if (this.round >= this.oppQueue.length - 1) {   // 最后一场 → 登顶
+      this.phase = 'over';
+      this._won = true;
+      return;
+    }
+    // 还有下一位对手：停顿演出后登台。interlude 期间只跑物理，不跑战斗逻辑。
+    this.phase = 'interlude';
+    this.time.delayedCall(BT.ROUND_HOLD, () => this._nextRound());
   },
 });

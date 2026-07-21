@@ -2,13 +2,11 @@
 Object.assign(BladeTrinityScene.prototype, {
 
   _buildSelect() {
-    this.selStep = 0;
-    this.selCursor = [0, 1];
-    this.pick = [null, null];
+    this.selCursor = [0];
     this.selGroup = this.add.container(0, 0).setDepth(50);
 
-    this.selTitle = this.add.text(BT.GAME_W / 2, 52, '选择你的流派 (P1)', {
-      fontFamily: 'Segoe UI, monospace', fontSize: '30px', color: '#f7ecd8', fontStyle: 'bold',
+    this.selTitle = this.add.text(BT.GAME_W / 2, 52, '选择你的流派 —— 挑翻另两家，登顶擂台', {
+      fontFamily: 'Segoe UI, monospace', fontSize: '26px', color: '#f7ecd8', fontStyle: 'bold',
     }).setOrigin(0.5);
     const tip = this.add.text(BT.GAME_W / 2, BT.GAME_H - 26, 'A / D 选择　·　SPACE / J 确认', {
       fontFamily: 'Segoe UI, monospace', fontSize: '17px', color: '#c9b79a',
@@ -39,31 +37,24 @@ Object.assign(BladeTrinityScene.prototype, {
     });
 
     this.selBoxP1 = this.add.rectangle(0, 250, 196, 250).setStrokeStyle(5, 0x4a9fd8).setDepth(49);
-    this.selBoxP2 = this.add.rectangle(0, 250, 180, 236).setStrokeStyle(5, 0xe2483b)
-      .setDepth(49).setVisible(false);
-    this.selGroup.add([this.selBoxP1, this.selBoxP2]);
+    this.selGroup.add(this.selBoxP1);
     this._refreshSelect();
   },
 
   _refreshSelect() {
     const gap = BT.GAME_W / 3, cx = (i) => gap * i + gap / 2;
     this.selBoxP1.setPosition(cx(this.selCursor[0]), 250);
-    this.selBoxP2.setPosition(cx(this.selCursor[1]), 250).setVisible(this.selStep >= 1);
-    this.selTitle.setText(this.selStep === 0 ? '选择你的流派 (P1)' : '选择对手流派 (P2)');
-    this.selSprites.forEach((s, i) => s.setAlpha(i === this.selCursor[this.selStep] ? 1 : 0.4));
+    this.selSprites.forEach((s, i) => s.setAlpha(i === this.selCursor[0] ? 1 : 0.4));
   },
 
   _selectMove(d) {
     if (this.phase !== 'select') return;
-    this.selCursor[this.selStep] =
-      Phaser.Math.Wrap(this.selCursor[this.selStep] + d, 0, BT.ROSTER.length);
+    this.selCursor[0] = Phaser.Math.Wrap(this.selCursor[0] + d, 0, BT.ROSTER.length);
     this._refreshSelect();
   },
 
   _selectConfirm() {
     if (this.phase !== 'select') return;
-    this.pick[this.selStep] = BT.ROSTER[this.selCursor[this.selStep]];
-    if (this.selStep === 0) { this.selStep = 1; this._refreshSelect(); }
-    else this._startFight(this.pick[0], this.pick[1]);
+    this._startGauntlet(BT.ROSTER[this.selCursor[0]]);
   },
 });

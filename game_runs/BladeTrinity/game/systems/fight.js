@@ -1,11 +1,21 @@
 /* BladeTrinity — 开打 / 建角色 / 血条 / 舞台。 */
 Object.assign(BladeTrinityScene.prototype, {
 
+  // 选完自己流派进这里：把另两家流派排成擂台队列，依次打。
+  _startGauntlet(p1Id) {
+    if (!BT.SCHOOLS[p1Id]) p1Id = 'sword';
+    this._p1Id = p1Id;
+    this.round = 0;
+    this.oppQueue = BT.ROSTER.filter((id) => id !== p1Id);   // 另两家，按 ROSTER 序
+    this._startFight(p1Id, this.oppQueue[0]);
+    this._roundToast();
+  },
+
   _startFight(p1Id, p2Id) {
     if (!BT.SCHOOLS[p1Id]) p1Id = 'sword';
     if (!BT.SCHOOLS[p2Id]) p2Id = 'water';
     this.phase = 'fight';
-    this.selGroup.destroy();
+    if (this.selGroup) { this.selGroup.destroy(); this.selGroup = null; }
 
     this.p1 = this._makeFighter(p1Id, 268, false);
     this.p2 = this._makeFighter(p2Id, BT.GAME_W - 268, true);
@@ -13,10 +23,49 @@ Object.assign(BladeTrinityScene.prototype, {
 
     this._buildBars();
     window.__gameState = { player: this.p1.sprite };
-    const d = BT.SCHOOLS[p1Id].defense;
-    const dk = d === 'dodge' ? 'K 闪避' : d === 'parry' ? 'S 受流' : 'S 硬扛';
-    window.GameHUD?.setObjective(`击倒对手！　J 斩　${dk}　AD 移动`);
+    this._setFightObjective();
     this.aiNext = 0;
+  },
+
+  _setFightObjective() {
+    const d = BT.SCHOOLS[this._p1Id].defense;
+    const dk = d === 'dodge' ? 'K 闪避' : d === 'parry' ? 'S 受流' : 'S 硬扛';
+    const n = this.oppQueue.length;
+    window.GameHUD?.setObjective(
+      `擂台 ${this.round + 1}/${n}：${BT.SCHOOLS[this.p2.id].name}　│　J 斩　${dk}　AD 移动`);
+  },
+
+  // 玩家胜一场、还有下一场：换上下一位对手，半回血，回满蓝，原地重开。
+  _nextRound() {
+    this.round++;
+    const a = this.p1;
+    a.hp = Math.min(a.maxHp, a.hp + Math.round(a.maxHp * BT.ROUND_HEAL));
+    a.mp = a.maxMp;
+    a.sprite.setPosition(268, BT.FLOOR_Y - 70).setVelocity(0, 0);
+    a.state = 'idle'; a.stateUntil = 0; a.invuln = 0; a.atkHit = false;
+    a.facingLeft = false; a.sprite.setFlipX(true);
+    a.sprite.play(`${a.id}_idle`, true);
+
+    this.p2.sprite.destroy();
+    this.p2 = this._makeFighter(this.oppQueue[this.round], BT.GAME_W - 268, true);
+    this.fighters = [this.p1, this.p2];
+
+    this._buildBars();
+    this._setFightObjective();
+    this._roundToast();
+    this.phase = 'fight';
+    this.aiNext = 0;
+  },
+
+  // 登台横幅：当前对手流派名 + 招牌
+  _roundToast() {
+    const s = BT.SCHOOLS[this.p2.id];
+    const t = this.add.text(BT.GAME_W / 2, 150, `第 ${this.round + 1} 战　${s.title}`, {
+      fontFamily: 'Segoe UI, monospace', fontSize: '30px', color: s.accent,
+      fontStyle: 'bold', stroke: '#120a06', strokeThickness: 6,
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(70).setAlpha(0);
+    this.tweens.add({ targets: t, alpha: 1, duration: 220, yoyo: true, hold: 900,
+      onComplete: () => t.destroy() });
   },
 
   _makeFighter(id, x, faceLeft) {
@@ -34,11 +83,13 @@ Object.assign(BladeTrinityScene.prototype, {
     return {
       id, def, sprite: sp,
       hp: def.hp, maxHp: def.hp,
+      mp: BT.MP.max, maxMp: BT.MP.max,          // 蓝：进场满管
       state: 'idle', stateUntil: 0,
       invuln: 0, atkFrom: 0, atkTo: 0, atkHit: false, prevDx: null,
       facingLeft: faceLeft,
       guardFrom: 0, iframeUntil: 0, dodgeReady: 0, dodgedSomething: false,
       riposteUntil: 0,
+      chargeFrom: 0, charging: false, mistReady: 0, riseReady: 0,   // 后续机制预留
     };
   },
 
@@ -46,28 +97,35 @@ Object.assign(BladeTrinityScene.prototype, {
   // 血条压在 y=52 以下：DOM 层的 HUD 目标文字占了画面顶部约 40px，
   // 画布内的文字画在 y=20 会和它重叠
   _buildBars() {
-    this.barG = this.add.graphics().setScrollFactor(0).setDepth(60);
+    // 换场会重建血条：先清掉上一场的名牌文字，避免叠字/泄漏
+    if (this.barTexts) this.barTexts.forEach((t) => t.destroy());
+    this.barG = this.barG || this.add.graphics().setScrollFactor(0).setDepth(60);
     const mk = (x, id, origin) => this.add.text(x, 76,
       `${BT.SCHOOLS[id].name}　${BT.SCHOOLS[id].blurb}`,
       { fontFamily: 'Segoe UI, monospace', fontSize: '15px', color: '#f2e7d5', fontStyle: 'bold' })
       .setOrigin(origin, 0).setScrollFactor(0).setDepth(61);
-    mk(40, this.p1.id, 0);
-    mk(BT.GAME_W - 40, this.p2.id, 1);
+    this.barTexts = [mk(40, this.p1.id, 0), mk(BT.GAME_W - 40, this.p2.id, 1)];
     this._drawBars();
   },
 
   _drawBars() {
     const g = this.barG; g.clear();
     const W = 372, H = 20, y = 52;
-    const bar = (x, frac, color, rightAlign) => {
-      g.fillStyle(0x000000, 0.42); g.fillRect(x, y, W, H);
-      const w = W * Phaser.Math.Clamp(frac, 0, 1);
+    const bar = (x, yy, w0, h, frac, color, rightAlign) => {
+      g.fillStyle(0x000000, 0.42); g.fillRect(x, yy, w0, h);
+      const w = w0 * Phaser.Math.Clamp(frac, 0, 1);
       g.fillStyle(color, 1);
-      g.fillRect(rightAlign ? x + W - w : x, y, w, H);
-      g.lineStyle(2, 0x1a1208, 0.85); g.strokeRect(x, y, W, H);
+      g.fillRect(rightAlign ? x + w0 - w : x, yy, w, h);
+      g.lineStyle(2, 0x1a1208, 0.85); g.strokeRect(x, yy, w0, h);
     };
-    bar(40, this.p1.hp / this.p1.maxHp, BT.SCHOOLS[this.p1.id].barColor, false);
-    bar(BT.GAME_W - 40 - W, this.p2.hp / this.p2.maxHp, BT.SCHOOLS[this.p2.id].barColor, true);
+    bar(40, y, W, H, this.p1.hp / this.p1.maxHp, BT.SCHOOLS[this.p1.id].barColor, false);
+    bar(BT.GAME_W - 40 - W, y, W, H, this.p2.hp / this.p2.maxHp, BT.SCHOOLS[this.p2.id].barColor, true);
+    // 玩家蓝条：血条正下方一条细蓝槽，刻度分成 ultCost 段，一眼看出还剩几发奥义。
+    // AI 暂不放奥义，故只画玩家一侧（等 AI 接入奥义再补右侧）。
+    const my = y + H + 4, mh = 8, seg = BT.MP.ultCost / BT.MP.max;
+    bar(40, my, W, mh, this.p1.mp / this.p1.maxMp, 0x39c2ff, false);
+    g.lineStyle(2, 0x0a1622, 0.9);
+    for (let s = seg; s < 0.999; s += seg) { g.beginPath(); g.moveTo(40 + W * s, my); g.lineTo(40 + W * s, my + mh); g.strokePath(); }
   },
 
   // ─────────── 舞台（背景三层贴图，见 BT.BG 的定标推导）───────────
