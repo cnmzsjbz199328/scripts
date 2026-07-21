@@ -41,11 +41,13 @@ BT.ROSTER = ['sword', 'water', 'north'];
 // north 第 12~16 帧才是真突刺（前面是假动作）。
 // fps 与图集里记录的 fps 【故意解耦】——图集 fps 保的是视频真实时长（2 秒级），
 // 游戏要的是脆，所以这里重新定帧率。
+// dmg 相比原版砍约三成：平A 是不耗蓝的白嫖输出，把伤害空间让给蓄力奥义（BT.QI），
+// 逼玩家穿插放剑气而不是一路平砍。原值 sword22/water13/north11。
 BT.ATTACK = {
-  sword: { dur: 780, from: 280, to: 380, dmg: 22, lunge: 150, fps: 28, feint: 0 },
-  water: { dur: 830, from: 190, to: 390, dmg: 13, lunge: 90, fps: 26, feint: 0 },
+  sword: { dur: 780, from: 280, to: 380, dmg: 15, lunge: 150, fps: 28, feint: 0 },
+  water: { dur: 830, from: 190, to: 390, dmg: 9,  lunge: 90, fps: 26, feint: 0 },
   // feint：0~250ms 是有动作但【无判定】的假动作段，骗防御用
-  north: { dur: 720, from: 400, to: 545, dmg: 11, lunge: 130, fps: 30, feint: 250 },
+  north: { dur: 720, from: 400, to: 545, dmg: 8,  lunge: 130, fps: 30, feint: 250 },
 };
 
 // reach 不再手写，由【逐帧刀长表】算出。手写值曾定在 86~94，而实测挥砍帧
@@ -121,6 +123,30 @@ BT.MP = {
   ultCost: 100,      // 一发完整剑气的蓝耗（蓄力按比例扣，见 charge.js）
   regen: 23,         // 每秒回蓝
   drainRate: 100 / 420,   // 蓄力每毫秒扣蓝：满蓄 420ms 正好一发（占位，charge.js 用）
+};
+
+// ─────────── 蓄力奥义（按住 L）───────────
+// 边蓄边扣蓝：drainRate×蓄力毫秒 = 已扣蓝。蓄满 fullMs 正好扣掉 ultCost。
+// 松手出【等比】剑气（蓄六成→六成大小/伤害）。蓝扣光则自动放出当前档。
+// minFrac：低于这个蓄力比例视为"轻点"，只起浪弹开、不出剑气（脱身用，仍付了蓝）。
+BT.CHARGE = {
+  fullMs: 100 / (100 / 420),   // = ultCost/drainRate = 420ms，与 MP.drainRate 咬合
+  minFrac: 0.22,               // 出剑气的最低蓄力比例
+  waveRadius: 150,             // 起浪弹开的作用半径
+  wavePush: 240,               // 弹开速度（短推距，只解贴身不重置距离）
+};
+
+// ─────────── 剑气弹幕 ───────────
+// 月牙形气刃，脱离角色飞行；越飞越大越淡（有衰减）。判定走横向扫掠 [上帧,本帧]、
+// 同锚点比 y（防命中隧穿/纵向锚点错位两类历史 bug）。可防：水反弹/北穿过/剑减伤推退。
+BT.QI = {
+  speed: 520,          // 飞行速度 px/s
+  life: 1500,          // 存活毫秒（到时消散）
+  growth: 1.6,         // 存活期内缩放从 1 长到 growth 倍
+  baseR: 46,           // 满蓄时初始半径（屏幕px）；实际按蓄力比例缩
+  hitH: 78,            // 纵向命中容差（同锚点比 y）
+  dmg: { sword: 26, water: 16, north: 14 },   // 满蓄伤害；按蓄力比例缩
+  bracePush: 150,      // 剑神硬扛剑气的推退
 };
 
 // ─────────── 三连战擂台 ───────────

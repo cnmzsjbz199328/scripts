@@ -22,6 +22,7 @@ Object.assign(BladeTrinityScene.prototype, {
     this.fighters = [this.p1, this.p2];
 
     this._buildBars();
+    this._clearQi();
     window.__gameState = { player: this.p1.sprite };
     this._setFightObjective();
     this.aiNext = 0;
@@ -32,7 +33,7 @@ Object.assign(BladeTrinityScene.prototype, {
     const dk = d === 'dodge' ? 'K 闪避' : d === 'parry' ? 'S 受流' : 'S 硬扛';
     const n = this.oppQueue.length;
     window.GameHUD?.setObjective(
-      `擂台 ${this.round + 1}/${n}：${BT.SCHOOLS[this.p2.id].name}　│　J 斩　${dk}　AD 移动`);
+      `擂台 ${this.round + 1}/${n}：${BT.SCHOOLS[this.p2.id].name}　│　J 斩　${dk}　长按 L 蓄剑气　AD 移动`);
   },
 
   // 玩家胜一场、还有下一场：换上下一位对手，半回血，回满蓝，原地重开。
@@ -50,6 +51,7 @@ Object.assign(BladeTrinityScene.prototype, {
     this.p2 = this._makeFighter(this.oppQueue[this.round], BT.GAME_W - 268, true);
     this.fighters = [this.p1, this.p2];
 
+    this._clearQi();
     this._buildBars();
     this._setFightObjective();
     this._roundToast();

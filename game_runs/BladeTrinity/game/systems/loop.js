@@ -18,6 +18,7 @@ Object.assign(BladeTrinityScene.prototype, {
 
   _controlPlayer(time) {
     const f = this.p1, sp = f.sprite, onGround = sp.body.blocked.down;
+    if (this._handleCharge(f, time)) return;   // 蓄力中/起手：独占操作，原地锁死
     if (Phaser.Input.Keyboard.JustDown(this.keys.J)) return this._attack(f);
     if (Phaser.Input.Keyboard.JustDown(this.keys.K)) return this._startDefense(f, time);
 

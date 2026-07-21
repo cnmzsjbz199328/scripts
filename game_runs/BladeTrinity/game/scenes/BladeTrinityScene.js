@@ -116,6 +116,7 @@ class BladeTrinityScene extends Phaser.Scene {
     this._controlAI(time);
     for (const f of this.fighters) this._tickDefense(f, time);
     for (const f of this.fighters) this._resolveMelee(f);
+    this._tickQi(time, delta);          // 剑气飞行 + 命中/反弹/穿过结算
     for (const f of this.fighters) {
       if (!['attack', 'hurt', 'stun'].includes(f.state) || time <= f.stateUntil) continue;
       // 起身反击：AI 的受击硬直一结束就立刻可以决策，不等随机间隔。
