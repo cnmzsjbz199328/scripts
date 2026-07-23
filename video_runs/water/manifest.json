@@ -73,6 +73,18 @@
       ],
       "scale": 0.2556,
       "updated_at": "2026-07-19T14:08:49.679Z"
+    },
+    "jump": {
+      "frameCount": 21,
+      "fps": 10,
+      "loop": false,
+      "status": "completed",
+      "segment": [
+        2.625,
+        4.75
+      ],
+      "scale": 0.2556,
+      "updated_at": "2026-07-23T13:10:19.384Z"
     }
   }
 }
