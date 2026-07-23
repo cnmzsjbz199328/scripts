@@ -188,15 +188,40 @@ Object.assign(BladeTrinityScene.prototype, {
     if (f.ultText) { f.ultText.destroy(); f.ultText = null; }
   },
 
+  // 蓄力起手一弹：①人物外轮廓炸开描边（动漫式蓄力起势）②把对手【轰到擂台最远端】，
+  // 给剑气腾出满场飞行空间。轰飞无伤，但必须把对手打进 hurt 硬直+无敌——否则下一帧
+  // _controlAI 会立刻用自己的移动速度覆盖掉这记击退（无阻力 → 一帧推 ≈4px，等于没推）。
   _chargeWave(f) {
+    this._outlinePulse(f);                              // 描边一弹（视觉）
+    this._flash(f.sprite.x, f.sprite.y - 36, 0xbfe4ff, 44, 4.4);
+    this.cameras.main.shake(120, 0.006);
     const opp = this._opp(f);
-    if (!opp) return;
-    const dx = opp.sprite.x - f.sprite.x, dist = Math.abs(dx);
-    if (dist < BT.CHARGE.waveRadius) {
-      const dir = dx >= 0 ? 1 : -1;
-      opp.sprite.setVelocityX(BT.CHARGE.wavePush * dir);   // 短推，无伤
-    }
-    this._flash(f.sprite.x, f.sprite.y - 36, 0xbfe4ff, 34, 3.6);
+    if (!opp || opp.state === 'down') return;
+    const dir = opp.sprite.x >= f.sprite.x ? 1 : -1;    // 从蓄力者指向对手——朝远处轰
+    const c = BT.CHARGE;
+    opp.sprite.setVelocity(dir * c.wavePush, -c.waveLift);
+    this._setState(opp, 'hurt', c.waveStun);            // 进硬直：AI 这段不夺控制，速度得以保留
+    opp.invuln = this.time.now + c.waveStun;            // 轰飞途中无敌，别被别的判定截断
+    this._ghost(opp);                                   // 起飞留一记残影
+  },
+
+  // 动漫式「描边一弹」：起手瞬间，人物剪影向外炸开——白热轮廓 + 一层流派色余韵。
+  // 剪影副本压在角色【身后】(depth-1)并放大：中心被本体盖住，只露出长出去的边缘，
+  // 于是读作"外轮廓描边向外弹开"而不是一坨实心闪光。渲染器无关（WebGL/Canvas 都成）。
+  _outlinePulse(f) {
+    const s = BT.SCHOOLS[f.id], frame = f.sprite.frame.name;
+    const ring = (tint, from, to, alpha, dur) => {
+      const g = this.add.image(f.sprite.x, f.sprite.y, f.id, frame)
+        .setScale(BT.SCALE * from).setFlipX(f.sprite.flipX)
+        .setDepth(f.sprite.depth - 1).setTint(tint).setAlpha(alpha)
+        .setBlendMode(Phaser.BlendModes.ADD);
+      this.tweens.add({
+        targets: g, scaleX: BT.SCALE * to, scaleY: BT.SCALE * to, alpha: 0,
+        duration: dur, ease: 'Cubic.easeOut', onComplete: () => g.destroy(),
+      });
+    };
+    ring(0xffffff, 1.0, 1.3, 0.95, 240);     // 白热轮廓：快、炸得利落
+    ring(s.barColor, 1.05, 1.6, 0.55, 400);  // 流派色余韵：慢、扩得更开更淡
   },
 
   _showUltName(f) {

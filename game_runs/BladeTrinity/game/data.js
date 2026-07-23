@@ -144,8 +144,14 @@ BT.MP = {
 BT.CHARGE = {
   fullMs: 100 / (100 / 420),   // = ultCost/drainRate = 420ms，与 MP.drainRate 咬合
   minFrac: 0.22,               // 出剑气的最低蓄力比例
-  waveRadius: 150,             // 起浪弹开的作用半径
-  wavePush: 240,               // 弹开速度（短推距，只解贴身不重置距离）
+  // ── 起手·描边一弹（轰飞开场，见 charge.js _chargeWave）──
+  // 蓄力起手瞬间：人物外轮廓炸开一层描边（动漫式），同时把对手轰到擂台最远端，
+  // 给剑气腾出满场飞行空间。关键：轰飞必须把对手打进 hurt 硬直（waveStun 期间
+  // AI 不夺回控制，setVelocity 才留得住——否则下一帧 _controlAI 就把速度清了）。
+  // wavePush×waveStun 要 ≥ 一个擂台宽(960)，飞到头由世界边界收住，宁大勿小。
+  wavePush: 1250,              // 轰飞横向初速 px/s（×waveStun≈650px，撞墙封顶不出场）
+  waveLift: 360,               // 轰飞上挑初速 px/s（重力 1500 → 一记小抛物线）
+  waveStun: 520,               // 轰飞硬直+无敌 ms（这段对手不受控，velocity 得以保留）
 };
 
 // ─────────── 剑气弹幕 ───────────

@@ -74,6 +74,7 @@ class BladeTrinityScene extends Phaser.Scene {
       return {
         x: sp.x, y: sp.y, vx: sp.body.velocity.x, onGround: sp.body.blocked.down,
         hp: a.hp, maxHp: a.maxHp,
+        mp: a.mp, maxMp: a.maxMp,
         score: e.maxHp - e.hp, goalScore: e.maxHp,
         // act = 当前第几场擂台；deathBudget/deaths 沿用单命契约（玩家倒下即 lost）
         act: (this.round || 0) + 1, deaths: 0, deathBudget: 1,

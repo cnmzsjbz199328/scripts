@@ -143,6 +143,9 @@ interface Probe {
     let prevScore = -1, isTopdown = false, goalScore = 0;  // 俯视模式：以 score 计进度/卡死
     const stuckLimit = Math.ceil(6000 / tickMs); // ~6s 无进展判卡死（已含计时门合理等待）
     let lastProbe: any = null;
+    let chargeTimeRemaining = 0;
+    let nextJumpTime = 0;
+    let nextBlinkTime = 0;
 
     while ((Date.now() - t0) / 1000 < maxSeconds) {
       const p = await probe();
@@ -189,7 +192,58 @@ interface Probe {
       }
 
       // ── bot 决策 ──
-      if (isArena) {
+      if (gameName === 'BladeTrinity') {
+        const P = p as any;
+        const fighting = P.started;
+        if (!fighting) {
+          await setKey('ArrowRight', false); await setKey('ArrowLeft', false);
+          await setKey('ArrowDown', false);  await setKey('ArrowUp', false);
+          await setKey('j', false);          await setKey('k', false);
+          await setKey('l', false);          await setKey('Space', false);
+        } else {
+          const oppX = P.nextGoalX;
+          const dx = oppX - p.x;
+          const dist = Math.abs(dx);
+          if (chargeTimeRemaining > 0) {
+            chargeTimeRemaining -= tickMs;
+            await setKey('l', true);
+            await setKey('ArrowRight', false);
+            await setKey('ArrowLeft', false);
+          } else {
+            await setKey('l', false);
+            if (P.mp >= 100 && Math.random() < 0.12) {
+              chargeTimeRemaining = 500;
+              await setKey('l', true);
+            } else {
+              const wantRight = dx > 15;
+              const wantLeft = dx < -15;
+              const now = Date.now();
+              if (now > nextJumpTime && dist > 150 && Math.random() < 0.20) {
+                await tap('ArrowUp', 80);
+                nextJumpTime = now + 2500 + Math.random() * 1500;
+              }
+              if (now > nextBlinkTime && Math.random() < 0.15) {
+                await tap('Space', 70);
+                nextBlinkTime = now + 3500 + Math.random() * 2000;
+              }
+              await setKey('ArrowRight', wantRight);
+              await setKey('ArrowLeft', wantLeft);
+              if (P.attack) {
+                const r = Math.random();
+                if (r < 0.65) {
+                  await tap('j', 70);
+                } else if (r < 0.85) {
+                  await tap('k', 80);
+                } else {
+                  await setKey('ArrowDown', true);
+                  await sleep(150);
+                  await setKey('ArrowDown', false);
+                }
+              }
+            }
+          }
+        }
+      } else if (isArena) {
         // 竞技场由游戏内置 bot (autoplay) 托管，外部不发送键盘输入干扰
       } else if (isTopdown) {
         // 俯视：探针给建议方向 moveX/moveY(-1..1)，按四向键走位（躲避+趋目标）
