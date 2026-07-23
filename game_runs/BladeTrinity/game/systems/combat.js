@@ -19,8 +19,20 @@ Object.assign(BladeTrinityScene.prototype, {
     f.sprite.play(this._animKey(f, st), true);
   },
 
-  // 能否行动：idle/walk/guard 可以，出招/受击/硬直/倒地不行
-  _canAct(f) { return f.state === 'idle' || f.state === 'walk' || f.state === 'guard'; },
+  // 能否行动：idle/walk/guard/jump 可以，出招/受击/硬直/倒地不行。
+  // jump 计入可行动：腾空不是硬直，空中仍要能左右控位、出招、放移形换影。
+  _canAct(f) { return f.state === 'idle' || f.state === 'walk' || f.state === 'guard' || f.state === 'jump'; },
+
+  // 起跳 / 腾空姿态。三家都有 jump 行（蹲踞蓄力→收腿腾空→落地缓冲）；
+  // 缺 jump 行时退回 idle（安全网，保持原"直接拔高"行为）。
+  // 竖直位移由物理接管（setVelocityY + 重力），这里只切姿态；靠 loop.js 的
+  // f.airborne 保证每次起跳只调一次，不会每帧把动画重置回第 0 帧。
+  _playAir(f) {
+    f.state = 'jump';
+    f.stateUntil = 0;
+    const key = this.anims.exists(`${f.id}_jump`) ? `${f.id}_jump` : `${f.id}_idle`;
+    f.sprite.play(key, true);
+  },
 
   // 走路：格斗游戏里角色恒定面向对手，往身后走是【撤步】而不是转身。
   // 只有一条 walk 行，撤步时正着播会看着像"倒着走"——所以撤步倒放动画。

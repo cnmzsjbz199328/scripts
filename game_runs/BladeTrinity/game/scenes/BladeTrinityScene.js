@@ -5,7 +5,8 @@ class BladeTrinityScene extends Phaser.Scene {
   constructor() { super('BladeTrinityScene'); }
 
   preload() {
-    // 三张图集都是 6 行 × 21 列，192×208/格
+    // 三张图集都是 7 行 × 21 列，192×208/格（第 7 行 jump 起跳姿态）。
+    // 帧数由图片尺寸自动切分，动画按 atlases.js 的 row/frameCount 取。
     for (const id of BT.ROSTER) {
       this.load.spritesheet(id, `assets/sprites/${id}.webp`,
         { frameWidth: BT.FRAME_W, frameHeight: BT.FRAME_H });

@@ -105,6 +105,10 @@ BT.ANIM = {
   guard: { fps: 22, loop: false },
   hurt: { fps: 40, loop: false },
   down: { fps: 20, loop: false },
+  // 跳跃：蹲踞蓄力→踏空腾空（收腿）→落地缓冲。21 帧 @26fps ≈ 0.81s，
+  // 正好压住物理滞空时长（vy=-600 / g=1500 → 上下各 0.4s = 0.8s）。
+  // 三家都有 jump 行；缺行时退回 idle（见 combat.js _playAir 的安全网）。
+  jump: { fps: 26, loop: false },
 };
 
 // ─────────── 对手 AI 强度 ───────────

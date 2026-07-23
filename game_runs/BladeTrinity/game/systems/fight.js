@@ -43,7 +43,7 @@ Object.assign(BladeTrinityScene.prototype, {
     a.hp = Math.min(a.maxHp, a.hp + Math.round(a.maxHp * BT.ROUND_HEAL));
     a.mp = a.maxMp;
     a.sprite.setPosition(268, BT.FLOOR_Y - 70).setVelocity(0, 0);
-    a.state = 'idle'; a.stateUntil = 0; a.invuln = 0; a.atkHit = false;
+    a.state = 'idle'; a.stateUntil = 0; a.invuln = 0; a.atkHit = false; a.airborne = false;
     a.facingLeft = false; a.sprite.setFlipX(true);
     a.sprite.play(`${a.id}_idle`, true);
 
@@ -86,7 +86,7 @@ Object.assign(BladeTrinityScene.prototype, {
       id, def, sprite: sp,
       hp: def.hp, maxHp: def.hp,
       mp: BT.MP.max, maxMp: BT.MP.max,          // 蓝：进场满管
-      state: 'idle', stateUntil: 0,
+      state: 'idle', stateUntil: 0, airborne: false,
       invuln: 0, atkFrom: 0, atkTo: 0, atkHit: false, prevDx: null,
       facingLeft: faceLeft,
       guardFrom: 0, iframeUntil: 0, dodgeReady: 0, dodgedSomething: false,

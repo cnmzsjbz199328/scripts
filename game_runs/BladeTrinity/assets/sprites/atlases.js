@@ -9,7 +9,7 @@ window.BT.ATLAS = {
     },
     "dimensions": {
       "width": 4032,
-      "height": 1248
+      "height": 1456
     },
     "animations": {
       "walk": {
@@ -46,6 +46,12 @@ window.BT.ATLAS = {
         "row": 5,
         "frameCount": 16,
         "fps": 13,
+        "loop": false
+      },
+      "jump": {
+        "row": 6,
+        "frameCount": 21,
+        "fps": 8,
         "loop": false
       }
     }
@@ -57,7 +63,7 @@ window.BT.ATLAS = {
     },
     "dimensions": {
       "width": 4032,
-      "height": 1248
+      "height": 1456
     },
     "animations": {
       "walk": {
@@ -95,6 +101,12 @@ window.BT.ATLAS = {
         "frameCount": 16,
         "fps": 13,
         "loop": false
+      },
+      "jump": {
+        "row": 6,
+        "frameCount": 21,
+        "fps": 10,
+        "loop": false
       }
     }
   },
@@ -105,7 +117,7 @@ window.BT.ATLAS = {
     },
     "dimensions": {
       "width": 4032,
-      "height": 1248
+      "height": 1456
     },
     "animations": {
       "walk": {
@@ -142,6 +154,12 @@ window.BT.ATLAS = {
         "row": 5,
         "frameCount": 16,
         "fps": 12,
+        "loop": false
+      },
+      "jump": {
+        "row": 6,
+        "frameCount": 21,
+        "fps": 11,
         "loop": false
       }
     }

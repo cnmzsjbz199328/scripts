@@ -43,8 +43,16 @@ Object.assign(BladeTrinityScene.prototype, {
     const vx = left ? -f.def.speed : right ? f.def.speed : 0;
     sp.setVelocityX(vx);
     if ((this.keys.W.isDown || this.cursors.up.isDown) && onGround) sp.setVelocityY(-600);
-    if (vx && onGround) this._setWalk(f, vx);
-    else this._setState(f, 'idle');
+    // 姿态：腾空播跳跃姿态（起跳蓄力→收腿→落地），落地回 idle/走。
+    // 跳跃是纯视觉+可行动状态，起跳只触发一次（airborne 门），落地 airborne 复位后
+    // 因 f.state==='jump'≠idle，下面的 _setState/_setWalk 一定会重播落地姿态。
+    if (!onGround) {
+      if (!f.airborne) { f.airborne = true; this._playAir(f); }
+    } else {
+      f.airborne = false;
+      if (vx) this._setWalk(f, vx);
+      else this._setState(f, 'idle');
+    }
   },
 
   // 对手 AI：距离驱动 + 随机权重；防御倾向按自己的流派调整

@@ -84,17 +84,20 @@ run_char() {
 run_char sword \
   "walk|sword_stance|52|95|21|loop" "idle|sword_stance|8|51|21|loop" \
   "attack|sword_attack|12|64|21|once" "guard|sword_guard|8|64|21|once" \
-  "hurt|sword_hit|0|44|18|once"      "down|sword_hit|44|74|16|once"
+  "hurt|sword_hit|0|44|18|once"      "down|sword_hit|44|74|16|once" \
+  "jump|sword_jump|48|114|21|once"
 
 run_char water \
   "walk|water_stance|56|95|21|loop" "idle|water_stance|12|55|21|loop" \
   "attack|water_attack|8|72|21|once" "guard|water_guard|4|76|21|once" \
-  "hurt|water_hit|0|44|18|once"      "down|water_hit|44|74|16|once"
+  "hurt|water_hit|0|44|18|once"      "down|water_hit|44|74|16|once" \
+  "jump|water_jump|63|114|21|once"
 
 run_char north \
   "walk|north_stance|56|95|21|loop" "idle|north_stance|16|55|21|loop" \
   "attack|north_attack|8|72|21|once" "guard|north_guard|4|76|21|once" \
-  "hurt|north_hit|0|46|18|once"      "down|north_hit|46|78|16|once"
+  "hurt|north_hit|0|46|18|once"      "down|north_hit|46|78|16|once" \
+  "jump|north_jump|24|72|21|once"
 
 # ─────────────────────────────────────────────────────────────
 # 步骤 4：去绿溢色 + 安装
@@ -144,6 +147,12 @@ const MIRROR={sword:true, water:false, north:false};
   meta[n]={frameSize:j.frameSize,dimensions:j.dimensions,animations:j.animations};
   console.log('  ok '+n);
  }
+ // ⚠️ 本步只写 ATLAS（frameSize/dimensions/animations）。
+ // BT.REACH（逐帧刀长）与 BT.DOWN_DROP（倒地补偿）是【手工量图集】得到、无生成工具
+ // （见 atlases.js 内注释）——全量重跑本脚本会把它们覆盖掉。跑完须把 atlases.js 末尾的
+ // REACH / DOWN_DROP 两段手动补回，否则 _bladeReach 读到 undefined，近战判定失效。
+ // （新增 jump 行不影响 REACH：REACH 只按 attack 帧索引，跳跃不参与命中判定。）
+ //
  // 元数据走 window 命名空间而非 json：game_runs/**/*.json 全局 gitignored，
  // 且架构铁律要求 <script> 标签加载、不 fetch json（见 CLAUDE.md）
  fs.writeFileSync(D+'atlases.js',
