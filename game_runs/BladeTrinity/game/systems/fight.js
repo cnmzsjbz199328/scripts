@@ -30,7 +30,7 @@ Object.assign(BladeTrinityScene.prototype, {
 
   _setFightObjective() {
     const d = BT.SCHOOLS[this._p1Id].defense;
-    const dk = d === 'dodge' ? 'K 闪避' : d === 'parry' ? 'S 受流' : 'S 硬扛';
+    const dk = d === 'counter' ? 'K 返击' : d === 'parry' ? 'S 受流' : 'S 完防';
     const n = this.oppQueue.length;
     window.GameHUD?.setObjective(
       `擂台 ${this.round + 1}/${n}：${BT.SCHOOLS[this.p2.id].name}　│　J 斩　${dk}　长按 L 蓄剑气　AD 移动`);
@@ -44,9 +44,13 @@ Object.assign(BladeTrinityScene.prototype, {
     a.mp = a.maxMp;
     a.sprite.setPosition(268, BT.FLOOR_Y - 70).setVelocity(0, 0);
     a.state = 'idle'; a.stateUntil = 0; a.invuln = 0; a.atkHit = false; a.airborne = false;
+    a.iframeUntil = 0; a.riposteUntil = 0; a.counterFired = false;
+    this._clearOutlineHold(a); this._clearBodyFlash(a);
     a.facingLeft = false; a.sprite.setFlipX(true);
     a.sprite.play(`${a.id}_idle`, true);
 
+    // 描边是独立 GameObject，得赶在 sprite 被 destroy（对象从 fighters 里消失）前回收
+    this._clearOutlineHold(this.p2); this._clearBodyFlash(this.p2);
     this.p2.sprite.destroy();
     this.p2 = this._makeFighter(this.oppQueue[this.round], BT.GAME_W - 268, true);
     this.fighters = [this.p1, this.p2];
@@ -89,9 +93,10 @@ Object.assign(BladeTrinityScene.prototype, {
       state: 'idle', stateUntil: 0, airborne: false,
       invuln: 0, atkFrom: 0, atkTo: 0, atkHit: false, prevDx: null,
       facingLeft: faceLeft,
-      guardFrom: 0, iframeUntil: 0, dodgeReady: 0, dodgedSomething: false,
-      riposteUntil: 0,
-      chargeFrom: 0, charging: false, mistReady: 0, riseReady: 0,   // 后续机制预留
+      guardFrom: 0, iframeUntil: 0, counterReady: 0, counterFired: false, flashEvt: null,
+      riposteUntil: 0, guardAura: null,
+      chargeFrom: 0, charging: false, mistReady: 0, riseReady: 0,
+      aiRelease: 0, ultReady: 0,          // AI 奥义：松手时刻 / 下次可放时刻
     };
   },
 
@@ -122,12 +127,19 @@ Object.assign(BladeTrinityScene.prototype, {
     };
     bar(40, y, W, H, this.p1.hp / this.p1.maxHp, BT.SCHOOLS[this.p1.id].barColor, false);
     bar(BT.GAME_W - 40 - W, y, W, H, this.p2.hp / this.p2.maxHp, BT.SCHOOLS[this.p2.id].barColor, true);
-    // 玩家蓝条：血条正下方一条细蓝槽，刻度分成 ultCost 段，一眼看出还剩几发奥义。
-    // AI 暂不放奥义，故只画玩家一侧（等 AI 接入奥义再补右侧）。
+    // 蓝条：血条正下方一条细蓝槽，刻度分成 ultCost 段，一眼看出还剩几发奥义。
+    // 【双方都画】——AI 已接入奥义（BT.AI.ultChance），右侧蓝槽是玩家的预警：
+    // 对面攒满一格就可能起蓄（起蓄会把你轰飞），这条信息不给等于让玩家猜。
+    // 剑神流还拿蓝当完全防御的燃料，自己这条空了就意味着"挡不动了"，更不能省。
     const my = y + H + 4, mh = 8, seg = BT.MP.ultCost / BT.MP.max;
+    const tick = (x0) => {
+      g.lineStyle(2, 0x0a1622, 0.9);
+      for (let s = seg; s < 0.999; s += seg) { g.beginPath(); g.moveTo(x0 + W * s, my); g.lineTo(x0 + W * s, my + mh); g.strokePath(); }
+    };
     bar(40, my, W, mh, this.p1.mp / this.p1.maxMp, 0x39c2ff, false);
-    g.lineStyle(2, 0x0a1622, 0.9);
-    for (let s = seg; s < 0.999; s += seg) { g.beginPath(); g.moveTo(40 + W * s, my); g.lineTo(40 + W * s, my + mh); g.strokePath(); }
+    tick(40);
+    bar(BT.GAME_W - 40 - W, my, W, mh, this.p2.mp / this.p2.maxMp, 0x39c2ff, true);
+    tick(BT.GAME_W - 40 - W);
   },
 
   // ─────────── 舞台（背景三层贴图，见 BT.BG 的定标推导）───────────

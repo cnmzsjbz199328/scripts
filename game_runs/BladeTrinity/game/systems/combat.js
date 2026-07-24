@@ -70,9 +70,30 @@ Object.assign(BladeTrinityScene.prototype, {
     this.tweens.add({ targets: g, alpha: 0, duration: 230, onComplete: () => g.destroy() });
   },
 
-  _flash(x, y, color, r, scale) {
-    const fx = this.add.circle(x, y, r, color, 0.9).setDepth(30);
-    this.tweens.add({ targets: fx, scale, alpha: 0, duration: 250, onComplete: () => fx.destroy() });
+  // 整体闪烁：把角色【整个剪影】刷成纯色再灭，连闪几次。
+  // 受击反馈用这个，不用原来那颗贴在身上的亮点圆——亮点是"某处溅了个火花"，
+  // 而挨打要的是"整个人被打得一白/一红"，后者才看得出是谁吃了伤害（用户定）。
+  // setTintFill 出的是【实心剪影】（不是乘色），所以白衣/深色角色都压得住。
+  _bodyFlash(f, color, blinks, dur) {
+    const sp = f.sprite;
+    blinks = blinks || 2; dur = dur || 55;
+    if (f.flashEvt) { f.flashEvt.remove(false); f.flashEvt = null; }
+    let n = 0;
+    sp.setTintFill(color);
+    f.flashEvt = this.time.addEvent({
+      delay: dur, repeat: blinks * 2 - 2,
+      callback: () => {
+        n++;
+        if (n % 2) sp.clearTint(); else sp.setTintFill(color);
+        if (n >= blinks * 2 - 1) { sp.clearTint(); f.flashEvt = null; }
+      },
+    });
+  },
+
+  // 换场/倒地等时机的兜底：闪烁事件还没跑完就换人，会把纯色剪影永久留在身上
+  _clearBodyFlash(f) {
+    if (f.flashEvt) { f.flashEvt.remove(false); f.flashEvt = null; }
+    f.sprite.clearTint();
   },
 
   _popText(x, y, text, color) {
@@ -136,8 +157,8 @@ Object.assign(BladeTrinityScene.prototype, {
 
     const blocked = res.blocked;
     target.sprite.setVelocity(dir * (blocked ? res.pushback : 155), blocked ? 0 : -105);
-    this._flash(target.sprite.x + dir * 8, target.sprite.y - 36,
-      blocked ? 0x9fd0ff : 0xff5544, blocked ? 10 : 16, blocked ? 1.8 : 2.5);
+    // 挡下时不闪身体：防御描边已经在亮着，再刷一层纯色会盖掉它、也读不出"这下被挡了"
+    if (!blocked) this._bodyFlash(target, 0xff3b3b);
     this.cameras.main.shake(blocked ? 60 : 135, blocked ? 0.003 : 0.008);
 
     // 试过加"已进入判定的招式不被打断"（对拼）：双方都不被打断后 AI 因出手更
@@ -171,6 +192,8 @@ Object.assign(BladeTrinityScene.prototype, {
   _ko(loser) {
     loser.state = 'down';
     loser.stateUntil = Infinity;
+    this._clearBodyFlash(loser);       // 倒地演出要看清人，不能顶着半截红闪
+    this._clearOutlineHold(loser);
     loser.sprite.play(`${loser.id}_down`, true);
     loser.sprite.setVelocityX(0);
     this._settleDown(loser);

@@ -22,6 +22,14 @@ Object.assign(BladeTrinityScene.prototype, {
     return false;
   },
 
+  // AI 侧起蓄：没有键盘，蓄力时长在这里定死，_tickCharge 到点自动松手。
+  // 调用方（loop.js _controlAI）负责冷却/距离/蓝量的准入判断。
+  _startAICharge(f, time) {
+    f.aiRelease = time + Phaser.Math.Between(BT.AI.chargeMin, BT.AI.chargeMax);
+    f.ultReady = time + BT.AI.ultCd;
+    this._startCharge(f, time);
+  },
+
   _startCharge(f, time) {
     f.charging = true;
     f.chargeFrom = time;
@@ -31,7 +39,6 @@ Object.assign(BladeTrinityScene.prototype, {
     f.sprite.play(`${f.id}_guard`, true);     // 无专用蓄力帧，借 guard 姿势占位
     this._chargeWave(f);                       // 起浪弹开近敌（无伤，只解贴身）
     this._showUltName(f);                       // 招式名一次性弹出（占位字体）
-    f.auraG = this.add.graphics().setDepth(23);
     window.GameAudio && GameAudio.play && GameAudio.play('charge');
   },
 
@@ -43,7 +50,8 @@ Object.assign(BladeTrinityScene.prototype, {
     f.sprite.setVelocityX(0);
     this._drawAura(f, time);
     if (f.ultText) f.ultText.setPosition(f.sprite.x, f.sprite.y - 150);
-    const released = !this.keys.L.isDown;
+    // 松手条件按操控方分流：玩家看 L 键，AI 看 _startAICharge 定下的 aiRelease 时刻。
+    const released = f === this.p1 ? !this.keys.L.isDown : time >= f.aiRelease;
     if (released || f.mp <= 0) this._releaseCharge(f, time);
   },
 
@@ -68,7 +76,7 @@ Object.assign(BladeTrinityScene.prototype, {
     const segs = BT.QI_SEGS && BT.QI_SEGS[f.id];
     if (BT.BLADE_MARKS && BT.BLADE_MARKS[f.id] && segs && segs.length) {
       f.qiSwing = {
-        frac, segs, fired: segs.map(() => false),
+        frac, segs, fired: segs.map(() => false), t0: this.time.now,
         g: this.add.graphics().setDepth(26),
         gGlow: this.add.graphics().setDepth(25).setBlendMode(Phaser.BlendModes.ADD),
       };
@@ -86,7 +94,16 @@ Object.assign(BladeTrinityScene.prototype, {
     if (f.state !== 'attack') { this._clearSwing(f); return; }
     const marks = BT.BLADE_MARKS[f.id];
     const fr = f.sprite.anims.currentFrame;
-    const idx = fr ? fr.index - 1 : 0;
+    // 相位取【播放帧】与【时间推算帧】的较大者。
+    // ⚠️ 只看播放帧会在低帧率机器上把整发剑气吞掉：Phaser 的动画每个渲染 tick
+    // 最多推进一帧，所以 15fps 的机器上 28fps 的 attack 行只能跑到 ~12fps ——
+    // sword 的生成段止帧是第 12 帧，而 attack 状态 780ms 就结束，剑气永远发不出来
+    // （headless 采样实测：780ms 内只走到第 6 帧，剑气 0 道）。
+    // 时间推算帧按 BT.ATTACK.fps 走墙钟，与渲染帧率无关；60fps 下两者一致，
+    // 掉帧时由它兜底 —— 蓄力扣了蓝就必须有剑气出来，这条不能看机器脸色。
+    const fps = BT.ATTACK[f.id].fps;
+    const idxT = Math.floor((time - sw.t0) / 1000 * fps);
+    const idx = Math.max(fr ? fr.index - 1 : 0, idxT);
     sw.g.clear(); sw.gGlow.clear();
     // 各段推进到止帧 → 脱手发射
     for (let si = 0; si < sw.segs.length; si++) {
@@ -122,7 +139,7 @@ Object.assign(BladeTrinityScene.prototype, {
     this.qiList.push({
       x: cx, prevX: cx, y: cy, dir, owner: f, school: f.id, frac,
       fromBlade: true, flyStyle: seg[2], spanV, spanH,
-      born: this.time.now, reflected: false, lastHit: null,
+      born: this.time.now, age: 0, reflected: false, lastHit: null,
       dmg: Math.max(1, Math.round(BT.QI.dmg[f.id] * frac / nSegs)),
       r: Math.max(spanH, spanV) * 0.28 + 20,             // 命中横向半宽
       hitH: Math.max(BT.QI.hitH, spanV * 0.5 + 20),      // 纵向容差随月牙高
@@ -184,7 +201,7 @@ Object.assign(BladeTrinityScene.prototype, {
 
   _endCharge(f) {
     f.charging = false;
-    if (f.auraG) { f.auraG.destroy(); f.auraG = null; }
+    this._clearOutlineHold(f);        // 蓄力描边收掉（防御描边会在需要时自己重建）
     if (f.ultText) { f.ultText.destroy(); f.ultText = null; }
   },
 
@@ -193,7 +210,6 @@ Object.assign(BladeTrinityScene.prototype, {
   // _controlAI 会立刻用自己的移动速度覆盖掉这记击退（无阻力 → 一帧推 ≈4px，等于没推）。
   _chargeWave(f) {
     this._outlinePulse(f);                              // 描边一弹（视觉）
-    this._flash(f.sprite.x, f.sprite.y - 36, 0xbfe4ff, 44, 4.4);
     this.cameras.main.shake(120, 0.006);
     const opp = this._opp(f);
     if (!opp || opp.state === 'down') return;
@@ -205,23 +221,38 @@ Object.assign(BladeTrinityScene.prototype, {
     this._ghost(opp);                                   // 起飞留一记残影
   },
 
-  // 动漫式「描边一弹」：起手瞬间，人物剪影向外炸开——白热轮廓 + 一层流派色余韵。
-  // 剪影副本压在角色【身后】(depth-1)并放大：中心被本体盖住，只露出长出去的边缘，
-  // 于是读作"外轮廓描边向外弹开"而不是一坨实心闪光。渲染器无关（WebGL/Canvas 都成）。
+  // 动漫式「描边一弹」：起手瞬间，人物外轮廓向外炸开——白热描边 + 一层流派色余韵。
+  //
+  // ⚠️ 与防御描边同法：【八向偏移】的剪影副本，半径从 r0 tween 到 r1。
+  // 老写法是"放大一份剪影压在身后"，在白衣角色 + 暖色道场背景下 ADD 上去看不见
+  // （运行时属性全对，纯粹是肉眼分辨不出），一并换掉。见 defense.js _guardAura。
   _outlinePulse(f) {
-    const s = BT.SCHOOLS[f.id], frame = f.sprite.frame.name;
-    const ring = (tint, from, to, alpha, dur) => {
-      const g = this.add.image(f.sprite.x, f.sprite.y, f.id, frame)
-        .setScale(BT.SCALE * from).setFlipX(f.sprite.flipX)
-        .setDepth(f.sprite.depth - 1).setTint(tint).setAlpha(alpha)
-        .setBlendMode(Phaser.BlendModes.ADD);
+    const s = BT.SCHOOLS[f.id], frame = f.sprite.frame.name, N = 8;
+    const ring = (tint, r0, r1, alpha, dur, blend) => {
+      const parts = [];
+      for (let i = 0; i < N; i++) {
+        const img = this.add.image(f.sprite.x, f.sprite.y, f.id, frame)
+          .setScale(BT.SCALE).setFlipX(f.sprite.flipX)
+          .setDepth(f.sprite.depth - 1).setTint(tint).setAlpha(alpha);
+        if (blend) img.setBlendMode(blend);
+        parts.push(img);
+      }
+      const st = { r: r0 };
       this.tweens.add({
-        targets: g, scaleX: BT.SCALE * to, scaleY: BT.SCALE * to, alpha: 0,
-        duration: dur, ease: 'Cubic.easeOut', onComplete: () => g.destroy(),
+        targets: st, r: r1, duration: dur, ease: 'Cubic.easeOut',
+        onUpdate: () => {
+          const a = alpha * (1 - (st.r - r0) / (r1 - r0));
+          for (let i = 0; i < N; i++) {
+            const ang = (i / N) * Math.PI * 2;
+            parts[i].setPosition(f.sprite.x + Math.cos(ang) * st.r, f.sprite.y + Math.sin(ang) * st.r)
+              .setAlpha(a);
+          }
+        },
+        onComplete: () => parts.forEach((p) => p.destroy()),
       });
     };
-    ring(0xffffff, 1.0, 1.3, 0.95, 240);     // 白热轮廓：快、炸得利落
-    ring(s.barColor, 1.05, 1.6, 0.55, 400);  // 流派色余韵：慢、扩得更开更淡
+    ring(0xffffff, 4, 26, 1.0, 240);                                  // 白热描边：快、炸得利落
+    ring(s.barColor, 8, 52, 0.7, 400, Phaser.BlendModes.ADD);         // 流派色余韵：慢、扩得更开更淡
   },
 
   _showUltName(f) {
@@ -233,21 +264,24 @@ Object.assign(BladeTrinityScene.prototype, {
     this.tweens.add({ targets: f.ultText, scale: 1, duration: 170, ease: 'Back.easeOut' });
   },
 
+  // 蓄力中的视觉：【外轮廓随蓄力越描越厚】，不再画一圈光环。
+  // 光环是"角色外面套了个圈"，描边是"力从人身上涨出来"——后者才是这套动作的语言，
+  // 而且和防御描边共用一套实现（_outlineHold），画面读法统一（用户定）。
   _drawAura(f, time) {
     const frac = Phaser.Math.Clamp((time - f.chargeFrom) / BT.CHARGE.fullMs, 0, 1);
-    const g = f.auraG; if (!g) return;
-    g.clear();
-    const s = BT.SCHOOLS[f.id];
-    const pulse = 0.6 + 0.4 * Math.sin(time / 60);
-    const r = 30 + 40 * frac;
-    g.lineStyle(3 + 3 * frac, s.barColor, 0.5 * pulse + 0.2);
-    g.strokeCircle(f.sprite.x, f.sprite.y - 36, r);
+    const A = BT.GUARD_AURA, s = BT.SCHOOLS[f.id];
+    const pulse = 0.5 + 0.5 * Math.sin(time / 70);
+    // 半径由蓄力比例主导、叠一层轻微呼吸；满蓄比防御描边更厚，读得出"攒满了"
+    const r = A.rMin + (A.chargeRMax - A.rMin) * frac + 1.5 * pulse;
+    this._outlineHold(f, s.barColor, r);
   },
 
   // ─────────── 剑气 ───────────
-  _fireQi(f, frac) {
+  // dirOverride：指定飞行方向（北神反手剑气用——挡下时朝攻击者甩，而不是朝当前面向；
+  // 反手有 qiDelay 的延迟，这中间 _faceEachOther 可能已经把朝向改了）。
+  _fireQi(f, frac, dirOverride) {
     if (!this.qiList) this.qiList = [];
-    const dir = f.facingLeft ? -1 : 1;
+    const dir = dirOverride || (f.facingLeft ? -1 : 1);
     const cfg = this._qiCfg(f.id);
     const x = f.sprite.x + dir * 60, y = f.sprite.y + cfg.emitY;
     const s = BT.SCHOOLS[f.id];
@@ -255,7 +289,7 @@ Object.assign(BladeTrinityScene.prototype, {
     this.qiList.push({
       x, prevX: x, y, dir, owner: f, school: f.id, frac,
       rot: this._qiRot(dir, cfg.angleDeg),            // 月牙倾角（含 dir 朝向 + 本流派挥砍角）
-      born: this.time.now, reflected: false, lastHit: null,
+      born: this.time.now, age: 0, reflected: false, lastHit: null,
       dmg: Math.round(BT.QI.dmg[f.id] * frac),
       r: BT.QI.baseR * (0.5 + 0.5 * frac),
       history: [],                                   // 甩尾残影用（近→远存位置）
@@ -273,7 +307,13 @@ Object.assign(BladeTrinityScene.prototype, {
       const q = this.qiList[i];
       q.prevX = q.x;
       q.x += q.dir * BT.QI.speed * dts;
-      const lifeF = (time - q.born) / BT.QI.life;
+      // ⚠️ 寿命按【累计 delta】算，不按墙钟 (time - q.born)。
+      // 位移是 delta 积分出来的，而 Phaser 在掉帧时会把 delta 钳住；两个口径一混，
+      // 机器一卡剑气就会"活够了 1500ms 却只飞了 120px"，半路凭空消散——
+      // headless 实测正是如此（1533ms 只飞 121px，水神反弹永远等不到剑气到脸上）。
+      // 用累计 delta 后，一发剑气飞多远与帧率无关，掉帧只会让它看起来慢，不会缩水。
+      q.age += delta;
+      const lifeF = q.age / BT.QI.life;
 
       // 甩尾残影轨迹（存当前位置，最多 10 帧）
       q.history.unshift({ x: q.x });
@@ -298,31 +338,46 @@ Object.assign(BladeTrinityScene.prototype, {
     if (tx < lo || tx > hi) return null;
     if (q.lastHit === target) return null;    // 这一发已对该目标结算过
 
-    // 北神闪避无敌：剑气【穿过】，不消散、不伤
+    // 北神反击窗口：剑气【穿过】，不消散、不伤，并触发反手一记剑气（朝来向甩回去）
     if (this.time.now < target.iframeUntil) {
-      target.dodgedSomething = true;
-      this._popText(target.sprite.x, target.sprite.y - 84, '逸らし', '#c0a0ff');
       q.lastHit = target;
+      if (target.def.defense === 'counter') this._fireCounterQi(target, -q.dir);
+      else { target.counterFired = true; this._popText(target.sprite.x, target.sprite.y - 84, '逸らし', '#c0a0ff'); }
       return null;
     }
 
     const guardingFront = target.state === 'guard' && target.facingLeft === (q.dir > 0);
 
     // 水神受流：反弹（反弹的不可再反弹，伤害保持原值）
+    // ⚠️ 只改【归属与方向】，不改 school —— 颜色/形状/倾角全部保持来袭时的样子。
+    // 曾经把 school 换成反弹方，结果同一道剑气打过来是蓝的、弹回去变成红的，
+    // 玩家读不出"这是我刚挡下的那一发"，反弹的因果感就断了（用户实测反馈）。
+    // 归属仍要改：伤害算在反弹方头上，且不能反弹后又打到自己。
     if (guardingFront && target.def.defense === 'parry' && !q.reflected) {
-      q.dir *= -1; q.owner = target; q.school = target.id;
-      q.rot = this._qiRot(q.dir, this._qiCfg(target.id).angleDeg);   // 掉头后换成反弹方流派的挥砍角
+      q.dir *= -1; q.owner = target;
+      q.rot = this._qiRot(q.dir, this._qiCfg(q.school).angleDeg);   // 掉头，但仍用【原流派】的挥砍角
       q.reflected = true; q.lastHit = null;
       q.x += q.dir * 12; q.prevX = q.x;
       this._popText(target.sprite.x, target.sprite.y - 84, '受け流し·返', '#8fe0ff');
-      this._flash(target.sprite.x, target.sprite.y - 36, 0x8fe0ff, 22, 3.2);
+      this._bodyFlash(target, 0x8fe0ff);          // 反弹成功：整体蓝闪
       this.cameras.main.shake(90, 0.006);
       return null;
     }
 
-    // 剑神硬扛：减伤 + 推退，剑气消散
+    // 剑神完全防御：蓝够就【整道吃下、零伤】，只留推退；蓝不足退化为减伤。
+    // 挡剑气比挡近战贵（qiGuardCost>guardCost）——对面那一发本来就是拿蓝换的。
     if (guardingFront && target.def.defense === 'brace') {
-      this._applyQiDamage(q, target, Math.round(q.dmg * BT.DEFENSE.brace.reduce), true);
+      const d = BT.DEFENSE.brace;
+      if (target.mp >= d.qiGuardCost) {
+        target.mp -= d.qiGuardCost;
+        this._drawBars();
+        this._popText(target.sprite.x, target.sprite.y - 84, '力受け·完', '#ffe6a8');
+        this._bodyFlash(target, 0xffd27a);        // 完全防御成功：整体金闪
+        this.cameras.main.shake(80, 0.005);
+        target.sprite.setVelocityX(q.dir * BT.QI.bracePush);
+        return 'despawn';
+      }
+      this._applyQiDamage(q, target, Math.round(q.dmg * d.reduce), true);
       return 'despawn';
     }
 
@@ -347,8 +402,7 @@ Object.assign(BladeTrinityScene.prototype, {
     this._drawBars();
     const dir = q.dir;
     target.sprite.setVelocity(dir * (blocked ? BT.QI.bracePush : 170), blocked ? 0 : -90);
-    this._flash(target.sprite.x + dir * 8, target.sprite.y - 36,
-      blocked ? 0x9fd0ff : 0xff5544, blocked ? 12 : 18, blocked ? 2 : 3);
+    if (!blocked) this._bodyFlash(target, 0xff3b3b);   // 整体红闪，同近战受击
     this.cameras.main.shake(blocked ? 70 : 150, blocked ? 0.004 : 0.009);
     this._popText(target.sprite.x, target.sprite.y - 84, blocked ? '力受け' : `-${dmg}`,
       blocked ? '#ffd28a' : '#ff8a6a');
@@ -521,6 +575,11 @@ Object.assign(BladeTrinityScene.prototype, {
 
   _clearQi() {
     if (this.qiList) { this.qiList.forEach((q) => { q.g.destroy(); q.gGlow.destroy(); }); this.qiList = []; }
-    for (const f of (this.fighters || [])) { if (f.charging) this._endCharge(f); if (f.qiSwing) this._clearSwing(f); }
+    // 换场会 destroy 掉 p2.sprite，但描边/光环是独立 GameObject，必须一并回收，否则留在场上
+    for (const f of (this.fighters || [])) {
+      if (f.charging) this._endCharge(f);
+      if (f.qiSwing) this._clearSwing(f);
+      this._clearOutlineHold(f);
+    }
   },
 });

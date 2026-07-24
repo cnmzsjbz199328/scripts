@@ -32,8 +32,6 @@ Object.assign(BladeTrinityScene.prototype, {
     sp.setPosition(x1, y1);
     if (mode === 'rise') sp.setVelocity(0, 0);       // 升空后自由落体（重力接管）
     else sp.setVelocityX(0);
-    this._flash(x0, y0 - 36, 0x9fd8ff, 22, 2.6);
-    this._flash(x1, y1 - 36, 0x9fd8ff, 16, 2.2);
     window.GameAudio && GameAudio.play && GameAudio.play('morph');
   },
 

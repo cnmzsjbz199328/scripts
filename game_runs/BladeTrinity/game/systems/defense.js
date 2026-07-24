@@ -3,32 +3,33 @@
  * ShadowArena 的防御是「伤害打两折」一个数字通吃。那套照搬过来会把三流派压平成换皮，
  * 因为三流派的差异【主要就在防御】上。这里三种挡法各自成立：
  *
- *   brace（剑神流·力受け）减伤最多，代价是被推退，逼到台边破防大硬直
- *   parry（水神流·受け流し）完美窗口内卸掉对手 → 攻击者硬直 + 自己开反击窗口
- *   dodge（北神流·逸らし）真无敌 + 侧移，但空放留大破绽
+ *   brace（剑神流·力受け）正面【完全免伤】，代价是吃蓝 + 被推退，逼到台边破防大硬直
+ *   parry（水神流·受け流し）完美窗口内免伤 + 卸掉对手 + 【把伤害弹回去】；剑气整道反射
+ *   counter（北神流·返し）窗口内真无敌，挡下即【反手一记剑气】，空放留大破绽
  *
  * 克制三角由这三套参数与 BT.ATTACK 的窗口互相咬合产生，不靠额外的相克表。
+ * 三派共用一条 guard 动画行，视觉差异由 _guardAura 的外轮廓描边给（见 BT.GUARD_AURA）。
  */
 Object.assign(BladeTrinityScene.prototype, {
 
   // ─────────── 起防 ───────────
   _startDefense(f, time) {
     const kind = f.def.defense;
-    if (kind === 'dodge') {
-      // 闪避是瞬发动作，不是可长按的状态；有冷却，空放有硬直
-      if (time < f.dodgeReady || !this._canAct(f)) return;
-      const d = BT.DEFENSE.dodge, dir = f.facingLeft ? 1 : -1;   // 往身后侧移
+    if (kind === 'counter') {
+      // 反击是瞬发动作，不是可长按的状态；有冷却，空放有硬直
+      if (time < f.counterReady || !this._canAct(f)) return;
+      const d = BT.DEFENSE.counter, dir = f.facingLeft ? 1 : -1;   // 往身后微侧移
       f.iframeUntil = time + d.iframes;
-      f.dodgeReady = time + d.cooldown;
-      f.dodgedSomething = false;
+      f.counterReady = time + d.cooldown;
+      f.counterFired = false;
       f.sprite.setVelocityX(d.sidestep * 8 * dir);
       this._setState(f, 'guard', d.iframes + 60);
       this._ghost(f);
-      // 空放惩罚：无敌帧内什么都没躲到 → 露出大破绽
+      // 空放惩罚：无敌窗口内什么都没挡到 → 露出大破绽
       this.time.delayedCall(d.iframes + 20, () => {
         if (f.state === 'down') return;
         f.sprite.setVelocityX(0);
-        if (!f.dodgedSomething) {
+        if (!f.counterFired) {
           this._setState(f, 'stun', d.whiffStun);
           this._popText(f.sprite.x, f.sprite.y - 84, '空振', '#9a6fd0');
         }
@@ -45,12 +46,77 @@ Object.assign(BladeTrinityScene.prototype, {
   },
 
   _endDefense(f) {
-    if (f.state === 'guard' && f.def.defense !== 'dodge') this._setState(f, 'idle');
+    if (f.state === 'guard' && f.def.defense !== 'counter') this._setState(f, 'idle');
   },
 
-  // 每帧维护：反击窗口过期
+  // 每帧维护：反击窗口过期 + 防御描边跟随
   _tickDefense(f, time) {
     if (f.riposteUntil && time > f.riposteUntil) f.riposteUntil = 0;
+    if (f.state === 'guard') this._guardAura(f, time);
+    // 蓄力中的描边由 _tickCharge 维护（同一套 _outlineHold）。这里不能顺手清掉，
+    // 否则每帧一建一清，蓄力描边会闪成频闪。
+    else if (!f.charging) this._clearOutlineHold(f);
+  },
+
+  // ─────────── 外轮廓描边（防御中持续）───────────
+  // 八向偏移法：在角色【身后】(depth-1) 摆 rays 份同帧剪影副本，各自沿一个方向偏移 r 像素。
+  // 它们的并集 = 剪影向外均匀扩张 r，本体盖住中心后，露出来的正好是一圈【等宽描边】。
+  // 外面再叠一圈半径更大、ADD 混合的同色副本当辉光 → "高亮 + 外扩"。
+  // r 随呼吸在 rMin~rMax 之间脉动，所以描边是活的，不是一层静态贴纸。
+  //
+  // ⚠️ 别退回"放大一份剪影"的写法：缩放绕中心，躯干处几乎无位移、四肢处过粗，
+  // 而且 ADD + 淡色在白衣角色 + 暖背景上肉眼不可见（见 BT.GUARD_AURA 注释）。
+  //
+  //
+  // 底层实现由防御（呼吸半径）与蓄力（半径随蓄力增长）共用，所以画面语言统一：
+  // 【外轮廓 = 这个人正蓄着某种力】，不再另起一圈套在身外的廉价光环。
+  _outlineHold(f, tint, r) {
+    const A = BT.GUARD_AURA, sp = f.sprite;
+    if (!f.guardAura) {
+      f.guardAura = [];
+      for (let i = 0; i <= A.rays; i++) {          // 前 rays 份是描边，最后一份是辉光
+        f.guardAura.push(this.add.image(sp.x, sp.y, f.id, sp.frame.name)
+          .setDepth(sp.depth - 1).setScale(BT.SCALE));
+      }
+      f.guardAura[A.rays].setBlendMode(Phaser.BlendModes.ADD);
+    }
+    for (let i = 0; i < A.rays; i++) {
+      const ang = (i / A.rays) * Math.PI * 2;
+      f.guardAura[i].setPosition(sp.x + Math.cos(ang) * r, sp.y + Math.sin(ang) * r)
+        .setFrame(sp.frame.name).setFlipX(sp.flipX).setTint(tint).setAlpha(A.alpha);
+    }
+    const g = f.guardAura[A.rays];                 // 辉光：更大更淡，给溢光
+    g.setPosition(sp.x, sp.y).setFrame(sp.frame.name).setFlipX(sp.flipX)
+      .setScale(BT.SCALE * (1 + r * A.glowMul / 200)).setTint(tint).setAlpha(A.glowAlpha);
+  },
+
+  // 剑神的颜色兼职资源指示：蓝够 = 金色（这一记能完全免伤），蓝空 = 暗色（只剩减伤）。
+  _guardAura(f, time) {
+    const A = BT.GUARD_AURA, kind = f.def.defense;
+    const tint = kind === 'brace'
+      ? (f.mp >= BT.DEFENSE.brace.guardCost ? A.brace : A.braceDry)
+      : (A[kind] || 0xffffff);
+    const pulse = 0.5 + 0.5 * Math.sin(time / A.period);
+    this._outlineHold(f, tint, A.rMin + (A.rMax - A.rMin) * pulse);
+  },
+
+  _clearOutlineHold(f) {
+    if (f.guardAura) { f.guardAura.forEach((g) => g.destroy()); f.guardAura = null; }
+  },
+
+  // ─────────── 北神流反手剑气 ───────────
+  // 挡下（无敌窗口内吃到任意一击/一道剑气）→ 隔 qiDelay 反手甩一记剑气。
+  // dirTo = 剑气应飞的方向（指向攻击者），由调用方按来袭方向取反算出。
+  // 不耗蓝：这是防御的收益，不该和奥义经济缠绕（BT.BLINK 同理）。
+  _fireCounterQi(f, dirTo) {
+    const d = BT.DEFENSE.counter;
+    if (f.counterFired) return;      // 一个窗口只反一记，连续挨打不刷屏
+    f.counterFired = true;
+    this._popText(f.sprite.x, f.sprite.y - 84, '返し！', '#c0a0ff');
+    this.time.delayedCall(d.qiDelay, () => {
+      if (f.state === 'down') return;
+      this._fireQi(f, d.qiFrac, dirTo);
+    });
   },
 
   // ─────────── 结算 ───────────
@@ -58,11 +124,12 @@ Object.assign(BladeTrinityScene.prototype, {
   _resolveDefense(attacker, target, dmg, dir) {
     const plain = { dealt: dmg, blocked: false, negated: false, pushback: 0 };
 
-    // 北神流闪避：无敌帧内完全免疫，且标记「躲到了」以免空放惩罚
+    // 北神流反击窗口：无敌帧内完全免疫 + 反手甩一记剑气（也顺带免掉空放惩罚）
     if (this.time.now < target.iframeUntil) {
-      target.dodgedSomething = true;
-      this._popText(target.sprite.x, target.sprite.y - 84, '逸らし', '#c0a0ff');
-      this._flash(target.sprite.x, target.sprite.y - 36, 0xc0a0ff, 14, 2.2);
+      this._bodyFlash(target, 0xc0a0ff);          // 反击窗口挡下：整体紫闪
+      // 剑气朝攻击者飞：dir 是"攻击者→目标"的方向，取反即指回去
+      if (target.def.defense === 'counter') this._fireCounterQi(target, -dir);
+      else { target.counterFired = true; this._popText(target.sprite.x, target.sprite.y - 84, '逸らし', '#c0a0ff'); }
       return { dealt: 0, blocked: false, negated: true, pushback: 0 };
     }
 
@@ -74,7 +141,8 @@ Object.assign(BladeTrinityScene.prototype, {
     const kind = target.def.defense;
 
     if (kind === 'brace') {
-      // 剑神流硬扛：减伤最多，但被推退；被逼到台边则破防
+      // 剑神流完全防御：正面挡下全免伤，代价是扣蓝 + 被推退；台边则破防。
+      // 蓝不足 → 退化为 reduce 减伤（这时描边会变暗，玩家看得见自己"挡不动了"）。
       const d = BT.DEFENSE.brace;
       const nextX = target.sprite.x + dir * d.pushback;
       const atEdge = nextX < d.edgeMargin || nextX > BT.GAME_W - d.edgeMargin;
@@ -82,6 +150,13 @@ Object.assign(BladeTrinityScene.prototype, {
         this._setState(target, 'stun', d.breakStun);
         this._popText(target.sprite.x, target.sprite.y - 84, '破防！', '#ff8a3b');
         return { dealt: Math.round(dmg * 0.5), blocked: false, negated: false, pushback: 0 };
+      }
+      if (target.mp >= d.guardCost) {
+        target.mp -= d.guardCost;
+        this._drawBars();
+        this._popText(target.sprite.x, target.sprite.y - 84, '力受け·完', '#ffe6a8');
+        this._bodyFlash(target, 0xffd27a);        // 完全防御成功：整体金闪
+        return { dealt: 0, blocked: true, negated: false, pushback: d.pushback * 4 };
       }
       this._popText(target.sprite.x, target.sprite.y - 84, '力受け', '#ffd28a');
       return { dealt: Math.round(dmg * d.reduce), blocked: true, negated: false, pushback: d.pushback * 4 };
@@ -97,14 +172,15 @@ Object.assign(BladeTrinityScene.prototype, {
       // （playtest 里 bot 因此长期被压制，胜率掉到两三成。）
       // 完美格挡是玩家的读招技术，AI 只吃普通格挡的减伤。
       if (held <= d.perfect && target === this.p1) {
-        // 完美：对手被卸力硬直，自己获得反击窗口
+        // 完美：对手被卸力硬直、【伤害原样弹回去】，自己获得反击窗口
         this._setState(attacker, 'stun', d.attackerStun);
         attacker.sprite.setVelocityX(0);
         attacker.atkHit = true;
         target.riposteUntil = this.time.now + d.riposteWindow;
         this._popText(target.sprite.x, target.sprite.y - 84, '受け流し！', '#8fe0ff');
-        this._flash(target.sprite.x, target.sprite.y - 36, 0x8fe0ff, 18, 2.8);
+        this._bodyFlash(target, 0x8fe0ff);        // 完美受流：整体蓝闪
         this.cameras.main.shake(90, 0.005);
+        this._reflectDamage(attacker, Math.round(dmg * d.reflect));
         return { dealt: 0, blocked: true, negated: false, pushback: 24 };
       }
       // 迟了：普通格挡
@@ -113,6 +189,23 @@ Object.assign(BladeTrinityScene.prototype, {
     }
 
     return plain;
+  },
+
+  // 完美受流的伤害反弹：把这一击原样打回攻击者身上。
+  // ⚠️ 刻意【不设 invuln】：攻击者已经被 attackerStun 按住，再上无敌会把紧接着的
+  // riposte（×1.8 反击）也一起免掉 —— 那正是水神流唯一的输出窗口。
+  // 也刻意不改攻击者的 state：stun 比 hurt 长，覆盖过去等于帮对手提前起身。
+  _reflectDamage(attacker, dmg) {
+    if (dmg <= 0 || attacker.state === 'down') return;
+    if (attacker === this.p2) dmg = Math.round(dmg * BT.AI.damageScale);   // 难度旋钮同 _damageOf
+    if (typeof navigator !== 'undefined' && navigator.webdriver) {
+      dmg = Math.round(dmg * (attacker === this.p2 ? 3 : 0.3));            // playtest bot 让步，同 _hit
+    }
+    attacker.hp = Math.max(0, attacker.hp - dmg);
+    this._drawBars();
+    this._popText(attacker.sprite.x, attacker.sprite.y - 104, `返 -${dmg}`, '#8fe0ff');
+    this._bodyFlash(attacker, 0xff3b3b);          // 被弹回的伤害仍是受击：整体红闪
+    if (attacker.hp <= 0) this._ko(attacker);
   },
 
   // 反击窗口内伤害加成——水神流「后发制人」的收益兑现处
