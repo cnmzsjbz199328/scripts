@@ -30,7 +30,7 @@ Object.assign(BladeTrinityScene.prototype, {
 
   _setFightObjective() {
     const d = BT.SCHOOLS[this._p1Id].defense;
-    const dk = d === 'counter' ? 'K 返击' : d === 'parry' ? 'S 受流' : 'S 完防';
+    const dk = d === 'counter' ? 'S 返击' : d === 'parry' ? 'S 受流' : 'S 完防';
     const n = this.oppQueue.length;
     window.GameHUD?.setObjective(
       `擂台 ${this.round + 1}/${n}：${BT.SCHOOLS[this.p2.id].name}　│　J 斩　${dk}　长按 L 蓄剑气　AD 移动`);

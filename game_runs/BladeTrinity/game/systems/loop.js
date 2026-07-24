@@ -26,10 +26,13 @@ Object.assign(BladeTrinityScene.prototype, {
       return;
     }
     if (Phaser.Input.Keyboard.JustDown(this.keys.J)) return this._attack(f);
-    if (Phaser.Input.Keyboard.JustDown(this.keys.K)) return this._startDefense(f, time);
 
-    // brace/parry 长按防御；counter 是瞬发，走 K
-    if (f.def.defense !== 'counter') {
+    // 防御三派【同一个键 S】。北神曾经单独占 K，纯粹是因为它是瞬发动作而不是长按态——
+    // 但对玩家来说"防御"就该是同一个键，换个流派还要换手指是没道理的（用户定）。
+    // 差别只在读法：brace/parry 读长按维持，counter 读点按触发。
+    if (f.def.defense === 'counter') {
+      if (Phaser.Input.Keyboard.JustDown(this.keys.S)) return this._startDefense(f, time);
+    } else {
       if (this.keys.S.isDown && onGround && this._canAct(f)) {
         this._startDefense(f, time);
         return;

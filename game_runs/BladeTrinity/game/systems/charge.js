@@ -320,11 +320,11 @@ Object.assign(BladeTrinityScene.prototype, {
     const K = BT.KNIFE, dir = dirTo < 0 ? -1 : 1;
     // 出手点贴身：暗器是从手里甩出去的，不像剑气那样挂在刀尖前端。
     // 挡下时对手就在面前，生成点再往前挪就会直接越过他（剑气踩过这个坑）。
-    const x = f.sprite.x + dir * 34, y = f.sprite.y - 44;
+    const x = f.sprite.x + dir * 34, y = f.sprite.y + K.emitY;
     this._qiBurst(x, y, BT.SCHOOLS[f.id].barColor);
     this.qiList.push({
       x, prevX: x, y, dir, owner: f, school: f.id, frac: 1,
-      knife: true, spin: 0, speed: K.speed, life: K.life,
+      knife: true, spin: 0, speed: K.speed, life: K.life, anchorY: K.emitY,
       born: this.time.now, age: 0, reflected: false, lastHit: null,
       dmg: K.dmg, r: K.r, hitH: K.hitH,
       history: [], parts: [],
@@ -403,7 +403,9 @@ Object.assign(BladeTrinityScene.prototype, {
   // 返回 'despawn' 表示剑气消耗掉了；null 表示继续飞（穿过 / 反弹后 / 未命中）
   _qiVsTarget(q, target) {
     if (!target || target.state === 'down') return null;
-    const tx = target.sprite.x, ty = target.sprite.y - 36;
+    // ⚠️ 同锚点比 y：弹丸在什么高度飞，就拿对手同一高度来比。默认 -36 是胸高（剑气口径），
+    // 腰高的飞刀自带 anchorY 覆盖它 —— 混用锚点会让弹丸穿过对手却永不命中。
+    const tx = target.sprite.x, ty = target.sprite.y + (q.anchorY != null ? q.anchorY : -36);
     if (Math.abs(q.y - ty) > (q.hitH || BT.QI.hitH)) return null;
     // 横向扫掠：目标躯干 x 是否落在 [上帧,本帧]±半径 内（防高速隧穿）
     const lo = Math.min(q.prevX, q.x) - q.r, hi = Math.max(q.prevX, q.x) + q.r;
