@@ -126,14 +126,15 @@ Object.assign(BladeTrinityScene.prototype, {
   // 挡下（无敌窗口内吃到任意一击/一道剑气）→ 隔 qiDelay 反手一挥，把暗器甩出去。
   // dirTo = 攻击者所在方向，由调用方按来袭方向取反算出。
   // 不耗蓝：这是防御的收益，不该和奥义经济缠绕（BT.BLINK 同理）。
-  _fireCounterQi(f, dirTo) {
+  _fireCounterQi(f, dirTo, crit) {
     const d = BT.DEFENSE.counter;
     if (f.counterFired) return;      // 一个窗口只反一记，连续挨打不刷屏
     f.counterFired = true;
-    this._popText(f.sprite.x, f.sprite.y - 84, '返し！', '#c0a0ff');
+    if (crit) this._critBanner(f, '会心 · 回旋');
+    else this._popText(f.sprite.x, f.sprite.y - 84, '返し！', '#c0a0ff');
     this.time.delayedCall(d.qiDelay, () => {
       if (f.state === 'down') return;
-      this._counterSwing(f, dirTo);
+      this._counterSwing(f, dirTo, crit);
     });
   },
 
@@ -145,7 +146,7 @@ Object.assign(BladeTrinityScene.prototype, {
   // 动作借 attack 行的【反手横扫】那一段（北神 QI_SEGS 末段 = [12,13]），
   // 直接从该段起帧开播（startFrame），否则要从第 0 帧走到第 12 帧 ≈ 430ms，
   // 慢得完全不像"反手"。刀就在这一挥里脱手飞出。
-  _counterSwing(f, dirTo) {
+  _counterSwing(f, dirTo, crit) {
     const a = BT.ATTACK[f.id], segs = BT.QI_SEGS && BT.QI_SEGS[f.id];
     // 转向攻击者：反手是朝来袭方向甩回去的
     f.facingLeft = dirTo < 0;
@@ -157,7 +158,7 @@ Object.assign(BladeTrinityScene.prototype, {
     f.atkHit = true;                      // 只出暗器，不额外近战命中（同 _releaseCharge）
     const start = segs && segs.length ? segs[segs.length - 1][0] : 0;
     f.sprite.play({ key: `${f.id}_attack`, startFrame: start }, true);
-    this._throwKnife(f, dirTo);
+    this._throwKnife(f, dirTo, crit);
   },
 
   // ─────────── 结算 ───────────
@@ -169,7 +170,8 @@ Object.assign(BladeTrinityScene.prototype, {
     if (this.time.now < target.iframeUntil) {
       this._outlinePunch(target);                  // 挡下：描边猛顶一下
       // 暗器朝攻击者飞：dir 是"攻击者→目标"的方向，取反即指回去
-      if (target.def.defense === 'counter') this._fireCounterQi(target, -dir);
+      // 会心 → 这一刀挂回旋镖（穿过→回旋→再穿→再回旋，共三次命中）
+      if (target.def.defense === 'counter') this._fireCounterQi(target, -dir, this._rollCrit(target));
       else { target.counterFired = true; this._popText(target.sprite.x, target.sprite.y - 84, '逸らし', '#c0a0ff'); }
       return { dealt: 0, blocked: false, negated: true, pushback: 0 };
     }
@@ -197,6 +199,9 @@ Object.assign(BladeTrinityScene.prototype, {
         this._drawBars();
         this._popText(target.sprite.x, target.sprite.y - 84, '力受け·完', '#ffe6a8');
         this._outlinePunch(target);               // 完全防御成功：描边猛顶一下
+        // 会心 → 立刻转身三连劈。放在推退【之前】发起：连段自带前冲步，
+        // 由每一刀各自取向，不受这次击退的方向影响。
+        if (this._rollCrit(target)) this._critCombo(target);
         return { dealt: 0, blocked: true, negated: false, pushback: d.pushback * 4 };
       }
       this._popText(target.sprite.x, target.sprite.y - 84, '力受け', '#ffd28a');
@@ -221,7 +226,9 @@ Object.assign(BladeTrinityScene.prototype, {
         this._popText(target.sprite.x, target.sprite.y - 84, '受け流し！', '#8fe0ff');
         this._outlinePunch(target);               // 完美受流：描边猛顶一下
         this.cameras.main.shake(90, 0.005);
-        this._reflectDamage(attacker, Math.round(dmg * d.reflect));
+        // 会心 → 三段返伤（近战没有剑气可弹，用它对齐"连弹"的三次伤害）
+        if (this._rollCrit(target)) this._critMeleeReflect(target, attacker, Math.round(dmg * d.reflect));
+        else this._reflectDamage(attacker, Math.round(dmg * d.reflect));
         return { dealt: 0, blocked: true, negated: false, pushback: 24 };
       }
       // 迟了：普通格挡

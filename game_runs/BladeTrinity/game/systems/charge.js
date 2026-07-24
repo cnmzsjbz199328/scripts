@@ -315,7 +315,8 @@ Object.assign(BladeTrinityScene.prototype, {
   // ─────────── 北神流·反击飞刀 ───────────
   // 进的是同一个 qiList，所以飞行/扫掠命中/三派防御分流/水神反射全部原样复用；
   // 只有渲染分流到 _drawKnife、速度取 q.speed。dirTo = 攻击者所在方向。
-  _throwKnife(f, dirTo) {
+  // crit=true → 挂回旋镖：命中后不消散，穿过对手再飞一段掉头回来，共命中 BT.CRIT.hits 次。
+  _throwKnife(f, dirTo, crit) {
     if (!this.qiList) this.qiList = [];
     const K = BT.KNIFE, dir = dirTo < 0 ? -1 : 1;
     // 出手点贴身：暗器是从手里甩出去的，不像剑气那样挂在刀尖前端。
@@ -324,7 +325,10 @@ Object.assign(BladeTrinityScene.prototype, {
     this._qiBurst(x, y, BT.SCHOOLS[f.id].barColor);
     this.qiList.push({
       x, prevX: x, y, dir, owner: f, school: f.id, frac: 1,
-      knife: true, spin: 0, speed: K.speed, life: K.life, anchorY: K.emitY,
+      knife: true, spin: 0, speed: K.speed, life: crit ? K.life * 2.2 : K.life, anchorY: K.emitY,
+      // hitsLeft>1 = 回旋镖：每次命中后掉头再来，直到打满。boomerang 的刀多活一会儿，
+      // 否则来回一趟就到寿命了（一去一回≈2×turnDist÷speed）。
+      hitsLeft: crit ? BT.CRIT.hits : 1, boomerang: !!crit, turnAt: null,
       born: this.time.now, age: 0, reflected: false, lastHit: null,
       dmg: K.dmg, r: K.r, hitH: K.hitH,
       history: [], parts: [],
@@ -387,6 +391,15 @@ Object.assign(BladeTrinityScene.prototype, {
       q.age += delta;
       const lifeF = q.age / (q.life || BT.QI.life);
 
+      // 回旋镖：穿过对手后再飞 knifeTurnDist 就掉头，并解锁 lastHit 让它能再命中一次
+      if (q.turnAt !== null && q.turnAt !== undefined && (q.x - q.turnAt) * q.dir >= 0) {
+        q.dir *= -1;
+        q.turnAt = null;
+        q.lastHit = null;
+        q.prevX = q.x;
+        this._qiBurst(q.x, q.y, BT.SCHOOLS[q.school].barColor);
+      }
+
       // 甩尾残影轨迹（存当前位置，最多 10 帧）
       q.history.unshift({ x: q.x });
       if (q.history.length > 10) q.history.pop();
@@ -434,6 +447,7 @@ Object.assign(BladeTrinityScene.prototype, {
       q.x += q.dir * 12; q.prevX = q.x;
       this._popText(target.sprite.x, target.sprite.y - 84, '受け流し·返', '#8fe0ff');
       this._outlinePunch(target);                  // 反弹成功：描边猛顶一下
+      if (this._rollCrit(target)) this._critVolley(target, q);   // 会心 → 再连弹两道，共三道
       this.cameras.main.shake(90, 0.006);
       return null;
     }
@@ -449,19 +463,28 @@ Object.assign(BladeTrinityScene.prototype, {
         this._outlinePunch(target);               // 完全防御成功：描边猛顶一下
         this.cameras.main.shake(80, 0.005);
         target.sprite.setVelocityX(q.dir * BT.QI.bracePush);
+        if (this._rollCrit(target)) this._critCombo(target);     // 会心 → 扛下剑气立刻反打三连
         return 'despawn';
       }
       this._applyQiDamage(q, target, Math.round(q.dmg * d.reduce), true);
       return 'despawn';
     }
 
-    // 其余（没防 / 防错向 / 北神未在无敌帧）→ 全伤消散
-    this._applyQiDamage(q, target, q.dmg, false);
+    // 其余（没防 / 防错向 / 北神未在无敌帧）→ 全伤
+    const dealt = this._applyQiDamage(q, target, q.dmg, false);
+    // 回旋镖还有剩余次数 → 【不消散】，穿过对手继续飞，到 turnAt 掉头回来再打。
+    // 只有真打进去才扣次数：被无敌吃掉的那一趟不算，否则"三次伤害"会缩水成两次。
+    if (q.boomerang && (!dealt || --q.hitsLeft > 0)) {
+      q.turnAt = q.x + q.dir * BT.CRIT.knifeTurnDist;
+      return null;
+    }
     return 'despawn';
   },
 
+  // 返回 true = 这一下真的结算了伤害；false = 被受击无敌吃掉。
+  // 回旋镖靠它决定要不要扣掉一次命中次数——空过的一趟不该算数。
   _applyQiDamage(q, target, dmg, blocked) {
-    if (this.time.now < target.invuln) { q.lastHit = target; return; }
+    if (this.time.now < target.invuln) { q.lastHit = target; return false; }
     if (q.owner === this.p2) dmg = Math.round(dmg * BT.AI.damageScale);   // AI 一侧难度折扣
     if (typeof navigator !== 'undefined' && navigator.webdriver) {
       if (target === this.p2) {
@@ -482,6 +505,7 @@ Object.assign(BladeTrinityScene.prototype, {
       blocked ? '#ffd28a' : '#ff8a6a');
     if (!blocked) this._setState(target, 'hurt');
     if (target.hp <= 0) this._ko(target);
+    return true;
   },
 
   // 斜向弧带月牙：前厚后尖（taper 收束）+ 白热刀芯 + 前缘过曝描边 + ADD 甩尾残影 + 弧内残留粒子。
