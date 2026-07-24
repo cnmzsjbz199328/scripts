@@ -51,6 +51,7 @@ class BladeTrinityScene extends Phaser.Scene {
 
     this.phase = 'select';
     this._buildSelect();
+    this._buildRestartBtn();      // 结束后鼠标悬停才浮出的半透明 ↻（restart.js）
     if (window.GameHUD) window.GameHUD.onStart(() => { });
     window.__scene = this;
 
@@ -95,6 +96,7 @@ class BladeTrinityScene extends Phaser.Scene {
   }
 
   update(time, delta) {
+    this._tickRestartBtn();       // 各 phase 都要跑：它自己按 phase 决定显不显
     if (this.phase === 'select') {
       if (Phaser.Input.Keyboard.JustDown(this.keys.A) ||
           Phaser.Input.Keyboard.JustDown(this.cursors.left)) this._selectMove(-1);
