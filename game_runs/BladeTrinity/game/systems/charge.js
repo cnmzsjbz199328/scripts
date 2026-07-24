@@ -101,8 +101,10 @@ Object.assign(BladeTrinityScene.prototype, {
     // （headless 采样实测：780ms 内只走到第 6 帧，剑气 0 道）。
     // 时间推算帧按 BT.ATTACK.fps 走墙钟，与渲染帧率无关；60fps 下两者一致，
     // 掉帧时由它兜底 —— 蓄力扣了蓝就必须有剑气出来，这条不能看机器脸色。
+    // idx0：动画不是从第 0 帧起播时的起始相位（北神反手斩直接从生成段起帧开播，
+    // 见 defense.js _counterSwing）。时间推算帧要从它起算，否则永远追不上真实相位。
     const fps = BT.ATTACK[f.id].fps;
-    const idxT = Math.floor((time - sw.t0) / 1000 * fps);
+    const idxT = (sw.idx0 || 0) + Math.floor((time - sw.t0) / 1000 * fps);
     const idx = Math.max(fr ? fr.index - 1 : 0, idxT);
     sw.g.clear(); sw.gGlow.clear();
     // 各段推进到止帧 → 脱手发射
@@ -133,7 +135,17 @@ Object.assign(BladeTrinityScene.prototype, {
       xMin = Math.min(xMin, m[0]); xMax = Math.max(xMax, m[0]);
     }
     if (!isFinite(yMin)) return;
-    const cx = sx + dir * xMax * BT.SCALE, cy = sy + ((yMin + yMax) / 2) * BT.SCALE;   // 前端·中心高度
+    // 出生点在【刀尖前端】。但刀尖能伸到 170px 开外，贴脸放时会直接生成在对手【身后】，
+    // 剑气朝前飞走、一次判定都不过 —— 北神反手斩就是这个场景（挡下时对方就在面前），
+    // 实测必定打空。所以把前伸量压到"对手身前一点"，让首帧扫掠区间就能罩住他。
+    // 蓄力奥义一般不撞这条（起手 _chargeWave 先把人轰远了），但同样受保护。
+    let fwd = xMax * BT.SCALE;
+    const opp = this._opp(f);
+    if (opp && opp.state !== 'down') {
+      const gap = (opp.sprite.x - sx) * dir;                     // 对手在正前方多远（负=在背后）
+      if (gap > 0 && gap < fwd) fwd = Math.max(30, gap - 20);
+    }
+    const cx = sx + dir * fwd, cy = sy + ((yMin + yMax) / 2) * BT.SCALE;   // 前端·中心高度
     const spanV = (yMax - yMin) * BT.SCALE, spanH = (xMax - xMin) * BT.SCALE;
     this._qiBurst(cx, cy, BT.SCHOOLS[f.id].barColor);
     this.qiList.push({
@@ -300,20 +312,80 @@ Object.assign(BladeTrinityScene.prototype, {
     window.GameAudio && GameAudio.play && GameAudio.play('slash');
   },
 
+  // ─────────── 北神流·反击飞刀 ───────────
+  // 进的是同一个 qiList，所以飞行/扫掠命中/三派防御分流/水神反射全部原样复用；
+  // 只有渲染分流到 _drawKnife、速度取 q.speed。dirTo = 攻击者所在方向。
+  _throwKnife(f, dirTo) {
+    if (!this.qiList) this.qiList = [];
+    const K = BT.KNIFE, dir = dirTo < 0 ? -1 : 1;
+    // 出手点贴身：暗器是从手里甩出去的，不像剑气那样挂在刀尖前端。
+    // 挡下时对手就在面前，生成点再往前挪就会直接越过他（剑气踩过这个坑）。
+    const x = f.sprite.x + dir * 34, y = f.sprite.y - 44;
+    this._qiBurst(x, y, BT.SCHOOLS[f.id].barColor);
+    this.qiList.push({
+      x, prevX: x, y, dir, owner: f, school: f.id, frac: 1,
+      knife: true, spin: 0, speed: K.speed, life: K.life,
+      born: this.time.now, age: 0, reflected: false, lastHit: null,
+      dmg: K.dmg, r: K.r, hitH: K.hitH,
+      history: [], parts: [],
+      gGlow: this.add.graphics().setDepth(25).setBlendMode(Phaser.BlendModes.ADD),
+      g: this.add.graphics().setDepth(26),
+    });
+    window.GameAudio && GameAudio.play && GameAudio.play('slash');
+  },
+
+  // 旋转的小刀：刀身多边形绕自身中心自转 + 几片旋转残影。
+  // 残影是"转起来"的关键 —— 单帧看是一把刀，连起来才是一团旋刃；
+  // 少了它在低帧率下会变成一格一格的跳变。
+  _drawKnife(q, lifeF, dts) {
+    const K = BT.KNIFE;
+    q.spin += K.spin * dts * q.dir;
+    const g = q.g, gl = q.gGlow; g.clear(); gl.clear();
+    const a = Phaser.Math.Clamp(1 - Math.max(0, lifeF - 0.7) / 0.3, 0, 1);   // 末段三成淡出
+    const blade = (cx, cy, rot, alpha, scale) => {
+      const c = Math.cos(rot), s = Math.sin(rot), L = K.len * scale, W = K.w * scale;
+      const pt = (lx, ly) => ({ x: cx + lx * c - ly * s, y: cy + lx * s + ly * c });
+      // 刀身：尖头在前，向后收成柄；刀柄一小截压暗，才看得出是"刀"不是"梭子"
+      const body = [pt(L * 0.6, 0), pt(L * 0.15, -W), pt(-L * 0.2, -W * 0.55),
+        pt(-L * 0.2, W * 0.55), pt(L * 0.15, W)];
+      const hilt = [pt(-L * 0.2, -W * 0.5), pt(-L * 0.5, -W * 0.45),
+        pt(-L * 0.5, W * 0.45), pt(-L * 0.2, W * 0.5)];
+      g.fillStyle(K.color, alpha); g.fillPoints(body, true);
+      g.lineStyle(1.6, K.edge, alpha * 0.95); g.strokePoints(body, true);   // 白热刃口
+      g.fillStyle(K.hilt, alpha); g.fillPoints(hilt, true);
+    };
+    // 旋转残影：沿飞行反方向退开，且自转相位往回倒 —— 读作"边转边飞"
+    for (let i = K.ghosts; i >= 1; i--) {
+      const t = i / (K.ghosts + 1);
+      gl.fillStyle(BT.SCHOOLS[q.school].barColor, a * 0.10 * (1 - t));
+      const c = Math.cos(q.spin - i * 0.5), s = Math.sin(q.spin - i * 0.5);
+      const cx = q.x - q.dir * i * 11, cy = q.y, L = K.len * 0.9, W = K.w * 0.9;
+      gl.fillPoints([
+        { x: cx + L * 0.6 * c, y: cy + L * 0.6 * s },
+        { x: cx - W * s, y: cy + W * c },
+        { x: cx - L * 0.5 * c, y: cy - L * 0.5 * s },
+        { x: cx + W * s, y: cy - W * c },
+      ], true);
+    }
+    gl.fillStyle(BT.SCHOOLS[q.school].barColor, a * 0.22);                  // 外晕
+    gl.fillCircle(q.x, q.y, K.len * 0.42);
+    blade(q.x, q.y, q.spin, a, 1);
+  },
+
   _tickQi(time, delta) {
     if (!this.qiList || !this.qiList.length) return;
     const dts = delta / 1000;
     for (let i = this.qiList.length - 1; i >= 0; i--) {
       const q = this.qiList[i];
       q.prevX = q.x;
-      q.x += q.dir * BT.QI.speed * dts;
+      q.x += q.dir * (q.speed || BT.QI.speed) * dts;   // 飞刀比剑气快，速度按弹丸自带
       // ⚠️ 寿命按【累计 delta】算，不按墙钟 (time - q.born)。
       // 位移是 delta 积分出来的，而 Phaser 在掉帧时会把 delta 钳住；两个口径一混，
       // 机器一卡剑气就会"活够了 1500ms 却只飞了 120px"，半路凭空消散——
       // headless 实测正是如此（1533ms 只飞 121px，水神反弹永远等不到剑气到脸上）。
       // 用累计 delta 后，一发剑气飞多远与帧率无关，掉帧只会让它看起来慢，不会缩水。
       q.age += delta;
-      const lifeF = q.age / BT.QI.life;
+      const lifeF = q.age / (q.life || BT.QI.life);
 
       // 甩尾残影轨迹（存当前位置，最多 10 帧）
       q.history.unshift({ x: q.x });
@@ -359,7 +431,7 @@ Object.assign(BladeTrinityScene.prototype, {
       q.reflected = true; q.lastHit = null;
       q.x += q.dir * 12; q.prevX = q.x;
       this._popText(target.sprite.x, target.sprite.y - 84, '受け流し·返', '#8fe0ff');
-      this._bodyFlash(target, 0x8fe0ff);          // 反弹成功：整体蓝闪
+      this._outlinePunch(target);                  // 反弹成功：描边猛顶一下
       this.cameras.main.shake(90, 0.006);
       return null;
     }
@@ -372,7 +444,7 @@ Object.assign(BladeTrinityScene.prototype, {
         target.mp -= d.qiGuardCost;
         this._drawBars();
         this._popText(target.sprite.x, target.sprite.y - 84, '力受け·完', '#ffe6a8');
-        this._bodyFlash(target, 0xffd27a);        // 完全防御成功：整体金闪
+        this._outlinePunch(target);               // 完全防御成功：描边猛顶一下
         this.cameras.main.shake(80, 0.005);
         target.sprite.setVelocityX(q.dir * BT.QI.bracePush);
         return 'despawn';
@@ -413,6 +485,7 @@ Object.assign(BladeTrinityScene.prototype, {
   // 斜向弧带月牙：前厚后尖（taper 收束）+ 白热刀芯 + 前缘过曝描边 + ADD 甩尾残影 + 弧内残留粒子。
   // 整体按 q.rot 旋转（含 dir 朝向 + slashAngle 斜劈倾角），贴合"举刀→斜劈而下"的挥剑轨迹。
   _drawQi(q, lifeF, dts) {
+    if (q.knife) { this._drawKnife(q, lifeF, dts); return; }  // 北神反击暗器（旋转小刀）
     if (q.fromBlade) { this._drawFlyQi(q, lifeF); return; }   // 轨迹驱动的飞行月牙（chop/sweep）
     const s = BT.SCHOOLS[q.school];
     const clampF = Phaser.Math.Clamp(lifeF, 0, 1);

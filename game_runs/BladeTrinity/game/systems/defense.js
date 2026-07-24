@@ -5,7 +5,7 @@
  *
  *   brace（剑神流·力受け）正面【完全免伤】，代价是吃蓝 + 被推退，逼到台边破防大硬直
  *   parry（水神流·受け流し）完美窗口内免伤 + 卸掉对手 + 【把伤害弹回去】；剑气整道反射
- *   counter（北神流·返し）窗口内真无敌，挡下即【反手一记剑气】，空放留大破绽
+ *   counter（北神流·返し）窗口内真无敌，挡下即【反手甩出旋转飞刀】，空放留大破绽
  *
  * 克制三角由这三套参数与 BT.ATTACK 的窗口互相咬合产生，不靠额外的相克表。
  * 三派共用一条 guard 动画行，视觉差异由 _guardAura 的外轮廓描边给（见 BT.GUARD_AURA）。
@@ -22,6 +22,7 @@ Object.assign(BladeTrinityScene.prototype, {
       f.iframeUntil = time + d.iframes;
       f.counterReady = time + d.cooldown;
       f.counterFired = false;
+      f.counterGlowUntil = time + d.iframes + 60;   // 描边至少亮满整个反击窗口（挡下后由 _counterSwing 续期）
       f.sprite.setVelocityX(d.sidestep * 8 * dir);
       this._setState(f, 'guard', d.iframes + 60);
       this._ghost(f);
@@ -52,7 +53,11 @@ Object.assign(BladeTrinityScene.prototype, {
   // 每帧维护：反击窗口过期 + 防御描边跟随
   _tickDefense(f, time) {
     if (f.riposteUntil && time > f.riposteUntil) f.riposteUntil = 0;
-    if (f.state === 'guard') this._guardAura(f, time);
+    // 北神的防御姿势只有 260ms，之后立刻切进 attack 演反手斩 —— 只按 state==='guard'
+    // 挂描边的话，三派里唯独它的描边一闪就没，看着像"没有特效"（用户实测反馈）。
+    // 所以额外认一个到期时间，让描边从起防一路亮到反手斩收招。
+    if (f.state === 'down') this._clearOutlineHold(f);     // 倒地要看清人，描边一律收掉
+    else if (f.state === 'guard' || (f.counterGlowUntil && time < f.counterGlowUntil)) this._guardAura(f, time);
     // 蓄力中的描边由 _tickCharge 维护（同一套 _outlineHold）。这里不能顺手清掉，
     // 否则每帧一建一清，蓄力描边会闪成频闪。
     else if (!f.charging) this._clearOutlineHold(f);
@@ -97,16 +102,29 @@ Object.assign(BladeTrinityScene.prototype, {
       ? (f.mp >= BT.DEFENSE.brace.guardCost ? A.brace : A.braceDry)
       : (A[kind] || 0xffffff);
     const pulse = 0.5 + 0.5 * Math.sin(time / A.period);
-    this._outlineHold(f, tint, A.rMin + (A.rMax - A.rMin) * pulse);
+    let r = A.rMin + (A.rMax - A.rMin) * pulse;
+    // 挡下瞬间描边猛顶一下，随后回落——这是"防御生效"的反馈
+    if (f.auraPunchUntil && time < f.auraPunchUntil) {
+      r += A.punchR * ((f.auraPunchUntil - time) / A.punchMs);
+    }
+    this._outlineHold(f, tint, r);
+  },
+
+  // 防御成功的反馈 = 【描边猛顶一下】，不是把整个人刷成纯色。
+  // ⚠️ 曾经在挡下时 _bodyFlash 一层流派色：那层纯色剪影盖在同色描边上，两者糊成
+  // 一坨，描边等于消失（用户就是这么"看不到北神反击特效"的）。
+  // 全身闪只保留给【受伤】——红色，且只有真掉血才闪，语义不重叠。
+  _outlinePunch(f) {
+    f.auraPunchUntil = this.time.now + BT.GUARD_AURA.punchMs;
   },
 
   _clearOutlineHold(f) {
     if (f.guardAura) { f.guardAura.forEach((g) => g.destroy()); f.guardAura = null; }
   },
 
-  // ─────────── 北神流反手剑气 ───────────
-  // 挡下（无敌窗口内吃到任意一击/一道剑气）→ 隔 qiDelay 反手甩一记剑气。
-  // dirTo = 剑气应飞的方向（指向攻击者），由调用方按来袭方向取反算出。
+  // ─────────── 北神流反手飞刀 ───────────
+  // 挡下（无敌窗口内吃到任意一击/一道剑气）→ 隔 qiDelay 反手一挥，把暗器甩出去。
+  // dirTo = 攻击者所在方向，由调用方按来袭方向取反算出。
   // 不耗蓝：这是防御的收益，不该和奥义经济缠绕（BT.BLINK 同理）。
   _fireCounterQi(f, dirTo) {
     const d = BT.DEFENSE.counter;
@@ -115,8 +133,31 @@ Object.assign(BladeTrinityScene.prototype, {
     this._popText(f.sprite.x, f.sprite.y - 84, '返し！', '#c0a0ff');
     this.time.delayedCall(d.qiDelay, () => {
       if (f.state === 'down') return;
-      this._fireQi(f, d.qiFrac, dirTo);
+      this._counterSwing(f, dirTo);
     });
+  },
+
+  // 反手甩刀的演出。
+  // ⚠️ 这里【必须真播一个动作】，不能只把弹丸生成出来：只生成弹丸的话人物全程僵在
+  // 防御姿势里，暗器凭空从身侧冒出来 —— 玩家读不出"我反击了"，表现上只是
+  // "防御时旁边闪了个小紫光"（用户实测就是完全没注意到）。
+  //
+  // 动作借 attack 行的【反手横扫】那一段（北神 QI_SEGS 末段 = [12,13]），
+  // 直接从该段起帧开播（startFrame），否则要从第 0 帧走到第 12 帧 ≈ 430ms，
+  // 慢得完全不像"反手"。刀就在这一挥里脱手飞出。
+  _counterSwing(f, dirTo) {
+    const a = BT.ATTACK[f.id], segs = BT.QI_SEGS && BT.QI_SEGS[f.id];
+    // 转向攻击者：反手是朝来袭方向甩回去的
+    f.facingLeft = dirTo < 0;
+    f.sprite.setFlipX(!f.facingLeft);
+    this._ghost(f);                       // 反手带一记残影，接上北神的"虚実"味道
+    f.counterGlowUntil = this.time.now + a.dur;   // 紫描边续到收招，整套演出连成一条
+    f.state = 'attack';
+    f.stateUntil = this.time.now + a.dur;
+    f.atkHit = true;                      // 只出暗器，不额外近战命中（同 _releaseCharge）
+    const start = segs && segs.length ? segs[segs.length - 1][0] : 0;
+    f.sprite.play({ key: `${f.id}_attack`, startFrame: start }, true);
+    this._throwKnife(f, dirTo);
   },
 
   // ─────────── 结算 ───────────
@@ -126,8 +167,8 @@ Object.assign(BladeTrinityScene.prototype, {
 
     // 北神流反击窗口：无敌帧内完全免疫 + 反手甩一记剑气（也顺带免掉空放惩罚）
     if (this.time.now < target.iframeUntil) {
-      this._bodyFlash(target, 0xc0a0ff);          // 反击窗口挡下：整体紫闪
-      // 剑气朝攻击者飞：dir 是"攻击者→目标"的方向，取反即指回去
+      this._outlinePunch(target);                  // 挡下：描边猛顶一下
+      // 暗器朝攻击者飞：dir 是"攻击者→目标"的方向，取反即指回去
       if (target.def.defense === 'counter') this._fireCounterQi(target, -dir);
       else { target.counterFired = true; this._popText(target.sprite.x, target.sprite.y - 84, '逸らし', '#c0a0ff'); }
       return { dealt: 0, blocked: false, negated: true, pushback: 0 };
@@ -155,7 +196,7 @@ Object.assign(BladeTrinityScene.prototype, {
         target.mp -= d.guardCost;
         this._drawBars();
         this._popText(target.sprite.x, target.sprite.y - 84, '力受け·完', '#ffe6a8');
-        this._bodyFlash(target, 0xffd27a);        // 完全防御成功：整体金闪
+        this._outlinePunch(target);               // 完全防御成功：描边猛顶一下
         return { dealt: 0, blocked: true, negated: false, pushback: d.pushback * 4 };
       }
       this._popText(target.sprite.x, target.sprite.y - 84, '力受け', '#ffd28a');
@@ -178,7 +219,7 @@ Object.assign(BladeTrinityScene.prototype, {
         attacker.atkHit = true;
         target.riposteUntil = this.time.now + d.riposteWindow;
         this._popText(target.sprite.x, target.sprite.y - 84, '受け流し！', '#8fe0ff');
-        this._bodyFlash(target, 0x8fe0ff);        // 完美受流：整体蓝闪
+        this._outlinePunch(target);               // 完美受流：描边猛顶一下
         this.cameras.main.shake(90, 0.005);
         this._reflectDamage(attacker, Math.round(dmg * d.reflect));
         return { dealt: 0, blocked: true, negated: false, pushback: 24 };

@@ -31,9 +31,11 @@ class BladeTrinityScene extends Phaser.Scene {
         if (this.anims.exists(key)) continue;
         const cfg = BT.ANIM[act] || { fps: 12, loop: false };
         const fps = act === 'attack' ? BT.ATTACK[id].fps : cfg.fps;
+        // BT.CLIP 截掉行尾（如剑神 guard 后半段自己转身 180° 的镜像帧）
+        const n = Math.min(BT.CLIP[key] || a.frameCount, a.frameCount);
         this.anims.create({
           key, frameRate: fps, repeat: cfg.loop ? -1 : 0,
-          frames: Array.from({ length: a.frameCount },
+          frames: Array.from({ length: n },
             (_, i) => ({ key: id, frame: a.row * cols + i })),
         });
       }
