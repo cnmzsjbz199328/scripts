@@ -95,8 +95,13 @@ Object.assign(BladeTrinityScene.prototype, {
     if (!this._canAct(f)) return;
 
     // ── ④ 决策层 ──
-    // 放奥义（圣级+）：远距离优先，判在走位分支之前（见 BT.AI 注释）
-    if (cap.ult && this._aiWantsUlt(f, time, dist, mul.ult)) { this._startAICharge(f, time); return; }
+    // 放奥义（圣级+）：远距离优先，判在走位分支之前（见 BT.AI 注释）。
+    // 太近时，会拉开的档位走 zoneOut 套路先创造距离，而不是干脆放弃（见 _aiUltPlan）。
+    if (cap.ult) {
+      const plan = this._aiUltPlan(f, time, dist, mul.ult, (T.routines || []).includes('zoneOut'));
+      if (plan === 'now') { this._startAICharge(f, time); return; }
+      if (plan === 'zone') { this._aiStart(f, 'zoneOut', time); return; }
+    }
 
     // 起套路（帝级+）：判在【走位分支之前】—— 绕背/踏落本来就是中距离的进身手段，
     // 排在 `dist > engage` 的 return 之后就只有贴脸能起套，实测一整场打不出两次。
@@ -155,12 +160,20 @@ Object.assign(BladeTrinityScene.prototype, {
     else this._attack(f);
   },
 
-  // AI 是否该起蓄。四个闸门全过才放（见旧注释）；ultMul = 当前档位对 ultChance 的倍率。
-  _aiWantsUlt(f, time, dist, ultMul) {
-    if (time < (f.ultReady || 0)) return false;
-    if (f.mp < BT.MP.ultCost) return false;
-    if (dist < BT.AI.ultMinDist) return false;
-    return Math.random() < BT.AI.ultChance * (ultMul == null ? 1 : ultMul);
+  // AI 的奥义计划：返回 'now'（够远，直接起蓄）/ 'zone'（太近，先拉开再放）/ null。
+  //
+  // ⚠️ 距离闸门【不能再是一票否决】。BT.AI.ultMinDist=210 本意是"贴脸不放奥义"，
+  // 但套路层 + 间合摇摆 + 惩罚窗口让高档 AI 压得更近（神级均距 175px vs 圣级 234px），
+  // 结果档位越高越永远卡在这道闸门上 —— 实测 45s 内掷到奥义骰的次数：圣 7 / 王 4 /
+  // 帝 5 / 神 2，神级 mul.ult=1.4 完全没被读到，表现就是"越强越不放剑气"。
+  // 解法是让会拉开的档位（routines 含 zoneOut）把它当成"先创造距离"的信号，而不是放弃。
+  _aiUltPlan(f, time, dist, ultMul, canZone) {
+    if (time < (f.ultReady || 0)) return null;
+    if (f.mp < BT.MP.ultCost) return null;
+    const far = dist >= BT.AI.ultMinDist;
+    if (!far && !canZone) return null;
+    if (Math.random() >= BT.AI.ultChance * (ultMul == null ? 1 : ultMul)) return null;
+    return far ? 'now' : 'zone';
   },
 
   // 当前播放帧的攻击距离：BT.REACH 是量图集得到的【逐帧刀长】（纹理像素，

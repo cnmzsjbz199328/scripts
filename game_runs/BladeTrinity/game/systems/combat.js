@@ -114,6 +114,9 @@ Object.assign(BladeTrinityScene.prototype, {
     this._setState(f, 'attack');
     if (this._usage && f === this.p1) this._usage.attack++;
     f.atkHit = false;
+    // 这一记【是平A】：收招可被 AI 的收招接续掐掉（routine.js _aiCancelWindow）。
+    // 蓄力剑气的挥砍会把它置回 false —— 那一挥掐了就没剑气了。
+    f.atkCancelable = true;
     f.atkFrom = this.time.now + a.from;
     f.atkTo = this.time.now + a.to;
     f.prevDx = null;

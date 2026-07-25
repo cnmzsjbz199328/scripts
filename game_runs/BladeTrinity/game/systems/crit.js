@@ -13,10 +13,14 @@
  */
 Object.assign(BladeTrinityScene.prototype, {
 
-  // 掷骰。防御成功的每一处调用点都过这里，概率只有 BT.CRIT.chance 一个旋钮。
+  // 掷骰。防御成功的每一处调用点都过这里。
+  // 基线是 BT.CRIT.chance；【AI 侧】再乘当前难度档的 mul.crit —— 会心是三派最出彩的
+  // 防御演出，高档位该更常见（玩家侧不受档位影响，那是玩家自己的手感基线）。
   _rollCrit(f) {
     if (!BT.CRIT || f.state === 'down') return false;
-    const hit = Math.random() < BT.CRIT.chance;
+    const T = this._tierCfg && this._tierCfg();
+    const m = (f === this.p2 && T && T.mul && T.mul.crit != null) ? T.mul.crit : 1;
+    const hit = Math.random() < BT.CRIT.chance * m;
     if (hit && this._usage && f === this.p1) this._usage.crit++;
     return hit;
   },

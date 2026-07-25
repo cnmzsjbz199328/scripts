@@ -24,10 +24,22 @@ Object.assign(BladeTrinityScene.prototype, {
   //
   // 所以高档位允许把【命中窗口已过】的收招段提前判定结束。只对 AI 生效：
   // 玩家侧的收招是三派平衡的一部分（剑神"伤害最高、收招最久"），不动。
-  _aiCancelRecovery(f, time) {
+  // 收招是否已进入可取消窗口。
+  //
+  // ⚠️ `f.atkCancelable` 这道闸门是【必须】的，别图省事只看 state==='attack'：
+  // 蓄力剑气的挥砍（charge.js _releaseCharge）也把 state 置成 'attack'，但它
+  // 【不设 atkFrom/atkTo】—— f.atkTo 还是上一记平A 留下的陈旧值，于是下一帧就被判成
+  // "收招早就结束了"掐掉，_tickSwingQi 见 state 变了立刻 _clearSwing，
+  // 结果是蓄力扣了蓝却一道剑气都放不出来（实测神级 7 次起蓄 0 道、帝级 7 次 2 道，
+  // 玩家看到的就是"只把我轰飞、不放剑气"）。
+  _aiCancelWindow(f, time) {
     const cancel = this._tierCfg().cancel;
-    if (!cancel || f.state !== 'attack') return;
-    if (time < (f.atkTo || 0) + cancel) return;
+    if (!cancel || f.state !== 'attack' || !f.atkCancelable) return false;
+    return time >= (f.atkTo || 0) + cancel;
+  },
+
+  _aiCancelRecovery(f, time) {
+    if (!this._aiCancelWindow(f, time)) return;
     // ⚠️ 取消收招是为了【能挡、能起套】，不是为了更快再砍一刀。所以把决策时钟顶到
     // 招式本来的结束时刻：省下的时间只能拿去防御/走位/起套，攻击频率维持原样。
     // 不加这一句，cancel 会把出手间隔从 ~1140ms 压到 ~760ms，高档 AI 变成连打机，
@@ -66,7 +78,7 @@ Object.assign(BladeTrinityScene.prototype, {
     // 不给这条，AI 看得见起手也挡不了：平A 一次锁 720~830ms，玩家的起手窗口只有
     // 130ms，撞上"AI 正好空闲"的概率低到实测帝级一整场 0 次防御（明明比王级反应更快）。
     // 王级 cancel=0 → 只有真正空闲时才挡；帝/神能弃招回防，这就是档位差。
-    const cancellable = T.cancel && f.state === 'attack' && time > (f.atkTo || 0);
+    const cancellable = this._aiCancelWindow(f, time);
     if (!this._canAct(f) && !cancellable) return false;
 
     // ① 读招防御 —— 不是掷骰，是看【招式进行到哪一步】。
@@ -109,7 +121,7 @@ Object.assign(BladeTrinityScene.prototype, {
   _aiGuard(f, time) {
     this._startDefense(f, time);
     if (f.def.defense !== 'counter' && f.state === 'guard') {
-      f.stateUntil = time + BT.AI_RT.guardHold;
+      f.stateUntil = time + (this._tierCfg().guardHold || BT.AI_RT.guardHold);
     }
   },
 
@@ -155,6 +167,15 @@ Object.assign(BladeTrinityScene.prototype, {
     // 对手露破绽（出招中 / 硬直）时更想起套 —— 套路是拿来惩罚的，不是随机表演。
     const exposed = opp.state === 'attack' || opp.state === 'stun' || opp.state === 'hurt';
 
+    // 压边·连续贴身：对手背靠台边就上去锁死。判在最前面 —— 角落是最值钱的局面，
+    // 有这个机会就不该被绕背/踏落抢走。
+    const m = BT.DEFENSE.brace.edgeMargin * 2.2;
+    if (R.includes('cornerPress') && bothGrounded &&
+        (opp.sprite.x < m || opp.sprite.x > BT.GAME_W - m) &&
+        dist > A.pressMin && dist < A.pressMax && Math.random() < A.pressOdds) {
+      f.rtReady = time + gap;
+      return this._aiStart(f, 'cornerPress', time);
+    }
     // 缩地·绕背斩：中距、缩地冷却好了、双方落地
     if (R.includes('crossBlink') && time >= (f.mistReady || 0) && bothGrounded &&
         dist > A.crossMin && dist < A.crossMax &&
@@ -208,7 +229,11 @@ Object.assign(BladeTrinityScene.prototype, {
       this._aiStep(rt, time, BT.AI_RT.turnGap);
       return true;
     }
-    this._attack(f);
+    // 绕到背后不一定马上砍：有概率贴背【架防】，钓你回身乱挥。
+    // 这条同时压住神级的平A 频率 —— 绕背斩每套都接刀的话，神级 45s 打 39 记平A，
+    // 把自己交防御的时间全挤掉了（实测起防次数四档全平，没有随难度上升）。
+    if (Math.random() < BT.AI_RT.crossGuardOdds) this._aiGuard(f, time);
+    else this._attack(f);
     this._aiEnd(f);
     return true;
   },
@@ -245,6 +270,77 @@ Object.assign(BladeTrinityScene.prototype, {
       return true;
     }
     return this._rtAirPress(f, time);
+  },
+
+  // ─────────── 套路④　拉开·蓄力剑气 ───────────
+  // 缩地（或后撤）先把身位拉开，再起蓄 —— 解的是"越强越不放剑气"这个反直觉回归。
+  //
+  // ⚠️ 病因值得记住：BT.AI.ultMinDist=210 是「贴脸不放奥义」的静态闸门，而套路层 +
+  // 间合摇摆 + 惩罚窗口让高档 AI 压得更近（神级均距 175px，圣级 234px），于是档位越高
+  // 越永远卡在这道闸门上。实测 45s 内掷到奥义骰的次数：圣级 7、王级 4、帝级 5、神级 2
+  // —— 神级 mul.ult=1.4 那个"更爱放奥义"的倍率根本没机会被读到。
+  // 解法不是把 ultMinDist 调小（贴脸放奥义观感差、还等于送），而是让 AI【自己创造距离】。
+  _rt_zoneOut(f, time, rt) {
+    const opp = this._opp(f), sp = f.sprite;
+    const dir = Math.sign(opp.sprite.x - sp.x) || 1;      // 指向对手，拉开就往 -dir
+    if (rt.step === 0) {
+      if (time >= (f.mistReady || 0)) {
+        this._doAIBlink(f, 'ground', -dir, time);          // 缩地拉开：带残影，一眼看出"他要放大的"
+        this._aiStep(rt, time, BT.AI_RT.zoneGap);
+      } else {
+        sp.setVelocityX(-dir * f.def.speed);               // 冷却没好就正常后撤
+        this._setWalk(f, -dir);
+        this._aiStep(rt, time, BT.AI_RT.zoneBackstep);
+      }
+      return true;
+    }
+    sp.setVelocityX(0);
+    this._startAICharge(f, time);      // 起蓄自带轰飞 + 描边一弹，预告帧由它给
+    this._aiEnd(f);
+    return true;
+  },
+
+  // ─────────── 套路⑤　压边·连续贴身 ───────────
+  // 对手背靠台边时：短缩地贴上去 → 平A → 再贴一次 → 再一刀。角落是格斗游戏最大的压力源，
+  // 之前整套 AI 一次都没用过它。这是帝级的地面压制手牌（对应神级的绕背斩）。
+  // 反制：别让自己被逼到边上；已经在边上就用移形换影换位，或吃第一下后趁硬直跳出去。
+  _rt_cornerPress(f, time, rt) {
+    const opp = this._opp(f), sp = f.sprite, A = BT.AI_RT;
+    const dir = Math.sign(opp.sprite.x - sp.x) || 1;
+    if (rt.step === 0) {
+      this._rtTell(f);
+      this._aiStep(rt, time, A.pressTell);
+      return true;
+    }
+    if (rt.step === 1 || rt.step === 3) {
+      // 贴到【身前】pressGap 处（不是身后：这套是压角，不是绕背）
+      const tx = Phaser.Math.Clamp(opp.sprite.x - dir * A.pressGap, 56, BT.GAME_W - 56);
+      this._blinkGhosts(f, sp.x, sp.y, tx, sp.y);
+      sp.setPosition(tx, sp.y);
+      sp.setVelocityX(0);
+      f.invuln = Math.max(f.invuln, time + BT.BLINK.iframe);
+      window.GameAudio && GameAudio.play && GameAudio.play('morph');
+      // ⚠️ 第二拍的缩地【顺手掐掉上一刀的收招】。不这么做，下面的 _attack 会因为
+      // state 还是 'attack'（dur 720~830ms）被 _canAct 挡掉，第二刀根本打不出来。
+      // 观感上这正是"缩地取消收招接第二刀"的连段感。
+      if (f.state === 'attack') this._setState(f, 'idle');
+      this._aiStep(rt, time, A.turnGap);      // 同绕背：留一帧给 _faceEachOther 转身
+      return true;
+    }
+    if (rt.step === 2) {
+      this._attack(f);
+      // 第二拍只在【对手仍被压在角落】时接：追着满场跑就不叫压边了
+      const m = BT.DEFENSE.brace.edgeMargin * 2.2;
+      const cornered = opp.sprite.x < m || opp.sprite.x > BT.GAME_W - m;
+      if (!cornered) { this._aiEnd(f); return true; }
+      this._aiStep(rt, time, A.pressBeat);
+      return true;
+    }
+    // 第二拍也不一定是刀：有概率贴脸【架防】钓你反击（同 crossGuardOdds 的用意）
+    if (Math.random() < A.pressGuardOdds) this._aiGuard(f, time);
+    else this._attack(f);
+    this._aiEnd(f);
+    return true;
   },
 
   // 空中压落段（踏落斩 / 剑气追共用）：腾空横向贴近 + 择时下劈 + 落地收尾。

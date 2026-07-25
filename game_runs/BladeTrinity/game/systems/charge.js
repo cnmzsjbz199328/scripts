@@ -26,7 +26,9 @@ Object.assign(BladeTrinityScene.prototype, {
   // 调用方（loop.js _controlAI）负责冷却/距离/蓝量的准入判断。
   _startAICharge(f, time) {
     f.aiRelease = time + Phaser.Math.Between(BT.AI.chargeMin, BT.AI.chargeMax);
-    f.ultReady = time + BT.AI.ultCd;
+    // 冷却按难度档覆盖：会 zoneOut 的档位自己会创造距离，不再受 ultMinDist 制约，
+    // 沿用 3400 会变成每 4 秒一次轰飞（见 BT.TIERS 的 ultCd 注释）。
+    f.ultReady = time + (this._tierCfg().ultCd || BT.AI.ultCd);
     this._startCharge(f, time);
   },
 
@@ -70,6 +72,10 @@ Object.assign(BladeTrinityScene.prototype, {
     f.state = 'attack';
     f.stateUntil = this.time.now + a.dur;
     f.atkHit = true;                          // 屏蔽近战判定：这一挥只出剑气，不额外近战命中
+    // ⚠️ 这一挥【不是平A的收招】，不许被 AI 的收招接续掐掉：它没设 atkFrom/atkTo，
+    // 沿用陈旧值会让 _aiCancelWindow 下一帧就判定"收招已结束"，_tickSwingQi 随即
+    // _clearSwing，蓄力扣了蓝一道剑气都不出（见 routine.js _aiCancelWindow 注释）。
+    f.atkCancelable = false;
     if (this._usage && f === this.p1) this._usage.charge++;
     f.sprite.play(`${f.id}_attack`, true);
     // 有逐帧刀线标定 + 生成段 → 两阶段轨迹驱动（丝带蓄成 → 分段脱手飞行月牙，见 _tickSwingQi）。

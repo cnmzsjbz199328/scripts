@@ -105,7 +105,7 @@ Object.assign(BladeTrinityScene.prototype, {
       hp: def.hp, maxHp: def.hp,
       mp: BT.MP.max, maxMp: BT.MP.max,          // 蓝：进场满管
       state: 'idle', stateUntil: 0, airborne: false,
-      invuln: 0, atkFrom: 0, atkTo: 0, atkHit: false, prevDx: null,
+      invuln: 0, atkFrom: 0, atkTo: 0, atkHit: false, atkCancelable: false, prevDx: null,
       facingLeft: faceLeft,
       guardFrom: 0, iframeUntil: 0, counterReady: 0, counterFired: false, counterGlowUntil: 0, flashEvt: null,
       riposteUntil: 0, guardAura: null,

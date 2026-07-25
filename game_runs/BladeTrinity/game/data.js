@@ -260,6 +260,22 @@ BT.AI_RT = {
                       // 跳过，同帧接 _attack 会拿旧朝向往反方向劈（loop.js 头部注释那个历史 bug）。
   crossMin: 130, crossMax: 380,   // 触发距离区间
   crossOdds: 0.35, crossEager: 0.7,   // 常规概率 / 对手出招露破绽时的概率
+  crossGuardOdds: 0.38,   // 绕到背后【改成架防】而不是砍的概率。压住神级的平A 频率：
+                          // 每套都接刀的话神级 45s 打 39 记平A，把自己交防御的时间挤没了。
+
+  // ── 拉开·蓄力剑气（zoneOut）──
+  zoneGap: 130,        // 缩地拉开后到起蓄的间隔
+  zoneBackstep: 300,   // 缩地在冷却里时，改用后撤走位的时长
+
+  // ── 压边·连续贴身（cornerPress）──
+  pressTell: 140,
+  pressGap: 74,        // 贴到对手【身前】这么远（> _fighterPhysics 的 46px 互推阈值）
+  pressBeat: 520,      // 两刀之间的间隔。必须 > 第一刀的命中窗口末端（最晚 north 的 545 ×
+                       // 实际取 to，见 BT.ATTACK），否则第二拍的缩地会把自己那一刀掐没
+  pressMin: 90, pressMax: 340,
+  pressOdds: 0.42,     // 角落是最值钱的局面，概率给得比其他套路高
+  pressGuardOdds: 0.35,   // 第二拍【改成架防】而不是第二刀：压角不只有硬打，也可以钓你反击。
+                          // 同 crossGuardOdds，是压住高档 AI 平A 频率的手段
 
   // ── 升空·踏落斩 ──
   riseTell: 130,
@@ -307,7 +323,12 @@ BT.AI_RT = {
 //      "永动连打"，把自己的防御和套路全挤掉了（上面那个 126/134 的另一半成因）。
 //      缺省回落到 BT.AI_RT.punishCd。
 //   ⑤ footsie —— 决策 tick 上撤一步的概率（间合摇摆，钓对手挥空）
-//   ⑥ rtGap —— 覆盖 BT.AI_RT.gap：神级套路更密，保证阶梯单调（帝级不该比神级更凶）
+//   ⑥ rtGap / guardHold —— 覆盖 BT.AI_RT 的同名缺省：神级套路更密、防御姿态保持更久，
+//      保证阶梯单调（实测起防次数曾经四档全平，8/9/11/7，完全没有随难度上升）
+//   ⑦ mul.crit —— 会心概率倍率。防御成功后的会心是三派最出彩的演出，高档该更常见
+//   ⑧ ultCd —— 覆盖 BT.AI.ultCd。⚠️ 会 zoneOut 的档位【必须】把这个调长：原来的 3400
+//      是在"距离闸门挡掉大半奥义"的前提下标的，zoneOut 拆掉那道闸门后实测帝级 45s 放
+//      11 发（每 4 秒一次轰飞），玩家被反复轰飞失控 —— 正是 BT.AI.ultCd 注释警告的那条。
 //   ⑤ cap / mul —— 沿用的能力闸门与数值倍率。mul.dmg 全档 = 1.0。
 // 铁律「即开即玩」：折进选人屏一行徽章、默认王级、可跳过，不新开菜单。
 // ⚠️ decision 倍率会被 _controlAI 钳在 ≤760ms：慢过"受击硬直+无敌(680)"AI 会轮不到出手。
@@ -317,37 +338,40 @@ BT.TIERS = {
     name: '上级', accent: '#8fbf7a',
     routines: [], reactDelay: null, cancel: 0, footsie: 0,
     cap: { ult: false, react: false, punish: false },
-    mul: { decision: 1.3, guardBias: 0.3, guardOnAttack: 0.4, ult: 0, dmg: 1.0 },
+    mul: { decision: 1.3, guardBias: 0.3, guardOnAttack: 0.4, ult: 0, dmg: 1.0, crit: 0.6 },
   },
   sheng: {
     name: '圣级', accent: '#6fb0d0',
     // 只会「轰飞·满场剑气」（起蓄轰飞 → 满蓄 → 剑气横贯，charge.js 已实现）
     routines: [], reactDelay: 380, cancel: 0, footsie: 0,
     cap: { ult: true, react: false, punish: false },
-    mul: { decision: 1.15, guardBias: 0.6, guardOnAttack: 0.7, ult: 0.7, dmg: 1.0 },
+    mul: { decision: 1.15, guardBias: 0.6, guardOnAttack: 0.7, ult: 0.7, dmg: 1.0, crit: 0.8 },
   },
   wang: {
     name: '王级', accent: '#d0b25a',
     // +读招防御 → 防御成功即可能触发三派会心演出
     routines: [], reactDelay: 260, cancel: 0, footsie: 0.1,
     cap: { ult: true, react: true, punish: false },
-    mul: { decision: 1.0, guardBias: 1.0, guardOnAttack: 1.0, ult: 1.0, dmg: 1.0 },
+    mul: { decision: 1.0, guardBias: 1.0, guardOnAttack: 1.0, ult: 1.0, dmg: 1.0, crit: 1.0 },
   },
   di: {
     name: '帝级', accent: '#d08a4a',
-    // +跳跃·剑气追、升空·踏落斩：会用纵轴了
-    routines: ['jumpQi', 'riseDive'], reactDelay: 190, cancel: 60, footsie: 0.22,
-    punishCd: 900,
+    // 【地面压制档】：会自己创造距离放剑气（zoneOut）、会把你锁在角落（cornerPress），
+    // 外加起跳躲剑气。⚠️ 别再把两条空中套路都塞给帝级 —— 上一版这么排，帝级点亮的
+    // 唯一新行为就是"会跳"，玩起来的观感就是"只会跳来跳去"（用户实测反馈）。
+    // 纵轴（升空踏落 / 绕背）留给神级，阶梯才读得出来：王=读招 → 帝=地面压制 → 神=全开。
+    routines: ['zoneOut', 'cornerPress', 'jumpQi'],
+    reactDelay: 190, cancel: 60, footsie: 0.22, punishCd: 900, guardHold: 480, ultCd: 5200,
     cap: { ult: true, react: true, punish: true },
-    mul: { decision: 0.82, guardBias: 1.2, guardOnAttack: 1.3, ult: 1.2, dmg: 1.0 },
+    mul: { decision: 0.82, guardBias: 1.7, guardOnAttack: 1.3, ult: 1.2, dmg: 1.0, crit: 1.2 },
   },
   shen: {
     name: '神级', accent: '#d0506a',
-    // +缩地·绕背斩：会绕到你身后。神级之所以是神级不是因为每刀多打三点血。
-    routines: ['jumpQi', 'riseDive', 'crossBlink'], reactDelay: 130, cancel: 30, footsie: 0.3,
-    punishCd: 750, rtGap: 2100,
+    // 全开：地面压制 + 纵轴（升空·踏落斩）+ 绕背斩。神级之所以是神级不是因为每刀多打三点血。
+    routines: ['zoneOut', 'cornerPress', 'jumpQi', 'riseDive', 'crossBlink'],
+    reactDelay: 130, cancel: 30, footsie: 0.3, punishCd: 750, guardHold: 540, ultCd: 4600,
     cap: { ult: true, react: true, punish: true },
-    mul: { decision: 0.66, guardBias: 1.4, guardOnAttack: 1.6, ult: 1.4, dmg: 1.0 },
+    mul: { decision: 0.66, guardBias: 2.0, guardOnAttack: 1.6, ult: 1.4, dmg: 1.0, crit: 1.45 },
   },
 };
 // 读招防御的提前量：不早于"命中窗口开启前这么久"架防，避免高档 AI 一见起手就抬手，
