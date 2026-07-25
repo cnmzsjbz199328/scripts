@@ -70,6 +70,7 @@ Object.assign(BladeTrinityScene.prototype, {
     f.state = 'attack';
     f.stateUntil = this.time.now + a.dur;
     f.atkHit = true;                          // 屏蔽近战判定：这一挥只出剑气，不额外近战命中
+    if (this._usage && f === this.p1) this._usage.charge++;
     f.sprite.play(`${f.id}_attack`, true);
     // 有逐帧刀线标定 + 生成段 → 两阶段轨迹驱动（丝带蓄成 → 分段脱手飞行月牙，见 _tickSwingQi）。
     // 北神有两段=二段斩。没标定 → 旧法：from-40 弹一个静态月牙。
@@ -485,7 +486,7 @@ Object.assign(BladeTrinityScene.prototype, {
   // 回旋镖靠它决定要不要扣掉一次命中次数——空过的一趟不该算数。
   _applyQiDamage(q, target, dmg, blocked) {
     if (this.time.now < target.invuln) { q.lastHit = target; return false; }
-    if (q.owner === this.p2) dmg = Math.round(dmg * BT.AI.damageScale);   // AI 一侧难度折扣
+    if (q.owner === this.p2) dmg = Math.round(dmg * this._aiDmgScale());   // AI 一侧难度折扣×档位
     if (typeof navigator !== 'undefined' && navigator.webdriver) {
       if (target === this.p2) {
         dmg = Math.round(dmg * 3);

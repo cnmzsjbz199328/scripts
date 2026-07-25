@@ -16,7 +16,9 @@ Object.assign(BladeTrinityScene.prototype, {
   // 掷骰。防御成功的每一处调用点都过这里，概率只有 BT.CRIT.chance 一个旋钮。
   _rollCrit(f) {
     if (!BT.CRIT || f.state === 'down') return false;
-    return Math.random() < BT.CRIT.chance;
+    const hit = Math.random() < BT.CRIT.chance;
+    if (hit && this._usage && f === this.p1) this._usage.crit++;
+    return hit;
   },
 
   // 会心提示：字 + 描边猛顶 + 一记震屏。描边复用防御那套，不另起光效。
@@ -30,7 +32,7 @@ Object.assign(BladeTrinityScene.prototype, {
   // 这是读招成功的奖励演出，判定上当作"必中的一段脚本"，不再走一次防御博弈。
   _critHit(attacker, target, dmg, dir) {
     if (!target || target.state === 'down') return;
-    if (attacker === this.p2) dmg = Math.round(dmg * BT.AI.damageScale);   // 难度旋钮同 _damageOf
+    if (attacker === this.p2) dmg = Math.round(dmg * this._aiDmgScale());   // 难度旋钮×档位同 _damageOf
     if (typeof navigator !== 'undefined' && navigator.webdriver) {
       dmg = Math.round(dmg * (target === this.p2 ? 3 : 0.3));              // playtest bot 让步，同 _hit
     }

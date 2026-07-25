@@ -237,6 +237,44 @@ BT.AI = {
   chargeMin: 240, chargeMax: 420,   // AI 蓄力时长范围（420 = 满蓄）
 };
 
+// ─────────── 难度分级（对手 AI 强度阶梯）───────────
+// 五级：上→圣→王→帝→神。选级 = 选【起始档】，擂台第二场自动 +1 级（"逐渐升级玩法"）。
+// 每级做两件事：
+//   ① cap —— 点亮一项 AI 能力（能力闸门，不是数值缩放）。上级只会走位+平A，
+//      逐级点亮 蓄力奥义 / 反应式防御 / 跳跃升空 / 惩罚窗口 / 缩地绕位，神级全开。
+//   ② mul —— 一组数值倍率，叠在 BT.AI 基线上（王级 = 基线×1）。低档更慢更软、高档更快更狠。
+// 铁律「即开即玩」：折进选人屏一行徽章、默认王级、可跳过，不新开菜单。
+// ⚠️ decision 倍率会被 _controlAI 钳在 ≤760ms：慢过"受击硬直+无敌(680)"AI 会轮不到出手。
+BT.TIERS = {
+  order: ['shang', 'sheng', 'wang', 'di', 'shen'],
+  shang: {
+    name: '上级', accent: '#8fbf7a',
+    cap: { ult: false, react: false, jump: false, blink: false, punish: false },
+    mul: { decision: 1.3, guardBias: 0.3, guardOnAttack: 0.4, ult: 0, dmg: 0.75 },
+  },
+  sheng: {
+    name: '圣级', accent: '#6fb0d0',
+    cap: { ult: true, react: false, jump: false, blink: false, punish: false },
+    mul: { decision: 1.15, guardBias: 0.6, guardOnAttack: 0.7, ult: 0.7, dmg: 0.9 },
+  },
+  wang: {
+    name: '王级', accent: '#d0b25a',
+    cap: { ult: true, react: true, jump: false, blink: false, punish: false },
+    mul: { decision: 1.0, guardBias: 1.0, guardOnAttack: 1.0, ult: 1.0, dmg: 1.0 },
+  },
+  di: {
+    name: '帝级', accent: '#d08a4a',
+    cap: { ult: true, react: true, jump: true, blink: false, punish: true },
+    mul: { decision: 0.82, guardBias: 1.2, guardOnAttack: 1.3, ult: 1.2, dmg: 1.12 },
+  },
+  shen: {
+    name: '神级', accent: '#d0506a',
+    cap: { ult: true, react: true, jump: true, blink: true, punish: true },
+    mul: { decision: 0.66, guardBias: 1.4, guardOnAttack: 1.6, ult: 1.4, dmg: 1.25 },
+  },
+};
+BT.TIER_DEFAULT = 'wang';   // 选人屏默认档（即开即玩：不选也能打）
+
 BT.HURT_DUR = 380;     // 受击硬直
 BT.INVULN = 300;       // 受击后无敌
 BT.KO_HOLD = 950;      // 倒地到结算的停顿

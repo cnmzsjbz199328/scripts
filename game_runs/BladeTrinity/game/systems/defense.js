@@ -18,6 +18,7 @@ Object.assign(BladeTrinityScene.prototype, {
     if (kind === 'counter') {
       // 反击是瞬发动作，不是可长按的状态；有冷却，空放有硬直
       if (time < f.counterReady || !this._canAct(f)) return;
+      if (this._usage && f === this.p1) this._usage.defend++;
       const d = BT.DEFENSE.counter, dir = f.facingLeft ? 1 : -1;   // 往身后微侧移
       f.iframeUntil = time + d.iframes;
       f.counterReady = time + d.cooldown;
@@ -42,6 +43,7 @@ Object.assign(BladeTrinityScene.prototype, {
     if (f.state !== 'guard') {
       f.guardFrom = time;
       this._setState(f, 'guard');
+      if (this._usage && f === this.p1) this._usage.defend++;
     }
     f.sprite.setVelocityX(0);
   },
@@ -245,7 +247,7 @@ Object.assign(BladeTrinityScene.prototype, {
   // 也刻意不改攻击者的 state：stun 比 hurt 长，覆盖过去等于帮对手提前起身。
   _reflectDamage(attacker, dmg) {
     if (dmg <= 0 || attacker.state === 'down') return;
-    if (attacker === this.p2) dmg = Math.round(dmg * BT.AI.damageScale);   // 难度旋钮同 _damageOf
+    if (attacker === this.p2) dmg = Math.round(dmg * this._aiDmgScale());   // 难度旋钮×档位同 _damageOf
     if (typeof navigator !== 'undefined' && navigator.webdriver) {
       dmg = Math.round(dmg * (attacker === this.p2 ? 3 : 0.3));            // playtest bot 让步，同 _hit
     }
@@ -262,7 +264,7 @@ Object.assign(BladeTrinityScene.prototype, {
     if (f.riposteUntil && this.time.now < f.riposteUntil) {
       dmg *= BT.DEFENSE.parry.riposteBonus;
     }
-    if (f === this.p2) dmg *= BT.AI.damageScale;   // 难度旋钮，只作用于电脑一侧
+    if (f === this.p2) dmg *= this._aiDmgScale();   // 难度旋钮×档位，只作用于电脑一侧
     return Math.round(dmg);
   },
 });

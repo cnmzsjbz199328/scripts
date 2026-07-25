@@ -50,7 +50,11 @@ class BladeTrinityScene extends Phaser.Scene {
     this.keys = this.input.keyboard.addKeys('W,A,S,D,J,K,L,SPACE,ENTER');
 
     this.phase = 'select';
+    // ?tier=shang|sheng|wang|di|shen —— playtest / 直链指定起始难度档（选人屏默认王级）
+    const tp = new URLSearchParams(location.search).get('tier');
+    if (tp && BT.TIERS.order.includes(tp)) this.selTier = BT.TIERS.order.indexOf(tp);
     this._buildSelect();
+    if (this._refreshTier) this._refreshTier();
     this._buildRestartBtn();      // 结束后鼠标悬停才浮出的半透明 ↻（restart.js）
     if (window.GameHUD) window.GameHUD.onStart(() => { });
     window.__scene = this;
@@ -74,6 +78,19 @@ class BladeTrinityScene extends Phaser.Scene {
       const fighting = this.phase === 'fight';   // interlude/over 时 bot 应待机
       const sp = a.sprite, dx = e.sprite.x - sp.x, dist = Math.abs(dx);
       const inRange = fighting && dist < a.def.reach + 6;
+      // ── 敌方遥测：让 bot 能【读招反应】而非盲动（旧探针只给自己的状态）──
+      const now = this.time.now;
+      const eA = BT.ATTACK[e.id], eStart = (e.atkFrom || 0) - eA.from;
+      const oppAttacking = e.state === 'attack';
+      // 假动作段：北神 0~feint 有动作无判定，此时不该被骗去防御
+      const oppFeint = oppAttacking && eA.feint > 0 && now < eStart + eA.feint;
+      // 起手：出招了但命中判定还没到（防御的反应窗口）；active：正在命中窗口内
+      const oppStartup = oppAttacking && now < (e.atkFrom || 0) && !oppFeint;
+      const oppActive = oppAttacking && now >= (e.atkFrom || 0) && now <= (e.atkTo || 0);
+      // 我方防御此刻是否可用（北神反击有冷却；其余看能否行动）
+      const canAct = ['idle', 'walk', 'guard', 'jump'].includes(a.state);
+      const canDefend = a.def.defense === 'counter'
+        ? (canAct && now >= (a.counterReady || 0)) : canAct;
       return {
         x: sp.x, y: sp.y, vx: sp.body.velocity.x, onGround: sp.body.blocked.down,
         hp: a.hp, maxHp: a.maxHp,
@@ -91,6 +108,14 @@ class BladeTrinityScene extends Phaser.Scene {
         // 试过改成只在 _canAct 时上报，bot 胜率反而从 3/5 掉到 2/6。
         moveX: !fighting ? 0 : inRange ? 0 : Math.sign(dx), moveY: 0, attack: inRange,
         dangerNow: false, dangerAhead: false,
+        // ── 敌方遥测（bot 反应式打法的依据）──
+        oppState: e.state, oppDist: dist, oppHp: e.hp, oppMaxHp: e.maxHp,
+        oppStartup, oppActive, oppFeint, oppCharging: !!e.charging,
+        // ── 我方能力现状 ──
+        myDef: a.def.defense, canDefend, myReach: a.def.reach,
+        tier: this.curTierId || null, tierName: (this.curTier && this.curTier.name) || null,
+        // ── 技能覆盖度（整局累计触发次数）：playtest 断言 bot 用没用全 ──
+        usage: this._usage ? Object.assign({}, this._usage) : null,
       };
     };
   }
@@ -102,6 +127,11 @@ class BladeTrinityScene extends Phaser.Scene {
           Phaser.Input.Keyboard.JustDown(this.cursors.left)) this._selectMove(-1);
       if (Phaser.Input.Keyboard.JustDown(this.keys.D) ||
           Phaser.Input.Keyboard.JustDown(this.cursors.right)) this._selectMove(1);
+      // ↑/↓（或 W/S）调难度档：往上=更难，往下=更易
+      if (Phaser.Input.Keyboard.JustDown(this.cursors.up) ||
+          Phaser.Input.Keyboard.JustDown(this.keys.W)) this._tierMove(1);
+      if (Phaser.Input.Keyboard.JustDown(this.cursors.down) ||
+          Phaser.Input.Keyboard.JustDown(this.keys.S)) this._tierMove(-1);
       if (Phaser.Input.Keyboard.JustDown(this.keys.SPACE) ||
           Phaser.Input.Keyboard.JustDown(this.keys.J) ||
           Phaser.Input.Keyboard.JustDown(this.keys.ENTER)) this._selectConfirm();

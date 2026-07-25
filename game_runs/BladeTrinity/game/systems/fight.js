@@ -6,9 +6,21 @@ Object.assign(BladeTrinityScene.prototype, {
     if (!BT.SCHOOLS[p1Id]) p1Id = 'sword';
     this._p1Id = p1Id;
     this.round = 0;
+    // 技能覆盖度计数（整局累计）：playtest 据此断言 bot 用没用全每一类技能。
+    this._usage = { attack: 0, charge: 0, defend: 0, crit: 0, blink: 0, jump: 0 };
     this.oppQueue = BT.ROSTER.filter((id) => id !== p1Id);   // 另两家，按 ROSTER 序
+    this._applyTier();
     this._startFight(p1Id, this.oppQueue[0]);
     this._roundToast();
+  },
+
+  // 擂台阶梯：选级 = 起始档，之后每过一场 +1 级（逐渐升级），到神级封顶。
+  _applyTier() {
+    const order = BT.TIERS.order;
+    const start = this.selTier == null ? Math.max(0, order.indexOf(BT.TIER_DEFAULT)) : this.selTier;
+    const idx = Math.min(order.length - 1, start + (this.round || 0));
+    this.curTierId = order[idx];
+    this.curTier = BT.TIERS[this.curTierId];
   },
 
   _startFight(p1Id, p2Id) {
@@ -32,13 +44,15 @@ Object.assign(BladeTrinityScene.prototype, {
     const d = BT.SCHOOLS[this._p1Id].defense;
     const dk = d === 'counter' ? 'S 返击' : d === 'parry' ? 'S 受流' : 'S 完防';
     const n = this.oppQueue.length;
+    const tier = (this.curTier && this.curTier.name) || '';
     window.GameHUD?.setObjective(
-      `擂台 ${this.round + 1}/${n}：${BT.SCHOOLS[this.p2.id].name}　│　J 斩　${dk}　长按 L 蓄剑气　AD 移动`);
+      `擂台 ${this.round + 1}/${n}【${tier}】：${BT.SCHOOLS[this.p2.id].name}　│　J 斩　${dk}　长按 L 蓄剑气　AD 移动`);
   },
 
   // 玩家胜一场、还有下一场：换上下一位对手，半回血，回满蓝，原地重开。
   _nextRound() {
     this.round++;
+    this._applyTier();           // 阶梯 +1 级：第二场对手更强、点亮更多招式
     const a = this.p1;
     a.hp = Math.min(a.maxHp, a.hp + Math.round(a.maxHp * BT.ROUND_HEAL));
     a.mp = a.maxMp;

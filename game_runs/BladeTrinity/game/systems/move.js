@@ -14,6 +14,7 @@ Object.assign(BladeTrinityScene.prototype, {
     if (time < (f[rk] || 0) || !this._canAct(f)) return;
     f[rk] = time + (mode === 'rise' ? BT.BLINK.riseCd : BT.BLINK.groundCd);
     f.invuln = Math.max(f.invuln, time + BT.BLINK.iframe);
+    if (this._usage && f === this.p1) this._usage.blink++;
 
     const sp = f.sprite;
     const x0 = sp.x, y0 = sp.y;
@@ -32,6 +33,23 @@ Object.assign(BladeTrinityScene.prototype, {
     sp.setPosition(x1, y1);
     if (mode === 'rise') sp.setVelocity(0, 0);       // 升空后自由落体（重力接管）
     else sp.setVelocityX(0);
+    window.GameAudio && GameAudio.play && GameAudio.play('morph');
+  },
+
+  // AI 侧缩地/升空：没有键盘，方向由调用方给定（dir<0 拉开、dir>0 贴身）。
+  // 与 _doBlink 同一套位移/无敌/残影，只是不读 this.keys。不计 usage（那只统计玩家）。
+  _doAIBlink(f, mode, dir, time) {
+    const rk = mode === 'rise' ? 'riseReady' : 'mistReady';
+    if (time < (f[rk] || 0) || !this._canAct(f)) return;
+    f[rk] = time + (mode === 'rise' ? BT.BLINK.riseCd : BT.BLINK.groundCd);
+    f.invuln = Math.max(f.invuln, time + BT.BLINK.iframe);
+    const sp = f.sprite, x0 = sp.x, y0 = sp.y;
+    let x1 = x0, y1 = y0;
+    if (mode === 'rise') y1 = Math.max(120, y0 - BT.BLINK.riseH);
+    else x1 = Phaser.Math.Clamp(x0 + dir * BT.BLINK.dist, 56, BT.GAME_W - 56);
+    this._blinkGhosts(f, x0, y0, x1, y1);
+    sp.setPosition(x1, y1);
+    if (mode === 'rise') sp.setVelocity(0, 0); else sp.setVelocityX(0);
     window.GameAudio && GameAudio.play && GameAudio.play('morph');
   },
 

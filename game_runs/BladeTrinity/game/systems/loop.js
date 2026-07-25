@@ -51,7 +51,10 @@ Object.assign(BladeTrinityScene.prototype, {
     const right = this.keys.D.isDown || this.cursors.right.isDown;
     const vx = left ? -f.def.speed : right ? f.def.speed : 0;
     sp.setVelocityX(vx);
-    if ((this.keys.W.isDown || this.cursors.up.isDown) && onGround) sp.setVelocityY(-600);
+    if ((this.keys.W.isDown || this.cursors.up.isDown) && onGround) {
+      sp.setVelocityY(-600);
+      if (this._usage && f === this.p1 && f.state !== 'jump') this._usage.jump++;
+    }
     // 姿态：腾空播跳跃姿态（起跳蓄力→收腿→落地），落地回 idle/走。
     // 跳跃是纯视觉+可行动状态，起跳只触发一次（airborne 门），落地 airborne 复位后
     // 因 f.state==='jump'≠idle，下面的 _setState/_setWalk 一定会重播落地姿态。
@@ -64,7 +67,25 @@ Object.assign(BladeTrinityScene.prototype, {
     }
   },
 
-  // 对手 AI：距离驱动 + 随机权重；防御倾向按自己的流派调整
+  // 当前擂台的难度档（fight.js 每场设定 this.curTier）。缺省回落到王级基线。
+  _tierCfg() { return (BT.TIERS && this.curTier) || BT.TIERS.wang; },
+  // AI 伤害折扣 = 基线难度旋钮 × 当前档位倍率。伤害结算 4 处统一走这里。
+  _aiDmgScale() { return BT.AI.damageScale * this._tierCfg().mul.dmg; },
+
+  // 有剑气/暗器正朝 f 飞来且够近（跳跃升空躲用）
+  _qiIncoming(f) {
+    if (!this.qiList) return false;
+    const sp = f.sprite;
+    for (const q of this.qiList) {
+      if (q.owner === f) continue;
+      const towards = Math.sign(sp.x - q.x) === q.dir;
+      if (towards && Math.abs(q.x - sp.x) < 260) return true;
+    }
+    return false;
+  },
+
+  // 对手 AI：能力按【难度档 cap】逐级点亮，数值按【难度档 mul】叠在 BT.AI 基线上。
+  // 上级只有走位+平A；圣级+奥义；王级+反应防御；帝级+跳跃/惩罚；神级+缩地绕位。
   _controlAI(time) {
     const f = this.p2, sp = f.sprite, opp = this.p1;
     // ⚠️ 蓄力检查必须在 _canAct 之前：'charge' 不在 _canAct 白名单里，放到后面
@@ -72,16 +93,25 @@ Object.assign(BladeTrinityScene.prototype, {
     if (f.charging) { this._tickCharge(f, time); return; }
     if (!this._canAct(f)) return;
     if (f.state === 'guard' && f.stateUntil && time < f.stateUntil) return;   // 同 _controlPlayer：定时防御态锁姿态
+    const T = this._tierCfg(), cap = T.cap, mul = T.mul;
     const dx = opp.sprite.x - sp.x, dist = Math.abs(dx), dir = dx > 0 ? 1 : -1;
 
-    // 放奥义：远距离优先。不接这段的话，"水神反弹剑气 / 剑神扛剑气"这些防御分支
-    // 在真实对局里一次都触发不到（见 BT.AI 注释）。
-    // 判在走位分支【之前】：AI 平时站位就在 engage 附近，放到后面等于只有被击退时才放。
-    if (this._aiWantsUlt(f, time, dist)) { this._startAICharge(f, time); return; }
+    // ── 神级·缩地绕位：玩家起蓄要把 AI 轰飞 → 抢在轰飞前缩地闪开（逆向拉开）──
+    if (cap.blink && opp.charging && time > (f.mistReady || 0) && dist < 360) {
+      this._doAIBlink(f, 'ground', -dir, time);
+      return;
+    }
+    // ── 帝级+·跳跃升空：有剑气朝 AI 飞来 → 起跳躲贴地弹幕 ──
+    if (cap.jump && this._qiIncoming(f) && sp.body.blocked.down) {
+      sp.setVelocityY(-600);
+      this._playAir(f);
+      return;
+    }
 
-    // 交战距离要把【前冲步】算进去：招式自带 lunge 会主动贴上去。
-    // 只按 reach 判断的话，被击退到射程外的 AI 会选择"走近"，而走的路上又挨打
-    // —— 对手射程更长时这会变成永久压制（playtest 表现为 bot 无伤通关）。
+    // 放奥义（圣级+）：远距离优先，判在走位分支之前（见 BT.AI 注释）
+    if (cap.ult && this._aiWantsUlt(f, time, dist, mul.ult)) { this._startAICharge(f, time); return; }
+
+    // 交战距离要把【前冲步】算进去：招式自带 lunge 会主动贴上去（见旧注释）。
     const engage = f.def.reach + BT.ATTACK[f.id].lunge * 0.35;
     if (dist > engage) {
       sp.setVelocityX(f.def.speed * 0.85 * dir);
@@ -89,29 +119,40 @@ Object.assign(BladeTrinityScene.prototype, {
       return;
     }
     sp.setVelocityX(0);
-    if (time <= this.aiNext) { this._setState(f, 'idle'); return; }
-    // 决策间隔必须【短于】受击硬直+无敌（380+300=680ms），否则对手连打时
-    // AI 永远轮不到出手 —— playtest 里表现为 bot 8 秒满血通关。
-    this.aiNext = time + Phaser.Math.Between(BT.AI.decisionMin, BT.AI.decisionMax);
 
-    // 对手正在出招 → 提高防御概率，让三流派的防御机制真的被看见
+    // ── 帝级+·惩罚窗口：玩家受击硬直/收招露破绽 → 不等决策间隔立即抢攻 ──
+    const oppRecovering = opp.state === 'stun' || opp.state === 'hurt' ||
+      (opp.state === 'attack' && time > opp.atkTo);
+    if (cap.punish && oppRecovering && time > (f.punishReady || 0)) {
+      f.punishReady = time + 260;
+      this.aiNext = time + Phaser.Math.Between(BT.AI.decisionMin, BT.AI.decisionMax);
+      this._attack(f);
+      return;
+    }
+
+    if (time <= this.aiNext) { this._setState(f, 'idle'); return; }
+    // 决策间隔按档位缩放，但【钳在 ≤760ms】：慢过受击硬直+无敌(680) AI 会轮不到出手。
+    const decMin = Math.min(700, BT.AI.decisionMin * mul.decision);
+    const decMax = Math.min(760, BT.AI.decisionMax * mul.decision);
+    this.aiNext = time + Phaser.Math.Between(decMin, decMax);
+
+    // 反应式防御（王级+，cap.react）：对手出招时高概率交防御，让三派防御机制被看见。
+    // 低档无 react：只保留微弱的 guardBias（几乎不挡），逼战斗停在"平A 对拼"。
     const oppAttacking = opp.state === 'attack';
     const r = Math.random();
-    if (oppAttacking && r < BT.AI.guardOnAttack) this._startDefense(f, time);
-    else if (r < BT.AI.guardBias) this._startDefense(f, time);
+    const gOnAtk = BT.AI.guardOnAttack * mul.guardOnAttack;
+    const gBias = BT.AI.guardBias * mul.guardBias;
+    if (cap.react && oppAttacking && r < gOnAtk) this._startDefense(f, time);
+    else if (r < gBias) this._startDefense(f, time);
     else this._attack(f);
   },
 
-  // AI 是否该起蓄。四个闸门全过才放：
-  //   ① 冷却（ultCd）—— 蓄力起手会把玩家轰飞 + 520ms 硬直，密集放会让玩家一直失控
-  //   ② 蓝够一发（ultCost）—— 半管蓝放出来的剑气又小又软，不如平砍
-  //   ③ 距离够远（ultMinDist）—— 贴脸放等于把对手轰开再打空气
-  //   ④ 骰子（ultChance）—— 不要每次冷却一好就必放，节奏会变得机械
-  _aiWantsUlt(f, time, dist) {
+  // AI 是否该起蓄。四个闸门全过才放（见旧注释）；ultMul = 当前档位对 ultChance 的倍率。
+  _aiWantsUlt(f, time, dist, ultMul) {
     if (time < (f.ultReady || 0)) return false;
     if (f.mp < BT.MP.ultCost) return false;
     if (dist < BT.AI.ultMinDist) return false;
-    return Math.random() < BT.AI.ultChance;
+    return Math.random() < BT.AI.ultChance * (ultMul == null ? 1 : ultMul);
   },
 
   // 当前播放帧的攻击距离：BT.REACH 是量图集得到的【逐帧刀长】（纹理像素，

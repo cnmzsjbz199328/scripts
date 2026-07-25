@@ -88,7 +88,10 @@ interface Probe {
 
   const srv = await startServer();
   const isArena = gameName === 'ShadowForge';
-  const url = `http://127.0.0.1:${srv.port}/${gameName}/index.html` + (isArena ? '?autoplay' : '');
+  // BladeTrinity 支持 --tier=shang|sheng|wang|di|shen 指定起始难度档（默认游戏内王级）
+  const q = isArena ? '?autoplay'
+    : (gameName === 'BladeTrinity' && flags.tier ? `?tier=${flags.tier}` : '');
+  const url = `http://127.0.0.1:${srv.port}/${gameName}/index.html` + q;
 
   const pageErrors: string[] = [];
   let browser: any, context: any;
@@ -146,6 +149,7 @@ interface Probe {
     let chargeTimeRemaining = 0;
     let nextJumpTime = 0;
     let nextBlinkTime = 0;
+    let defendHoldUntil = 0;   // BladeTrinity: brace/parry 按住 S 卡命中窗口的到期时刻
 
     while ((Date.now() - t0) / 1000 < maxSeconds) {
       const p = await probe();
@@ -193,53 +197,65 @@ interface Probe {
 
       // ── bot 决策 ──
       if (gameName === 'BladeTrinity') {
+        // 【反应式格斗 bot】：不再掷骰乱按，而是读探针的敌方遥测（oppStartup/oppActive/
+        // oppCharging/oppState）择时反应，一局内主动用满全部技能（走位/平A/蓄力剑气/
+        // 防御/瞬移/跳跃）。键位：j 斩、s 防御、l 蓄力、Space 缩地、ArrowUp 跳。
+        // 旧版按 k / ArrowDown 是【死输入】（游戏没绑），已删。
         const P = p as any;
-        const fighting = P.started;
-        if (!fighting) {
-          await setKey('ArrowRight', false); await setKey('ArrowLeft', false);
-          await setKey('ArrowDown', false);  await setKey('ArrowUp', false);
-          await setKey('j', false);          await setKey('k', false);
-          await setKey('l', false);          await setKey('Space', false);
+        const now = Date.now();
+        const relMove = async () => { await setKey('ArrowRight', false); await setKey('ArrowLeft', false); };
+        if (!P.started) {
+          await relMove();
+          await setKey('ArrowUp', false); await setKey('j', false);
+          await setKey('l', false); await setKey('s', false); await setKey('Space', false);
         } else {
-          const oppX = P.nextGoalX;
-          const dx = oppX - p.x;
-          const dist = Math.abs(dx);
+          const dx = P.nextGoalX - p.x, dist = Math.abs(dx);
+          // 每帧默认松开点按键，按需重按
+          await setKey('j', false);
+          // 防御维持窗口（brace/parry 需按住一小段卡命中；counter 是点按）
+          const defending = now < defendHoldUntil;
+          await setKey('s', defending);
+
           if (chargeTimeRemaining > 0) {
+            // 正在蓄力剑气：站定按住 L，蓄够就松
             chargeTimeRemaining -= tickMs;
-            await setKey('l', true);
-            await setKey('ArrowRight', false);
-            await setKey('ArrowLeft', false);
-          } else {
+            await setKey('l', true); await relMove(); await setKey('s', false);
+          } else if (defending) {
+            await setKey('l', false); await relMove();
+          } else if (P.oppCharging && now > nextBlinkTime && P.canDefend) {
+            // 敌起蓄要把我轰飞 → 缩地朝反方向闪开（Space，全程无敌）
             await setKey('l', false);
-            if (P.mp >= 100 && Math.random() < 0.12) {
-              chargeTimeRemaining = 500;
-              await setKey('l', true);
+            await setKey('ArrowRight', dx < 0); await setKey('ArrowLeft', dx > 0);
+            await tap('Space', 70);
+            nextBlinkTime = now + 900;
+            await relMove();
+          } else if ((P.oppStartup || P.oppActive) && !P.oppFeint && P.canDefend && dist < P.myReach + 90) {
+            // 敌起手且非假动作 → 交防御（这才让 完防/受流/反手飞刀 + 会心 真正触发）
+            await setKey('l', false); await relMove();
+            if (P.myDef === 'counter') { await tap('s', 60); }         // 北神反击=点按
+            else { await setKey('s', true); defendHoldUntil = now + 240; }  // 剑神/水神=按住卡窗口
+          } else if ((P.oppState === 'hurt' || P.oppState === 'stun') && dist < P.myReach + 40) {
+            // 敌硬直露破绽 → 贴上去平A惩罚
+            await setKey('l', false);
+            await setKey('ArrowRight', dx > 15); await setKey('ArrowLeft', dx < -15);
+            await tap('j', 70);
+          } else {
+            // 中性：安全且拉开距离时偶尔蓄剑气；否则逼近，进射程平A，远则偶尔跳
+            await setKey('l', false);
+            if (P.mp >= 100 && dist > P.myReach + 110 && !P.oppCharging && Math.random() < 0.16) {
+              chargeTimeRemaining = 460;
+              await setKey('l', true); await relMove();
             } else {
-              const wantRight = dx > 15;
-              const wantLeft = dx < -15;
-              const now = Date.now();
-              if (now > nextJumpTime && dist > 150 && Math.random() < 0.20) {
+              await setKey('ArrowRight', dx > 15); await setKey('ArrowLeft', dx < -15);
+              if (now > nextJumpTime && dist > 240 && Math.random() < 0.18) {
                 await tap('ArrowUp', 80);
-                nextJumpTime = now + 2500 + Math.random() * 1500;
+                nextJumpTime = now + 2600 + Math.random() * 1400;
               }
-              if (now > nextBlinkTime && Math.random() < 0.15) {
+              // 缩地也是 BT.BLINK 设计的走位/换位手段 → 中距偶尔用一下（也保证覆盖度）
+              if (now > nextBlinkTime && dist > 150 && dist < 330 && P.canDefend && Math.random() < 0.14) {
                 await tap('Space', 70);
-                nextBlinkTime = now + 3500 + Math.random() * 2000;
-              }
-              await setKey('ArrowRight', wantRight);
-              await setKey('ArrowLeft', wantLeft);
-              if (P.attack) {
-                const r = Math.random();
-                if (r < 0.65) {
-                  await tap('j', 70);
-                } else if (r < 0.85) {
-                  await tap('k', 80);
-                } else {
-                  await setKey('ArrowDown', true);
-                  await sleep(150);
-                  await setKey('ArrowDown', false);
-                }
-              }
+                nextBlinkTime = now + 2200 + Math.random() * 1400;
+              } else if (P.attack) await tap('j', 70);
             }
           }
         }
@@ -298,6 +314,18 @@ interface Probe {
         ? Math.round(100 * metrics.finalScore / (goalScore || metrics.finalScore || 1))
         : Math.round(100 * metrics.maxX / (await page.evaluate(() => (window as any).__probe?.()?.cellX ?? 4690))));
     metrics.runtimeErrors = [...new Set(pageErrors)].slice(0, 8);
+
+    // ── BladeTrinity 技能覆盖度断言：本局各技能触发次数，0 = 全程没被用到 ──
+    // 把"担心 bot 没用全招式"变成可测的门：核心技能任一 0 次触发就标红。
+    const usage = (lastProbe && (lastProbe as any).usage) || null;
+    if (usage) {
+      metrics.coverage = usage;
+      if ((lastProbe as any).tierName) metrics.tier = (lastProbe as any).tierName;
+      const core = ['attack', 'defend', 'charge', 'blink', 'jump'];
+      const missing = core.filter((k) => !usage[k]);
+      if (missing.length) metrics.notes.push(`⚠️ 技能覆盖缺失: ${missing.join(', ')}（本局 0 次触发）`);
+      else metrics.notes.push(`技能覆盖 OK: ${core.map((k) => `${k}×${usage[k]}`).join(' ')}（crit×${usage.crit}）`);
+    }
 
     // 收尾：保存最终截图 + 视频
     const shot = path.join(outDir, 'final.png');

@@ -112,6 +112,7 @@ Object.assign(BladeTrinityScene.prototype, {
     this._endDefense(f);
     const a = BT.ATTACK[f.id], dir = f.facingLeft ? -1 : 1;
     this._setState(f, 'attack');
+    if (this._usage && f === this.p1) this._usage.attack++;
     f.atkHit = false;
     f.atkFrom = this.time.now + a.from;
     f.atkTo = this.time.now + a.to;
