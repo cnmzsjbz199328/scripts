@@ -88,9 +88,13 @@ class BladeTrinityScene extends Phaser.Scene {
       const oppStartup = oppAttacking && now < (e.atkFrom || 0) && !oppFeint;
       const oppActive = oppAttacking && now >= (e.atkFrom || 0) && now <= (e.atkTo || 0);
       // 我方防御此刻是否可用（北神反击有冷却；其余看能否行动）
+      // ⚠️ brace/parry 必须【落地】才起得了防：_controlPlayer 里那一支带 onGround 条件。
+      // 探针漏掉这条就是在骗 bot —— 它腾空时被告知"可以防"，按下 S 什么也没发生，
+      // 于是防御与会心两条演出在 playtest 里长期为 0（实测起手帧里有 6~8 帧玩家在空中）。
       const canAct = ['idle', 'walk', 'guard', 'jump'].includes(a.state);
+      const onGround = sp.body.blocked.down;
       const canDefend = a.def.defense === 'counter'
-        ? (canAct && now >= (a.counterReady || 0)) : canAct;
+        ? (canAct && now >= (a.counterReady || 0)) : (canAct && onGround);
       return {
         x: sp.x, y: sp.y, vx: sp.body.velocity.x, onGround: sp.body.blocked.down,
         hp: a.hp, maxHp: a.maxHp,

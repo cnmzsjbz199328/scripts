@@ -150,6 +150,7 @@ interface Probe {
     let nextJumpTime = 0;
     let nextBlinkTime = 0;
     let defendHoldUntil = 0;   // BladeTrinity: brace/parry 按住 S 卡命中窗口的到期时刻
+    let nextNeutralAtk = 0;    // BladeTrinity: 中性态平A 的最小间隔（留出读招交防御的空档）
 
     while ((Date.now() - t0) / 1000 < maxSeconds) {
       const p = await probe();
@@ -247,7 +248,11 @@ interface Probe {
               await setKey('l', true); await relMove();
             } else {
               await setKey('ArrowRight', dx > 15); await setKey('ArrowLeft', dx < -15);
-              if (now > nextJumpTime && dist > 240 && Math.random() < 0.18) {
+              // ⚠️ 敌方出招/起蓄时【不许跳】。brace/parry 要求落地才起得了防
+              // （_controlPlayer 那一支带 onGround），跳在半空就等于把防御与会心
+              // 两条演出关掉 —— 实测起手帧里有 6~8 帧 bot 在空中，白白错过。
+              const threat = P.oppStartup || P.oppActive || P.oppCharging;
+              if (now > nextJumpTime && dist > 240 && !threat && Math.random() < 0.18) {
                 await tap('ArrowUp', 80);
                 nextJumpTime = now + 2600 + Math.random() * 1400;
               }
@@ -255,7 +260,15 @@ interface Probe {
               if (now > nextBlinkTime && dist > 150 && dist < 330 && P.canDefend && Math.random() < 0.14) {
                 await tap('Space', 70);
                 nextBlinkTime = now + 2200 + Math.random() * 1400;
-              } else if (P.attack) await tap('j', 70);
+              } else if (P.attack && now > nextNeutralAtk) {
+                // ⚠️ 中性态【不能见射程就砍】。平A 一记锁 720~830ms，而对手的起手窗口
+                // 只有 190~380ms —— 乱按 j 的结果是 bot 全程卡在自己的收招里，
+                // 敌方出招帧里有六成 bot 处于 attack 状态，防御与会心根本没机会跑
+                // （实测 defend×0~3 / crit×0）。留出空档才有"读招交防御"这回事。
+                // 敌硬直露破绽那一支不受此限：那是确定安全的惩罚窗口。
+                await tap('j', 70);
+                nextNeutralAtk = now + 780;
+              }
             }
           }
         }
@@ -325,6 +338,14 @@ interface Probe {
       const missing = core.filter((k) => !usage[k]);
       if (missing.length) metrics.notes.push(`⚠️ 技能覆盖缺失: ${missing.join(', ')}（本局 0 次触发）`);
       else metrics.notes.push(`技能覆盖 OK: ${core.map((k) => `${k}×${usage[k]}`).join(' ')}（crit×${usage.crit}）`);
+      // ⚠️ defend 只要 ≥1 就算过，曾经掩盖了"bot 基本不防"（实测整局 defend×2、crit×0，
+      // 却报覆盖 OK）。防御是三派差异的主战场，太稀疏等于这条线没被测到，单独标出来。
+      if (usage.defend > 0 && usage.defend < 4) {
+        metrics.notes.push(`⚠️ 防御偏稀疏: defend×${usage.defend} —— 三派防御/会心基本没被跑到，别据此判断防御手感`);
+      }
+      // 会心是防御成功后的 25% 掷骰，天然会有 0 的局；不当失败，但要说出来，
+      // 免得"覆盖 OK"被读成"会心演出验过了"。
+      if (!usage.crit) metrics.notes.push('会心 crit×0（防御成功后的概率演出，本局未触发）');
     }
 
     // 收尾：保存最终截图 + 视频

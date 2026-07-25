@@ -119,6 +119,16 @@ Object.assign(BladeTrinityScene.prototype, {
     // 交战距离要把【前冲步】算进去：招式自带 lunge 会主动贴上去（见旧注释）。
     const engage = f.def.reach + BT.ATTACK[f.id].lunge * 0.35;
     if (dist > engage) {
+      // ⚠️ 追击缩地。AI 的行走是 speed×0.85，【比玩家慢】，还有缩地(215px/820ms)
+      // 可用 —— 一个在远处蓄力/放风筝的对手它永远够不着。表现是整局打不出几记平A：
+      // playtest 实测 AI 一局只出招 1~6 次，bot 连"有东西可挡"都凑不齐，
+      // 防御与会心两条演出跟着一起测不到。会套路的档位给一条贴近的腿。
+      if ((T.routines || []).length && dist > engage * BT.AI_RT.chaseMul &&
+          time >= (f.mistReady || 0) && sp.body.blocked.down) {
+        f.mistReady = time + BT.BLINK.groundCd;
+        this._doAIBlink(f, 'ground', dir, time);
+        return;
+      }
       sp.setVelocityX(f.def.speed * 0.85 * dir);
       this._setWalk(f, dir);
       return;
