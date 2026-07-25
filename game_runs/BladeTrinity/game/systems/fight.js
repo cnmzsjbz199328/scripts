@@ -111,6 +111,8 @@ Object.assign(BladeTrinityScene.prototype, {
       riposteUntil: 0, guardAura: null,
       chargeFrom: 0, charging: false, mistReady: 0, riseReady: 0,
       aiRelease: 0, ultReady: 0,          // AI 奥义：松手时刻 / 下次可放时刻
+      // AI 套路层（routine.js）：当前套路 / 下次可起套 / 读招防御去抖 / 撤步到期
+      rt: null, rtReady: 0, rtNext: 0, reactGuardAt: 0, backstepUntil: 0, punishReady: 0,
     };
   },
 

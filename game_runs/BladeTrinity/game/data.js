@@ -237,42 +237,122 @@ BT.AI = {
   chargeMin: 240, chargeMax: 420,   // AI 蓄力时长范围（420 = 满蓄）
 };
 
+// ─────────── AI 套路层参数（见 systems/routine.js）───────────
+// 套路 = 一段【有起承转合的动作串】，不是单个动作。AI 不再每 tick 独立掷骰选"下一招"，
+// 而是选一整套并按脚本推进（受击即作废）。这是"缩地绕背斩"这类组合唯一可能的结构：
+// 掷骰式 AI 里缩地和斩是两次互不相关的抽签，中间还隔着一整个 780ms 出招自锁。
+//
+// ⚠️ 每条套路都必须有【预告帧】(tell) 与明确反制。无预警的瞬移背刺不是难度，是耍赖：
+// 玩家读不出因果就只会觉得"这游戏乱打"。tell 期间人物外轮廓炸一层描边 + 音效，
+// 给出的正是"他要动了"这一帧信息。
+BT.AI_RT = {
+  // 两个时钟（见 routine.js _aiPickRoutine 的注释）：
+  gap: 2600,               // 两套之间的冷却（档位可用 rtGap 覆盖）。一场约 6~8 次 —— 套路是招牌不是主食
+  rollMin: 240, rollMax: 420,   // 掷骰节拍（不能每帧掷，否则条件一满足就立刻触发）
+  punishCd: 900,           // 惩罚窗口冷却的缺省值（档位可用 punishCd 覆盖）
+
+  // ── 缩地·绕背斩 ──
+  crossTell: 150,     // 起势预告时长（玩家的反应窗口）
+  backGap: 88,        // 落点：对手身后这么远。必须 > _fighterPhysics 的 46px 互推阈值，
+                      // 否则落地瞬间被弹开；也不能太远，远了就不叫"贴背"。
+                      // ⚠️ 不能用 BT.BLINK.dist(215)——那是按玩家逃生调的，绕过去还在射程边缘。
+  turnGap: 80,        // 缩地到出刀之间的停顿。【必须 ≥1 帧】：_faceEachOther 在 !_canAct 时
+                      // 跳过，同帧接 _attack 会拿旧朝向往反方向劈（loop.js 头部注释那个历史 bug）。
+  crossMin: 130, crossMax: 380,   // 触发距离区间
+  crossOdds: 0.35, crossEager: 0.7,   // 常规概率 / 对手出招露破绽时的概率
+
+  // ── 升空·踏落斩 ──
+  riseTell: 130,
+  diveMin: 150, diveMax: 420,
+  diveOdds: 0.3, diveEager: 0.75,     // 对手正架防时更想从上面绕过去（diveEager）
+
+  // ── 空中压落（踏落斩 / 剑气追共用的收尾段）──
+  // ⚠️ 纵向命中上限：_resolveMelee 里 |Δy| ≥ 96 直接 return。升空 175px、跳跃顶点 120px
+  // 【都超了】，所以空中招只能在【下落段】Δy 收窄到 96 内才打得中。这里按起手时长
+  // 预测落点，取 84 留一点余量。
+  airHitY: 84,
+  airDrift: 1.2,      // 腾空横向漂移速度倍率（"躲的同时把距离拉近"）
+
+  // ── 剑气追（起跳躲贴地剑气）──
+  // 安全窗口由抛物线解出：h(t)=600t-750t²，h>78(BT.QI.hitH) 的区间是 t∈[0.163,0.637]。
+  // 起跳到剑气抵达的剩余时间落在这中间才躲得掉，所以 eta 上下界照抄这两个根（留余量）。
+  qiEtaMin: 0.18, qiEtaMax: 0.60,
+
+  // ── 间合摇摆（撤步）──
+  backstepMs: 220,    // 一次撤步的持续时间
+
+  // ── AI 防御的【保持时长】──
+  // ⚠️ 不设这个，AI 的防御只亮一帧。brace/parry 的 guard 是长按态、没有到期时间，
+  // 而 _controlAI 下一帧走到 `time <= aiNext` 分支就 _setState(f,'idle') 把它掐掉：
+  // 挡是挡了，玩家什么都没看见，三派防御演出和会心也就无从触发。
+  // 走 f.stateUntil（_controlAI 顶部的定时防御态闸门认这个）把姿态锁住这么久。
+  guardHold: 420,
+};
+
 // ─────────── 难度分级（对手 AI 强度阶梯）───────────
 // 五级：上→圣→王→帝→神。选级 = 选【起始档】，擂台第二场自动 +1 级（"逐渐升级玩法"）。
-// 每级做两件事：
-//   ① cap —— 点亮一项 AI 能力（能力闸门，不是数值缩放）。上级只会走位+平A，
-//      逐级点亮 蓄力奥义 / 反应式防御 / 跳跃升空 / 惩罚窗口 / 缩地绕位，神级全开。
-//   ② mul —— 一组数值倍率，叠在 BT.AI 基线上（王级 = 基线×1）。低档更慢更软、高档更快更狠。
+//
+// ⚠️ 阶梯的方向【已重排】。旧版靠 mul.dmg 0.75→1.25 让高难度变"疼"、靠 mul.decision
+// 0.66 让 AI 更快 —— 两者都不增加玩家要做的决策，只是更不讲理。格斗游戏的难度阶梯
+// 该升级的是【信息利用与行为质量】：反应更快、会绕背、会压角、会骗防御，而伤害一致。
+// 现在每级给的是：
+//   ① routines —— 掌握哪几套【套路】（见 BT.AI_RT / systems/routine.js）
+//   ② reactDelay —— 读招反应延迟 ms（null = 不会反应式防御，只剩随机 guardBias）
+//   ③ cancel —— 命中窗口结束后【再过这么久】可以掐掉收招（0 = 不可取消，值越小越早自由）。
+//      不给这个，任何两节动作之间都会硬塞一段 400ms 空白，套路根本接不起来。
+//      ⚠️ 这是"AI 有 70% 时间不可行动"的主解药，且直接决定读招防御兑不兑现得了：
+//      实测 cancel=120 时，帝级在"玩家出招"的 134 帧里有 126 帧自己正卡在 attack 状态，
+//      反应再快也挡不了（挡下率 1/42，反而低于反应更慢的王级 10/19）。
+//   ④ punishCd —— 惩罚窗口的冷却。⚠️ 原值 260ms 太短：玩家每次收招都被抢攻，AI 陷入
+//      "永动连打"，把自己的防御和套路全挤掉了（上面那个 126/134 的另一半成因）。
+//      缺省回落到 BT.AI_RT.punishCd。
+//   ⑤ footsie —— 决策 tick 上撤一步的概率（间合摇摆，钓对手挥空）
+//   ⑥ rtGap —— 覆盖 BT.AI_RT.gap：神级套路更密，保证阶梯单调（帝级不该比神级更凶）
+//   ⑤ cap / mul —— 沿用的能力闸门与数值倍率。mul.dmg 全档 = 1.0。
 // 铁律「即开即玩」：折进选人屏一行徽章、默认王级、可跳过，不新开菜单。
 // ⚠️ decision 倍率会被 _controlAI 钳在 ≤760ms：慢过"受击硬直+无敌(680)"AI 会轮不到出手。
 BT.TIERS = {
   order: ['shang', 'sheng', 'wang', 'di', 'shen'],
   shang: {
     name: '上级', accent: '#8fbf7a',
-    cap: { ult: false, react: false, jump: false, blink: false, punish: false },
-    mul: { decision: 1.3, guardBias: 0.3, guardOnAttack: 0.4, ult: 0, dmg: 0.75 },
+    routines: [], reactDelay: null, cancel: 0, footsie: 0,
+    cap: { ult: false, react: false, punish: false },
+    mul: { decision: 1.3, guardBias: 0.3, guardOnAttack: 0.4, ult: 0, dmg: 1.0 },
   },
   sheng: {
     name: '圣级', accent: '#6fb0d0',
-    cap: { ult: true, react: false, jump: false, blink: false, punish: false },
-    mul: { decision: 1.15, guardBias: 0.6, guardOnAttack: 0.7, ult: 0.7, dmg: 0.9 },
+    // 只会「轰飞·满场剑气」（起蓄轰飞 → 满蓄 → 剑气横贯，charge.js 已实现）
+    routines: [], reactDelay: 380, cancel: 0, footsie: 0,
+    cap: { ult: true, react: false, punish: false },
+    mul: { decision: 1.15, guardBias: 0.6, guardOnAttack: 0.7, ult: 0.7, dmg: 1.0 },
   },
   wang: {
     name: '王级', accent: '#d0b25a',
-    cap: { ult: true, react: true, jump: false, blink: false, punish: false },
+    // +读招防御 → 防御成功即可能触发三派会心演出
+    routines: [], reactDelay: 260, cancel: 0, footsie: 0.1,
+    cap: { ult: true, react: true, punish: false },
     mul: { decision: 1.0, guardBias: 1.0, guardOnAttack: 1.0, ult: 1.0, dmg: 1.0 },
   },
   di: {
     name: '帝级', accent: '#d08a4a',
-    cap: { ult: true, react: true, jump: true, blink: false, punish: true },
-    mul: { decision: 0.82, guardBias: 1.2, guardOnAttack: 1.3, ult: 1.2, dmg: 1.12 },
+    // +跳跃·剑气追、升空·踏落斩：会用纵轴了
+    routines: ['jumpQi', 'riseDive'], reactDelay: 190, cancel: 60, footsie: 0.22,
+    punishCd: 900,
+    cap: { ult: true, react: true, punish: true },
+    mul: { decision: 0.82, guardBias: 1.2, guardOnAttack: 1.3, ult: 1.2, dmg: 1.0 },
   },
   shen: {
     name: '神级', accent: '#d0506a',
-    cap: { ult: true, react: true, jump: true, blink: true, punish: true },
-    mul: { decision: 0.66, guardBias: 1.4, guardOnAttack: 1.6, ult: 1.4, dmg: 1.25 },
+    // +缩地·绕背斩：会绕到你身后。神级之所以是神级不是因为每刀多打三点血。
+    routines: ['jumpQi', 'riseDive', 'crossBlink'], reactDelay: 130, cancel: 30, footsie: 0.3,
+    punishCd: 750, rtGap: 2100,
+    cap: { ult: true, react: true, punish: true },
+    mul: { decision: 0.66, guardBias: 1.4, guardOnAttack: 1.6, ult: 1.4, dmg: 1.0 },
   },
 };
+// 读招防御的提前量：不早于"命中窗口开启前这么久"架防，避免高档 AI 一见起手就抬手，
+// 让防御看起来像预知而不是反应（也给北神的假动作留出骗招空间）。
+BT.AI_GUARD_LEAD = 150;
 BT.TIER_DEFAULT = 'wang';   // 选人屏默认档（即开即玩：不选也能打）
 
 BT.HURT_DUR = 380;     // 受击硬直

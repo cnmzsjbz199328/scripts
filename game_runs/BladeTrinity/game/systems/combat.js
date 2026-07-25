@@ -193,6 +193,7 @@ Object.assign(BladeTrinityScene.prototype, {
   _ko(loser) {
     loser.state = 'down';
     loser.stateUntil = Infinity;
+    loser.rt = null;                   // 倒地掐掉未走完的 AI 套路，别让它继续甩刀
     this._clearBodyFlash(loser);       // 倒地演出要看清人，不能顶着半截红闪
     this._clearOutlineHold(loser);
     loser.sprite.play(`${loser.id}_down`, true);

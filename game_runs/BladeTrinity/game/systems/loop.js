@@ -72,50 +72,50 @@ Object.assign(BladeTrinityScene.prototype, {
   // AI 伤害折扣 = 基线难度旋钮 × 当前档位倍率。伤害结算 4 处统一走这里。
   _aiDmgScale() { return BT.AI.damageScale * this._tierCfg().mul.dmg; },
 
-  // 有剑气/暗器正朝 f 飞来且够近（跳跃升空躲用）
-  _qiIncoming(f) {
-    if (!this.qiList) return false;
-    const sp = f.sprite;
-    for (const q of this.qiList) {
-      if (q.owner === f) continue;
-      const towards = Math.sign(sp.x - q.x) === q.dir;
-      if (towards && Math.abs(q.x - sp.x) < 260) return true;
-    }
-    return false;
-  },
-
-  // 对手 AI：能力按【难度档 cap】逐级点亮，数值按【难度档 mul】叠在 BT.AI 基线上。
-  // 上级只有走位+平A；圣级+奥义；王级+反应防御；帝级+跳跃/惩罚；神级+缩地绕位。
+  // 对手 AI —— 四层调度，从"必须马上做"到"想做什么"：
+  //   ① 收招接续：把命中窗口已过的收招段提前结束，否则任何两节动作之间都会硬塞空白
+  //   ② 套路推进：已进入的行为串按脚本走完（受击即作废）
+  //   ③ 反应层：每帧跑、不等决策间隔 —— 读招防御、探到剑气就起跳躲
+  //   ④ 决策层：原有的掷骰逻辑（奥义 / 间合 / 惩罚 / 起套 / 挡或砍）
+  // ①②③ 在 routine.js。档位给的是【会哪几套套路 + 反应多快】，不是伤害倍率。
   _controlAI(time) {
     const f = this.p2, sp = f.sprite, opp = this.p1;
     // ⚠️ 蓄力检查必须在 _canAct 之前：'charge' 不在 _canAct 白名单里，放到后面
     // 就会被 return 掉 —— AI 一旦起蓄就再也没人推进它，永远卡在蓄力姿势。
     if (f.charging) { this._tickCharge(f, time); return; }
-    if (!this._canAct(f)) return;
+    this._aiCancelRecovery(f, time);                    // ① 收招接续
+    if (this._aiTickRoutine(f, time)) return;           // ② 套路推进
     if (f.state === 'guard' && f.stateUntil && time < f.stateUntil) return;   // 同 _controlPlayer：定时防御态锁姿态
     const T = this._tierCfg(), cap = T.cap, mul = T.mul;
     const dx = opp.sprite.x - sp.x, dist = Math.abs(dx), dir = dx > 0 ? 1 : -1;
 
-    // ── 神级·缩地绕位：玩家起蓄要把 AI 轰飞 → 抢在轰飞前缩地闪开（逆向拉开）──
-    if (cap.blink && opp.charging && time > (f.mistReady || 0) && dist < 360) {
-      this._doAIBlink(f, 'ground', -dir, time);
-      return;
-    }
-    // ── 帝级+·跳跃升空：有剑气朝 AI 飞来 → 起跳躲贴地弹幕 ──
-    if (cap.jump && this._qiIncoming(f) && sp.body.blocked.down) {
-      sp.setVelocityY(-600);
-      this._playAir(f);
-      return;
-    }
+    // ③ 反应层 —— 【在 _canAct 闸门之前】：高档位可以弃掉自己的收招去交防御，
+    // 否则"反应更快"根本兑现不了（自己 780ms 一动不能动，玩家起手窗口只有 130ms）。
+    if (this._aiReact(f, time, opp, dist)) return;
+    if (!this._canAct(f)) return;
 
+    // ── ④ 决策层 ──
     // 放奥义（圣级+）：远距离优先，判在走位分支之前（见 BT.AI 注释）
     if (cap.ult && this._aiWantsUlt(f, time, dist, mul.ult)) { this._startAICharge(f, time); return; }
+
+    // 起套路（帝级+）：判在【走位分支之前】—— 绕背/踏落本来就是中距离的进身手段，
+    // 排在 `dist > engage` 的 return 之后就只有贴脸能起套，实测一整场打不出两次。
+    // 自带掷骰节拍与冷却（_aiPickRoutine 的两个时钟），不蹭 aiNext。
+    if (this._aiPickRoutine(f, time, dist, opp)) return;
+
+    // 撤步进行中：间合摇摆的后半拍（见下面 footsie）。
+    // 走 _setWalk 而不是 _setState('walk')：往身后走是【撤步】，动画要倒放。
+    if (f.backstepUntil && time < f.backstepUntil && sp.body.blocked.down) {
+      sp.setVelocityX(-dir * f.def.speed * 1.1);
+      this._setWalk(f, -dir);
+      return;
+    }
 
     // 交战距离要把【前冲步】算进去：招式自带 lunge 会主动贴上去（见旧注释）。
     const engage = f.def.reach + BT.ATTACK[f.id].lunge * 0.35;
     if (dist > engage) {
       sp.setVelocityX(f.def.speed * 0.85 * dir);
-      this._setState(f, 'walk');
+      this._setWalk(f, dir);
       return;
     }
     sp.setVelocityX(0);
@@ -124,7 +124,9 @@ Object.assign(BladeTrinityScene.prototype, {
     const oppRecovering = opp.state === 'stun' || opp.state === 'hurt' ||
       (opp.state === 'attack' && time > opp.atkTo);
     if (cap.punish && oppRecovering && time > (f.punishReady || 0)) {
-      f.punishReady = time + 260;
+      // ⚠️ 冷却别再调回 260ms：那会让 AI 抢完这次收招接着抢下一次，陷入永动连打，
+      // 把自己的防御与套路全挤掉（实测帝级挡下率反低于王级，见 data.js punishCd 注释）。
+      f.punishReady = time + (T.punishCd || BT.AI_RT.punishCd);
       this.aiNext = time + Phaser.Math.Between(BT.AI.decisionMin, BT.AI.decisionMax);
       this._attack(f);
       return;
@@ -136,14 +138,20 @@ Object.assign(BladeTrinityScene.prototype, {
     const decMax = Math.min(760, BT.AI.decisionMax * mul.decision);
     this.aiNext = time + Phaser.Math.Between(decMin, decMax);
 
-    // 反应式防御（王级+，cap.react）：对手出招时高概率交防御，让三派防御机制被看见。
-    // 低档无 react：只保留微弱的 guardBias（几乎不挡），逼战斗停在"平A 对拼"。
-    const oppAttacking = opp.state === 'attack';
+    // 间合摇摆（帝级+）：进了射程不再是原地掷骰的木桩，会往刀尖外退一步钓挥空。
+    // 这是 footsies 的最小可用版本 —— 没有它，AI 一进 engage 就钉死在地上。
+    if (T.footsie && dist < engage * 1.15 && Math.random() < T.footsie) {
+      f.backstepUntil = time + BT.AI_RT.backstepMs;
+      return;
+    }
+
+    // 兜底掷骰：反应式防御已上移到反应层，这里只剩"闲时偶尔架个防"与平A。
+    // cap.react 档另给一份 guardOnAttack 加权，保留旧的对拼手感。
     const r = Math.random();
     const gOnAtk = BT.AI.guardOnAttack * mul.guardOnAttack;
     const gBias = BT.AI.guardBias * mul.guardBias;
-    if (cap.react && oppAttacking && r < gOnAtk) this._startDefense(f, time);
-    else if (r < gBias) this._startDefense(f, time);
+    if (cap.react && opp.state === 'attack' && r < gOnAtk) this._aiGuard(f, time);
+    else if (r < gBias) this._aiGuard(f, time);
     else this._attack(f);
   },
 

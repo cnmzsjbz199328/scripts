@@ -111,6 +111,8 @@ class BladeTrinityScene extends Phaser.Scene {
         // ── 敌方遥测（bot 反应式打法的依据）──
         oppState: e.state, oppDist: dist, oppHp: e.hp, oppMaxHp: e.maxHp,
         oppStartup, oppActive, oppFeint, oppCharging: !!e.charging,
+        // 当前套路名（routine.js）：playtest 据此断言高档 AI 真的把套路打出来了
+        oppRoutine: e.rt ? e.rt.id : null,
         // ── 我方能力现状 ──
         myDef: a.def.defense, canDefend, myReach: a.def.reach,
         tier: this.curTierId || null, tierName: (this.curTier && this.curTier.name) || null,
