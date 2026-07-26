@@ -233,8 +233,9 @@ interface Probe {
           } else if ((P.oppStartup || P.oppActive) && !P.oppFeint && P.canDefend && dist < P.myReach + 90) {
             // 敌起手且非假动作 → 交防御（这才让 完防/受流/反手飞刀 + 会心 真正触发）
             await setKey('l', false); await relMove();
-            if (P.myDef === 'counter') { await tap('s', 60); }         // 北神反击=点按
-            else { await setKey('s', true); defendHoldUntil = now + 240; }  // 剑神/水神=按住卡窗口
+            // 三派都是按住维持（BladeTrinity 已把北神的点按窗口统一成长按态）。
+            // ⚠️ 别再给某一派单开 tap('s')：60ms 的点按在长按态里只等于 1 帧防御。
+            await setKey('s', true); defendHoldUntil = now + 240;
           } else if ((P.oppState === 'hurt' || P.oppState === 'stun') && dist < P.myReach + 40) {
             // 敌硬直露破绽 → 贴上去平A惩罚
             await setKey('l', false);

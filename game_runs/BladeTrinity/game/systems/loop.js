@@ -27,36 +27,21 @@ Object.assign(BladeTrinityScene.prototype, {
     }
     if (Phaser.Input.Keyboard.JustDown(this.keys.J)) return this._attack(f);
 
-    // 防御三派【同一个键 S】。北神曾经单独占 K，纯粹是因为它是瞬发动作而不是长按态——
-    // 但对玩家来说"防御"就该是同一个键，换个流派还要换手指是没道理的（用户定）。
-    // 差别只在读法：brace/parry 读长按维持，counter 读点按触发。
-    if (f.def.defense === 'counter') {
-      // ⚠️ 读 isDown 而不是 JustDown。曾经读 JustDown（"反击是瞬发动作所以该点按"），
-      // 结果按在死区里的键被整个丢掉：实测玩家 55% 的帧处在 hurt/attack/stun 三种
-      // 读不进 S 的状态，挡下率只有 15~18%，且【单纯给点按加缓冲救不回来】——
-      // 按下时闸门中位还要等 313ms，320ms 的缓冲也只能勉强够上（见 DEFENSE.counter.buffer）。
-      // 按住 = 持续表达"我要反击"，闸门一开就放，和 brace/parry 的长按是同一个惯用法。
-      // 无脑长按不会变成最优解：反击空放要吃 whiffStun(480ms)，按住就会陷入
-      // 「260ms 无敌 → 480ms 硬直」的自罚循环，比不按更惨。
-      if (this.keys.S.isDown) {
-        this._startDefense(f, time);
-        // 真起了反击才独占这一帧；只是入了缓冲就继续走位，不然按住 S 等于站桩。
-        if (f.state === 'guard') return;
-      }
-    } else {
-      if (this.keys.S.isDown && onGround && this._canAct(f)) {
-        this._startDefense(f, time);
-        return;
-      }
-      if (f.state === 'guard') this._setState(f, 'idle');
+    // 防御【三派同一个键 S、同一种读法：按住维持】。
+    // ⚠️ 北神曾经在这里单开一支读 JustDown（"反手飞刀是瞬发动作所以该点按"），
+    // 那是它挡不住东西的根因：玩家有 ~55% 的帧处在 hurt/attack/stun 里读不进按键，
+    // 点按落在死区就整个丢掉，实测挡下率只有 15~18%，加缓冲也救不回来
+    // （详见 BT.DEFENSE.counter 的注释）。现在输入侧无分叉，差异全在结算里。
+    if (this.keys.S.isDown && onGround && this._canAct(f)) {
+      this._startDefense(f, time);
+      return;
     }
+    if (f.state === 'guard') this._setState(f, 'idle');
 
     if (!this._canAct(f)) return;
-    // ⚠️ 【定时防御态】锁住姿态直到窗口结束。北神的反击是 _setState(f,'guard',iframes+60)
-    // 起的一个有时限的 guard，而 guard 在 _canAct 白名单里 —— 不加这道闸，下面的
-    // _setState(f,'idle') 会在【按下 K 的下一帧】就把防御姿势掐掉：无敌照常生效，
-    // 但画面上只闪一帧，防御描边更是等于没有。brace/parry 的长按 guard 不设 stateUntil，
-    // 不受这条影响。
+    // 【定时防御态】锁住姿态直到窗口结束。三派统一为长按 guard 后已没有定时 guard
+    // （长按态不设 stateUntil），这道闸留着兜底：AI 侧 _aiGuard 会给 guard 加保持时长，
+    // 而它走的是 _controlAI 不是这里。谁将来再引入定时 guard，姿态也不会被掐掉。
     if (f.state === 'guard' && f.stateUntil && time < f.stateUntil) return;
     const left = this.keys.A.isDown || this.cursors.left.isDown;
     const right = this.keys.D.isDown || this.cursors.right.isDown;

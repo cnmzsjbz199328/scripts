@@ -117,10 +117,10 @@ Object.assign(BladeTrinityScene.prototype, {
   // ⚠️ 直接调 _startDefense 的话，brace/parry 的 guard 是没有到期时间的长按态，
   // 下一帧 _controlAI 走到 `time <= aiNext` 分支就 _setState(f,'idle') 把它掐掉——
   // 挡是挡到了，但描边只闪一帧，玩家读不出"他在防我"，会心也基本撞不上。
-  // counter（北神）本身就是定时窗口，不动它。
+  // 三派统一为长按态后，北神也照这条加保持时长（它不再是定时窗口）。
   _aiGuard(f, time) {
     this._startDefense(f, time);
-    if (f.def.defense !== 'counter' && f.state === 'guard') {
+    if (f.state === 'guard') {
       f.stateUntil = time + (this._tierCfg().guardHold || BT.AI_RT.guardHold);
     }
   },

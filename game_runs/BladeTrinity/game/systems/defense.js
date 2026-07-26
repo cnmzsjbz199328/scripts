@@ -5,52 +5,26 @@
  *
  *   brace（剑神流·力受け）正面【完全免伤】，代价是吃蓝 + 被推退，逼到台边破防大硬直
  *   parry（水神流·受け流し）完美窗口内免伤 + 卸掉对手 + 【把伤害弹回去】；剑气整道反射
- *   counter（北神流·返し）窗口内真无敌，挡下即【反手甩出旋转飞刀】，空放留大破绽
+ *   counter（北神流·返し）正面免伤 + 【反手甩出旋转飞刀】（飞刀走 knifeCd 冷却）
+ *
+ * ⚠️ 【输入侧三派完全一致：按住 S 维持防御态，松手解除】。差异只在本文件的
+ * _resolveDefense 结算里。北神曾经是"点按触发 260ms 无敌窗口 + 冷却 + 空放硬直"的
+ * 另一套机制，实测挡下率只有 15~18%（玩家 ~55% 的帧读不进按键），补救无效，
+ * 已按用户决定统一（先要流畅运行，差异化以后再优化）。别再把某一派改回点按。
  *
  * 克制三角由这三套参数与 BT.ATTACK 的窗口互相咬合产生，不靠额外的相克表。
  * 三派共用一条 guard 动画行，视觉差异由 _guardAura 的外轮廓描边给（见 BT.GUARD_AURA）。
  */
 Object.assign(BladeTrinityScene.prototype, {
 
-  // ─────────── 起防 ───────────
-  // fromBuffer=true 表示这次是缓冲到期释放，不再二次入缓冲（否则会无限续期）。
-  _startDefense(f, time, fromBuffer) {
-    const kind = f.def.defense;
-    if (kind === 'counter') {
-      const d = BT.DEFENSE.counter;
-      // 反击是瞬发动作，不是可长按的状态；有冷却，空放有硬直
-      if (time < f.counterReady || !this._canAct(f)) {
-        // 按在死区里（受击硬直/出招中/冷却未到）→ 记住这次按键，闸一开就放。
-        // 只给玩家：AI 是读 opp.state 反应式交防御的，它永远按在能按的时刻，
-        // 给它缓冲等于白送强度（同 parry 完美窗口只对玩家开放的口径）。
-        if (f === this.p1 && !fromBuffer) f.counterBufferUntil = time + d.buffer;
-        return;
-      }
-      f.counterBufferUntil = 0;
-      if (this._usage && f === this.p1) this._usage.defend++;
-      const dir = f.facingLeft ? 1 : -1;   // 往身后微侧移
-      f.iframeUntil = time + d.iframes;
-      f.counterReady = time + d.cooldown;
-      f.counterFired = false;
-      f.counterGlowUntil = time + d.iframes + 60;   // 描边至少亮满整个反击窗口（挡下后由 _counterSwing 续期）
-      f.sprite.setVelocityX(d.sidestep * 8 * dir);
-      this._setState(f, 'guard', d.iframes + 60);
-      this._ghost(f);
-      // 空放惩罚：无敌窗口内什么都没挡到 → 露出大破绽
-      this.time.delayedCall(d.iframes + 20, () => {
-        if (f.state === 'down') return;
-        f.sprite.setVelocityX(0);
-        if (!f.counterFired) {
-          this._setState(f, 'stun', d.whiffStun);
-          this._popText(f.sprite.x, f.sprite.y - 84, '空振', '#9a6fd0');
-        }
-      });
-      return;
-    }
-    // brace / parry：按住即进入防御态
+  // ─────────── 起防（三派同一条路径）───────────
+  // 按住即进入防御态，松手即解除。三派的差异全部搬到 _resolveDefense 的结算里，
+  // 输入侧不再有任何分叉 —— 北神曾经是点按触发的定时窗口，见 BT.DEFENSE.counter 的注释。
+  _startDefense(f, time) {
     if (!this._canAct(f)) return;
     if (f.state !== 'guard') {
       f.guardFrom = time;
+      f.counterFired = false;      // 新一次起防 = 新一记反手飞刀的机会（北神用）
       this._setState(f, 'guard');
       if (this._usage && f === this.p1) this._usage.defend++;
     }
@@ -58,29 +32,14 @@ Object.assign(BladeTrinityScene.prototype, {
   },
 
   _endDefense(f) {
-    if (f.state === 'guard' && f.def.defense !== 'counter') this._setState(f, 'idle');
-  },
-
-  // ─────────── 北神反击的输入缓冲 ───────────
-  // 死区里按下的 S 不丢弃，记 BT.DEFENSE.counter.buffer 毫秒，闸一开立刻放出。
-  // 为什么必须有：北神的防御走 JustDown（点按），而玩家有 ~55% 的帧处在
-  // hurt/attack/stun 三种读不进 S 的状态里（受击硬直最大，380ms 且自我强化）。
-  // 没有缓冲时实测挡下率只有 15%，加上后 27%，见 BT.DEFENSE.counter.buffer 的注释。
-  _tickCounterBuffer(f, time) {
-    if (!f.counterBufferUntil) return;
-    if (f.def.defense !== 'counter' || f.state === 'down') { f.counterBufferUntil = 0; return; }
-    if (time > f.counterBufferUntil) { f.counterBufferUntil = 0; return; }   // 缓冲过期，作废
-    if (time < f.counterReady || !this._canAct(f)) return;                   // 闸还关着，继续等
-    f.counterBufferUntil = 0;
-    this._startDefense(f, time, true);
+    if (f.state === 'guard') this._setState(f, 'idle');
   },
 
   // 每帧维护：反击窗口过期 + 防御描边跟随
   _tickDefense(f, time) {
-    this._tickCounterBuffer(f, time);
     if (f.riposteUntil && time > f.riposteUntil) f.riposteUntil = 0;
-    // 北神的防御姿势只有 260ms，之后立刻切进 attack 演反手斩 —— 只按 state==='guard'
-    // 挂描边的话，三派里唯独它的描边一闪就没，看着像"没有特效"（用户实测反馈）。
+    // 北神挡下后会立刻切进 attack 演反手斩 —— 只按 state==='guard' 挂描边的话，
+    // 三派里唯独它的描边一闪就没，看着像"没有特效"（用户实测反馈）。
     // 所以额外认一个到期时间，让描边从起防一路亮到反手斩收招。
     if (f.state === 'down') this._clearOutlineHold(f);     // 倒地要看清人，描边一律收掉
     else if (f.state === 'guard' || (f.counterGlowUntil && time < f.counterGlowUntil)) this._guardAura(f, time);
@@ -192,16 +151,6 @@ Object.assign(BladeTrinityScene.prototype, {
   _resolveDefense(attacker, target, dmg, dir) {
     const plain = { dealt: dmg, blocked: false, negated: false, pushback: 0 };
 
-    // 北神流反击窗口：无敌帧内完全免疫 + 反手甩一记剑气（也顺带免掉空放惩罚）
-    if (this.time.now < target.iframeUntil) {
-      this._outlinePunch(target);                  // 挡下：描边猛顶一下
-      // 暗器朝攻击者飞：dir 是"攻击者→目标"的方向，取反即指回去
-      // 会心 → 这一刀挂回旋镖（穿过→回旋→再穿→再回旋，共三次命中）
-      if (target.def.defense === 'counter') this._fireCounterQi(target, -dir, this._rollCrit(target));
-      else { target.counterFired = true; this._popText(target.sprite.x, target.sprite.y - 84, '逸らし', '#c0a0ff'); }
-      return { dealt: 0, blocked: false, negated: true, pushback: 0 };
-    }
-
     // 不在防御态 / 被从背后打 → 全伤
     // （朝向判定沿用 ShadowArena：facingLeft 与来向不符即背击，防御无效）
     if (target.state !== 'guard') return plain;
@@ -260,6 +209,24 @@ Object.assign(BladeTrinityScene.prototype, {
       // 迟了：普通格挡
       this._popText(target.sprite.x, target.sprite.y - 84, '格挡', '#9fd0ff');
       return { dealt: Math.round(dmg * d.lateReduce), blocked: true, negated: false, pushback: 90 };
+    }
+
+    if (kind === 'counter') {
+      // 北神流返し：正面挡下【全免伤】，并反手甩出旋转飞刀。
+      // 不要时机、不耗蓝 —— 和 brace/parry 一样"防御态在就成立"（三派机制统一）。
+      // 唯一的节流是飞刀冷却：冷却中仍然免伤，只是这一下不甩刀，避免连挨打时刷屏。
+      const d = BT.DEFENSE.counter;
+      this._outlinePunch(target);                  // 挡下：描边猛顶一下
+      if (this.time.now >= target.counterReady) {
+        target.counterReady = this.time.now + d.knifeCd;
+        target.counterFired = false;
+        // 暗器朝攻击者飞：dir 是"攻击者→目标"的方向，取反即指回去。
+        // 会心 → 这一刀挂回旋镖（穿过→回旋→再穿→再回旋，共三次命中）
+        this._fireCounterQi(target, -dir, this._rollCrit(target));
+      } else {
+        this._popText(target.sprite.x, target.sprite.y - 84, '返し', '#c0a0ff');
+      }
+      return { dealt: 0, blocked: true, negated: false, pushback: d.pushback };
     }
 
     return plain;

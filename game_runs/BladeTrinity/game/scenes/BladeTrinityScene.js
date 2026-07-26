@@ -102,16 +102,8 @@ class BladeTrinityScene extends Phaser.Scene {
       const canAct = ['idle', 'walk', 'guard', 'jump'].includes(a.state);
       const onGround = sp.body.blocked.down;
       // canDefend 的语义是【此刻按防御键有意义吗】——bot 就是拿它决定要不要按 S 的。
-      // 北神有输入缓冲（BT.DEFENSE.counter.buffer）后，"死区里按下"不再等于丢弃：
-      // 只要闸会在 buffer 毫秒内打开，这一按就会被记住并放出。所以这里必须把缓冲
-      // 算进来，否则 bot 只在闸已开时才按，playtest 永远测不到缓冲带来的挡下率。
-      // 硬直的到期时刻是已知的（stateUntil），所以"闸会不会及时开"是可判定的。
-      const bufMs = (BT.DEFENSE.counter.buffer || 0);
-      const canDefend = a.def.defense === 'counter'
-        ? (a.state !== 'down'
-           && now >= (a.counterReady || 0) - bufMs
-           && (canAct || (a.stateUntil && a.stateUntil - now <= bufMs)))
-        : (canAct && onGround);
+      // 三派统一为长按态后这里不再分流派：条件就是"能行动且落地"。
+      const canDefend = canAct && onGround;
       return {
         x: sp.x, y: sp.y, vx: sp.body.velocity.x, onGround: sp.body.blocked.down,
         hp: a.hp, maxHp: a.maxHp,

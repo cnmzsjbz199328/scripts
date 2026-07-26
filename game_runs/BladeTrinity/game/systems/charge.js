@@ -432,14 +432,6 @@ Object.assign(BladeTrinityScene.prototype, {
     if (tx < lo || tx > hi) return null;
     if (q.lastHit === target) return null;    // 这一发已对该目标结算过
 
-    // 北神反击窗口：剑气【穿过】，不消散、不伤，并触发反手一记剑气（朝来向甩回去）
-    if (this.time.now < target.iframeUntil) {
-      q.lastHit = target;
-      if (target.def.defense === 'counter') this._fireCounterQi(target, -q.dir);
-      else { target.counterFired = true; this._popText(target.sprite.x, target.sprite.y - 84, '逸らし', '#c0a0ff'); }
-      return null;
-    }
-
     const guardingFront = target.state === 'guard' && target.facingLeft === (q.dir > 0);
 
     // 水神受流：反弹（反弹的不可再反弹，伤害保持原值）
@@ -477,7 +469,28 @@ Object.assign(BladeTrinityScene.prototype, {
       return 'despawn';
     }
 
-    // 其余（没防 / 防错向 / 北神未在无敌帧）→ 全伤
+    // 北神返し：整道剑气挡下、零伤，并反手甩飞刀回去（飞刀走 knifeCd 冷却）。
+    // ⚠️ 这里曾经要求【无敌窗口正好覆盖弹丸到达的那一刻】，而 parry/brace 接剑气都
+    // 不看时机 —— 三派里只有北神要对弹丸计时，实际上几乎接不住：AI 起蓄的预告
+    // （描边炸弹+震屏+招式名）出现在弹丸到达前约 1.5~1.7 秒（蓄 240~420ms + 飞
+    // ~650px÷520px/s），照着预告按防御是确定性的空放+硬直+冷却，刚好锁死在弹丸真正
+    // 到达的时刻。现在按住即成立，和另外两派一致。
+    if (guardingFront && target.def.defense === 'counter') {
+      const d = BT.DEFENSE.counter;
+      this._outlinePunch(target);
+      if (this.time.now >= target.counterReady) {
+        target.counterReady = this.time.now + d.knifeCd;
+        target.counterFired = false;
+        this._fireCounterQi(target, -q.dir, this._rollCrit(target));
+      } else {
+        this._popText(target.sprite.x, target.sprite.y - 84, '返し', '#c0a0ff');
+      }
+      target.sprite.setVelocityX(q.dir * d.pushback);
+      this.cameras.main.shake(80, 0.005);
+      return 'despawn';
+    }
+
+    // 其余（没防 / 防错向）→ 全伤
     const dealt = this._applyQiDamage(q, target, q.dmg, false);
     // 回旋镖还有剩余次数 → 【不消散】，穿过对手继续飞，到 turnAt 掉头回来再打。
     // 只有真打进去才扣次数：被无敌吃掉的那一趟不算，否则"三次伤害"会缩水成两次。

@@ -58,8 +58,7 @@ Object.assign(BladeTrinityScene.prototype, {
     a.mp = a.maxMp;
     a.sprite.setPosition(268, BT.FLOOR_Y - 70).setVelocity(0, 0);
     a.state = 'idle'; a.stateUntil = 0; a.invuln = 0; a.atkHit = false; a.airborne = false;
-    a.iframeUntil = 0; a.riposteUntil = 0; a.counterFired = false; a.counterGlowUntil = 0;
-    a.counterBufferUntil = 0;    // 换场清缓冲：上一场结束前按的 S 不该在新场开局放出来
+    a.riposteUntil = 0; a.counterFired = false; a.counterGlowUntil = 0; a.counterReady = 0;
     this._clearOutlineHold(a); this._clearBodyFlash(a);
     a.facingLeft = false; a.sprite.setFlipX(true);
     a.sprite.play(`${a.id}_idle`, true);
@@ -108,8 +107,7 @@ Object.assign(BladeTrinityScene.prototype, {
       state: 'idle', stateUntil: 0, airborne: false,
       invuln: 0, atkFrom: 0, atkTo: 0, atkHit: false, atkCancelable: false, prevDx: null,
       facingLeft: faceLeft,
-      guardFrom: 0, iframeUntil: 0, counterReady: 0, counterFired: false, counterGlowUntil: 0, flashEvt: null,
-      counterBufferUntil: 0,      // 北神反击的输入缓冲到期时刻（见 defense.js _tickCounterBuffer）
+      guardFrom: 0, counterReady: 0, counterFired: false, counterGlowUntil: 0, flashEvt: null,
       riposteUntil: 0, guardAura: null,
       chargeFrom: 0, charging: false, mistReady: 0, riseReady: 0,
       aiRelease: 0, ultReady: 0,          // AI 奥义：松手时刻 / 下次可放时刻
