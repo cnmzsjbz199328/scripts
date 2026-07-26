@@ -91,8 +91,10 @@ class BladeTrinityScene extends Phaser.Scene {
       if (this.phase === 'fight') for (const f of this.fighters) this._tickPhantom(f, this.time.now);
     });
 
-    // 「剥夺剑界」表现层的验收钩子（机制未接，见 systems/realm.js 顶部）。
-    // 给截图/人眼验收用：__realmDemo() 起界，__realmMirror() 打一记倒影劈砍。
+    // 「剥夺剑界」的验收钩子。给截图/人眼验收用：__realmDemo() 起界（【绕过扣蓝与冷却】，
+    // 真正的入口是 _startArte）、__realmMirror() 打一记倒影劈砍。
+    // ⚠️ 拿它验收表现时记得先停掉 AI：起手 820ms 挨一下就崩界，神级会真的冲上来打断
+    //（scratchpad/realm-check.mjs 就是这么翻过一次车的）。
     window.__realmDemo = (who) => {
       const f = who === 'p2' ? this.p2 : this.p1;
       if (f) this._realmStart(f, this.time.now);

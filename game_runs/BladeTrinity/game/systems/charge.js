@@ -345,6 +345,8 @@ Object.assign(BladeTrinityScene.prototype, {
       // hitsLeft>1 = 回旋镖：每次命中后掉头再来，直到打满。boomerang 的刀多活一会儿，
       // 否则来回一趟就到寿命了（一去一回≈2×turnDist÷speed）。
       hitsLeft: crit ? BT.CRIT.hits : 1, boomerang: !!crit, turnAt: null,
+      // 会心出身的弹丸不被「剥夺剑界」掉头（见 _qiVsTarget 的 realm 分支）
+      crit: !!crit,
       born: this.time.now, age: 0, reflected: false, lastHit: null,
       dmg: K.dmg, r: K.r, hitH: K.hitH,
       history: [], parts: [],
@@ -440,6 +442,26 @@ Object.assign(BladeTrinityScene.prototype, {
     const lo = Math.min(q.prevX, q.x) - q.r, hi = Math.max(q.prevX, q.x) + q.r;
     if (tx < lo || tx > hi) return null;
     if (q.lastHit === target) return null;    // 这一发已对该目标结算过
+
+    // 「剥夺剑界」：界内飞来的弹丸【整道掉头】打回发弹方。排在三派防御分流之前 ——
+    // 剑界的语义是"对方出手即自伤"，不是"更强的一种防御"，施术者不必在防御态。
+    //
+    // ⚠️ q.crit 的弹丸【不掉头】（会心的连弹/回旋镖）。近战会心走 _critHit 天然绕过
+    // 结算所以自动豁免，弹丸这条是真的会走到这里，必须显式放行 —— 防住触发的会心是
+    // 对手在剑界里唯一的输出途径，弹回去这一招就成了无解（见 BT.REALM 的承重墙那条）。
+    if (this._realmReflects(target, q.owner) && !q.crit && !q.realmFlip) {
+      q.dir *= -1;
+      q.owner = target;
+      // 只改归属与方向，外观仍用【原流派】的挥砍角 —— 同 parry 反弹那条注释：
+      // 换了颜色/倾角玩家就读不出"这是我刚才那一发"，因果感断掉。
+      q.rot = this._qiRot(q.dir, this._qiCfg(q.school).angleDeg);
+      q.realmFlip = true;
+      q.lastHit = target;        // 施术者对这一发免疫余生（不是 null：别让它掉头后又打回来）
+      q.x += q.dir * 12; q.prevX = q.x;
+      this._popText(target.sprite.x, target.sprite.y - 84, '剥奪·返', '#8fe0ff');
+      this.cameras.main.shake(90, 0.006);
+      return null;
+    }
 
     const guardingFront = target.state === 'guard' && target.facingLeft === (q.dir > 0);
 

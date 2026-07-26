@@ -129,12 +129,12 @@ Object.assign(BladeTrinityScene.prototype, {
         if (f.state === 'attack') this._ghost(f);
       });
     }
-    // AI 的幻剑：和玩家同一个触发点（一记已经出手的平A 挥到一半化影），
+    // AI 的流派秘技：和玩家同一个触发点（一记已经出手的平A 挥到一半转招），
     // 只是玩家靠按住 J、AI 靠掷骰。走 _canArte 的同一道闸（cap.arte + 蓝 + 冷却）。
     if (f === this.p2 && this._canArte && this._canArte(f, this.time.now) &&
         Math.random() < (BT.AI_RT.arteOdds || 0)) {
       this.time.delayedCall(this._arteCfg(f).holdMs, () => {
-        if (f.state === 'attack' && !f.phantom) this._startPhantom(f, this.time.now);
+        if (f.state === 'attack' && this._canArte(f, this.time.now)) this._startArte(f, this.time.now);
       });
     }
 
@@ -170,7 +170,19 @@ Object.assign(BladeTrinityScene.prototype, {
   // ─────────── 命中结算 ───────────
   // dmg 已含反击加成；防御分流交给 defense.js 的 _resolveDefense
   _hit(attacker, target, dmg, dir) {
-    if (this.time.now < target.invuln || target.state === 'down') return;
+    if (target.state === 'down') return;
+    // 「剥夺剑界」：界内近战【原样弹回攻击者】。
+    //
+    // ⚠️ 排在 invuln 检查【之前】。剑界改写的是"出手"这件事本身，跟施术者当下有没有
+    // 受击无敌无关 —— 排在后面，施术者刚挨过一下的那 380ms 里剑界会静默失效。
+    // ⚠️ 会心不走这里（crit.js 的 _critHit 直接结算），所以自动豁免 —— 那是对手在
+    // 剑界里唯一的输出途径，见 BT.REALM 的【承重墙】那条。
+    if (this._realmReflects(target, attacker)) {
+      this._reflectDamage(attacker, dmg);
+      this._mirrorStrike(attacker);
+      return;
+    }
+    if (this.time.now < target.invuln) return;
 
     const res = this._resolveDefense(attacker, target, dmg, dir);
     if (res.negated) return;   // 北神流闪避完全免疫，不进伤害流程

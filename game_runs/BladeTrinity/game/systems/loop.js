@@ -26,13 +26,13 @@ Object.assign(BladeTrinityScene.prototype, {
       return;
     }
     if (Phaser.Input.Keyboard.JustDown(this.keys.J)) { f.jHeldFrom = time; return this._attack(f); }
-    // 流派秘技（北神流·幻剑）：点按 J = 普通平A（上一行，手感不变），【按住不放】=
-    // 挥到一半化影成三体。挂在已经出手的那一刀上，而不是独立起手 ——
-    // 平A 走 JustDown，做成独立起手就得把平A 推迟到松手判定之后，拿全局手感换一个招。
-    // 详见 arte.js _startPhantom 的注释。
+    // 流派秘技（三派同一个输入形状）：点按 J = 普通平A（上一行，手感不变），
+    // 【按住不放】= 挥到一半那一刀转成本流派的秘技（北神化影三体 / 水神起剑界 / …）。
+    // 挂在已经出手的那一刀上，而不是独立起手 —— 平A 走 JustDown，做成独立起手就得把
+    // 平A 推迟到松手判定之后，拿全局手感换一个招。详见 arte.js _startArte 的注释。
     if (this.keys.J.isDown && f.state === 'attack' && f.jHeldFrom && this._arteCfg(f) &&
         time - f.jHeldFrom >= this._arteCfg(f).holdMs && this._canArte(f, time)) {
-      this._startPhantom(f, time);
+      this._startArte(f, time);
     }
 
     // 防御【三派同一个键 S、同一种读法：按住维持】。
@@ -109,6 +109,7 @@ Object.assign(BladeTrinityScene.prototype, {
     const dx = opp.sprite.x - sp.x, dist = Math.abs(dx), dir = dx > 0 ? 1 : -1;
 
     this._aiCancelRecovery(f, time);                       // ① 收招接续
+    if (this._aiVsRealm(f, time, opp, dist, dir)) return;  // ①·5 对手起了剑界：停手 / 抢断
     if (this._aiReact(f, time, opp, dist)) return;         // ② 反应层（可弃招/弃套路）
     if (this._aiTickRoutine(f, time)) return;              // ③ 套路推进
     if (this._aiHoldGuard(f, time, opp, dist)) return;     // 防御态：威胁在就按住，走了就松手
@@ -196,6 +197,55 @@ Object.assign(BladeTrinityScene.prototype, {
     if (cap.react && this._threatLive(f, opp, dist) && Math.random() < gOnAtk) this._aiGuard(f, time, A.baitHold);
     else if (Math.random() < gBias) this._aiGuard(f, time, A.baitHold);
     else this._attack(f);
+  },
+
+  // ─────────── 玩家起了「剥夺剑界」时的 AI ───────────
+  // 返回 true = 这一帧由本函数接管。排在【所有层之前】（连反应层也压过）：剑界一成形，
+  // "出手"这个动作本身的收益就变成负的，任何还在计划出手的层都必须先被掐掉。
+  //
+  // ⚠️ 这条是【所有档位共有的底线】，不是高档特权。上级/圣级没有反应层，缺了它们会
+  // 在剑界里照常平A —— 6 秒里把自己打死，玩家会看到"电脑自杀"而不是"我用对了大招"。
+  // 会不会【抢在成形前打断】才是分档位的：那要求读出 open 段这 820ms，给 cap.react 档。
+  //
+  // ⚠️ 已经起蓄的剑气【故意不掐】（_controlAI 开头的 charging 分支排在本函数之前）：
+  // 那一发照常放出来，然后在剑界前整道掉头打回自己 —— 这是这一招最好看的一幕，
+  // 也是"抢在成形前打断"之外玩家该得到的回报。别顺手在 charging 分支里加拦截。
+  _aiVsRealm(f, time, opp, dist, dir) {
+    const vs = this._realmVs && this._realmVs(f);
+    if (!vs) return false;
+    const sp = f.sprite, T = this._tierCfg();
+
+    // 起手段：会读招的档位抢着打断（剑界这 820ms 还不反弹，打进去就废掉它 + 90 蓝）
+    if (vs === 'break') {
+      if (!T.cap.react) return false;          // 读不出起手段的档位就当没这回事，照常打
+      if (!this._canAct(f)) return true;
+      const engage = f.def.reach + BT.ATTACK[f.id].lunge * 0.35;
+      if (dist > engage) { sp.setVelocityX(f.def.speed * dir); this._setWalk(f, dir); return true; }
+      sp.setVelocityX(0);
+      this._attack(f);
+      return true;
+    }
+
+    // 已成形：【停手】。别贴脸站着 —— 拉开到刀程外等它收，这也顺带把玩家的
+    // "我可以自由出手"兑现成真的压制（施术者得追上来才打得到）。
+    if (f.state === 'attack' || f.charging) {
+      // 已经出手的那一刀收不回来（收招段不可取消），但会弃招的档位可以现在就撤
+      if (this._aiCancelWindow && this._aiCancelWindow(f, time)) { this._setState(f, 'idle'); }
+      else return true;
+    }
+    if (!this._canAct(f)) return true;
+    const safe = opp.def.reach + BT.ATTACK[opp.id].lunge + BT.BODY_HALF_W + 40;
+    if (dist < safe && sp.body.blocked.down) {
+      const away = -dir;
+      // 退到墙角就没地方退了 → 改成架防等它过去（剑界不吃防御，但挡得住施术者的刀）
+      const room = away < 0 ? sp.x - BT.EDGE_X : BT.GAME_W - BT.EDGE_X - sp.x;
+      if (room > BT.WALL_ROOM) { sp.setVelocityX(f.def.speed * away); this._setWalk(f, away); return true; }
+      this._aiGuard(f, time, BT.AI_RT.baitHold);
+      return true;
+    }
+    sp.setVelocityX(0);
+    this._setState(f, 'idle');
+    return true;
   },
 
   // AI 的奥义计划：返回 'now'（够远，直接起蓄）/ 'zone'（太近，先拉开再放）/ null。

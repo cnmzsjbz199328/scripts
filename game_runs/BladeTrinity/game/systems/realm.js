@@ -1,9 +1,12 @@
-/* BladeTrinity — 水神流奥义「剥夺剑界」的【表现层】。
+/* BladeTrinity — 水神流奥义「剥夺剑界」。6 秒领域，界内对手出手即自伤。
  *
- * ⚠️ 本文件目前【只做视觉】，不接任何伤害/反弹机制（用户定的实施顺序：先验掉技术风险
- * 与观感，机制后接）。要接机制时，反弹分两条现成的路：弹丸走 charge.js _qiVsTarget 的
- * 水神反弹分支，近战走 defense.js _reflectDamage —— 而会心【必须】保持不被反弹，
- * 好在 crit.js 的 _critHit 天生绕过 _hit/_resolveDefense，钩子挂在那两处即自动豁免。
+ * ─── 机制只有一个判据：_realmReflects ───
+ * 反弹逻辑本身分散在三处钩子里，但它们【都只问这一个函数】，别在别处另写条件：
+ *   · 近战  combat.js  _hit          → 命中前拦下，改走 _reflectDamage + _mirrorStrike
+ *   · 弹丸  charge.js  _qiVsTarget   → 整道掉头改归属（q.crit 的豁免）
+ *   · AI    loop.js    _controlAI    → 走 _realmVs：成形了就停手，起手段就抢着打断
+ * 会心【绝对不被反弹】：近战会心走 crit.js _critHit 天然绕过 _hit 自动豁免，弹丸会心
+ * 靠 q.crit 显式放行。那是对手在剑界里唯一的输出途径，反弹掉这一招就成了无解。
  *
  * ─── 表现由三件事组成 ───
  * ① 外扩圆环：剑界的边界。半径 = 这一招的可视读数，不需要任何 UI。
@@ -57,6 +60,25 @@ if (typeof Phaser !== 'undefined' && Phaser.Renderer.WebGL) {
 }
 
 Object.assign(BladeTrinityScene.prototype, {
+
+  // ─────────── 机制的唯一判据 ───────────
+  // owner 的剑界此刻是否把 who 的这一击弹回去。三处钩子（combat.js _hit、
+  // charge.js _qiVsTarget、loop.js _controlAI 的 AI 停手）全部只问这一个函数。
+  //
+  // ⚠️ open 段【不反弹】。圆环还没成形，这 820ms 正是设计里留给对手"抢在成形前打掉它"
+  // 的窗口（见 BT.REALM）—— 起手就生效的话那个选项自己就不存在了。
+  _realmReflects(owner, who) {
+    const rm = this.realm;
+    return !!rm && rm.owner === owner && rm.phase !== 'open' && who && who !== owner;
+  },
+
+  // 「界内对手该停手」的对外读数：给 AI 用（loop.js）也给探针用。
+  // 返回 'stop'（剑界已成形，出手即自伤）/ 'break'（还在起手段，打掉它）/ null。
+  _realmVs(f) {
+    const rm = this.realm;
+    if (!rm || rm.owner === f) return null;
+    return rm.phase === 'open' ? 'break' : 'stop';
+  },
 
   // ─────────── 起 / 收 ───────────
   _realmStart(f, time) {
@@ -114,6 +136,14 @@ Object.assign(BladeTrinityScene.prototype, {
     if (f.state === 'down' || this.phase !== 'fight') { this._realmEnd(); return; }
 
     const el = time - rm.t0;
+    // 【起手可被打断】open 段挨一下就作废，蓝照扣。这是对手对这一招的正解之一，
+    // 也是它没有变成"90 蓝买 6 秒无敌"的原因。open 段 _realmReflects 返回 false，
+    // 所以这一下打得进来 —— 两条必须成对存在，别只留一条。
+    if (el < R.openMs && (f.state === 'hurt' || f.state === 'stun')) {
+      this._popText(f.sprite.x, f.sprite.y - 120, '剣界·崩', '#7a90a0');
+      this._realmEnd();
+      return;
+    }
     if (el < R.openMs) {
       // ⚠️ 外扩用【线性】，别改回 ease-out。前沿匀速横扫才读得出"剑界正在展开"；
       // 快起慢收会让圆环在头 100ms 就冲出画布，核心表现直接消失（见 BT.REALM.openMs）。

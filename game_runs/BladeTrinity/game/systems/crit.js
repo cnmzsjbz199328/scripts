@@ -122,6 +122,9 @@ Object.assign(BladeTrinityScene.prototype, {
     const c = Object.assign({}, src, {
       x: owner.sprite.x + dir * 60, y: src.y,
       owner, born: this.time.now, age: 0, lastHit: null,
+      // 会心连弹不被「剥夺剑界」掉头（见 charge.js _qiVsTarget 的 realm 分支）。
+      // src 可能是对手的普通剑气，crit 标记要在这里补上，不能靠 Object.assign 继承。
+      crit: true, realmFlip: false,
       history: [], parts: [],
       gGlow: this.add.graphics().setDepth(25).setBlendMode(Phaser.BlendModes.ADD),
       g: this.add.graphics().setDepth(26),

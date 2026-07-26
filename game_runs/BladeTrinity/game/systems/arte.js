@@ -25,23 +25,47 @@ Object.assign(BladeTrinityScene.prototype, {
     if (!a) return false;
     if (f === this.p2 && !this._tierCfg().cap.arte) return false;
     if (f.phantom || time < (f.arteReady || 0)) return false;
+    if (a.kind === 'realm' && this.realm) return false;   // 场上一次只允许一个剑界
     return f.mp >= a.cost;
   },
 
-  // ─────────── 北神流 · 幻剑 ───────────
-  // 触发时机【刻意挂在一记已经出手的平A 上】，不是独立起手。
+  // ─────────── 秘技分派 ───────────
+  // 三派【同一个输入形状】：出刀后按住 J 不放，holdMs 之后那一刀转成秘技。
+  // 玩家侧由 loop.js 的按键分支调进来，AI 侧由 combat.js 的 _attack 掷骰调进来 ——
+  // 两边都只认这一个入口，各流派的差别在这里分岔，别在调用侧写 if (id === 'north')。
   //
-  // ⚠️ 别改成"长按 J 直接触发秘技"。_controlPlayer 里平A 走的是 JustDown，按下那一刻
-  // 刀就已经挥出去了；要做成独立起手就得把平A 推迟到松手判定之后（约 170ms），
-  // 那是拿全局手感换一个招（[[fighting-input-tap-vs-hold]] 记着的同一类坑）。
-  // 现在的做法：点按 = 普通平A（手感一点没变），按住不放 = 挥到一半【化影】成三体。
+  // ⚠️ 别改成"长按 J 直接触发秘技"（不挂在一记已出手的平A 上）。_controlPlayer 里平A
+  // 走的是 JustDown，按下那一刻刀就已经挥出去了；要做成独立起手就得把平A 推迟到松手
+  // 判定之后（170~200ms），那是拿全局手感换一个招（[[fighting-input-tap-vs-hold]]
+  // 记着的同一类坑）。现在：点按 = 普通平A（手感一点没变），按住 = 那一刀转秘技。
+  _startArte(f, time) {
+    const a = this._arteCfg(f);
+    if (!a) return;
+    if (a.kind === 'realm') return this._startRealmArte(f, time);
+    return this._startPhantom(f, time);
+  },
+
+  // 通用扣费：蓝、冷却、遥测。各招的 _startXxx 一进来就调它。
+  _payArte(f, time) {
+    const a = this._arteCfg(f);
+    f.mp = Math.max(0, f.mp - a.cost);
+    f.arteReady = time + a.cd;
+    this._drawBars();
+    if (this._usage && f === this.p1) this._usage.arte = (this._usage.arte || 0) + 1;
+  },
+
+  // ── 水神流 · 剥夺剑界 ──（表现层与推进在 systems/realm.js）
+  _startRealmArte(f, time) {
+    this._payArte(f, time);
+    this._realmStart(f, time);
+  },
+
+  // ─────────── 北神流 · 幻剑 ───────────
   // 观感上正是"北神流挥刀挥出了残影"，比凭空分身更贴「虚実」。
   _startPhantom(f, time) {
     const a = this._arteCfg(f);
     if (!a) return;
-    f.mp = Math.max(0, f.mp - a.cost);
-    f.arteReady = time + a.cd;
-    this._drawBars();
+    this._payArte(f, time);
 
     const sp = f.sprite, dir = f.facingLeft ? -1 : 1;
     // 本体【随机换到三个身位之一】——不然本体永远在原地，玩家记住位置就破了。
@@ -69,7 +93,6 @@ Object.assign(BladeTrinityScene.prototype, {
     f.phantom = { clones, dir, until: time + BT.ATTACK[f.id].dur };
     this._popText(sp.x, sp.y - 96, '幻剣！', '#c0a0ff');
     window.GameAudio && GameAudio.play && GameAudio.play('morph');
-    if (this._usage && f === this.p1) this._usage.arte = (this._usage.arte || 0) + 1;
   },
 
   // 每帧维护：分身跟着本体【同帧同位移】、招式结束即收。
