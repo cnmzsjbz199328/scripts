@@ -79,6 +79,26 @@ class BladeTrinityScene extends Phaser.Scene {
     if (window.GameHUD) window.GameHUD.onStart(() => { });
     window.__scene = this;
 
+    // ⚠️「剥夺剑界」必须挂 POST_UPDATE，不能放在 update() 里。本体副本要和真身【严格同帧】，
+    // 而 Arcade 物理是在 update() 之后才移动 body 的 —— 在 update() 里定位副本，渲染时
+    // 真身已经又走了一帧，画面上就是"彩色副本和灰色真身错开一段"的重影（实测约 30px）。
+    // 去饱和圆心同理，也要用物理结算后的位置。
+    this.events.on(Phaser.Scenes.Events.POST_UPDATE, () => {
+      if (this.phase === 'fight' || this.realm) this._realmTick(this.time.now);
+    });
+
+    // 「剥夺剑界」表现层的验收钩子（机制未接，见 systems/realm.js 顶部）。
+    // 给截图/人眼验收用：__realmDemo() 起界，__realmMirror() 打一记倒影劈砍。
+    window.__realmDemo = (who) => {
+      const f = who === 'p2' ? this.p2 : this.p1;
+      if (f) this._realmStart(f, this.time.now);
+      return !!this.realm;
+    };
+    window.__realmMirror = () => {
+      const atk = this.realm && this.realm.owner === this.p1 ? this.p2 : this.p1;
+      if (atk) this._mirrorStrike(atk);
+    };
+
     // ── game-playtest 探针 ──
     // 沿用 ShadowArena 的格斗版契约：select 阶段逐 tick 自动选人开打，
     // fight 阶段报 inRange/attack 让俯视 bot 能逼近并出招。
