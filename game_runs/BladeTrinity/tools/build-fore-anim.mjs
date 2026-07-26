@@ -1,6 +1,13 @@
 /* BladeTrinity — 室外前景【动态枝叶层】构建 (build-fore-anim.mjs)
  *
- *   用法: node tools/build-fore-anim.mjs <绿幕视频路径> [帧数=10]
+ *   用法: node tools/build-fore-anim.mjs <绿幕视频路径> [帧数=24] [--seconds=4] [--shrink=0.8] [--mask]
+ *
+ * ── 播放速度怎么定（别拍脑袋调 animFps）──
+ * 序列帧是从【一段视频】里等间隔抽的，所以还原原速的条件是：
+ *     animFps = 帧数 ÷ 循环段秒数
+ * 首版取 14 帧覆盖 9.67 秒的段、却按 6fps 播，等于 4.1 倍加速——肉眼就是"太快"。
+ * --seconds 指定想要的循环段长度，脚本按它搜闭环点，并算出该填的 animFps。
+ * 拉高帧数必须同时用 --shrink 降分辨率，否则显存线性翻倍（1012×569×4B×帧数）。
  *
  * 输入：图生视频产出的绿幕循环片段（首帧 = 定版的 outdoor_fore 设计）。
  * 输出：assets/bg/outdoor_fore_a<N>.webp 序列帧 + 控制台打印装配定标建议。
@@ -31,7 +38,13 @@ const GAME_DIR = path.resolve(__dirname, '..');
 const OUT_DIR = path.join(GAME_DIR, 'assets', 'bg');
 
 const VIDEO = process.argv[2];
-const N_FRAMES = parseInt(process.argv[3] || '10', 10);
+const N_FRAMES = parseInt(process.argv[3] || '24', 10);
+const arg = (name, dflt) => {
+  const hit = process.argv.find(a => a.startsWith(`--${name}=`));
+  return hit ? parseFloat(hit.split('=')[1]) : dflt;
+};
+const TARGET_SEC = arg('seconds', 4);     // 循环段目标长度（秒）
+const SHRINK = arg('shrink', 0.8);        // 输出分辨率相对目标几何的系数（省显存）
 // 默认【保留】中央飘叶（用户定：不影响观感，不花成本去除）。
 // 传 --mask 才启用首帧遮罩把飘叶切掉，理由见文件头注释。
 const USE_MASK = process.argv.includes('--mask');
@@ -138,15 +151,24 @@ for (const i of idxs) {
   keyed.push({ i, ...(USE_MASK ? applyMask(f, mask) : f) });
 }
 
-// 搜循环段：起点固定在 0（首帧就是定版设计），找与它最像、且间隔 >= MIN_LEN 的帧
+// 搜循环段：起点固定在 0（首帧就是定版设计），在【目标段长 ±25%】的窗口里
+// 找与首帧最像的一帧当循环终点。不是"越长越好"——段越长，同样帧数下每帧跨越的
+// 时间越多，播放时就越像加速（见文件头的速度公式）。
 console.log('搜循环点...');
-const MIN_LEN = Math.floor(keyed.length * 0.25);
-let best = { j: keyed.length - 1, d: Infinity };
-for (let j = MIN_LEN; j < keyed.length; j++) {
+const srcFps = 24;                                    // 抽帧前的视频帧率
+const targetIdx = TARGET_SEC * srcFps / STEP;         // 目标段长换算到采样帧序号
+const lo = Math.max(2, Math.floor(targetIdx * 0.75));
+const hi = Math.min(keyed.length - 1, Math.ceil(targetIdx * 1.25));
+let best = { j: Math.min(keyed.length - 1, Math.round(targetIdx)), d: Infinity };
+for (let j = lo; j <= hi; j++) {
   const d = frameDist(keyed[0].data, keyed[j].data);
   if (d < best.d) best = { j, d };
 }
-console.log(`  循环段 = 采样帧 0..${best.j}（原始帧 0..${keyed[best.j].i}），闭环差 ${best.d.toFixed(2)}`);
+const loopSec = best.j * STEP / srcFps;
+const animFps = +(N_FRAMES / loopSec).toFixed(2);
+console.log(`  目标段长 ${TARGET_SEC}s → 搜索窗口 采样帧 ${lo}..${hi}`);
+console.log(`  循环段 = 采样帧 0..${best.j}（原始帧 0..${keyed[best.j].i}） = ${loopSec.toFixed(2)}s，闭环差 ${best.d.toFixed(2)}`);
+console.log(`  → 原速播放需要 animFps = ${N_FRAMES} 帧 ÷ ${loopSec.toFixed(2)}s = ${animFps}`);
 if (!USE_MASK) {
   console.log('  注：保留飘叶时闭环差由飘叶位置主导，做不到真无缝——循环处会有一次飘叶跳位。');
   console.log('       所以帧数取多些、播放帧率压低，把循环周期拉长到 2 秒以上，跳变才不显眼。');
@@ -170,10 +192,13 @@ function measureTop(frame) {
   return tops[Math.floor(tops.length / 2)];
 }
 const topY = measureTop(first);
-const outH = Math.round((FLOOR_Y - 10) / (topY / H));
+const fitH = (FLOOR_Y - 10) / (topY / H);             // scale=1 时落叶带顶边正好对位的高度
+const outH = Math.round(fitH * SHRINK);
 const outW = Math.round(outH * (W / H));
+const gameScale = +(1 / SHRINK).toFixed(3);
 console.log(`  首帧落叶带中央顶边 y=${topY}/${H} (${(topY / H * 100).toFixed(1)}%)`);
-console.log(`  → 输出尺寸 ${outW}x${outH}：origin(0.5,0) 贴顶居中、scale=1 时顶边正好落在 ${FLOOR_Y - 10}`);
+console.log(`  → 输出尺寸 ${outW}x${outH}（目标几何 ${Math.round(fitH * W / H)}x${Math.round(fitH)} 的 ${SHRINK} 倍）`);
+console.log(`  → 游戏侧 scale = ${gameScale} 补回来（前景是 soft focus，放大看不出）`);
 
 // 从循环段等间隔取 N 帧写出
 console.log(`写出 ${N_FRAMES} 帧...`);
@@ -191,4 +216,23 @@ for (let k = 0; k < picks.length; k++) {
 }
 console.log(`  ✅ ${N_FRAMES} 帧共 ${(total / 1024).toFixed(0)} KB，显存约 ${(outW * outH * 4 * N_FRAMES / 1048576).toFixed(1)} MB`);
 fs.rmSync(TMP, { recursive: true, force: true });
-console.log('\n把这些填进 config.js 的 BT.BG_SETS.outdoor：animFrames / scale=1');
+
+// 清掉上一轮多出来的帧：帧数调小时残留的 a<N>.webp 会被 manifest 扫进去，
+// preload 照旧加载、动画却只用前 N 帧，白占显存
+for (let k = N_FRAMES; ; k++) {
+  const stale = path.join(OUT_DIR, `outdoor_fore_a${k}.webp`);
+  if (!fs.existsSync(stale)) break;
+  fs.unlinkSync(stale);
+  console.log(`  清理残留帧 outdoor_fore_a${k}.webp`);
+}
+
+// 重写 manifest（与 process-bg.mjs 同规则：扫目录下所有 webp）——
+// 不写的话 preload 拿不到新增的序列帧，动画层会静默缺失
+const all = fs.readdirSync(OUT_DIR).filter(f => f.endsWith('.webp')).sort();
+fs.writeFileSync(path.join(OUT_DIR, 'manifest.js'),
+  `/* process-bg.mjs 自动生成，勿手改 */\nwindow.BLADE_BG = ${JSON.stringify(all)};\n`);
+console.log(`Manifest 已更新: ${all.length} 张`);
+
+console.log('\nconfig.js 的 BT.BG_SETS.outdoor 里那一层改成:');
+console.log(`  { key: 'outdoor_fore', animFrames: ${N_FRAMES}, animFps: ${animFps}, scale: ${gameScale}, depth: 20 }`);
+console.log(`  （animFps ${animFps} = 原速；想比真实风势更慢就往下调，周期 = ${N_FRAMES} ÷ animFps 秒）`);
