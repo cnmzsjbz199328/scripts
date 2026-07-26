@@ -8,8 +8,11 @@
  * 进入后按步推进、受击即作废。零件全是现成的（缩地 / 升空 / 跳跃 / 平A / 描边一弹 /
  * 残影拖尾），套路只负责把它们按有意义的顺序串起来。
  *
- * 三层调度（见 loop.js _controlAI）：
- *   收招接续 → 套路推进 → 反应层（每帧，不等决策间隔）→ 决策层（掷骰，原有逻辑）
+ * 四层调度（见 loop.js _controlAI）：
+ *   收招接续 → 反应层（每帧，不等决策间隔）→ 套路推进 → 决策层（掷骰，原有逻辑）
+ *
+ * ⚠️ 反应层【必须】排在套路推进之前。反过来排时套路只在 hurt/stun/down 才作废，
+ * 等于"只有已经挨打了才让位"，而档位给的正是套路数量 —— 套路越多越不会防御。
  *
  * ⚠️ 可读性是套路能成立的前提。每条套路都以【预告帧】开场（外轮廓炸一层描边 + 音效），
  * 玩家据此才有反制的余地。没有预告的瞬移背刺不是难度，是耍赖。
@@ -36,6 +39,22 @@ Object.assign(BladeTrinityScene.prototype, {
     const cancel = this._tierCfg().cancel;
     if (!cancel || f.state !== 'attack' || !f.atkCancelable) return false;
     return time >= (f.atkTo || 0) + cancel;
+  },
+
+  // 为了【交防御】而弃招，闸门比 _aiCancelWindow 松。
+  //
+  // ⚠️ 必须和 _aiCancelWindow 分开两个函数，别图省事把 bypass 塞进后者：
+  // _aiCancelRecovery 也读 _aiCancelWindow，那里若恒为 true，AI 的平A 会在第一帧
+  // 就被自己掐掉，等于再也打不出任何一刀。
+  //
+  // 【人机特权 guardCancel】神级可在平A 的【任意时刻】掐掉自己的刀去交防御，
+  // 不必等收招段。诊断实测 attackLock 是"探到威胁却出不了手"的第一大原因
+  // （AI 有 38~51% 的帧卡在自己的 attack 里），这条是把那一整块解开的唯一办法。
+  // 代价是这一刀白挥（伤害没打出去）—— 观感正是"他为了防我把刀收了"，读得出来。
+  // 仍要求 atkCancelable：蓄力剑气那一挥掐了就没剑气了（见 _aiCancelWindow 注释）。
+  _aiAbortForGuard(f, time) {
+    if (this._aiCancelWindow(f, time)) return true;
+    return f.state === 'attack' && f.atkCancelable && !!this._bypass(f).guardCancel;
   },
 
   _aiCancelRecovery(f, time) {
@@ -73,7 +92,7 @@ Object.assign(BladeTrinityScene.prototype, {
   // 反应层与决策层的兜底掷骰【必须共用这一条】，否则两层语义打架：
   // 旧的掷骰只看 `opp.state === 'attack'`，而 attack 覆盖整个 dur（720~830ms），
   // 命中窗口 to 最晚只到 545 —— 剑神流有整整 400ms 的【纯收招段】仍被当成"对手正在
-  // 出招"去架防。那 400ms 本该是抢攻窗口，AI 却拿去防空气，还被 guardHold 一压
+  // 出招"去架防。那 400ms 本该是抢攻窗口，AI 却拿去防空气，还被旧的定时 guardHold 一压
   // 420~540ms 把惩罚窗口整个吃掉（用户实测："躲过了还防，防了个寂寞"）。
   //
   // 距离用【攻击者的】reach + 前冲步，不是自己的：原来写 `dist < f.def.reach * 1.6`，
@@ -85,72 +104,170 @@ Object.assign(BladeTrinityScene.prototype, {
     return dist < opp.def.reach + oa.lunge * 0.6 + BT.BODY_HALF_W;
   },
 
-  // 读招防御的实际反应延迟。
-  // ⚠️ T.reactDelay 是【绝对 ms】，而三派起手长度差一倍（水神 190 / 剑神 280 / 北神 400）。
-  // 直接拿来用会出现「窗口为空 = 该档对该派永远不防御」：下面 inWindow 非空的充要条件是
-  // reactDelay < from + 40，代入实测 —— 圣级(380) 对剑神/水神恒假、王级(260) 对水神恒假。
-  // 那不是概率低，是条件永不成立，正是"防御根本没实现"的观感来源。
-  // 钳到 from-60，保证任何档位对任何流派都留得下一段可触发的窗口。
-  // 代价：对起手最短的水神流（190），各档被压到同一个下限（AI_GUARD_LEAD 也顶在这里），
-  // 王/帝/神的反应差异读不出来 —— 这是"宁可阶梯压平也不能恒假"的取舍。
-  _reactDelayVs(T, opp) {
-    return Math.min(T.reactDelay, Math.max(0, BT.ATTACK[opp.id].from - 60));
+  // ─────────── 统一威胁探测：近战招 / 飞行弹丸 归一成【剩余时间 eta（秒）】 ───────────
+  //
+  // ⚠️ 这是本层的地基，别再退回"嗅探 opp.state"的写法。旧的 _threatLive 三行条件
+  // 【各自独立地】把剑气排除干净，AI 于是对弹丸零响应（不是概率低，是三重恒假）：
+  //   ① `opp.state !== 'attack'` —— 玩家蓄力期间 state 是 'charge'，那 240~420ms
+  //      预警期（描边炸开+招式名+震屏，信息最全的一段）AI 完全瞎。
+  //   ② `now > opp.atkTo` —— 蓄力挥砍【刻意不设 atkFrom/atkTo】（见 charge.js
+  //      _releaseCharge：设了会被 _aiCancelWindow 掐成没剑气），于是这里读到的是上一记
+  //      平A 的陈旧值，早就过期。
+  //   ③ 距离上限 ≈350px —— 剑气本来就是远程武器，zoneOut 还专门把距离拉开再放。
+  // 后果是 charge.js _qiVsTarget 里三派挡剑气的分支（水神整道反弹 / 剑神扣蓝零伤 /
+  // 北神挡下甩飞刀）在 AI 侧一次都执行不到 —— 半套防御设计等于不存在。
+  //
+  // 归一成 eta 之后，反应层不再关心威胁【是什么】，只关心【还有多久到】，
+  // 三派起手长度差一倍、弹丸速度差一半这些都自动被吸收掉。
+  // 返回 { id, eta, kind }：id 用于识别"还是不是同一记威胁"（观察时钟的键）。
+  _incomingThreat(f, opp, dist) {
+    let best = null;
+    // 近战招：命中窗口尚未结束、且预测打得到我
+    if (opp.state === 'attack' && this.time.now <= (opp.atkTo || 0) && opp.atkCancelable) {
+      const oa = BT.ATTACK[opp.id];
+      if (dist < opp.def.reach + oa.lunge * 0.6 + BT.BODY_HALF_W) {
+        best = { id: 'm' + opp.atkFrom, eta: Math.max(0, (opp.atkFrom || 0) - this.time.now) / 1000, kind: 'melee' };
+      }
+    }
+    // 飞行弹丸（剑气 / 飞刀）：_qiThreat 已经把速度差算进 eta
+    const qt = this._qiThreat(f);
+    if (qt && (!best || qt.eta < best.eta)) {
+      const q = qt.q;
+      // 弹丸没有天然主键，懒分配一个（三处 qiList.push 都不用改）
+      if (!q.uid) q.uid = (this._qiUid = (this._qiUid || 0) + 1);
+      best = { id: 'q' + q.uid, eta: qt.eta, kind: 'qi' };
+    }
+    return best;
   },
 
   // ─────────── 反应层（每帧跑，不等决策间隔）───────────
   // 与决策层的分工：决策层管"我想干什么"，反应层管"对面刚做了什么，我得马上应"。
   // 返回 true = 本帧已被反应层接管。
+  //
+  // ⚠️ 反应模型是【观察时钟】，不是绝对时刻算术。旧版拿 T.reactDelay（绝对 ms）去和
+  // 招式的 from 偏移比大小，因为三派 from 差一倍（水神 190 / 剑神 280 / 北神 400），
+  // 必须靠 _reactDelayVs 钳到 from-60 才不至于窗口恒空 —— 而那道钳位把阶梯压平了：
+  // 实测 12 个「档位×流派」格子里只有 3 个真正读到了 reactDelay（对水神四档完全相同、
+  // 对北神帝=神、对剑神圣=王）。这就是"reactDelay 从 380 调到 130 却看不出差别"的算式。
+  //
+  // 现在：威胁一出现就记下 firstSeen，等【看了 reactDelay 这么久】才允许出手。
+  // 反应快慢因此直接兑现成"来得及/来不及"：圣级 380ms 接不住水神的 190ms 起手（该漏就漏），
+  // 神级 130ms 接得住 —— 不需要任何钳位，对近战/剑气/三流派同一套算式成立。
   _aiReact(f, time, opp, dist) {
-    const T = this._tierCfg();
-    // 反应层【排在 _canAct 闸门之前】，因为高档位允许为了交防御吃掉自己的收招。
-    // 不给这条，AI 看得见起手也挡不了：平A 一次锁 720~830ms，玩家的起手窗口只有
-    // 130ms，撞上"AI 正好空闲"的概率低到实测帝级一整场 0 次防御（明明比王级反应更快）。
-    // 王级 cancel=0 → 只有真正空闲时才挡；帝/神能弃招回防，这就是档位差。
-    const cancellable = this._aiCancelWindow(f, time);
+    const T = this._tierCfg(), A = BT.AI_RT;
+    if (T.reactDelay == null) { f.threatSeen = null; return false; }   // 上级：不会反应式防御
+
+    if (time < (f.reguardAt || 0)) return false;   // 刚挡下一击，重新读招前不能再架防
+
+    const th = this._incomingThreat(f, opp, dist);
+    if (!th) { f.threatSeen = null; return false; }
+
+    // 观察时钟：换了一记威胁就重新计时
+    if (!f.threatSeen || f.threatSeen.id !== th.id) f.threatSeen = { id: th.id, at: time, acted: false };
+    const seen = f.threatSeen;
+    if (seen.acted) return false;                    // 同一记威胁只应一次，不连按
+    // 太早不抬手：剑气 eta 可以有 1.5 秒，一探到就架防会变成"全程举着盾"，
+    // 也让北神的假动作没有骗招余地。guardLead 之内才进入可出手状态。
+    // 剑气用更长的 guardLeadQi —— 它是横贯全场的慢弹丸，等到近战那个 0.35 才接管，
+    // AI 早就跑去起套路 / 已经在半空了（见 data.js guardLeadQi 注释）。
+    const lead = th.kind === 'qi' ? (A.guardLeadQi || A.guardLead) : A.guardLead;
+    if (th.eta > lead) return false;
+    // 反应没跟上 → 这一记就是漏的。档位差【全部】兑现在这一行。
+    if (time - seen.at < T.reactDelay) return false;
+
+    // 腾空接不了防（_startDefense 有落地前提）——【人机特权 airGuard】的档位除外
+    const B = this._bypass(f);
+    if (!f.sprite.body.blocked.down && !B.airGuard) return false;
+
+    // 弃招回防：高档位允许吃掉自己的收招去交防御。平A 一次锁 720~830ms，
+    // 没有这条，"反应更快"根本兑现不了（实测帝级一整场 0 次防御，明明比王级快）。
+    const cancellable = this._aiAbortForGuard(f, time);
     if (!this._canAct(f) && !cancellable) return false;
 
-    // ① 读招防御 —— 不是掷骰，是看【招式进行到哪一步】。
-    // 旧版在决策 tick 上 Math.random() < guardOnAttack 抽一次：挡不挡跟玩家的
-    // 出招时机毫无关系，玩家读不出因果，自然感觉不到"对手在防我"。
-    // 现在：看到起手 → 等 reactDelay（档位越高越短）→ 在命中窗口开启前架防。
-    if (T.reactDelay != null && this._threatLive(f, opp, dist) && time > (f.reactGuardAt || 0)) {
-      const oa = BT.ATTACK[opp.id];
-      const start = (opp.atkFrom || 0) - oa.from;
-      // 触发时刻 = max(看见起手 + 反应延迟, 命中窗口前 lead)。取 max 的后半段是为了
-      // 别让高档 AI 一见起手就抬手（那看着像预知），也给北神的假动作留出骗招空间。
-      const due = Math.max(start + this._reactDelayVs(T, opp), (opp.atkFrom || 0) - BT.AI_GUARD_LEAD);
-      const inWindow = time >= due && time < (opp.atkFrom || 0) + 40;
-      if (inWindow) {
-        f.reactGuardAt = time + BT.AI_RT.guardHold + 120;   // 同一记招只反应一次，不连按
-        if (cancellable) { f.sprite.setVelocityX(0); this._setState(f, 'idle'); }   // 弃招回防
-        this._aiGuard(f, time);
-        return true;
-      }
+    // 套路让位：⚠️ 旧版把反应层排在 _aiTickRoutine 【之后】，而套路只在 hurt/stun/down
+    // 时作废 —— 也就是【只有已经挨打了才让位】。档位给的正是套路数量（王 0 条 / 帝 3 条 /
+    // 神 5 条），于是套路越多 → 落在"反应层跑不到"的时间越长 → 越不会防御。
+    // 神级 = 最会打套路 = 最不会防，这是"神级没感觉更强"的结构性成因。
+    // 现在反应层排在套路之前，见招即弃套路；无敌帧中（缩地/升空途中）不打断。
+    if (f.rt) {
+      if (f.invuln > time) return false;
+      // 【人机特权 parallelRoutine】不作废，只【挂起】：防完接着从原来那一步走下去。
+      // 普通档位交一次防御 = 一整套套路报废，机动看起来就是"起手总被打断"；
+      // 神级则是"防你一下，然后把刚才那套接着打完"。
+      if (B.parallelRoutine) f.rt.wait = Math.max(f.rt.wait || 0, time + BT.AI_RT.rtResume);
+      else this._aiEnd(f);
     }
+    if (cancellable) { f.sprite.setVelocityX(0); this._setState(f, 'idle'); }
 
-    // ② 剑气来袭 → 起跳躲（帝级+）。躲的同时朝对手漂移拉近，落地砸一刀 —— 见 _rt_jumpQi。
-    const R = T.routines || [];
-    if (R.includes('jumpQi') && f.sprite.body.blocked.down && time > (f.rtReady || 0)) {
-      const th = this._qiThreat(f);
-      if (th && th.eta > BT.AI_RT.qiEtaMin && th.eta < BT.AI_RT.qiEtaMax) {
-        f.rtReady = time + (T.rtGap || BT.AI_RT.gap);
-        this._aiStart(f, 'jumpQi', time);
-        return true;
-      }
+    // 剑气：能挡就挡（三派挡剑气的收益都很高），挡不起才跳。
+    if (th.kind === 'qi' && this._aiPrefersJump(f, th, T)) {
+      seen.acted = true;
+      f.rtReady = time + (T.rtGap || A.gap);
+      this._aiStart(f, 'jumpQi', time);
+      return true;
     }
-    return false;
+    this._aiGuard(f, time, null, true);      // read=true：这是一次真读招
+    // ⚠️ 起防成功【才】记 acted。旧版先写 reactGuardAt 冷却再调 _aiGuard，而
+    // _startDefense 有落地前提、_canAct 白名单又含 'jump' —— AI 腾空时防御静默失败，
+    // 660ms 封锁却照记，这一记招和下一记招都不会再防。
+    if (f.state !== 'guard') return false;
+    seen.acted = true;
+    return true;
+  },
+
+  // 剑气来袭时【跳】还是【挡】。挡得起就挡：三派挡剑气的收益都很高
+  // （水神整道反弹 / 剑神零伤 / 北神甩飞刀，见 charge.js _qiVsTarget）。
+  // 旧版这里只有"跳"一条，而且只有帝/神会跳，上/圣/王 面对剑气连躲都不会。
+  _aiPrefersJump(f, th, T) {
+    if (!(T.routines || []).includes('jumpQi')) return false;
+    if (th.eta < BT.AI_RT.qiEtaMin || th.eta > BT.AI_RT.qiEtaMax) return false;   // 跳不掉的窗口
+    // 剑神蓝不足 → 挡下来只有 0.45 减伤，不如躲
+    if (f.def.defense === 'brace' && f.mp < BT.DEFENSE.brace.qiGuardCost) return true;
+    return Math.random() < BT.AI_RT.qiJumpOdds;    // 挡得起时也偶尔跳，保住这条招牌套路
   },
 
   // AI 起防：在 _startDefense 之上补一个【保持时长】。
   // ⚠️ 直接调 _startDefense 的话，brace/parry 的 guard 是没有到期时间的长按态，
   // 下一帧 _controlAI 走到 `time <= aiNext` 分支就 _setState(f,'idle') 把它掐掉——
   // 挡是挡到了，但描边只闪一帧，玩家读不出"他在防我"，会心也基本撞不上。
-  // 三派统一为长按态后，北神也照这条加保持时长（它不再是定时窗口）。
-  _aiGuard(f, time) {
+  //
+  // ⚠️ 保持时长是【事件驱动】的：最短 guardMin（保证描边看得见），之后只要威胁还在
+  // 就继续按住，威胁一消失立刻松手（见 _aiHoldGuard），封顶 guardMax 防卡死。
+  // 旧版是纯定时 420~540ms，且【档位越高压得越久】（帝 480 / 神 540）—— 那段时间
+  // AI 既不能反应下一记威胁也不能抢攻，方向正好做反了。现在高档 guardMin 更短。
+  // minMs：钓招用的架防（绕背/压边收尾）没有具体威胁，用它给一个固定的保持时长。
+  // read：这次防御是【读招】交出来的（反应层）还是钓招/掷骰交的。
+  //   水神流 AI 的完美受流以此为准入 —— 见 defense.js _resolveDefense 的 parry 分支。
+  _aiGuard(f, time, minMs, read) {
     this._startDefense(f, time);
-    if (f.state === 'guard') {
-      f.stateUntil = time + (this._tierCfg().guardHold || BT.AI_RT.guardHold);
+    if (f.state !== 'guard') return;
+    const A = BT.AI_RT;
+    f.guardMin = time + (minMs || this._tierCfg().guardMin || A.guardMin);
+    f.guardMax = time + A.guardMax;
+    f.guardRead = !!read;      // ⚠️ 必须在 _startDefense 之后：那里会把它清掉
+    f.stateUntil = 0;          // 事件驱动，不再用定时锁（_controlAI 走 _aiHoldGuard）
+  },
+
+  // 防御态的维持/解除。返回 true = 本帧继续按住防御，_controlAI 直接 return。
+  _aiHoldGuard(f, time, opp, dist) {
+    if (f.state !== 'guard') return false;
+    // 挡下了一击 → 立刻松防并上锁，逼它重新读招（见 BT.AI_RT.reguardGap 的注释）。
+    // ⚠️ 这一支要排在 guardMin 之前：不然"最短保持"会把刚挡完的这一下继续按住，
+    // 一次读招照样吃掉玩家的整串连段，等于没做。
+    if (f.blockedAt) {
+      f.blockedAt = 0;
+      f.reguardAt = time + BT.AI_RT.reguardGap;
+      this._endDefense(f);
+      return false;
     }
+    if (time < (f.guardMin || 0)) { f.sprite.setVelocityX(0); return true; }
+    // 威胁还在（第二段连击、第二道剑气）→ 继续按住，别刚松手就挨打
+    if (time < (f.guardMax || 0) && this._incomingThreat(f, opp, dist)) {
+      f.sprite.setVelocityX(0);
+      return true;
+    }
+    this._endDefense(f);       // 威胁解除 → 立刻松手回到可行动，把时间还给抢攻
+    return false;
   },
 
   // ─────────── 套路状态机 ───────────
@@ -187,6 +304,13 @@ Object.assign(BladeTrinityScene.prototype, {
   _aiPickRoutine(f, time, dist, opp) {
     const T = this._tierCfg(), R = T.routines || [];
     if (!R.length) return false;
+    // ⚠️ 有剑气在飞就【不起新套路】。套路一起就是 1~2 秒的脚本，中途 AI 在半空 / 在无敌帧里，
+    // 等它想防已经来不及 —— 诊断实测 5 记剑气"可出手"5 次却只挡下 1 次，卡的正是这里
+    // （不是能力不够，是时机被套路抢走）。腾出这段时间交给反应层去挡或去跳。
+    if (T.reactDelay != null) {
+      const qt = this._qiThreat(f);
+      if (qt && qt.eta < BT.AI_RT.rtYieldQi) return false;
+    }
     if (time < (f.rtNext || 0)) return false;
     f.rtNext = time + Phaser.Math.Between(BT.AI_RT.rollMin, BT.AI_RT.rollMax);
     if (time < (f.rtReady || 0)) return false;
@@ -195,26 +319,31 @@ Object.assign(BladeTrinityScene.prototype, {
     // 对手露破绽（出招中 / 硬直）时更想起套 —— 套路是拿来惩罚的，不是随机表演。
     const exposed = opp.state === 'attack' || opp.state === 'stun' || opp.state === 'hurt';
 
+    // 触发概率的档位倍率：高档【移位更频繁】。用户要的"神级该频繁跳跃/缩地"就压在这里
+    // —— 套路数量已经给满了（神级 5 条），但 rtGap 2600 + 各自 0.3~0.42 的概率把出场率
+    // 压得很低，一场下来只看得到几次，读不出"这一档是靠机动打的"。
+    const odds = T.rtOdds || 1;
+
     // 压边·连续贴身：对手背靠台边就上去锁死。判在最前面 —— 角落是最值钱的局面，
     // 有这个机会就不该被绕背/踏落抢走。
     const m = BT.DEFENSE.brace.edgeMargin * 2.2;
     if (R.includes('cornerPress') && bothGrounded &&
         (opp.sprite.x < m || opp.sprite.x > BT.GAME_W - m) &&
-        dist > A.pressMin && dist < A.pressMax && Math.random() < A.pressOdds) {
+        dist > A.pressMin && dist < A.pressMax && Math.random() < A.pressOdds * odds) {
       f.rtReady = time + gap;
       return this._aiStart(f, 'cornerPress', time);
     }
     // 缩地·绕背斩：中距、缩地冷却好了、双方落地
     if (R.includes('crossBlink') && time >= (f.mistReady || 0) && bothGrounded &&
         dist > A.crossMin && dist < A.crossMax &&
-        Math.random() < (exposed ? A.crossEager : A.crossOdds)) {
+        Math.random() < (exposed ? A.crossEager : A.crossOdds) * odds) {
       f.rtReady = time + gap;
       return this._aiStart(f, 'crossBlink', time);
     }
     // 升空·踏落斩：从上方绕过正面防御 —— 对手正架防时格外想用
     if (R.includes('riseDive') && time >= (f.riseReady || 0) && sp.body.blocked.down &&
         dist > A.diveMin && dist < A.diveMax &&
-        Math.random() < (opp.state === 'guard' ? A.diveEager : A.diveOdds)) {
+        Math.random() < (opp.state === 'guard' ? A.diveEager : A.diveOdds) * odds) {
       f.rtReady = time + gap;
       return this._aiStart(f, 'riseDive', time);
     }
@@ -250,7 +379,7 @@ Object.assign(BladeTrinityScene.prototype, {
       sp.setPosition(tx, sp.y);
       sp.setVelocityX(0);
       f.invuln = Math.max(f.invuln, time + BT.BLINK.iframe);
-      f.mistReady = time + BT.BLINK.groundCd;
+      f.mistReady = time + this._aiBlinkCd("ground");
       window.GameAudio && GameAudio.play && GameAudio.play('morph');
       // ⚠️ turnGap 必须 ≥1 帧：_faceEachOther 在 !_canAct 时跳过，同帧接 _attack
       // 会拿【旧朝向】往反方向劈（loop.js 头部注释记着的那个历史 bug）。
@@ -260,7 +389,8 @@ Object.assign(BladeTrinityScene.prototype, {
     // 绕到背后不一定马上砍：有概率贴背【架防】，钓你回身乱挥。
     // 这条同时压住神级的平A 频率 —— 绕背斩每套都接刀的话，神级 45s 打 39 记平A，
     // 把自己交防御的时间全挤掉了（实测起防次数四档全平，没有随难度上升）。
-    if (Math.random() < BT.AI_RT.crossGuardOdds) this._aiGuard(f, time);
+    // 钓招用的架防没有具体威胁可跟，给固定的 baitHold（事件驱动那套会 200ms 就松手）
+    if (Math.random() < BT.AI_RT.crossGuardOdds) this._aiGuard(f, time, BT.AI_RT.baitHold);
     else this._attack(f);
     this._aiEnd(f);
     return true;
@@ -289,7 +419,7 @@ Object.assign(BladeTrinityScene.prototype, {
   // ─────────── 套路③　跳跃·剑气追 ───────────
   // 由反应层触发（探到剑气 eta 落在可躲窗口内）：起跳让剑气从脚下穿过，
   // 【同时朝对手漂移】—— 躲避与进身是同一个动作，这是你要的"跳跃拉近距离"。
-  // 反制：剑气改打高位（跳跃顶点 120px，超过 hitH 不多）；或后撤让他落空。
+  // 反制：剑气改打高位（跳跃顶点 172.8px，超过 hitH 不多）；或后撤让他落空。
   _rt_jumpQi(f, time, rt) {
     if (rt.step === 0) {
       f.sprite.setVelocityY(-BT.JUMP_VY);
@@ -365,7 +495,7 @@ Object.assign(BladeTrinityScene.prototype, {
       return true;
     }
     // 第二拍也不一定是刀：有概率贴脸【架防】钓你反击（同 crossGuardOdds 的用意）
-    if (Math.random() < A.pressGuardOdds) this._aiGuard(f, time);
+    if (Math.random() < A.pressGuardOdds) this._aiGuard(f, time, A.baitHold);
     else this._attack(f);
     this._aiEnd(f);
     return true;
@@ -389,7 +519,7 @@ Object.assign(BladeTrinityScene.prototype, {
     sp.setVelocityX(Math.abs(dx) > BT.BODY_HALF_W * 1.4
       ? dir * f.def.speed * BT.AI_RT.airDrift : 0);
 
-    // ⚠️ 择时：_resolveMelee 里 |Δy| ≥ 96 直接 return，而升空 175 / 跳跃顶点 120
+    // ⚠️ 择时：_resolveMelee 里 |Δy| ≥ 96 直接 return，而升空 175 / 跳跃顶点 172.8
     // 都超了 —— 空中招只有【下落段】打得中。按起手时长预测 from 毫秒后的自身高度，
     // 落进命中带才出招；在顶点出招是确定性挥空。
     const a = BT.ATTACK[f.id], t = a.from / 1000, vy = sp.body.velocity.y;

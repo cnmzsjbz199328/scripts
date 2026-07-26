@@ -28,14 +28,23 @@ Object.assign(BladeTrinityScene.prototype, {
     // 下一帧就能在半空架防，_resolveDefense 也不看落地，于是空中防御【真的免伤】，
     // 加上这里的 setVelocityX(0) 把它横向钉住，观感就是"保持防御姿势直直飘下来"
     // （用户实测反馈："跳起来躲过了攻击，落下来还在防"）。
-    if (!f.sprite.body.blocked.down) return;
+    //
+    // 【人机特权 airGuard】神级 AI 可以在半空架防（见 loop.js _bypass）。玩家仍受此限。
+    // 这是解开"机动↔防御抢帧"的关键：不开这条，AI 每跳一次就有一段完全无法防御的真空，
+    // 机动调得越频繁防御漏得越多（诊断实测 airborne 挡掉的威胁帧 7→19）。
+    const onGround = f.sprite.body.blocked.down;
+    if (!onGround && !this._bypass(f).airGuard) return;
     if (f.state !== 'guard') {
       f.guardFrom = time;
       f.counterFired = false;      // 新一次起防 = 新一记反手飞刀的机会（北神用）
+      f.guardRead = false;         // 这次防御是不是读招交的？由 _aiGuard 随后置位（AI 完美受流的准入）
       this._setState(f, 'guard');
       if (this._usage && f === this.p1) this._usage.defend++;
     }
-    f.sprite.setVelocityX(0);
+    // ⚠️ 只有【落地】才把横向速度清零。空中架防还清零的话，人会保持防御姿势直直飘下来
+    // （用户早期实测过的那个观感），而且等于把 airGuard 换来的机动又抵消掉 ——
+    // 空中防御要的就是"边位移边防"。
+    if (onGround) f.sprite.setVelocityX(0);
   },
 
   _endDefense(f) {
@@ -91,7 +100,7 @@ Object.assign(BladeTrinityScene.prototype, {
   _guardAura(f, time) {
     const A = BT.GUARD_AURA, kind = f.def.defense;
     const tint = kind === 'brace'
-      ? (f.mp >= BT.DEFENSE.brace.guardCost ? A.brace : A.braceDry)
+      ? (f.mp >= BT.DEFENSE.brace.guardCost || this._bypass(f).freeGuard ? A.brace : A.braceDry)
       : (A[kind] || 0xffffff);
     const pulse = 0.5 + 0.5 * Math.sin(time / A.period);
     let r = A.rMin + (A.rMax - A.rMin) * pulse;
@@ -163,6 +172,10 @@ Object.assign(BladeTrinityScene.prototype, {
     if (target.state !== 'guard') return plain;
     if (target.facingLeft !== (dir > 0)) return plain;
 
+    // 「一次读招只挡一下」：AI 挡下这一击后要重新读招（见 BT.AI_RT.reguardGap）。
+    // 由 _aiHoldGuard 读这个时刻去松防 + 上锁。玩家侧不受限（玩家按住 S 就是按住）。
+    if (target === this.p2) target.blockedAt = this.time.now;
+
     const kind = target.def.defense;
 
     if (kind === 'brace') {
@@ -176,8 +189,12 @@ Object.assign(BladeTrinityScene.prototype, {
         this._popText(target.sprite.x, target.sprite.y - 84, '破防！', '#ff8a3b');
         return { dealt: Math.round(dmg * 0.5), blocked: false, negated: false, pushback: 0 };
       }
-      if (target.mp >= d.guardCost) {
-        target.mp -= d.guardCost;
+      // 【人机特权 freeGuard】神级 AI 挡近战不吃蓝：完全免伤永远成立。
+      // 不开这条，剑神流 AI 把蓝花在奥义上之后就退化成 0.45 减伤，
+      // 玩家看到的是"明明架住了还掉血"（mpReserve 只能缓解，挡多了照样空）。
+      const free = !!this._bypass(target).freeGuard;
+      if (free || target.mp >= d.guardCost) {
+        if (!free) target.mp -= d.guardCost;
         this._drawBars();
         this._popText(target.sprite.x, target.sprite.y - 84, '力受け·完', '#ffe6a8');
         this._outlinePunch(target);               // 完全防御成功：描边猛顶一下
@@ -194,12 +211,21 @@ Object.assign(BladeTrinityScene.prototype, {
       // 水神流受流：按下防御后 perfect 毫秒内为完美窗口
       const d = BT.DEFENSE.parry;
       const held = this.time.now - target.guardFrom;
-      // ⚠️ 完美受流【只对玩家开放】。AI 是读 opp.state==='attack' 反应式交防御的，
-      // guardFrom 永远刚刚开始，等于每次都完美 —— 玩家零伤害 + 被卸力硬直 520ms
-      // + AI 拿 ×1.8 反击，这是人类反应速度做不到的白送优势。
-      // （playtest 里 bot 因此长期被压制，胜率掉到两三成。）
-      // 完美格挡是玩家的读招技术，AI 只吃普通格挡的减伤。
-      if (held <= d.perfect && target === this.p1) {
+      // 完美受流的准入：玩家看【按下防御到挨打的间隔】；AI 看【这次防御是不是读招交出来的】。
+      //
+      // ⚠️ 这里曾经硬编码 `target === this.p1`，即完美受流只对玩家开放。当时的理由是
+      // "AI 读 opp.state==='attack' 反应式交防御，guardFrom 永远刚刚开始 = 每次都完美"，
+      // 那是白送。但该理由已随反应层重写而失效：现在 AI 走【观察时钟】，必须盯够
+      // reactDelay 才交得出防御，而且会真的漏（圣级对水神流恒漏），交出来的是一次真读招。
+      //
+      // 后果不修就是：AI 用水神流时【看得见地架住了，却每次都掉 60% 血】——用户实测的
+      // "确实即时防御了，但依然会受到伤害"，三派里这一派最明显（另两派挡下是真零伤）。
+      // 仍留两道闸：① guardRead —— 只有反应层读招交的防御算数，钓招/兜底掷骰交的不算；
+      //            ② cap.perfect —— 只有神级拿得到（×1.8 反击 + 520ms 卸力太重，低档不给）。
+      const perfect = target === this.p1
+        ? held <= d.perfect
+        : (target.guardRead && this._tierCfg().cap.perfect);
+      if (perfect) {
         // 完美：对手被卸力硬直、【伤害原样弹回去】，自己获得反击窗口
         this._setState(attacker, 'stun', d.attackerStun);
         attacker.sprite.setVelocityX(0);

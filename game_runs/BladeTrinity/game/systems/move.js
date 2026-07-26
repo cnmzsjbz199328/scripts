@@ -36,12 +36,19 @@ Object.assign(BladeTrinityScene.prototype, {
     window.GameAudio && GameAudio.play && GameAudio.play('morph');
   },
 
+  // AI 侧移形换影的冷却：档位可覆盖。BT.BLINK 的 820/1050 是按【玩家逃生】调的，
+  // 高档 AI 拿它当机动手段时，这两个数才是真正卡住出场率的闸门（概率再高也过不去）。
+  _aiBlinkCd(mode) {
+    const T = this._tierCfg();
+    return mode === 'rise' ? (T.riseCd || BT.BLINK.riseCd) : (T.blinkCd || BT.BLINK.groundCd);
+  },
+
   // AI 侧缩地/升空：没有键盘，方向由调用方给定（dir<0 拉开、dir>0 贴身）。
   // 与 _doBlink 同一套位移/无敌/残影，只是不读 this.keys。不计 usage（那只统计玩家）。
   _doAIBlink(f, mode, dir, time) {
     const rk = mode === 'rise' ? 'riseReady' : 'mistReady';
     if (time < (f[rk] || 0) || !this._canAct(f)) return;
-    f[rk] = time + (mode === 'rise' ? BT.BLINK.riseCd : BT.BLINK.groundCd);
+    f[rk] = time + this._aiBlinkCd(mode);
     f.invuln = Math.max(f.invuln, time + BT.BLINK.iframe);
     const sp = f.sprite, x0 = sp.x, y0 = sp.y;
     let x1 = x0, y1 = y0;

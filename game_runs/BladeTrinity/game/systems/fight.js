@@ -113,8 +113,11 @@ Object.assign(BladeTrinityScene.prototype, {
       riposteUntil: 0, guardAura: null,
       chargeFrom: 0, charging: false, mistReady: 0, riseReady: 0,
       aiRelease: 0, ultReady: 0,          // AI 奥义：松手时刻 / 下次可放时刻
-      // AI 套路层（routine.js）：当前套路 / 下次可起套 / 读招防御去抖 / 撤步到期
-      rt: null, rtReady: 0, rtNext: 0, reactGuardAt: 0, backstepUntil: 0, punishReady: 0,
+      // AI 套路层（routine.js）：当前套路 / 下次可起套 / 撤步到期 / 惩罚窗口冷却
+      rt: null, rtReady: 0, rtNext: 0, backstepUntil: 0, punishReady: 0,
+      // AI 反应层（routine.js）：当前盯着的那记威胁 { id, at, acted } —— at 是观察时钟的
+      // 起点，档位的 reactDelay 就是拿 now-at 来比的；guardMin/Max = 防御态的事件驱动边界
+      threatSeen: null, guardMin: 0, guardMax: 0, guardRead: false, blockedAt: 0, reguardAt: 0,
     };
   },
 

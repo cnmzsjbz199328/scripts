@@ -65,29 +65,45 @@ Object.assign(BladeTrinityScene.prototype, {
 
   // 当前擂台的难度档（fight.js 每场设定 this.curTier）。缺省回落到王级基线。
   _tierCfg() { return (BT.TIERS && this.curTier) || BT.TIERS.wang; },
+
+  // ─────────── 人机特权（bypass）───────────
+  // 只对【电脑一侧】、且只在配了 bypass 的档位（目前仅神级）生效。玩家永远拿不到。
+  //
+  // 这是有意开的后门，但只开【操作模型】那一类：玩家一次只能做一件事、腾空不能架防、
+  // 平A 一出手就锁 780ms —— 这些是给人类手指定的规矩，AI 没有手指。诊断实测机动与防御
+  // 在抢同一批帧（机动一升，airborne 挡掉的威胁帧就从 7 涨到 19），只靠调数值两边永远
+  // 互相吃；把这几条解开，"机动和防御同时拉满"才成立。
+  //
+  // ⚠️ 不许往这里加【第二类】后门：抹掉预告帧、加无敌、拉伤害倍率。
+  // 那类东西玩家一眼看得出来，观感是耍赖不是强 —— BT.TIERS 的设计口径是
+  // 「难度升级的是信息利用与行为质量，伤害一致(mul.dmg 全档 1.0)」，别破这条。
+  // 现在这几条特权，玩家看到的是"这家伙什么都做得到"，预告/朝向/结算全部照旧。
+  _bypass(f) { return (f === this.p2 && this._tierCfg().bypass) || {}; },
   // AI 伤害折扣 = 基线难度旋钮 × 当前档位倍率。伤害结算 4 处统一走这里。
   _aiDmgScale() { return BT.AI.damageScale * this._tierCfg().mul.dmg; },
 
   // 对手 AI —— 四层调度，从"必须马上做"到"想做什么"：
   //   ① 收招接续：把命中窗口已过的收招段提前结束，否则任何两节动作之间都会硬塞空白
-  //   ② 套路推进：已进入的行为串按脚本走完（受击即作废）
-  //   ③ 反应层：每帧跑、不等决策间隔 —— 读招防御、探到剑气就起跳躲
+  //   ② 反应层：每帧跑、不等决策间隔 —— 探到来袭威胁（近战招/剑气）就交防御或起跳
+  //   ③ 套路推进：已进入的行为串按脚本走完（受击 or 反应层征用即作废）
   //   ④ 决策层：原有的掷骰逻辑（奥义 / 间合 / 惩罚 / 起套 / 挡或砍）
   // ①②③ 在 routine.js。档位给的是【会哪几套套路 + 反应多快】，不是伤害倍率。
+  //
+  // ⚠️ ② 必须排在 ③ 【之前】。反过来排（旧版）时，套路只在 hurt/stun/down 才作废，
+  // 也就是【只有已经挨打了才让位】—— 而档位给的正是套路数量（王 0 / 帝 3 / 神 5），
+  // 于是套路越多 → 反应层跑不到的时间越长 → 越不会防御，阶梯整个倒挂。
   _controlAI(time) {
     const f = this.p2, sp = f.sprite, opp = this.p1;
     // ⚠️ 蓄力检查必须在 _canAct 之前：'charge' 不在 _canAct 白名单里，放到后面
     // 就会被 return 掉 —— AI 一旦起蓄就再也没人推进它，永远卡在蓄力姿势。
     if (f.charging) { this._tickCharge(f, time); return; }
-    this._aiCancelRecovery(f, time);                    // ① 收招接续
-    if (this._aiTickRoutine(f, time)) return;           // ② 套路推进
-    if (f.state === 'guard' && f.stateUntil && time < f.stateUntil) return;   // 同 _controlPlayer：定时防御态锁姿态
     const T = this._tierCfg(), cap = T.cap, mul = T.mul;
     const dx = opp.sprite.x - sp.x, dist = Math.abs(dx), dir = dx > 0 ? 1 : -1;
 
-    // ③ 反应层 —— 【在 _canAct 闸门之前】：高档位可以弃掉自己的收招去交防御，
-    // 否则"反应更快"根本兑现不了（自己 780ms 一动不能动，玩家起手窗口只有 130ms）。
-    if (this._aiReact(f, time, opp, dist)) return;
+    this._aiCancelRecovery(f, time);                       // ① 收招接续
+    if (this._aiReact(f, time, opp, dist)) return;         // ② 反应层（可弃招/弃套路）
+    if (this._aiTickRoutine(f, time)) return;              // ③ 套路推进
+    if (this._aiHoldGuard(f, time, opp, dist)) return;     // 防御态：威胁在就按住，走了就松手
     if (!this._canAct(f)) return;
 
     // ── ④ 决策层 ──
@@ -119,9 +135,11 @@ Object.assign(BladeTrinityScene.prototype, {
       // 可用 —— 一个在远处蓄力/放风筝的对手它永远够不着。表现是整局打不出几记平A：
       // playtest 实测 AI 一局只出招 1~6 次，bot 连"有东西可挡"都凑不齐，
       // 防御与会心两条演出跟着一起测不到。会套路的档位给一条贴近的腿。
+      // ⚠️ 别在这里手写 f.mistReady：_doAIBlink 自己会置冷却，而它【开头就检查】
+      // `time < f.mistReady` —— 先赋值再调用等于自己把自己挡掉，这条追击缩地
+      // 从来没有真正执行过（写了冷却、然后瞬移被跳过，观感是"AI 只会走路追人"）。
       if ((T.routines || []).length && dist > engage * BT.AI_RT.chaseMul &&
           time >= (f.mistReady || 0) && sp.body.blocked.down) {
-        f.mistReady = time + BT.BLINK.groundCd;
         this._doAIBlink(f, 'ground', dir, time);
         return;
       }
@@ -160,12 +178,15 @@ Object.assign(BladeTrinityScene.prototype, {
     // cap.react 档另给一份 guardOnAttack 加权，保留旧的对拼手感。
     // ⚠️ 加权那一支走 _threatLive 而不是裸的 `opp.state === 'attack'`：后者把长达
     // 400ms 的收招段也算成"对手正在出招"，AI 于是对着打不到自己的刀架防，
-    // 并被 guardHold 冻住 420~540ms，把本该抢攻的惩罚窗口整个赔进去（见 routine.js 该函数注释）。
-    const r = Math.random();
+    // 并被旧的定时 guardHold 冻住 420~540ms，把本该抢攻的惩罚窗口整个赔进去（见 routine.js 该函数注释）。
+    // ⚠️ 两条【各掷各的骰】。曾经共用一个 r：`r<gOnAtk` 与 `r<gBias` 就成了嵌套而非
+    // 并列 —— 神级 gOnAtk=0.544 > gBias=0.36，只要 _threatLive 为真，第二条恒不可达，
+    // 两个旋钮互相吃掉。
     const gOnAtk = BT.AI.guardOnAttack * mul.guardOnAttack;
     const gBias = BT.AI.guardBias * mul.guardBias;
-    if (cap.react && this._threatLive(f, opp, dist) && r < gOnAtk) this._aiGuard(f, time);
-    else if (r < gBias) this._aiGuard(f, time);
+    const A = BT.AI_RT;
+    if (cap.react && this._threatLive(f, opp, dist) && Math.random() < gOnAtk) this._aiGuard(f, time, A.baitHold);
+    else if (Math.random() < gBias) this._aiGuard(f, time, A.baitHold);
     else this._attack(f);
   },
 
@@ -178,7 +199,12 @@ Object.assign(BladeTrinityScene.prototype, {
   // 解法是让会拉开的档位（routines 含 zoneOut）把它当成"先创造距离"的信号，而不是放弃。
   _aiUltPlan(f, time, dist, ultMul, canZone) {
     if (time < (f.ultReady || 0)) return null;
-    if (f.mp < BT.MP.ultCost) return null;
+    // ⚠️ 起蓄要【留出格挡的蓝】。剑神流 brace 是"蓝够才完全免伤，蓝空退化成 0.45 减伤"，
+    // 而奥义一发就扣掉 ultCost=100 —— AI 把蓝全花在剑气上，就会出现用户实测的
+    // "确实即时防御了，但依然会受到伤害"：挡是挡住了，只是每次都在吃 45%。
+    // mpReserve 至少要够一次 guardCost(34)/qiGuardCost(52)。只有 brace 真正吃这条，
+    // 另两派不看蓝，留一点也不影响（换来的是奥义节奏稍缓，观感反而没那么轰炸）。
+    if (f.mp < BT.MP.ultCost + (this._tierCfg().mpReserve || 0)) return null;
     const far = dist >= BT.AI.ultMinDist;
     if (!far && !canZone) return null;
     if (Math.random() >= BT.AI.ultChance * (ultMul == null ? 1 : ultMul)) return null;

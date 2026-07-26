@@ -271,7 +271,7 @@ BT.AI_RT = {
                       // 跳过，同帧接 _attack 会拿旧朝向往反方向劈（loop.js 头部注释那个历史 bug）。
   crossMin: 130, crossMax: 380,   // 触发距离区间
   crossOdds: 0.35, crossEager: 0.7,   // 常规概率 / 对手出招露破绽时的概率
-  crossGuardOdds: 0.38,   // 绕到背后【改成架防】而不是砍的概率。压住神级的平A 频率：
+  crossGuardOdds: 0.45,   // 绕到背后【改成架防】而不是砍的概率。压住神级的平A 频率：
                           // 每套都接刀的话神级 45s 打 39 记平A，把自己交防御的时间挤没了。
 
   // ── 拉开·蓄力剑气（zoneOut）──
@@ -285,16 +285,19 @@ BT.AI_RT = {
                        // 实际取 to，见 BT.ATTACK），否则第二拍的缩地会把自己那一刀掐没
   pressMin: 90, pressMax: 340,
   pressOdds: 0.42,     // 角落是最值钱的局面，概率给得比其他套路高
-  pressGuardOdds: 0.35,   // 第二拍【改成架防】而不是第二刀：压角不只有硬打，也可以钓你反击。
+  pressGuardOdds: 0.45,   // 第二拍【改成架防】而不是第二刀：压角不只有硬打，也可以钓你反击。
                           // 同 crossGuardOdds，是压住高档 AI 平A 频率的手段
 
   // ── 升空·踏落斩 ──
   riseTell: 130,
-  diveMin: 150, diveMax: 420,
+  // ⚠️ diveMin 下限别再放回 150：高档 AI 会主动贴近（追击缩地 + cornerPress），
+  // 诊断实测交战均距就落在 100~150，150 起跳等于把最好看的升空踏落斩挡在门外
+  // （45s 内只触发 2~4 次）。放到 105 才和它实际站的位置对得上。
+  diveMin: 105, diveMax: 460,
   diveOdds: 0.3, diveEager: 0.75,     // 对手正架防时更想从上面绕过去（diveEager）
 
   // ── 空中压落（踏落斩 / 剑气追共用的收尾段）──
-  // ⚠️ 纵向命中上限：_resolveMelee 里 |Δy| ≥ 96 直接 return。升空 175px、跳跃顶点 120px
+  // ⚠️ 纵向命中上限：_resolveMelee 里 |Δy| ≥ 96 直接 return。升空 175px、跳跃顶点 172.8px
   // 【都超了】，所以空中招只能在【下落段】Δy 收窄到 96 内才打得中。这里按起手时长
   // 预测落点，取 84 留一点余量。
   airHitY: 84,
@@ -315,12 +318,51 @@ BT.AI_RT = {
   // ── 间合摇摆（撤步）──
   backstepMs: 220,    // 一次撤步的持续时间
 
-  // ── AI 防御的【保持时长】──
-  // ⚠️ 不设这个，AI 的防御只亮一帧。brace/parry 的 guard 是长按态、没有到期时间，
-  // 而 _controlAI 下一帧走到 `time <= aiNext` 分支就 _setState(f,'idle') 把它掐掉：
-  // 挡是挡了，玩家什么都没看见，三派防御演出和会心也就无从触发。
-  // 走 f.stateUntil（_controlAI 顶部的定时防御态闸门认这个）把姿态锁住这么久。
-  guardHold: 420,
+  // ── AI 防御的【保持时长】：事件驱动，不是定时（见 routine.js _aiGuard / _aiHoldGuard）──
+  // ⚠️ 不设最短时长，AI 的防御只亮一帧：brace/parry 的 guard 是长按态、没有到期时间，
+  // 而 _controlAI 下一帧就把它掐掉 —— 挡是挡了，玩家什么都没看见，三派防御演出和
+  // 会心也就无从触发。所以有 guardMin 保底（够看清描边），之后【只要威胁还在就继续按住】，
+  // 威胁一走立刻松手，把时间还给抢攻。guardMax 是防卡死的封顶。
+  //
+  // ⚠️ 旧版是纯定时 420ms、且档位越高压得越久（帝 480 / 神 540）：那段时间 AI 既不能
+  // 反应下一记威胁也不能抢攻，"高档更强"被自己的防御姿势按住了，方向正好做反。
+  // 现在高档 guardMin 更【短】（帝 190 / 神 160），阶梯方向才对。
+  guardMin: 220,
+  guardMax: 900,
+  baitHold: 520,      // 钓招用的架防（绕背/压边收尾、兜底掷骰）没有具体威胁可跟，用固定时长
+
+  // ── 反应层的抬手提前量（秒）──
+  // 威胁 eta 小于这个数才允许出手。剑气的 eta 可以有 1.5 秒，一探到就架防会变成
+  // "全程举着盾"，也让北神的假动作没有骗招余地。
+  guardLead: 0.35,
+  // ⚠️ 剑气【单独给一个更长的提前量】，别和近战共用 0.35。两条实测原因：
+  //   ① 近战的 0.35 是为了"不像预知"而压短的，但剑气本来就是横贯全场、看得见的慢弹丸，
+  //      提前架防完全符合直觉，压短反而变成"眼睁睁看它飞过来才抬手"。
+  //   ② 更要命的是【等待期间 AI 会跑掉】：eta 还没降到 0.35 时反应层不接管，AI 就去起套路了，
+  //      等轮到它想防，人已经在半空 / 在无敌帧里（诊断实测 5 记剑气只挡下 1，
+  //      而"可出手"的判定是 5/5 —— 卡的不是能力，是时机被套路抢走）。
+  // 副作用：跳跃躲的可用区间 = [qiEtaMin, guardLeadQi] 交 [0.18,0.60]，比原来宽，
+  // jumpQi 反而更容易触发（原先 [0.18,0.35] 常常在决策时刻已经跌破 0.18 而失效）。
+  guardLeadQi: 0.55,
+  // 剑气 eta 短于这个数就【不起新套路】：套路一起就是 1~2 秒脚本，会把防御时机整个吃掉。
+  // 略大于 guardLeadQi，保证"决定要防"之前那一小段也不会被套路抢走。
+  rtYieldQi: 0.75,
+  // 【人机特权 parallelRoutine】交防御时套路挂起多久再续。太短会在防御还举着时就抢着往下走，
+  // 太长就和"作废"没区别。约等于一次防御的可视时长。
+  rtResume: 320,
+
+  // ─── 「一次读招只挡一下」：AI 防御的攻防循环出口 ───
+  // ⚠️ 这条是【必需】的，不是手感调味。反应层给的防御是"读到一记威胁 → 架防"，而
+  // _aiHoldGuard 会在威胁还在时一直按住 —— 两者叠起来，一次读招就能把【连续的一整串】
+  // 攻击全挡了。神级放开操作限制后这直接变成 100% 挡下率、玩家整局 0 伤害（实测）。
+  //
+  // 现在：挡下一击后立刻松防，并在 reguardGap 内【不能重新架防】（仍可走位/瞬移/出手）。
+  // 于是"一次读招 = 一次防御"，连段/变节奏是玩家的正解 —— 这才是可以靠操作打穿的强，
+  // 而不是无解。这段窗口也正好是玩家的惩罚窗口，攻防有了出口。
+  reguardGap: 340,
+
+  // 挡得起剑气时也偶尔改成起跳躲，保住 jumpQi 这条招牌套路的出场率
+  qiJumpOdds: 0.35,
 };
 
 // ─────────── 难度分级（对手 AI 强度阶梯）───────────
@@ -331,7 +373,14 @@ BT.AI_RT = {
 // 该升级的是【信息利用与行为质量】：反应更快、会绕背、会压角、会骗防御，而伤害一致。
 // 现在每级给的是：
 //   ① routines —— 掌握哪几套【套路】（见 BT.AI_RT / systems/routine.js）
-//   ② reactDelay —— 读招反应延迟 ms（null = 不会反应式防御，只剩随机 guardBias）
+//   ② reactDelay —— 读招反应延迟 ms：威胁出现后【要盯这么久】才交得出防御
+//      （null = 不会反应式防御，只剩随机 guardBias）。
+//      ⚠️ 语义是【观察时钟】，不是和招式 from 偏移比大小的绝对时刻。旧写法必须靠
+//      _reactDelayVs 钳到 from-60 才不至于窗口恒空，而那道钳位把阶梯压平了：实测 12 个
+//      「档位×流派」格子里只有 3 个真正读到了 reactDelay（对水神四档完全相同、对北神
+//      帝=神、对剑神圣=王），正是"reactDelay 从 380 调到 130 却看不出差别"的成因。
+//      现在直接和"看了多久"比，快慢兑现成【来不来得及】：圣级 380 接不住水神的 190ms
+//      起手（该漏就漏），神级 130 接得住 —— 对近战/剑气/三流派同一套算式，无需钳位。
 //   ③ cancel —— 命中窗口结束后【再过这么久】可以掐掉收招（0 = 不可取消，值越小越早自由）。
 //      不给这个，任何两节动作之间都会硬塞一段 400ms 空白，套路根本接不起来。
 //      ⚠️ 这是"AI 有 70% 时间不可行动"的主解药，且直接决定读招防御兑不兑现得了：
@@ -341,8 +390,11 @@ BT.AI_RT = {
 //      "永动连打"，把自己的防御和套路全挤掉了（上面那个 126/134 的另一半成因）。
 //      缺省回落到 BT.AI_RT.punishCd。
 //   ⑤ footsie —— 决策 tick 上撤一步的概率（间合摇摆，钓对手挥空）
-//   ⑥ rtGap / guardHold —— 覆盖 BT.AI_RT 的同名缺省：神级套路更密、防御姿态保持更久，
-//      保证阶梯单调（实测起防次数曾经四档全平，8/9/11/7，完全没有随难度上升）
+//   ⑥ rtGap / guardMin —— 覆盖 BT.AI_RT 的同名缺省：神级套路更密（rtGap 更短）、
+//      防御姿态的【最短】保持更短（guardMin：松得快 = 更早能反应下一记 / 抢攻）。
+//      ⚠️ 这两个曾经都是坏的：rtGap 在 TIERS 里【一个档位都没写】，注释声称"神级套路
+//      更密"而实际帝=神=缺省 2600；guardHold（旧名）则是档位越高压得越久（帝 480 /
+//      神 540），把高档 AI 自己按在防御姿势里既不能反应也不能抢攻，方向做反了。
 //   ⑦ mul.crit —— 会心概率倍率。防御成功后的会心是三派最出彩的演出，高档该更常见
 //   ⑧ ultCd —— 覆盖 BT.AI.ultCd。⚠️ 会 zoneOut 的档位【必须】把这个调长：原来的 3400
 //      是在"距离闸门挡掉大半奥义"的前提下标的，zoneOut 拆掉那道闸门后实测帝级 45s 放
@@ -355,46 +407,79 @@ BT.TIERS = {
   shang: {
     name: '上级', accent: '#8fbf7a',
     routines: [], reactDelay: null, cancel: 0, footsie: 0,
-    cap: { ult: false, react: false, punish: false },
+    cap: { ult: false, react: false, punish: false, perfect: false },
     mul: { decision: 1.3, guardBias: 0.3, guardOnAttack: 0.4, ult: 0, dmg: 1.0, crit: 0.6 },
   },
   sheng: {
     name: '圣级', accent: '#6fb0d0',
     // 只会「轰飞·满场剑气」（起蓄轰飞 → 满蓄 → 剑气横贯，charge.js 已实现）
     routines: [], reactDelay: 380, cancel: 0, footsie: 0,
-    cap: { ult: true, react: false, punish: false },
+    cap: { ult: true, react: false, punish: false, perfect: false },
     mul: { decision: 1.15, guardBias: 0.6, guardOnAttack: 0.7, ult: 0.7, dmg: 1.0, crit: 0.8 },
   },
   wang: {
     name: '王级', accent: '#d0b25a',
     // +读招防御 → 防御成功即可能触发三派会心演出
     routines: [], reactDelay: 260, cancel: 0, footsie: 0.1,
-    cap: { ult: true, react: true, punish: false },
+    cap: { ult: true, react: true, punish: false, perfect: false },
     mul: { decision: 1.0, guardBias: 1.0, guardOnAttack: 1.0, ult: 1.0, dmg: 1.0, crit: 1.0 },
   },
   di: {
     name: '帝级', accent: '#d08a4a',
-    // 【地面压制档】：会自己创造距离放剑气（zoneOut）、会把你锁在角落（cornerPress），
-    // 外加起跳躲剑气。⚠️ 别再把两条空中套路都塞给帝级 —— 上一版这么排，帝级点亮的
-    // 唯一新行为就是"会跳"，玩起来的观感就是"只会跳来跳去"（用户实测反馈）。
-    // 纵轴（升空踏落 / 绕背）留给神级，阶梯才读得出来：王=读招 → 帝=地面压制 → 神=全开。
-    routines: ['zoneOut', 'cornerPress', 'jumpQi'],
-    reactDelay: 190, cancel: 60, footsie: 0.22, punishCd: 900, guardHold: 480, ultCd: 5200,
-    cap: { ult: true, react: true, punish: true },
-    mul: { decision: 0.82, guardBias: 1.7, guardOnAttack: 1.3, ult: 1.2, dmg: 1.0, crit: 1.2 },
+    // 【机动与防御全开档】。原先是"地面压制档"，用户实测后判定那一版的强度只配当帝级，
+    // 于是整档【上移】：把原神级的全套（五条套路 + 人机特权 bypass + 全部调校）搬到这里。
+    // 阶梯因此变成：王=会读招 → 帝=机动与防御同时拉满 → 神=在此之上【多一套你没见过的招】。
+    // 神级的差异从此是【内容】不是数值 —— 合本表开头"难度升级的是信息利用与行为质量"。
+    routines: ['zoneOut', 'cornerPress', 'jumpQi', 'riseDive', 'crossBlink'],
+    reactDelay: 70, cancel: 30, footsie: 0.3, punishCd: 1000,
+    guardMin: 260, rtGap: 850, rtOdds: 1.8, ultCd: 4600,
+    blinkCd: 520, riseCd: 700, mpReserve: 40,
+    bypass: {
+      airGuard: true,        // 腾空也能架防（且空中不清零横向速度：边位移边防）
+      guardCancel: true,     // 平A 任意时刻可掐掉去交防御，不必等收招段（这一刀白挥是代价）
+      parallelRoutine: true, // 交完防御套路【挂起再续】，不作废 —— 机动不再被自己的防御打断
+      // ⚠️ 这里【不能】再加 freeGuard（挡下不吃蓝）。试过，后果是近战结算 7 次 blocked 7、
+      // 挡下率 100%，playtest bot 整局打出 0 伤害 —— 那不是"极限操作才通得过"，是通不过。
+      // 本表 BT.DEFENSE.brace 开头那条早就写了："无条件免伤会让按住 S 变成最优解"，
+      // 这条对 AI 一样成立。蓝耗是完全防御【唯一】的天然衰减，拿掉就没有攻防循环了。
+    },
+    cap: { ult: true, react: true, punish: true, perfect: true },
+    mul: { decision: 0.95, guardBias: 2.0, guardOnAttack: 1.6, ult: 1.4, dmg: 1.0, crit: 1.45 },
   },
   shen: {
     name: '神级', accent: '#d0506a',
-    // 全开：地面压制 + 纵轴（升空·踏落斩）+ 绕背斩。神级之所以是神级不是因为每刀多打三点血。
+    // 神级 = 帝级的全套（机动/防御/人机特权都一样），目前【只多在几个旋钮更锋利】。
+    //
+    // ⚠️ 这一档暂时和帝级差得不够开，是【已知待办】而不是设计终点：帝级已经把机动与
+    // 防御拉到操作模型的上限，再往上加倍率就只剩"更疼"，那正是本表开头否掉的做法。
+    // 正确的加法是给这一档【新的内容】（三派各自的招牌秘技），不是继续堆数值。
     routines: ['zoneOut', 'cornerPress', 'jumpQi', 'riseDive', 'crossBlink'],
-    reactDelay: 130, cancel: 30, footsie: 0.3, punishCd: 750, guardHold: 540, ultCd: 4600,
-    cap: { ult: true, react: true, punish: true },
-    mul: { decision: 0.66, guardBias: 2.0, guardOnAttack: 1.6, ult: 1.4, dmg: 1.0, crit: 1.45 },
+    reactDelay: 70, cancel: 30, footsie: 0.3, punishCd: 1000,
+    guardMin: 260, rtGap: 850, rtOdds: 1.8, ultCd: 4600,
+    blinkCd: 520, riseCd: 700, mpReserve: 40,
+    // ─── 人机特权：只作用于电脑一侧（见 loop.js _bypass）。帝级起就有。───
+    // 解开的都是【为人类手指定的限制】，不是结算规则 —— 预告帧 / 朝向判定 / 伤害结算全照旧。
+    // ⚠️ 别往这里加无敌、加伤害倍率、删预告帧。那是第二类后门，玩家一眼看得出来，
+    // 观感是耍赖不是强。要退回公平版删掉 bypass 块即可，其余代码全 `|| {}` 兜底。
+    bypass: {
+      airGuard: true,
+      guardCancel: true,
+      parallelRoutine: true,
+      // ⚠️ 不许加 freeGuard，理由见帝级同名块。
+    },
+    // perfect：水神流 AI 的完美受流，只认反应层读招交的那次防御。
+    cap: { ult: true, react: true, punish: true, perfect: true },
+    // ⚠️ decision 0.95 而不是"最快的 0.66"。这不是手滑 —— 诊断实测（scratchpad/ai-probe）
+    // 神级有 【51% 的帧卡在自己的 attack 状态里】，而 attackLock 正是"探到威胁却出不了手"
+    // 的第一大原因（29 帧 vs airborne 7 / stun 2）。平A 一记就锁 780ms，决策越快锁得越满，
+    // AI 把自己的防御和机动【全用出手挤掉了】，观感就是"只会莽着砍、不会防也不见走位"。
+    // 神级的身份是【读招 + 机动】，不是出手最密：出手交给 punish/套路收尾，掷骰这条压下来。
+    // 同理 punishCd 1000（原 750，抢攻也是 _attack）。见 cancel 注释里同源的"连打机"教训。
+    mul: { decision: 0.95, guardBias: 2.0, guardOnAttack: 1.6, ult: 1.4, dmg: 1.0, crit: 1.45 },
   },
 };
-// 读招防御的提前量：不早于"命中窗口开启前这么久"架防，避免高档 AI 一见起手就抬手，
-// 让防御看起来像预知而不是反应（也给北神的假动作留出骗招空间）。
-BT.AI_GUARD_LEAD = 150;
+// （旧 BT.AI_GUARD_LEAD=150 已并入 BT.AI_RT.guardLead：现在按威胁 eta 算，
+//   对近战招与飞行弹丸是同一个口径，不再是"命中窗口开启前多少 ms"的近战专用量。）
 BT.TIER_DEFAULT = 'wang';   // 选人屏默认档（即开即玩：不选也能打）
 
 BT.HURT_DUR = 380;     // 受击硬直

@@ -154,7 +154,11 @@ Object.assign(BladeTrinityScene.prototype, {
     }
     const cx = sx + dir * fwd, cy = sy + ((yMin + yMax) / 2) * BT.SCALE;   // 前端·中心高度
     const spanV = (yMax - yMin) * BT.SCALE, spanH = (xMax - xMin) * BT.SCALE;
-    this._qiBurst(cx, cy, BT.SCHOOLS[f.id].barColor);
+    // ⚠️ 这里【故意不放 _qiBurst】。爆闪的生成点是 cx = 本段刀尖最远帧的位置，
+    // 比人物此刻的刀更靠前，加上 depth 27 + ADD 白核起手就满亮，读出来是
+    // "剑气还没出来、前方先亮了一个点"——反而盖过了脱手那一下。
+    // 月牙自己的白热前刃已经够交代出手瞬间了。（飞刀/会心分裂仍保留爆闪：
+    // 前者贴身出手位置对，后者要提示"多了一道"。）
     this.qiList.push({
       x: cx, prevX: cx, y: cy, dir, owner: f, school: f.id, frac,
       fromBlade: true, flyStyle: seg[2], spanV, spanH,
@@ -460,8 +464,9 @@ Object.assign(BladeTrinityScene.prototype, {
     // 挡剑气比挡近战贵（qiGuardCost>guardCost）——对面那一发本来就是拿蓝换的。
     if (guardingFront && target.def.defense === 'brace') {
       const d = BT.DEFENSE.brace;
-      if (target.mp >= d.qiGuardCost) {
-        target.mp -= d.qiGuardCost;
+      const free = !!this._bypass(target).freeGuard;      // 人机特权：神级挡剑气也不吃蓝
+      if (free || target.mp >= d.qiGuardCost) {
+        if (!free) target.mp -= d.qiGuardCost;
         this._drawBars();
         this._popText(target.sprite.x, target.sprite.y - 84, '力受け·完', '#ffe6a8');
         this._outlinePunch(target);               // 完全防御成功：描边猛顶一下
