@@ -292,7 +292,7 @@ Object.assign(BladeTrinityScene.prototype, {
   // 反制：剑气改打高位（跳跃顶点 120px，超过 hitH 不多）；或后撤让他落空。
   _rt_jumpQi(f, time, rt) {
     if (rt.step === 0) {
-      f.sprite.setVelocityY(-600);
+      f.sprite.setVelocityY(-BT.JUMP_VY);
       this._playAir(f);
       this._aiStep(rt, time, 0);
       return true;

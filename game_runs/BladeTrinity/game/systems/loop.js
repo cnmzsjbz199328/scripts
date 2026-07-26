@@ -48,7 +48,7 @@ Object.assign(BladeTrinityScene.prototype, {
     const vx = left ? -f.def.speed : right ? f.def.speed : 0;
     sp.setVelocityX(vx);
     if ((this.keys.W.isDown || this.cursors.up.isDown) && onGround) {
-      sp.setVelocityY(-600);
+      sp.setVelocityY(-BT.JUMP_VY);
       if (this._usage && f === this.p1 && f.state !== 'jump') this._usage.jump++;
     }
     // 姿态：腾空播跳跃姿态（起跳蓄力→收腿→落地），落地回 idle/走。
