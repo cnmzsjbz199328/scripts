@@ -121,8 +121,8 @@ Object.assign(BladeTrinityScene.prototype, {
       // AI 反应层（routine.js）：当前盯着的那记威胁 { id, at, acted } —— at 是观察时钟的
       // 起点，档位的 reactDelay 就是拿 now-at 来比的；guardMin/Max = 防御态的事件驱动边界
       threatSeen: null, guardMin: 0, guardMax: 0, guardRead: false, blockedAt: 0, reguardAt: 0,
-      // 流派秘技（arte.js）：当前分身组 / 下次可放时刻 / 玩家按住 J 的起点
-      phantom: null, arteReady: 0, jHeldFrom: 0,
+      // 流派秘技（arte.js）：当前分身组 / 居合架式 / 下次可放时刻 / 玩家按住 J 的起点
+      phantom: null, iai: null, iaiRelease: 0, arteReady: 0, jHeldFrom: 0,
     };
   },
 

@@ -21,6 +21,9 @@ Object.assign(BladeTrinityScene.prototype, {
   // 按住即进入防御态，松手即解除。三派的差异全部搬到 _resolveDefense 的结算里，
   // 输入侧不再有任何分叉 —— 北神曾经是点按触发的定时窗口，见 BT.DEFENSE.counter 的注释。
   _startDefense(f, time) {
+    // ⚠️ 这一行也是【剑神抜刀不能防御】的实现处：'iai' 不在 _canAct 白名单里。
+    // 别在这里给架式开后门（连帝级/神级的 airGuard/guardCancel 都不该覆盖它）——
+    // 那段不设防是玩家在高档位下唯一确定的进攻窗口，见 BT.ARTE.sword 的代价 ①。
     if (!this._canAct(f)) return;
     // ⚠️ 落地是防御态的【固有前提】，闸门必须在这里，不能只写在调用方。
     // 曾经只有 _controlPlayer 那一支带 onGround，AI 侧四个调用点（反应层 / 决策掷骰 /
@@ -59,10 +62,12 @@ Object.assign(BladeTrinityScene.prototype, {
     // 所以额外认一个到期时间，让描边从起防一路亮到反手斩收招。
     if (f.state === 'down') this._clearOutlineHold(f);     // 倒地要看清人，描边一律收掉
     else if (f.state === 'guard' || (f.counterGlowUntil && time < f.counterGlowUntil)) this._guardAura(f, time);
-    // 蓄力中的描边由 _tickCharge 维护（同一套 _outlineHold）。这里不能顺手清掉，
-    // 否则每帧一建一清，蓄力描边会闪成频闪。
+    // 蓄力中的描边由 _tickCharge 维护、居合架式的由 _tickIai 维护（都是同一套
+    // _outlineHold）。这里不能顺手清掉，否则每帧一建一清会闪成频闪 —— 而这两处是
+    // 【每帧重画】的，实际后果是描边【整个不出现】：抜刀的架式描边就是这么丢的
+    //（截图目检 f.guardAura === null，逻辑全对但画面上没有）。
     // 幻剑不在此列：它的破绽是分身身上的 ColorMatrix，不走描边（见 arte.js）。
-    else if (!f.charging) this._clearOutlineHold(f);
+    else if (!f.charging && !f.iai) this._clearOutlineHold(f);
   },
 
   // ─────────── 外轮廓描边（防御中持续）───────────

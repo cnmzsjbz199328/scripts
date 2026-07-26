@@ -190,9 +190,27 @@ class BladeTrinityScene extends Phaser.Scene {
           Phaser.Input.Keyboard.JustDown(this.keys.ENTER)) this._selectConfirm();
       return;
     }
+    // ─── 抜刀的「画面静止」───
+    // 不是慢放，是真的停：整个战斗 update 跳过，物理也暂停。
+    //
+    // ⚠️ 刻意【不用 delayedCall 恢复】，而是每帧比时刻自愈。无头下 Phaser 的 Clock 事件
+    // 会严重滞后（200ms 的 delayedCall 实测落在 +1183ms），把"解冻"挂在计时器上就是
+    // 拿整局游戏赌一个不保证到点的回调 —— 一次没回来，画面就永久卡死。
+    // ⚠️ 解冻判据【必须排在 phase 分支之前】：抜刀最后一刀 KO 的那一下会立刻切到
+    // over/interlude，而那两个 phase 在下面就 return 了 —— 解冻写在后面的话物理会
+    // 永久停在暂停态，倒地演出和下一场都动不了。
+    if (this.freezeUntil && (time >= this.freezeUntil || this.phase !== 'fight')) {
+      this.freezeUntil = 0;
+      this.physics.world.resume();
+    }
     // over / interlude：战斗逻辑停摆，只让物理把倒地/站立姿态收干净
-    if (this.phase === 'over' || this.phase === 'interlude') { this._fighterPhysics(); return; }
+    if (this.phase === 'over' || this.phase === 'interlude') {
+      for (const f of this.fighters) if (f.iai) this._endIai(f);   // 架式的预示线别留在场上
+      this._fighterPhysics();
+      return;
+    }
     if (this.phase !== 'fight') return;
+    if (this.freezeUntil) { this.physics.world.pause(); return; }
 
     // 蓝随时间回复（用户定：计时回复，不靠打中/防御）
     for (const f of this.fighters) f.mp = Math.min(f.maxMp, f.mp + BT.MP.regen * delta / 1000);

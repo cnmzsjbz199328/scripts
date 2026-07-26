@@ -19,6 +19,7 @@ Object.assign(BladeTrinityScene.prototype, {
   _controlPlayer(time) {
     const f = this.p1, sp = f.sprite, onGround = sp.body.blocked.down;
     if (this._handleCharge(f, time)) return;   // 蓄力中/起手：独占操作，原地锁死
+    if (this._handleIai(f, time)) return;      // 居合架式中：只等松手，别的一概不接
     // 移形换影：SPACE 瞬移，按住上 = 升空，否则 = 缩地（无敌+残影+冷却，不耗蓝）
     if (Phaser.Input.Keyboard.JustDown(this.keys.SPACE)) {
       const up = this.keys.W.isDown || this.cursors.up.isDown;
@@ -105,6 +106,9 @@ Object.assign(BladeTrinityScene.prototype, {
     // ⚠️ 蓄力检查必须在 _canAct 之前：'charge' 不在 _canAct 白名单里，放到后面
     // 就会被 return 掉 —— AI 一旦起蓄就再也没人推进它，永远卡在蓄力姿势。
     if (f.charging) { this._tickCharge(f, time); return; }
+    // 居合架式同理：'iai' 不在 _canAct 白名单，放到后面就再没人推进它，AI 会永远
+    // 站在架式里 —— 而且它是【故意不设防】的一段，卡住等于把整场送给玩家。
+    if (f.iai) { this._tickIai(f, time); return; }
     const T = this._tierCfg(), cap = T.cap, mul = T.mul;
     const dx = opp.sprite.x - sp.x, dist = Math.abs(dx), dir = dx > 0 ? 1 : -1;
 
