@@ -22,6 +22,13 @@ Object.assign(BladeTrinityScene.prototype, {
   // 输入侧不再有任何分叉 —— 北神曾经是点按触发的定时窗口，见 BT.DEFENSE.counter 的注释。
   _startDefense(f, time) {
     if (!this._canAct(f)) return;
+    // ⚠️ 落地是防御态的【固有前提】，闸门必须在这里，不能只写在调用方。
+    // 曾经只有 _controlPlayer 那一支带 onGround，AI 侧四个调用点（反应层 / 决策掷骰 /
+    // crossBlink 收尾 / cornerPress 收尾）一个都没有 —— AI 在空中挨一下作废套路后，
+    // 下一帧就能在半空架防，_resolveDefense 也不看落地，于是空中防御【真的免伤】，
+    // 加上这里的 setVelocityX(0) 把它横向钉住，观感就是"保持防御姿势直直飘下来"
+    // （用户实测反馈："跳起来躲过了攻击，落下来还在防"）。
+    if (!f.sprite.body.blocked.down) return;
     if (f.state !== 'guard') {
       f.guardFrom = time;
       f.counterFired = false;      // 新一次起防 = 新一记反手飞刀的机会（北神用）

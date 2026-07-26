@@ -69,6 +69,34 @@ Object.assign(BladeTrinityScene.prototype, {
     return best;
   },
 
+  // ─────────── 防御触发的统一闸门：「这一刀还打得到我吗」───────────
+  // 反应层与决策层的兜底掷骰【必须共用这一条】，否则两层语义打架：
+  // 旧的掷骰只看 `opp.state === 'attack'`，而 attack 覆盖整个 dur（720~830ms），
+  // 命中窗口 to 最晚只到 545 —— 剑神流有整整 400ms 的【纯收招段】仍被当成"对手正在
+  // 出招"去架防。那 400ms 本该是抢攻窗口，AI 却拿去防空气，还被 guardHold 一压
+  // 420~540ms 把惩罚窗口整个吃掉（用户实测："躲过了还防，防了个寂寞"）。
+  //
+  // 距离用【攻击者的】reach + 前冲步，不是自己的：原来写 `dist < f.def.reach * 1.6`，
+  // AI 用水神流（reach 短）面对剑神玩家（lunge 150）时会低估威胁范围，该防的不防。
+  _threatLive(f, opp, dist) {
+    if (opp.state !== 'attack') return false;
+    if (this.time.now > (opp.atkTo || 0)) return false;      // 命中窗口已过 = 收招段
+    const oa = BT.ATTACK[opp.id];
+    return dist < opp.def.reach + oa.lunge * 0.6 + BT.BODY_HALF_W;
+  },
+
+  // 读招防御的实际反应延迟。
+  // ⚠️ T.reactDelay 是【绝对 ms】，而三派起手长度差一倍（水神 190 / 剑神 280 / 北神 400）。
+  // 直接拿来用会出现「窗口为空 = 该档对该派永远不防御」：下面 inWindow 非空的充要条件是
+  // reactDelay < from + 40，代入实测 —— 圣级(380) 对剑神/水神恒假、王级(260) 对水神恒假。
+  // 那不是概率低，是条件永不成立，正是"防御根本没实现"的观感来源。
+  // 钳到 from-60，保证任何档位对任何流派都留得下一段可触发的窗口。
+  // 代价：对起手最短的水神流（190），各档被压到同一个下限（AI_GUARD_LEAD 也顶在这里），
+  // 王/帝/神的反应差异读不出来 —— 这是"宁可阶梯压平也不能恒假"的取舍。
+  _reactDelayVs(T, opp) {
+    return Math.min(T.reactDelay, Math.max(0, BT.ATTACK[opp.id].from - 60));
+  },
+
   // ─────────── 反应层（每帧跑，不等决策间隔）───────────
   // 与决策层的分工：决策层管"我想干什么"，反应层管"对面刚做了什么，我得马上应"。
   // 返回 true = 本帧已被反应层接管。
@@ -85,14 +113,14 @@ Object.assign(BladeTrinityScene.prototype, {
     // 旧版在决策 tick 上 Math.random() < guardOnAttack 抽一次：挡不挡跟玩家的
     // 出招时机毫无关系，玩家读不出因果，自然感觉不到"对手在防我"。
     // 现在：看到起手 → 等 reactDelay（档位越高越短）→ 在命中窗口开启前架防。
-    if (T.reactDelay != null && opp.state === 'attack' && time > (f.reactGuardAt || 0)) {
+    if (T.reactDelay != null && this._threatLive(f, opp, dist) && time > (f.reactGuardAt || 0)) {
       const oa = BT.ATTACK[opp.id];
       const start = (opp.atkFrom || 0) - oa.from;
       // 触发时刻 = max(看见起手 + 反应延迟, 命中窗口前 lead)。取 max 的后半段是为了
       // 别让高档 AI 一见起手就抬手（那看着像预知），也给北神的假动作留出骗招空间。
-      const due = Math.max(start + T.reactDelay, (opp.atkFrom || 0) - BT.AI_GUARD_LEAD);
+      const due = Math.max(start + this._reactDelayVs(T, opp), (opp.atkFrom || 0) - BT.AI_GUARD_LEAD);
       const inWindow = time >= due && time < (opp.atkFrom || 0) + 40;
-      if (inWindow && dist < f.def.reach * 1.6) {
+      if (inWindow) {
         f.reactGuardAt = time + BT.AI_RT.guardHold + 120;   // 同一记招只反应一次，不连按
         if (cancellable) { f.sprite.setVelocityX(0); this._setState(f, 'idle'); }   // 弃招回防
         this._aiGuard(f, time);

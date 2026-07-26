@@ -158,10 +158,13 @@ Object.assign(BladeTrinityScene.prototype, {
 
     // 兜底掷骰：反应式防御已上移到反应层，这里只剩"闲时偶尔架个防"与平A。
     // cap.react 档另给一份 guardOnAttack 加权，保留旧的对拼手感。
+    // ⚠️ 加权那一支走 _threatLive 而不是裸的 `opp.state === 'attack'`：后者把长达
+    // 400ms 的收招段也算成"对手正在出招"，AI 于是对着打不到自己的刀架防，
+    // 并被 guardHold 冻住 420~540ms，把本该抢攻的惩罚窗口整个赔进去（见 routine.js 该函数注释）。
     const r = Math.random();
     const gOnAtk = BT.AI.guardOnAttack * mul.guardOnAttack;
     const gBias = BT.AI.guardBias * mul.guardBias;
-    if (cap.react && opp.state === 'attack' && r < gOnAtk) this._aiGuard(f, time);
+    if (cap.react && this._threatLive(f, opp, dist) && r < gOnAtk) this._aiGuard(f, time);
     else if (r < gBias) this._aiGuard(f, time);
     else this._attack(f);
   },
