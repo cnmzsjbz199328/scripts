@@ -234,7 +234,12 @@ Object.assign(BladeTrinityScene.prototype, {
     if (!opp || opp.state === 'down') return;
     const dir = opp.sprite.x >= f.sprite.x ? 1 : -1;    // 从蓄力者指向对手——朝远处轰
     const c = BT.CHARGE;
-    opp.sprite.setVelocity(dir * c.wavePush, -c.waveLift);
+    // ⚠️ 走 _knockback。轰飞的上挑 waveLift=360 在场中央是"被抛出去"的抛物线（43px 高），
+    // 但对手【已经背靠台边】时横向那 1250px/s 被世界边界整个吃掉，只剩下一记 43px 的
+    // 原地垂直弹跳 —— 这是墙角"跳一下"里最扎眼的一档。退不动就别抛，改砸：
+    // 平推贴墙 + 加倍震屏，读作"被轰在墙上"而不是"原地蹦了一下"。
+    const pinned = this._knockback(opp, dir * c.wavePush, -c.waveLift);
+    if (pinned) this.cameras.main.shake(180, 0.012);
     this._setState(opp, 'hurt', c.waveStun);            // 进硬直：AI 这段不夺控制，速度得以保留
     opp.invuln = this.time.now + c.waveStun;            // 轰飞途中无敌，别被别的判定截断
     this._ghost(opp);                                   // 起飞留一记残影
@@ -518,9 +523,11 @@ Object.assign(BladeTrinityScene.prototype, {
     q.lastHit = target;
     this._drawBars();
     const dir = q.dir;
-    target.sprite.setVelocity(dir * (blocked ? BT.QI.bracePush : 170), blocked ? 0 : -90);
+    // 走 _knockback：墙角把上挑吃掉，否则横向被边界拦下后只剩原地小跳（见其注释）
+    const pinned = this._knockback(target, dir * (blocked ? BT.QI.bracePush : 170), blocked ? 0 : -90);
     if (!blocked) this._bodyFlash(target, 0xff3b3b);   // 整体红闪，同近战受击
-    this.cameras.main.shake(blocked ? 70 : 150, blocked ? 0.004 : 0.009);
+    this.cameras.main.shake(blocked ? 70 : 150,
+      (blocked ? 0.004 : 0.009) * (pinned ? 1.7 : 1));
     this._popText(target.sprite.x, target.sprite.y - 84, blocked ? '力受け' : `-${dmg}`,
       blocked ? '#ffd28a' : '#ff8a6a');
     if (!blocked) this._setState(target, 'hurt');

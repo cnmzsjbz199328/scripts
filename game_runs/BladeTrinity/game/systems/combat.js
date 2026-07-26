@@ -140,6 +140,23 @@ Object.assign(BladeTrinityScene.prototype, {
     });
   },
 
+  // ─────────── 击退 ───────────
+  // 所有击退【统一走这里】，不要再裸调 setVelocity。
+  //
+  // ⚠️ 墙角要把纵向上挑吃掉。击退是"横向飞 155px/s + 一点上挑"，场中央时那点上挑被
+  // 横向位移带着走，读作"被打得一颠"；【贴墙时横向被世界边界全部吃掉，只剩下一个
+  // 2~4px 的原地小跳】（实测 y 289.8→287.0→289.8，约 140ms），观感就是原地抖一下。
+  // 判据用【剩余可退距离】而不是 body.blocked.left/right：命中那一帧人往往还差十几
+  // 像素才贴上墙，等 blocked 亮起来已经晚了，那一跳照样露出来。
+  // 返回 true = 这一记退不动（调用方据此加强镜头震动，把"撞墙"的冲击补回去）。
+  _knockback(target, vx, vy) {
+    const sp = target.sprite;
+    const room = vx < 0 ? sp.x - BT.EDGE_X : (BT.GAME_W - BT.EDGE_X) - sp.x;
+    const pinned = room < BT.WALL_ROOM;
+    sp.setVelocity(vx, pinned ? 0 : vy);
+    return pinned;
+  },
+
   // ─────────── 命中结算 ───────────
   // dmg 已含反击加成；防御分流交给 defense.js 的 _resolveDefense
   _hit(attacker, target, dmg, dir) {
@@ -167,10 +184,12 @@ Object.assign(BladeTrinityScene.prototype, {
     this._drawBars();
 
     const blocked = res.blocked;
-    target.sprite.setVelocity(dir * (blocked ? res.pushback : 155), blocked ? 0 : -105);
+    const pinned = this._knockback(target, dir * (blocked ? res.pushback : 155), blocked ? 0 : -105);
     // 挡下时不闪身体：防御描边已经在亮着，再刷一层纯色会盖掉它、也读不出"这下被挡了"
     if (!blocked) this._bodyFlash(target, 0xff3b3b);
-    this.cameras.main.shake(blocked ? 60 : 135, blocked ? 0.003 : 0.008);
+    // 退不动时震得更狠：冲击总得有个去处，退不了就由镜头兑现（比原地弹一下好读）
+    this.cameras.main.shake(blocked ? 60 : 135,
+      (blocked ? 0.003 : 0.008) * (pinned ? 1.7 : 1));
 
     // 试过加"已进入判定的招式不被打断"（对拼）：双方都不被打断后 AI 因出手更
     // 频繁而获利，playtest 六局全输。受击照常打断攻击。

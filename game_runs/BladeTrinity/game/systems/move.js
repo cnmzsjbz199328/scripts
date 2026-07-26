@@ -26,7 +26,7 @@ Object.assign(BladeTrinityScene.prototype, {
       const left = this.keys.A.isDown || this.cursors.left.isDown;
       const right = this.keys.D.isDown || this.cursors.right.isDown;
       const dir = left ? -1 : right ? 1 : (f.facingLeft ? -1 : 1);
-      x1 = Phaser.Math.Clamp(x0 + dir * BT.BLINK.dist, 56, BT.GAME_W - 56);
+      x1 = this._clampX(x0 + dir * BT.BLINK.dist);
     }
 
     this._blinkGhosts(f, x0, y0, x1, y1);
@@ -46,7 +46,7 @@ Object.assign(BladeTrinityScene.prototype, {
     const sp = f.sprite, x0 = sp.x, y0 = sp.y;
     let x1 = x0, y1 = y0;
     if (mode === 'rise') y1 = Math.max(120, y0 - BT.BLINK.riseH);
-    else x1 = Phaser.Math.Clamp(x0 + dir * BT.BLINK.dist, 56, BT.GAME_W - 56);
+    else x1 = this._clampX(x0 + dir * BT.BLINK.dist);
     this._blinkGhosts(f, x0, y0, x1, y1);
     sp.setPosition(x1, y1);
     if (mode === 'rise') sp.setVelocity(0, 0); else sp.setVelocityX(0);

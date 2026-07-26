@@ -227,17 +227,34 @@ Object.assign(BladeTrinityScene.prototype, {
     }
   },
 
+  // 手动改 x 的统一钳子。见 BT.EDGE_X 的注释：越界值会先渲染一帧再被弹回来。
+  _clampX(x) { return Phaser.Math.Clamp(x, BT.EDGE_X, BT.GAME_W - BT.EDGE_X); },
+
   // 两人重叠时互推开。
   // ⚠️ 只在【双方都落地】时推：任一方腾空就放行，否则跳起来也会被推回去，
   // 玩家永远跨不过对手（换边只能靠对手自己走开）。
+  //
+  // ⚠️ 分离量【各退一半，被墙截掉的那一半转嫁给对方】，不能各推各的。原来是
+  // `a.x -= push; b.x += push;` 两条裸写，在墙角同时踩了两个坑：
+  //   1) 靠墙一方被推进墙里的位置【会被真的渲染一帧】（Arcade 的边界钳制在下一帧才跑），
+  //      下一帧弹回合法值 —— 隔帧跳变，实测 49.4↔42.1↔49.4↔45.75，幅度逐次减半，
+  //      这就是玩家看到的"墙角抖一下"。
+  //   2) 靠墙那一半位移被墙吃掉，重叠永远只解开一半，于是只要对手还压着（cornerPress /
+  //      平A 的 lunge）就每帧重新触发，抖动不收敛。
+  // 转嫁之后：贴墙时自由的一方一次退满整个 gap，重叠一帧解清，且没有任何越界写入。
   _fighterPhysics() {
     if (!this.p1 || !this.p2) return;
     const a = this.p1.sprite, b = this.p2.sprite;
     if (!a.body.blocked.down || !b.body.blocked.down) return;
-    const gap = 46;
-    if (Math.abs(a.x - b.x) < gap && Math.abs(a.y - b.y) < 84) {
-      const push = (gap - Math.abs(a.x - b.x)) / 2, s = a.x < b.x ? 1 : -1;
-      a.x -= push * s; b.x += push * s;
-    }
+    const gap = 46, d = Math.abs(a.x - b.x);
+    if (d >= gap || Math.abs(a.y - b.y) >= 84) return;
+
+    const push = (gap - d) / 2, s = a.x < b.x ? 1 : -1;
+    const aWant = a.x - push * s, bWant = b.x + push * s;
+    const aFit = this._clampX(aWant), bFit = this._clampX(bWant);
+    // 各自被墙截掉多少，就让对方多退多少
+    const aLost = Math.abs(aWant - aFit), bLost = Math.abs(bWant - bFit);
+    a.x = this._clampX(aFit - bLost * s);
+    b.x = this._clampX(bFit + aLost * s);
   },
 });

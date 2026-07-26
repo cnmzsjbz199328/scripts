@@ -242,7 +242,7 @@ Object.assign(BladeTrinityScene.prototype, {
     }
     if (rt.step === 1) {
       const side = Math.sign(opp.sprite.x - sp.x) || 1;
-      const tx = Phaser.Math.Clamp(opp.sprite.x + side * BT.AI_RT.backGap, 56, BT.GAME_W - 56);
+      const tx = this._clampX(opp.sprite.x + side * BT.AI_RT.backGap);
       // 对手背靠台边时落点会被 clamp 回他【身前】，绕背不成立 —— 放弃这一套，
       // 交回决策层正面打。硬绕的话就是"瞬移到面前捅一刀"，最难看的那种 AI。
       if ((tx - opp.sprite.x) * side < BT.AI_RT.backGap * 0.55) { this._aiEnd(f); return false; }
@@ -342,7 +342,7 @@ Object.assign(BladeTrinityScene.prototype, {
     }
     if (rt.step === 1 || rt.step === 3) {
       // 贴到【身前】pressGap 处（不是身后：这套是压角，不是绕背）
-      const tx = Phaser.Math.Clamp(opp.sprite.x - dir * A.pressGap, 56, BT.GAME_W - 56);
+      const tx = this._clampX(opp.sprite.x - dir * A.pressGap);
       this._blinkGhosts(f, sp.x, sp.y, tx, sp.y);
       sp.setPosition(tx, sp.y);
       sp.setVelocityX(0);

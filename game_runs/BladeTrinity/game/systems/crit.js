@@ -45,8 +45,8 @@ Object.assign(BladeTrinityScene.prototype, {
     this._drawBars();
     this._bodyFlash(target, 0xff3b3b);
     this._popText(target.sprite.x, target.sprite.y - 84, `-${dmg}`, '#ffd94a');
-    target.sprite.setVelocity(dir * 90, -60);
-    this.cameras.main.shake(90, 0.006);
+    const pinned = this._knockback(target, dir * 90, -60);   // 墙角吃掉上挑，同 _hit
+    this.cameras.main.shake(90, 0.006 * (pinned ? 1.7 : 1));
     this._setState(target, 'hurt');
     if (target.hp <= 0) this._ko(target);
   },
@@ -79,7 +79,7 @@ Object.assign(BladeTrinityScene.prototype, {
         // 每刀都重贴——对手被击退也照样跟上，间距不再拉开。第一刀带残影读作"闪到身边"。
         const dir = o.sprite.x >= f.sprite.x ? 1 : -1;
         const gap = BT.CRIT.comboGap;
-        const tx = Phaser.Math.Clamp(o.sprite.x - dir * gap, 56, BT.GAME_W - 56);
+        const tx = this._clampX(o.sprite.x - dir * gap);
         if (i === 0) this._blinkGhosts(f, f.sprite.x, f.sprite.y, tx, f.sprite.y);
         f.sprite.setPosition(tx, f.sprite.y).setVelocityX(0);
         f.facingLeft = dir < 0;
