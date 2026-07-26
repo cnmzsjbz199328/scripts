@@ -106,14 +106,11 @@ async function processChromaKey(pre, kind) {
   console.log(`  ✅ 产出 ${path.relative(GAME_DIR, outputPath)} (${W}x${H})`);
 }
 
+// 扫目录下【所有】webp，不再按 far/mid/fore 硬列 —— 动态前景的序列帧
+// (outdoor_fore_a*.webp, 由 build-fore-anim.mjs 产出) 也要进 manifest，
+// 否则 preload 拿不到、动画层静默缺失。build-fore-anim.mjs 里有同一份逻辑。
 function writeManifest() {
-  const files = [];
-  for (const pre of SETS) {
-    for (const kind of ['far', 'mid', 'fore']) {
-      const f = `${pre}${kind}.webp`;
-      if (fs.existsSync(path.join(OUT_DIR, f))) files.push(f);
-    }
-  }
+  const files = fs.readdirSync(OUT_DIR).filter(f => f.endsWith('.webp')).sort();
   const js = `/* process-bg.mjs 自动生成，勿手改 */\nwindow.BLADE_BG = ${JSON.stringify(files)};\n`;
   fs.writeFileSync(path.join(OUT_DIR, 'manifest.js'), js);
   console.log(`Manifest 已更新: ${files.length} 张 — ${files.join(', ') || '(无)'}`);

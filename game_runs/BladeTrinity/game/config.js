@@ -74,7 +74,12 @@ BT.BG_SETS = {
   outdoor: [
     { key: 'outdoor_far', scale: 0.534, depth: -100 },
     { key: 'outdoor_mid', scale: 0.537, depth: -50 },
-    { key: 'outdoor_fore', scale: 0.542, scaleX: 0.62, depth: 20 },
+    // 动态枝叶层：14 帧序列帧循环（tools/build-fore-anim.mjs 从绿幕视频构建）。
+    // 目标几何已经【烘进图里】（1012×569，落叶带顶边正好落在 FLOOR_Y−10），所以
+    // scale=1、也不再需要 scaleX —— 树干天然裁到画布边外，不会再罩住墙角的角色。
+    // animFps 压到 6：14 帧 ÷ 6 = 2.33 秒一轮。保留了中央飘叶（用户定），飘叶位置
+    // 让循环做不到真无缝，周期拉长到 2 秒以上那一次跳位才不显眼。
+    { key: 'outdoor_fore', animFrames: 14, animFps: 6, scale: 1, depth: 20 },
   ],
 };
 // 按场次取景（round 从 0 起）。缺图时 _buildStage 会跳过该层，不会 404。

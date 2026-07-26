@@ -1,2 +1,2 @@
 /* process-bg.mjs 自动生成，勿手改 */
-window.BLADE_BG = ["far.webp","mid.webp","fore.webp","outdoor_far.webp","outdoor_mid.webp","outdoor_fore.webp"];
+window.BLADE_BG = ["far.webp","fore.webp","mid.webp","outdoor_far.webp","outdoor_fore.webp","outdoor_fore_a0.webp","outdoor_fore_a1.webp","outdoor_fore_a10.webp","outdoor_fore_a11.webp","outdoor_fore_a12.webp","outdoor_fore_a13.webp","outdoor_fore_a2.webp","outdoor_fore_a3.webp","outdoor_fore_a4.webp","outdoor_fore_a5.webp","outdoor_fore_a6.webp","outdoor_fore_a7.webp","outdoor_fore_a8.webp","outdoor_fore_a9.webp","outdoor_mid.webp"];

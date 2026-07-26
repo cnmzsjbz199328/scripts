@@ -171,10 +171,10 @@ Object.assign(BladeTrinityScene.prototype, {
     this.bgSets = {};
     for (const [name, layers] of Object.entries(BT.BG_SETS)) {
       this.bgSets[name] = layers
-        .filter((l) => this.textures.exists(l.key))     // 缺图就跳过该层，不去 404
-        // scaleX 可选：纵向按地面线定标，横向另给一个值（见 config.js outdoor_fore 的注释）
-        .map((l) => this.add.image(W / 2, 0, l.key)
-          .setOrigin(0.5, 0).setScale(l.scaleX || l.scale, l.scale).setDepth(l.depth));
+        .filter((l) => this.textures.exists(l.animFrames ? `${l.key}_a0` : l.key))  // 缺图跳过该层，不去 404
+        .map((l) => (l.animFrames ? this._bgAnimLayer(l, W) : this.add.image(W / 2, 0, l.key)
+          // scaleX 可选：纵向按地面线定标，横向另给一个值（见 config.js 的注释）
+          .setOrigin(0.5, 0).setScale(l.scaleX || l.scale, l.scale).setDepth(l.depth)));
     }
     this._showStage(0);
     // 台边警示：被逼到这里剑神流会破防。depth 25 压在前景（20）之上——
@@ -183,6 +183,22 @@ Object.assign(BladeTrinityScene.prototype, {
     const g = this.add.graphics().setDepth(25);
     g.fillStyle(0xff8a3b, 0.16);
     g.fillRect(0, FY, m, H - FY); g.fillRect(W - m, FY, m, H - FY);
+  },
+
+  // 动态背景层：序列帧各自独立纹理，建一条 anim 循环播。
+  // 只在这一层用 sprite（其余层是 image）——setVisible 切换的逻辑对两者通用。
+  _bgAnimLayer(l, W) {
+    const key = `${l.key}_anim`;
+    if (!this.anims.exists(key)) {
+      this.anims.create({
+        key, frameRate: l.animFps || 6, repeat: -1,
+        frames: Array.from({ length: l.animFrames }, (_, i) => ({ key: `${l.key}_a${i}` })),
+      });
+    }
+    const sp = this.add.sprite(W / 2, 0, `${l.key}_a0`)
+      .setOrigin(0.5, 0).setScale(l.scaleX || l.scale, l.scale).setDepth(l.depth);
+    sp.play(key);
+    return sp;
   },
 
   // 切到第 n 场的景（n 超出 BG_ORDER 就停在最后一套）

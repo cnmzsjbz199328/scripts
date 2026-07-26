@@ -17,7 +17,16 @@ class BladeTrinityScene extends Phaser.Scene {
     const have = window.BLADE_BG || [];
     for (const layers of Object.values(BT.BG_SETS)) {
       for (const l of layers) {
-        if (have.includes(`${l.key}.webp`)) this.load.image(l.key, `assets/bg/${l.key}.webp`);
+        if (l.animFrames) {
+          // 动态层：序列帧各自是独立纹理（不拼图集——1012×569 横排 14 帧远超
+          // 4096 的 GPU 纹理宽度上限，网格拼法又要多一层坐标换算，不值得）
+          for (let i = 0; i < l.animFrames; i++) {
+            const k = `${l.key}_a${i}`;
+            if (have.includes(`${k}.webp`)) this.load.image(k, `assets/bg/${k}.webp`);
+          }
+        } else if (have.includes(`${l.key}.webp`)) {
+          this.load.image(l.key, `assets/bg/${l.key}.webp`);
+        }
       }
     }
 
