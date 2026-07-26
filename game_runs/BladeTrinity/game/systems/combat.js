@@ -68,7 +68,8 @@ Object.assign(BladeTrinityScene.prototype, {
       g.strokePath();
     }
     this.tweens.add({ targets: g, alpha: 0, duration: 230, onComplete: () => g.destroy() });
-    if (this._emitForegroundShockwave) this._emitForegroundShockwave(cx, cy, dir * 14, -0.5, 5);
+    // vy 取【向下】：落叶床铺在画布最底，冲击波从胸高往地面沉才刮得到叶子（上飘会一路飞出画面顶）
+    if (this._emitForegroundShockwave) this._emitForegroundShockwave(cx, cy, dir * 14, 0.8, 5);
   },
 
   // 整体闪烁：把角色【整个剪影】刷成纯色再灭，连闪几次。

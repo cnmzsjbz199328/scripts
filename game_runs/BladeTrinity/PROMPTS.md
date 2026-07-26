@@ -588,3 +588,71 @@ Subject: a foreground strip of dojo floor seen very close to the camera, isolate
 - 抠图质量本身没问题（残留绿 0%，无"静默产纯绿空图"）——绿幕那步提示词是有效的。
 - 「中央必须留空」对 mid **要求过严**：mid 在角色之后（depth -50），左侧刀架
   越界到中央反而更好看，不构成遮挡。真正需要守住中央的只有 fore。
+
+---
+
+## 10. 第二套背景：室外雪山演武场（一场一景）
+
+擂台共两场，每场一套三层背景（`BT.BG_SETS` / `BT.BG_ORDER`）：
+
+| 场次 | 套件 | 内容 | 资源前缀 |
+|---|---|---|---|
+| 第 1 场 | `dojo` | 室内道场（§9 原设计，保留） | `far/mid/fore` |
+| 第 2 场 | `outdoor` | 雪山之巅露天演武场 | `outdoor_far/mid/fore` |
+
+室外那套的前景是**枫树 + 银杏**，与 `foregroundPhysics.js` 的三种落叶
+（maple / oak / ginkgo）同色系——落叶物理层就是照着这张前景配的。
+
+### 10.1 `outdoor_far.png` — 全彩不透明，不走绿幕
+
+```
+Subject: an outdoor mountain-top sword training ground at autumn dusk, viewed straight-on in flat side elevation. Far background: a range of snow-capped mountain peaks under a deep sunset sky, layered ridges receding into haze, high thin clouds lit orange and violet, a few distant dark pine silhouettes on the lower slopes. The lower part of the image is a wide flat stone terrace ground running perfectly level from edge to edge. Style: painted 2D game background, autumn dusk palette - cold snow blue-white and slate blue on the peaks, warm sunset sky of amber, burnt orange, dusty rose and deep violet. Soft atmospheric haze increasing with distance. Composition: strictly symmetrical and horizontal. No vanishing-point floor perspective, no receding tiled ground - the battle line is a flat horizontal band. Keep the middle 60 percent of the image visually quiet and low-contrast. Size 1920x1080 16:9. No characters, no people, no text, no letters, no watermark, no logo, no UI.
+```
+
+### 10.2 `outdoor_mid.png` — 绿幕，站在战斗线之后
+
+```
+Subject: midground elements of an OUTDOOR Japanese sword training ground, isolated on a pure chroma green background. On the far left edge: a covered wooden veranda corner of a traditional dojo building with dark tiled roof eaves and a stone foundation. On the far right edge: a matching wooden gate post and a tall stone lantern glowing warm amber, plus a weathered vertical banner on a pole. A low dark wooden fence section rests on the ground line. Style: painted 2D game asset, autumn dusk lighting, silhouetted and darker than the sky behind, deep plum and near-black wood tones with warm amber rim light. Composition: all elements rest on one level horizontal ground line in the lower part of the image. The middle 55 percent of the image should be mostly empty pure green. Background must be solid pure chroma green #00FF00 with no gradient, no shadow cast onto the green, no glow bleeding onto the green. Size 1920x1080 16:9. No characters, no people, no text, no letters, no watermark, no logo.
+```
+
+### 10.3 `outdoor_fore.png` — 绿幕，接地三明治的上层
+
+```
+Subject: a close-to-camera foreground layer for an autumn outdoor sword arena, isolated on pure chroma green. Along the entire bottom of the image runs a horizontal strip of ground thickly carpeted with fallen autumn leaves - red maple leaves, orange oak leaves and golden yellow ginkgo leaves - its top edge slightly uneven and organic, with a thin warm amber highlight along the top edge. At the extreme left edge only: a massive dark maple tree trunk rising out of frame with low-hanging branches of red maple leaves reaching inward and downward. At the extreme right edge only: a matching ginkgo tree trunk with golden fan-shaped leaf clusters hanging inward. Style: painted 2D game asset, very dark near-silhouette values, slightly soft focus to read as close to camera, autumn dusk palette of crimson, burnt orange and gold against near-black wood. Composition: CRITICAL - across the middle 70 percent of the image the foreground must be SHORT, only the low leaf carpet strip along the bottom, with everything above it pure green. Only the outermost 15 percent on each side may rise higher with the tree trunks and hanging branches. Background must be solid pure chroma green #00FF00, no gradient, no shadow on the green, no glow bleeding onto the green. Size 1920x1080 16:9. No characters, no people, no text, no letters, no watermark, no logo.
+```
+
+### 10.4 装配定标（`tools/measure-bg.mjs` 实测，2026-07）
+
+`node tools/measure-bg.mjs outdoor_` 逐层量地面线，回填 `BT.BG_SETS.outdoor` 的 scale：
+
+| 层 | 关键线（源图 1920×1080） | scale | 落到屏幕 |
+|---|---|---|---|
+| outdoor_far | 石台面中部 y≈891 | 0.534 | 475.8 ≈ FLOOR_Y |
+| outdoor_fore | 落叶带中央顶边 y≈860 | 0.542 | 466.1 = FLOOR_Y−10 |
+| outdoor_mid | 檐廊石阶/栅栏底 y≈887 | 0.537 | 476.3 ≈ FLOOR_Y |
+
+> far 的"最强水平边"量到 y=856，那是石台**后沿**——照它定标角色会贴着远景山脚站。
+> 战斗线要落在台面中部，所以 far 单独取 891。量法脚本给的是候选，不是答案。
+>
+> mid 的"中央 60% 顶边"量到 990，那是右侧栅栏越界的一小段——中景中央本就该留空，
+> 这一栏对 mid 无意义，取全幅中位 887。
+>
+> 三层 0.534 / 0.537 / 0.542 几乎同比例，这套图彼此协调（室内那套 mid 比 far 小 21%）。
+
+> **outdoor_mid 由用户用 ChatGPT 生成**（agy 当时配额耗尽），未走 §10.2 的 agy 命令。
+> 入库前体检：比例 1.777≈16:9（cover 到 1920×1080 几乎不裁）、绿像素 79.7% 且纯绿占 99.4%、
+> 中央 55% 非绿仅 3.6%。三项都过才迁进 raw/。
+
+### 10.5 ⚠️ 前景树干必须横向推出画面（`scaleX`）
+
+两棵树在源图里各占最外 12%，等比铺开后覆盖屏幕 x∈[−40,85] 与 [875,1000]，
+而角色能走到 x≈50 —— **被逼到墙角时整个人躲进树干后面**（fore depth 20 > 角色 10）。
+所以 outdoor_fore 纵向按地面线定标 0.542、横向单独拉到 `scaleX: 0.62`，
+树干推出画面只留枝叶当画框。这是 `BT.BG` 里唯一需要 scaleX 的层。
+
+### 10.6 后续：树叶动态化
+
+树枝目前是静态图。若要让枝叶随风摆动，走 `skills/video-sprite` 绿幕视频抽帧：
+生成"纯绿幕背景下一根枫树枝随风轻摆、循环"的视频 → `--anchor` 抽帧 → 作为
+独立的 depth 21 图层叠在 outdoor_fore 之上（树干仍用静态图，只有枝叶动）。
+先按静态验收观感，再决定是否值得为它多一条管线。

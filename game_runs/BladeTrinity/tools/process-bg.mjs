@@ -25,16 +25,20 @@ if (!fs.existsSync(OUT_DIR)) fs.mkdirSync(OUT_DIR, { recursive: true });
 const WEBP_OPAQUE = { quality: 82 };
 const WEBP_ALPHA = { quality: 86, alphaQuality: 100 };
 
-async function processFar() {
-  const inputPath = path.join(RAW_DIR, 'far.png');
-  const outputPath = path.join(OUT_DIR, 'far.webp');
+// 一场一景：每套背景一个前缀（'' = 第 1 场室内道场，'outdoor_' = 第 2 场雪山露天）。
+// 新增一套只要往这里加前缀，raw/<前缀>{far,mid,fore}.png 放好即可。
+const SETS = ['', 'outdoor_'];
+
+async function processFar(pre) {
+  const inputPath = path.join(RAW_DIR, `${pre}far.png`);
+  const outputPath = path.join(OUT_DIR, `${pre}far.webp`);
 
   if (!fs.existsSync(inputPath)) {
-    console.warn('⚠️ 缺图: raw/far.png 不存在。');
+    console.warn(`⚠️ 缺图: raw/${pre}far.png 不存在。`);
     return;
   }
 
-  console.log('处理远景 raw/far.png (全彩不透明)...');
+  console.log(`处理远景 raw/${pre}far.png (全彩不透明)...`);
   await sharp(inputPath)
     .resize(1920, 1080, { fit: 'cover' })
     .webp(WEBP_OPAQUE)
@@ -43,10 +47,10 @@ async function processFar() {
   console.log(`  ✅ 远景已产出: ${path.relative(GAME_DIR, outputPath)} (1920x1080)`);
 }
 
-async function processChromaKey(kind) {
-  const filename = `${kind}.png`;
+async function processChromaKey(pre, kind) {
+  const filename = `${pre}${kind}.png`;
   const inputPath = path.join(RAW_DIR, filename);
-  const outputPath = path.join(OUT_DIR, `${kind}.webp`);
+  const outputPath = path.join(OUT_DIR, `${pre}${kind}.webp`);
 
   if (!fs.existsSync(inputPath)) {
     console.warn(`⚠️ 缺图: raw/${filename} 不存在。`);
@@ -104,9 +108,11 @@ async function processChromaKey(kind) {
 
 function writeManifest() {
   const files = [];
-  for (const kind of ['far', 'mid', 'fore']) {
-    const f = `${kind}.webp`;
-    if (fs.existsSync(path.join(OUT_DIR, f))) files.push(f);
+  for (const pre of SETS) {
+    for (const kind of ['far', 'mid', 'fore']) {
+      const f = `${pre}${kind}.webp`;
+      if (fs.existsSync(path.join(OUT_DIR, f))) files.push(f);
+    }
   }
   const js = `/* process-bg.mjs 自动生成，勿手改 */\nwindow.BLADE_BG = ${JSON.stringify(files)};\n`;
   fs.writeFileSync(path.join(OUT_DIR, 'manifest.js'), js);
@@ -115,9 +121,13 @@ function writeManifest() {
 
 async function main() {
   console.log('--- BladeTrinity 背景分层处理 ---');
-  await processFar();
-  await processChromaKey('mid');
-  await processChromaKey('fore');
+  for (const pre of SETS) {
+    console.log(`
+[套件 ${pre || 'dojo'}]`);
+    await processFar(pre);
+    await processChromaKey(pre, 'mid');
+    await processChromaKey(pre, 'fore');
+  }
   writeManifest();
   console.log('--- 处理完成 ---');
 }

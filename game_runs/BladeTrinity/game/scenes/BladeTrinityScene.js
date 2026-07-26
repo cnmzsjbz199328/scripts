@@ -13,9 +13,12 @@ class BladeTrinityScene extends Phaser.Scene {
     }
     // 背景三层。manifest 由 tools/process-bg.mjs 生成（缺哪张就不在表里），
     // 据此跳过缺图的层，而不是让 Phaser 去 404。
+    // 一场一景：两套背景全预载（BG_SETS），不能只载 BT.BG 那一套 —— 第 2 场会开天窗
     const have = window.BLADE_BG || [];
-    for (const l of BT.BG) {
-      if (have.includes(`${l.key}.webp`)) this.load.image(l.key, `assets/bg/${l.key}.webp`);
+    for (const layers of Object.values(BT.BG_SETS)) {
+      for (const l of layers) {
+        if (have.includes(`${l.key}.webp`)) this.load.image(l.key, `assets/bg/${l.key}.webp`);
+      }
     }
 
     // 装载前景物理落叶资源 (3 种树叶 x 9 帧渐变)

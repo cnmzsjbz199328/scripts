@@ -10,6 +10,7 @@ Object.assign(BladeTrinityScene.prototype, {
     this._usage = { attack: 0, charge: 0, defend: 0, crit: 0, blink: 0, jump: 0 };
     this.oppQueue = BT.ROSTER.filter((id) => id !== p1Id);   // 另两家，按 ROSTER 序
     this._applyTier();
+    this._showStage(0);          // 重开也要回到第 1 场的室内道场
     this._startFight(p1Id, this.oppQueue[0]);
     this._roundToast();
   },
@@ -53,6 +54,7 @@ Object.assign(BladeTrinityScene.prototype, {
   _nextRound() {
     this.round++;
     this._applyTier();           // 阶梯 +1 级：第二场对手更强、点亮更多招式
+    this._showStage(this.round); // 换景：第 2 场从室内道场移到雪山露天演武场
     const a = this.p1;
     a.hp = Math.min(a.maxHp, a.hp + Math.round(a.maxHp * BT.ROUND_HEAL));
     a.mp = a.maxMp;
@@ -162,17 +164,36 @@ Object.assign(BladeTrinityScene.prototype, {
   // 原先是全代码绘制的天空/远山/石台。换成道场实拍层的动机不是好看，而是：
   // 完全水平、零透视的台面给了眼睛一把精确的尺子，任何接地误差都藏不住
   // （倒地悬浮就是这么被看出来的）。前景木板压在角色脚上后，接触线不再可审。
+  // 一场一景：两套背景【一次全建好】，靠 setVisible 切换，不在换场时重新 add.image。
+  // 换场那一刻还有剑气/描边/落叶在跑，中途销毁重建整层背景会闪一帧空场。
   _buildStage() {
     const W = BT.GAME_W, H = BT.GAME_H, FY = BT.FLOOR_Y;
-    for (const l of BT.BG) {
-      if (!this.textures.exists(l.key)) continue;
-      this.add.image(W / 2, 0, l.key).setOrigin(0.5, 0).setScale(l.scale).setDepth(l.depth);
+    this.bgSets = {};
+    for (const [name, layers] of Object.entries(BT.BG_SETS)) {
+      this.bgSets[name] = layers
+        .filter((l) => this.textures.exists(l.key))     // 缺图就跳过该层，不去 404
+        // scaleX 可选：纵向按地面线定标，横向另给一个值（见 config.js outdoor_fore 的注释）
+        .map((l) => this.add.image(W / 2, 0, l.key)
+          .setOrigin(0.5, 0).setScale(l.scaleX || l.scale, l.scale).setDepth(l.depth));
     }
+    this._showStage(0);
     // 台边警示：被逼到这里剑神流会破防。depth 25 压在前景（20）之上——
     // 它是玩法提示，不能被前景木板盖掉。
     const m = BT.DEFENSE.brace.edgeMargin;
     const g = this.add.graphics().setDepth(25);
     g.fillStyle(0xff8a3b, 0.16);
     g.fillRect(0, FY, m, H - FY); g.fillRect(W - m, FY, m, H - FY);
+  },
+
+  // 切到第 n 场的景（n 超出 BG_ORDER 就停在最后一套）
+  _showStage(n) {
+    if (!this.bgSets) return;
+    const name = BT.BG_ORDER[Math.min(n, BT.BG_ORDER.length - 1)];
+    for (const [key, imgs] of Object.entries(this.bgSets)) {
+      imgs.forEach((im) => im.setVisible(key === name));
+    }
+    this.stageName = name;
+    // 落叶属于室外：室内道场只留几片被风卷进来的，室外那场（枫树/银杏就在前景里）开满
+    if (this._setLeafDensity) this._setLeafDensity(name === 'outdoor' ? 1 : 0.3);
   },
 });
