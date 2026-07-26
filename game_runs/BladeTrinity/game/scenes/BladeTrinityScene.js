@@ -83,8 +83,12 @@ class BladeTrinityScene extends Phaser.Scene {
     // 而 Arcade 物理是在 update() 之后才移动 body 的 —— 在 update() 里定位副本，渲染时
     // 真身已经又走了一帧，画面上就是"彩色副本和灰色真身错开一段"的重影（实测约 30px）。
     // 去饱和圆心同理，也要用物理结算后的位置。
+    //
+    // 幻剑的分身同挂这里，同一个理由：分身要贴着本体走（本体挥刀时有 130px 的前冲步），
+    // 在 update() 里定位就恒定落后一个物理步，三个身位的间距会跟着速度忽宽忽窄。
     this.events.on(Phaser.Scenes.Events.POST_UPDATE, () => {
       if (this.phase === 'fight' || this.realm) this._realmTick(this.time.now);
+      if (this.phase === 'fight') for (const f of this.fighters) this._tickPhantom(f, this.time.now);
     });
 
     // 「剥夺剑界」表现层的验收钩子（机制未接，见 systems/realm.js 顶部）。

@@ -46,8 +46,11 @@ Object.assign(BladeTrinityScene.prototype, {
     const dk = d === 'counter' ? 'S 返击' : d === 'parry' ? 'S 受流' : 'S 完防';
     const n = this.oppQueue.length;
     const tier = (this.curTier && this.curTier.name) || '';
+    // 流派秘技的操作提示只对【会这招的流派】显示，别把三派的键位堆给所有人看
+    const arte = BT.ARTE && BT.ARTE[this._p1Id];
+    const ak = arte ? `　出刀后按住 J「${arte.name}」` : '';
     window.GameHUD?.setObjective(
-      `擂台 ${this.round + 1}/${n}【${tier}】：${BT.SCHOOLS[this.p2.id].name}　│　J 斩　${dk}　长按 L 蓄剑气　AD 移动`);
+      `擂台 ${this.round + 1}/${n}【${tier}】：${BT.SCHOOLS[this.p2.id].name}　│　J 斩　${dk}　长按 L 蓄剑气　AD 移动${ak}`);
   },
 
   // 玩家胜一场、还有下一场：换上下一位对手，半回血，回满蓝，原地重开。
@@ -118,6 +121,8 @@ Object.assign(BladeTrinityScene.prototype, {
       // AI 反应层（routine.js）：当前盯着的那记威胁 { id, at, acted } —— at 是观察时钟的
       // 起点，档位的 reactDelay 就是拿 now-at 来比的；guardMin/Max = 防御态的事件驱动边界
       threatSeen: null, guardMin: 0, guardMax: 0, guardRead: false, blockedAt: 0, reguardAt: 0,
+      // 流派秘技（arte.js）：当前分身组 / 下次可放时刻 / 玩家按住 J 的起点
+      phantom: null, arteReady: 0, jHeldFrom: 0,
     };
   },
 
