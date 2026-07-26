@@ -17,6 +17,13 @@ class BladeTrinityScene extends Phaser.Scene {
     for (const l of BT.BG) {
       if (have.includes(`${l.key}.webp`)) this.load.image(l.key, `assets/bg/${l.key}.webp`);
     }
+
+    // 装载前景物理落叶资源 (3 种树叶 x 9 帧渐变)
+    for (const sp of ['maple', 'oak', 'ginkgo']) {
+      for (let i = 0; i < 9; i++) {
+        this.load.image(`skill_${sp}_${i}`, `assets/leaves/skill_${sp}_${i}.png`);
+      }
+    }
   }
 
   create() {
@@ -56,6 +63,7 @@ class BladeTrinityScene extends Phaser.Scene {
     this._buildSelect();
     if (this._refreshTier) this._refreshTier();
     this._buildRestartBtn();      // 结束后鼠标悬停才浮出的半透明 ↻（restart.js）
+    if (this._initForegroundPhysics) this._initForegroundPhysics();
     if (window.GameHUD) window.GameHUD.onStart(() => { });
     window.__scene = this;
 
@@ -93,8 +101,17 @@ class BladeTrinityScene extends Phaser.Scene {
       // 于是防御与会心两条演出在 playtest 里长期为 0（实测起手帧里有 6~8 帧玩家在空中）。
       const canAct = ['idle', 'walk', 'guard', 'jump'].includes(a.state);
       const onGround = sp.body.blocked.down;
+      // canDefend 的语义是【此刻按防御键有意义吗】——bot 就是拿它决定要不要按 S 的。
+      // 北神有输入缓冲（BT.DEFENSE.counter.buffer）后，"死区里按下"不再等于丢弃：
+      // 只要闸会在 buffer 毫秒内打开，这一按就会被记住并放出。所以这里必须把缓冲
+      // 算进来，否则 bot 只在闸已开时才按，playtest 永远测不到缓冲带来的挡下率。
+      // 硬直的到期时刻是已知的（stateUntil），所以"闸会不会及时开"是可判定的。
+      const bufMs = (BT.DEFENSE.counter.buffer || 0);
       const canDefend = a.def.defense === 'counter'
-        ? (canAct && now >= (a.counterReady || 0)) : (canAct && onGround);
+        ? (a.state !== 'down'
+           && now >= (a.counterReady || 0) - bufMs
+           && (canAct || (a.stateUntil && a.stateUntil - now <= bufMs)))
+        : (canAct && onGround);
       return {
         x: sp.x, y: sp.y, vx: sp.body.velocity.x, onGround: sp.body.blocked.down,
         hp: a.hp, maxHp: a.maxHp,
@@ -169,6 +186,7 @@ class BladeTrinityScene extends Phaser.Scene {
       this._setState(f, 'idle');
     }
     this._fighterPhysics();
+    if (this._updateForegroundPhysics) this._updateForegroundPhysics(time, delta);
     this._prevTime = time;
   }
 }

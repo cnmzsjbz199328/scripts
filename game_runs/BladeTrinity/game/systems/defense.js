@@ -13,13 +13,22 @@
 Object.assign(BladeTrinityScene.prototype, {
 
   // ─────────── 起防 ───────────
-  _startDefense(f, time) {
+  // fromBuffer=true 表示这次是缓冲到期释放，不再二次入缓冲（否则会无限续期）。
+  _startDefense(f, time, fromBuffer) {
     const kind = f.def.defense;
     if (kind === 'counter') {
+      const d = BT.DEFENSE.counter;
       // 反击是瞬发动作，不是可长按的状态；有冷却，空放有硬直
-      if (time < f.counterReady || !this._canAct(f)) return;
+      if (time < f.counterReady || !this._canAct(f)) {
+        // 按在死区里（受击硬直/出招中/冷却未到）→ 记住这次按键，闸一开就放。
+        // 只给玩家：AI 是读 opp.state 反应式交防御的，它永远按在能按的时刻，
+        // 给它缓冲等于白送强度（同 parry 完美窗口只对玩家开放的口径）。
+        if (f === this.p1 && !fromBuffer) f.counterBufferUntil = time + d.buffer;
+        return;
+      }
+      f.counterBufferUntil = 0;
       if (this._usage && f === this.p1) this._usage.defend++;
-      const d = BT.DEFENSE.counter, dir = f.facingLeft ? 1 : -1;   // 往身后微侧移
+      const dir = f.facingLeft ? 1 : -1;   // 往身后微侧移
       f.iframeUntil = time + d.iframes;
       f.counterReady = time + d.cooldown;
       f.counterFired = false;
@@ -52,8 +61,23 @@ Object.assign(BladeTrinityScene.prototype, {
     if (f.state === 'guard' && f.def.defense !== 'counter') this._setState(f, 'idle');
   },
 
+  // ─────────── 北神反击的输入缓冲 ───────────
+  // 死区里按下的 S 不丢弃，记 BT.DEFENSE.counter.buffer 毫秒，闸一开立刻放出。
+  // 为什么必须有：北神的防御走 JustDown（点按），而玩家有 ~55% 的帧处在
+  // hurt/attack/stun 三种读不进 S 的状态里（受击硬直最大，380ms 且自我强化）。
+  // 没有缓冲时实测挡下率只有 15%，加上后 27%，见 BT.DEFENSE.counter.buffer 的注释。
+  _tickCounterBuffer(f, time) {
+    if (!f.counterBufferUntil) return;
+    if (f.def.defense !== 'counter' || f.state === 'down') { f.counterBufferUntil = 0; return; }
+    if (time > f.counterBufferUntil) { f.counterBufferUntil = 0; return; }   // 缓冲过期，作废
+    if (time < f.counterReady || !this._canAct(f)) return;                   // 闸还关着，继续等
+    f.counterBufferUntil = 0;
+    this._startDefense(f, time, true);
+  },
+
   // 每帧维护：反击窗口过期 + 防御描边跟随
   _tickDefense(f, time) {
+    this._tickCounterBuffer(f, time);
     if (f.riposteUntil && time > f.riposteUntil) f.riposteUntil = 0;
     // 北神的防御姿势只有 260ms，之后立刻切进 attack 演反手斩 —— 只按 state==='guard'
     // 挂描边的话，三派里唯独它的描边一闪就没，看着像"没有特效"（用户实测反馈）。

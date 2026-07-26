@@ -1,0 +1,888 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BladeTrinity — Skill 3×3 连续绿幕切分无火花纯净物理系统</title>
+  <style>
+    :root {
+      --bg-dark: #080c14;
+      --panel-bg: rgba(15, 23, 42, 0.85);
+      --accent-cyan: #38bdf8;
+      --accent-red: #f43f5e;
+      --accent-gold: #fbbf24;
+      --text-main: #f1f5f9;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg-dark);
+      color: var(--text-main);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      user-select: none;
+    }
+
+    #header-bar {
+      position: absolute;
+      top: 16px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      z-index: 10;
+      background: rgba(15, 23, 42, 0.8);
+      backdrop-filter: blur(10px);
+      padding: 10px 24px;
+      border-radius: 30px;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+    }
+
+    #header-bar h1 {
+      font-size: 1.1rem;
+      font-weight: 600;
+      background: linear-gradient(135deg, #fef08a, #f97316);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      letter-spacing: 1px;
+    }
+
+    .badge {
+      font-size: 0.75rem;
+      padding: 3px 10px;
+      border-radius: 12px;
+      background: rgba(56, 189, 248, 0.15);
+      color: var(--accent-cyan);
+      border: 1px solid rgba(56, 189, 248, 0.3);
+    }
+
+    #game-container {
+      position: relative;
+      width: 960px;
+      height: 540px;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(255, 255, 255, 0.1);
+      background: #0d1322;
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+
+    /* Controls Overlay */
+    #ui-panel {
+      position: absolute;
+      bottom: 16px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+      z-index: 10;
+      width: 90%;
+      max-width: 860px;
+    }
+
+    .btn-group {
+      display: flex;
+      gap: 12px;
+      background: var(--panel-bg);
+      backdrop-filter: blur(12px);
+      padding: 8px 16px;
+      border-radius: 16px;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+    }
+
+    button {
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      color: #e2e8f0;
+      padding: 8px 16px;
+      border-radius: 10px;
+      font-size: 0.88rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    button:hover {
+      background: rgba(255, 255, 255, 0.15);
+      transform: translateY(-2px);
+      border-color: rgba(255, 255, 255, 0.3);
+    }
+
+    button:active {
+      transform: translateY(0);
+    }
+
+    button.btn-left {
+      border-color: rgba(56, 189, 248, 0.4);
+      color: #7dd3fc;
+    }
+    button.btn-left:hover {
+      background: rgba(56, 189, 248, 0.2);
+      box-shadow: 0 0 12px rgba(56, 189, 248, 0.4);
+    }
+
+    button.btn-right {
+      border-color: rgba(244, 63, 94, 0.4);
+      color: #fda4af;
+    }
+    button.btn-right:hover {
+      background: rgba(244, 63, 94, 0.2);
+      box-shadow: 0 0 12px rgba(244, 63, 94, 0.4);
+    }
+
+    button.btn-dual {
+      border-color: rgba(251, 191, 36, 0.5);
+      color: #fde047;
+      background: rgba(251, 191, 36, 0.12);
+    }
+    button.btn-dual:hover {
+      background: rgba(251, 191, 36, 0.25);
+      box-shadow: 0 0 16px rgba(251, 191, 36, 0.5);
+    }
+
+    .key-hint {
+      font-size: 0.7rem;
+      opacity: 0.7;
+      background: rgba(0,0,0,0.3);
+      padding: 1px 5px;
+      border-radius: 4px;
+      border: 1px solid rgba(255,255,255,0.2);
+    }
+
+    .controls-row {
+      display: flex;
+      gap: 20px;
+      align-items: center;
+      background: rgba(15, 23, 42, 0.75);
+      backdrop-filter: blur(8px);
+      padding: 6px 18px;
+      border-radius: 12px;
+      font-size: 0.8rem;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .control-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: #94a3b8;
+    }
+
+    input[type="range"] {
+      width: 90px;
+      accent-color: var(--accent-gold);
+      cursor: pointer;
+    }
+
+    .toggle-checkbox {
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    #instruction-tip {
+      position: absolute;
+      top: 16px;
+      left: 16px;
+      font-size: 0.78rem;
+      color: #94a3b8;
+      background: rgba(15, 23, 42, 0.7);
+      backdrop-filter: blur(6px);
+      padding: 8px 14px;
+      border-radius: 8px;
+      border: 1px solid rgba(255,255,255,0.08);
+      pointer-events: none;
+      z-index: 10;
+      line-height: 1.5;
+    }
+
+    #physics-debug-info {
+      position: absolute;
+      top: 16px;
+      right: 16px;
+      font-size: 0.75rem;
+      color: #fbbf24;
+      font-family: monospace;
+      background: rgba(15, 23, 42, 0.7);
+      backdrop-filter: blur(6px);
+      padding: 8px 12px;
+      border-radius: 8px;
+      border: 1px solid rgba(251, 191, 36, 0.2);
+      z-index: 10;
+      text-align: right;
+    }
+  </style>
+</head>
+<body>
+
+  <div id="header-bar">
+    <h1>🍃 Skill 3×3 连续网格切分物理系统 (Pure Leaf Motion)</h1>
+    <span class="badge">No Sparks • Pure Skill Pipeline</span>
+  </div>
+
+  <div id="game-container">
+    <canvas id="canvas"></canvas>
+
+    <div id="instruction-tip">
+      💡 <b>纯净连续切分特点:</b><br>
+      • <b>去除冗余火花</b>：无火花干扰，纯粹展现树叶的轻盈飘飞与物理破损<br>
+      • <b>3×3 连续帧切割</b>：基于 `object-anim` 输出的 9 帧渐变（Frame 0 完整 ➔ Frame 8 完全消散）<br>
+      • <b>按键测试</b>：<span class="key-hint">A</span> 左剑气 | <span class="key-hint">D</span> 右剑气 | <span class="key-hint">Space</span> 双剑干涉
+    </div>
+
+    <div id="physics-debug-info">
+      Leaves Active: <span id="val-activecount" style="color:#4ade80;">10</span> / <span id="val-totalcount">10</span><br>
+      Average Damage Stage: <span id="val-avgstage" style="color:#fbbf24;">Frame 0 / 8</span><br>
+      Status: <span id="val-status" style="color:#4ade80;">Normal Flow</span>
+    </div>
+
+    <div id="ui-panel">
+      <div class="btn-group">
+        <button class="btn-left" onclick="fireLeftSlash()">
+          ⚔️ 左侧剑气扫过 <span class="key-hint">A</span>
+        </button>
+        <button class="btn-right" onclick="fireRightSlash()">
+          ⚔️ 右侧剑气扫过 <span class="key-hint">D</span>
+        </button>
+        <button class="btn-dual" onclick="fireDualSlash()">
+          💥 左右双剑交汇干涉 <span class="key-hint">Space</span>
+        </button>
+        <button onclick="resetParticlesToGround()">
+          🧹 重置 10 片 Skill 完好树叶
+        </button>
+      </div>
+
+      <div class="controls-row">
+        <div class="control-item">
+          <span>剑气推力:</span>
+          <input type="range" id="slider-force" min="1" max="25" value="5" oninput="updateParams()">
+          <span id="val-force">5</span>
+        </div>
+        <div class="control-item">
+          <span>飘舞阻力:</span>
+          <input type="range" id="slider-drag" min="0.90" max="0.999" step="0.005" value="0.99" oninput="updateParams()">
+          <span id="val-drag">0.99</span>
+        </div>
+        <div class="control-item">
+          <span>固定树叶数:</span>
+          <input type="range" id="slider-count" min="5" max="50" step="5" value="10" onchange="changeParticleCount(this.value)">
+          <span id="val-count">10</span>
+        </div>
+        <div class="control-item">
+          <label class="toggle-checkbox">
+            <input type="checkbox" id="chk-field" onchange="toggleForceField(this.checked)">
+            显示力场矢量
+          </label>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ──────── Skill 提取的 3 组 (每组 9 帧) 渐变树叶加载 ────────
+
+    const LEAF_SPECIES = ['maple', 'oak', 'ginkgo'];
+    const TOTAL_FRAMES_PER_SPECIES = 9;
+
+    const leafSkillFrames = [[], [], []];
+
+    function loadSkillLeafAssets() {
+      LEAF_SPECIES.forEach((species, spIdx) => {
+        for (let frame = 0; frame < TOTAL_FRAMES_PER_SPECIES; frame++) {
+          const path = `assets/leaves/skill_${species}_${frame}.png?v=${Date.now()}`;
+          const img = new Image();
+          img.onload = () => {
+            leafSkillFrames[spIdx][frame] = img;
+          };
+          img.src = path;
+        }
+      });
+    }
+
+    // ──────── 物理引擎 ────────
+
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    const W = 960, H = 540;
+    canvas.width = W;
+    canvas.height = H;
+
+    let CONFIG = {
+      gravity: 0.08,
+      airDrag: 0.99,
+      groundY: H - 35,
+      auraForce: 5,
+      showForceField: false,
+      particleCount: 10
+    };
+
+    let particles = [];
+    let shockwaves = [];
+    let collisionEffects = [];
+    let isMouseDown = false;
+    let dragStart = null;
+    let dragCurrent = null;
+
+    class LeafParticle {
+      constructor(index, total) {
+        this.index = index;
+        this.speciesIndex = Math.floor(Math.random() * LEAF_SPECIES.length);
+        this.frameStage = 0; // 0..8 共 9 阶段帧
+        this.size = Math.random() * 8 + 24;
+        this.mass = 0.8 + Math.random() * 0.4;
+        this.isDestroyed = false;
+        
+        this.initOnGround(index, total);
+      }
+
+      initOnGround(index, total) {
+        const padding = 60;
+        const segment = (W - padding * 2) / Math.max(1, total - 1);
+        this.x = padding + index * segment + (Math.random() - 0.5) * 20;
+        this.groundOffset = (Math.random() - 0.5) * 16;
+        this.y = CONFIG.groundY + this.groundOffset;
+        
+        this.vx = 0;
+        this.vy = 0;
+        this.angle = (Math.random() - 0.5) * Math.PI * 0.8;
+        this.vRot = 0;
+        this.flipAngle = 0;
+        this.vFlip = 0;
+        this.onGround = true;
+        this.flutterPhase = Math.random() * 100;
+        this.opacity = Math.random() * 0.2 + 0.8;
+        this.frameStage = 0;
+        this.isDestroyed = false;
+      }
+
+      update() {
+        if (this.isDestroyed) return;
+
+        if (!this.onGround) {
+          this.vy += CONFIG.gravity * this.mass;
+          this.flutterPhase += 0.035;
+          const flutterForce = Math.sin(this.flutterPhase) * 0.22;
+          this.vx += flutterForce;
+
+          this.vx *= CONFIG.airDrag;
+          this.vy *= CONFIG.airDrag;
+
+          if (this.vy > 1.8) this.vy = 1.8;
+
+          this.x += this.vx;
+          this.y += this.vy;
+
+          this.angle += this.vRot + Math.sin(this.flutterPhase) * 0.015;
+          this.flipAngle += this.vFlip;
+
+          this.vRot *= 0.96;
+          this.vFlip *= 0.95;
+
+          const margin = 25;
+          if (this.x < margin) {
+            this.x = margin;
+            this.vx = Math.abs(this.vx) * 0.4;
+          }
+          if (this.x > W - margin) {
+            this.x = W - margin;
+            this.vx = -Math.abs(this.vx) * 0.4;
+          }
+
+          const targetGroundY = CONFIG.groundY + this.groundOffset;
+          if (this.y >= targetGroundY) {
+            this.y = targetGroundY;
+            this.onGround = true;
+            this.vy = 0;
+            this.vx = 0;
+            this.vRot = 0;
+            this.vFlip = 0;
+            this.flipAngle = 0;
+          }
+        } else {
+          this.vx = 0;
+          this.vy = 0;
+        }
+      }
+
+      applyImpulse(fx, fy, torque = 0) {
+        if (this.isDestroyed) return;
+
+        this.vx += fx / this.mass;
+        this.vy += fy / this.mass;
+
+        this.vRot = (Math.random() - 0.5) * 0.04 + torque * 0.2;
+        this.vFlip = (Math.random() - 0.5) * 0.05;
+
+        const forceMag = Math.hypot(fx, fy);
+        if (forceMag > 0.2) {
+          this.onGround = false;
+        }
+
+        // 剑气冲力推进 9 帧渐变损伤
+        if (forceMag > 0.6 && Math.random() < 0.7) {
+          this.takeDamage();
+        }
+      }
+
+      takeDamage() {
+        if (this.isDestroyed) return;
+
+        if (this.frameStage < TOTAL_FRAMES_PER_SPECIES - 1) {
+          this.frameStage++;
+        } else {
+          // 第 8 帧为全空白帧，完全消失
+          this.isDestroyed = true;
+        }
+      }
+
+      draw(ctx) {
+        if (this.isDestroyed) return;
+
+        ctx.save();
+        ctx.translate(this.x, this.y);
+        ctx.rotate(this.angle);
+
+        const flipScale = this.onGround ? 1.0 : Math.cos(this.flipAngle);
+        ctx.scale(1, Math.max(0.15, Math.abs(flipScale)));
+
+        const img = leafSkillFrames[this.speciesIndex][this.frameStage];
+        const halfS = this.size;
+
+        if (this.onGround) {
+          ctx.save();
+          ctx.fillStyle = 'rgba(0, 0, 0, 0.45)';
+          ctx.beginPath();
+          ctx.ellipse(0, 4, halfS * 0.85, halfS * 0.35, 0, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
+        } else {
+          ctx.save();
+          const distToGround = Math.max(0, CONFIG.groundY - this.y);
+          const shadowAlpha = Math.max(0, 0.35 - distToGround * 0.0015);
+          const shadowScale = 1 + distToGround * 0.002;
+          ctx.fillStyle = `rgba(0, 0, 0, ${shadowAlpha})`;
+          ctx.beginPath();
+          ctx.ellipse(0, distToGround + 6, halfS * shadowScale, halfS * 0.3 * shadowScale, 0, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
+        }
+
+        if (img) {
+          ctx.globalAlpha = this.opacity;
+          ctx.drawImage(img, -halfS, -halfS, halfS * 2, halfS * 2);
+        } else {
+          ctx.fillStyle = '#f97316';
+          ctx.beginPath();
+          ctx.arc(0, 0, halfS * 0.6, 0, Math.PI * 2);
+          ctx.fill();
+        }
+
+        ctx.restore();
+      }
+    }
+
+    class SwordShockwave {
+      constructor(options) {
+        this.x = options.x;
+        this.y = options.y;
+        this.vx = options.vx;
+        this.vy = options.vy;
+        this.radius = options.radius || 65;
+        this.arcAngle = options.arcAngle || Math.PI * 0.75;
+        this.direction = options.direction || (this.vx > 0 ? 1 : -1);
+        this.color = options.color || (this.direction > 0 ? '#38bdf8' : '#f43f5e');
+        this.life = 1.0;
+        this.maxLife = options.maxLife || 60;
+        this.age = 0;
+        this.power = options.power || CONFIG.auraForce;
+      }
+
+      update() {
+        this.x += this.vx;
+        this.y += this.vy;
+        this.age++;
+        this.life = 1.0 - (this.age / this.maxLife);
+        this.radius += 1.1;
+        this.applyForceToParticles();
+      }
+
+      applyForceToParticles() {
+        const auraSpeed = Math.hypot(this.vx, this.vy);
+        const normVx = this.vx / auraSpeed;
+        const normVy = this.vy / auraSpeed;
+
+        particles.forEach(p => {
+          if (p.isDestroyed) return;
+
+          const dx = p.x - this.x;
+          const dy = p.y - this.y;
+          const dist = Math.hypot(dx, dy);
+
+          const innerRadius = this.radius * 0.3;
+          const outerRadius = this.radius * 1.6;
+
+          if (dist > innerRadius && dist < outerRadius) {
+            const falloff = (1 - Math.abs(dist - this.radius) / (outerRadius - innerRadius));
+            const forceMag = this.power * falloff * this.life * 0.18;
+
+            const fwdFx = normVx * forceMag * 1.1;
+            const fwdFy = -Math.abs(forceMag * 1.3);
+
+            p.applyImpulse(fwdFx, fwdFy, (Math.random() - 0.5) * 0.05);
+          }
+        });
+      }
+
+      draw(ctx) {
+        ctx.save();
+        ctx.translate(this.x, this.y);
+        ctx.rotate(Math.atan2(this.vy, this.vx));
+        ctx.globalAlpha = Math.max(0, this.life);
+
+        ctx.shadowBlur = 24;
+        ctx.shadowColor = this.color;
+        ctx.fillStyle = this.color;
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 3;
+
+        const r = this.radius;
+        ctx.beginPath();
+        ctx.arc(0, 0, r, -this.arcAngle / 2, this.arcAngle / 2, false);
+        ctx.arc(-r * 0.35, 0, r * 0.8, this.arcAngle / 2, -this.arcAngle / 2, true);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.restore();
+      }
+    }
+
+    class ClashCollisionEffect {
+      constructor(x, y, color1, color2) {
+        this.x = x;
+        this.y = y;
+        this.radius = 10;
+        this.maxRadius = 150;
+        this.life = 1.0;
+        this.color1 = color1;
+        this.color2 = color2;
+        
+        particles.forEach(p => {
+          if (p.isDestroyed) return;
+
+          const dx = p.x - this.x;
+          const dy = p.y - this.y;
+          const dist = Math.hypot(dx, dy);
+
+          if (dist < 240) {
+            const power = (1 - dist / 240) * CONFIG.auraForce * 1.8;
+            const pushX = (dx / (dist || 1)) * power * 0.6;
+            const pushY = -Math.abs(power * 1.8) - (Math.random() * 3);
+            p.applyImpulse(pushX, pushY, (Math.random() - 0.5) * 0.1);
+          }
+        });
+      }
+
+      update() {
+        this.radius += 5.5;
+        this.life = 1.0 - (this.radius / this.maxRadius);
+      }
+
+      draw(ctx) {
+        if (this.life <= 0) return;
+        ctx.save();
+        ctx.translate(this.x, this.y);
+        ctx.globalAlpha = Math.max(0, this.life);
+
+        ctx.shadowBlur = 30;
+        ctx.shadowColor = '#fbbf24';
+
+        const grad = ctx.createRadialGradient(0, 0, 0, 0, 0, this.radius);
+        grad.addColorStop(0, 'rgba(255, 255, 255, 0.95)');
+        grad.addColorStop(0.3, this.color1);
+        grad.addColorStop(0.7, this.color2);
+        grad.addColorStop(1, 'rgba(251, 191, 36, 0)');
+
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.arc(0, 0, this.radius, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      }
+    }
+
+    function initParticles() {
+      particles = [];
+      const total = CONFIG.particleCount;
+      for (let i = 0; i < total; i++) {
+        particles.push(new LeafParticle(i, total));
+      }
+    }
+
+    function resetParticlesToGround() {
+      initParticles();
+    }
+
+    function checkWaveCollisions() {
+      for (let i = 0; i < shockwaves.length; i++) {
+        for (let j = i + 1; j < shockwaves.length; j++) {
+          const w1 = shockwaves[i];
+          const w2 = shockwaves[j];
+
+          if (w1.direction !== w2.direction) {
+            const dx = w2.x - w1.x;
+            const dy = w2.y - w1.y;
+            const dist = Math.hypot(dx, dy);
+
+            if (dist < (w1.radius + w2.radius) * 0.7) {
+              const clashX = (w1.x + w2.x) / 2;
+              const clashY = (w1.y + w2.y) / 2;
+              collisionEffects.push(new ClashCollisionEffect(clashX, clashY, w1.color, w2.color));
+              w1.life *= 0.3;
+              w2.life *= 0.3;
+
+              const statusElem = document.getElementById('val-status');
+              statusElem.innerText = '⚡ Hydro-Interference Clash!';
+              statusElem.style.color = '#fbbf24';
+              setTimeout(() => {
+                statusElem.innerText = 'Normal Flow';
+                statusElem.style.color = '#4ade80';
+              }, 1200);
+            }
+          }
+        }
+      }
+    }
+
+    function animate() {
+      ctx.clearRect(0, 0, W, H);
+      drawBackground(ctx);
+
+      if (CONFIG.showForceField) drawForceFieldGrid(ctx);
+
+      for (let i = shockwaves.length - 1; i >= 0; i--) {
+        const sw = shockwaves[i];
+        sw.update();
+        sw.draw(ctx);
+        if (sw.life <= 0 || sw.x < -100 || sw.x > W + 100) shockwaves.splice(i, 1);
+      }
+
+      checkWaveCollisions();
+
+      for (let i = collisionEffects.length - 1; i >= 0; i--) {
+        const ce = collisionEffects[i];
+        ce.update();
+        ce.draw(ctx);
+        if (ce.life <= 0) collisionEffects.splice(i, 1);
+      }
+
+      let activeCount = 0, totalStagesSum = 0;
+      particles.forEach(p => {
+        p.update();
+        p.draw(ctx);
+        if (!p.isDestroyed) {
+          activeCount++;
+          totalStagesSum += p.frameStage;
+        }
+      });
+
+      if (isMouseDown && dragStart && dragCurrent) drawDragPreview(ctx);
+
+      const avgStage = activeCount > 0 ? (totalStagesSum / activeCount).toFixed(1) : 'Finished';
+      document.getElementById('val-activecount').innerText = activeCount;
+      document.getElementById('val-totalcount').innerText = particles.length;
+      document.getElementById('val-avgstage').innerText = `Frame ${avgStage} / 8`;
+
+      requestAnimationFrame(animate);
+    }
+
+    function drawBackground(ctx) {
+      const skyGrad = ctx.createLinearGradient(0, 0, 0, H);
+      skyGrad.addColorStop(0, '#060a12');
+      skyGrad.addColorStop(0.6, '#0f172a');
+      skyGrad.addColorStop(1, '#1e293b');
+      ctx.fillStyle = skyGrad;
+      ctx.fillRect(0, 0, W, H);
+
+      ctx.fillStyle = 'rgba(15, 23, 42, 0.7)';
+      ctx.beginPath();
+      ctx.moveTo(0, H - 120);
+      ctx.quadraticCurveTo(W * 0.25, H - 220, W * 0.5, H - 140);
+      ctx.quadraticCurveTo(W * 0.75, H - 240, W, H - 110);
+      ctx.lineTo(W, H);
+      ctx.lineTo(0, H);
+      ctx.fill();
+
+      ctx.fillStyle = 'rgba(248, 250, 252, 0.06)';
+      ctx.beginPath();
+      ctx.arc(W * 0.8, 120, 70, 0, Math.PI * 2);
+      ctx.fill();
+
+      const groundGrad = ctx.createLinearGradient(0, CONFIG.groundY, 0, H);
+      groundGrad.addColorStop(0, '#1e1b4b');
+      groundGrad.addColorStop(1, '#020617');
+      ctx.fillStyle = groundGrad;
+      ctx.fillRect(0, CONFIG.groundY, W, H - CONFIG.groundY);
+
+      ctx.strokeStyle = 'rgba(165, 243, 252, 0.25)';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(0, CONFIG.groundY);
+      ctx.lineTo(W, CONFIG.groundY);
+      ctx.stroke();
+    }
+
+    function drawForceFieldGrid(ctx) {
+      const step = 40;
+      ctx.strokeStyle = 'rgba(251, 191, 36, 0.2)';
+      ctx.lineWidth = 1;
+
+      for (let x = 20; x < W; x += step) {
+        for (let y = 20; y < H - 40; y += step) {
+          let totalFx = 0;
+          let totalFy = CONFIG.gravity * 2;
+
+          shockwaves.forEach(sw => {
+            const dx = x - sw.x;
+            const dy = y - sw.y;
+            const dist = Math.hypot(dx, dy);
+            if (dist > sw.radius * 0.3 && dist < sw.radius * 1.6) {
+              const falloff = (1 - Math.abs(dist - sw.radius) / (sw.radius * 1.3));
+              const fMag = sw.power * falloff * sw.life * 0.2;
+              totalFx += (sw.vx / Math.hypot(sw.vx, sw.vy)) * fMag * 1.1;
+              totalFy += -Math.abs(fMag * 1.3);
+            }
+          });
+
+          const angle = Math.atan2(totalFy, totalFx);
+          const len = Math.min(25, Math.hypot(totalFx, totalFy) * 3 + 4);
+
+          ctx.save();
+          ctx.translate(x, y);
+          ctx.rotate(angle);
+          ctx.beginPath();
+          ctx.moveTo(0, 0);
+          ctx.lineTo(len, 0);
+          ctx.lineTo(len - 4, -2);
+          ctx.moveTo(len, 0);
+          ctx.lineTo(len - 4, 2);
+          ctx.stroke();
+          ctx.restore();
+        }
+      }
+    }
+
+    function drawDragPreview(ctx) {
+      const dx = dragCurrent.x - dragStart.x;
+      const dy = dragCurrent.y - dragStart.y;
+      ctx.save();
+      ctx.strokeStyle = '#fbbf24';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([6, 6]);
+      ctx.beginPath();
+      ctx.moveTo(dragStart.x, dragStart.y);
+      ctx.lineTo(dragCurrent.x, dragCurrent.y);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    function fireLeftSlash() {
+      shockwaves.push(new SwordShockwave({
+        x: 60, y: CONFIG.groundY - 50, vx: 13, vy: -0.3, radius: 65, direction: 1, color: '#38bdf8', power: CONFIG.auraForce
+      }));
+    }
+
+    function fireRightSlash() {
+      shockwaves.push(new SwordShockwave({
+        x: W - 60, y: CONFIG.groundY - 50, vx: -13, vy: -0.3, radius: 65, direction: -1, color: '#f43f5e', power: CONFIG.auraForce
+      }));
+    }
+
+    function fireDualSlash() {
+      fireLeftSlash();
+      setTimeout(fireRightSlash, 80);
+    }
+
+    function updateParams() {
+      CONFIG.auraForce = parseFloat(document.getElementById('slider-force').value);
+      CONFIG.airDrag = parseFloat(document.getElementById('slider-drag').value);
+      document.getElementById('val-force').innerText = CONFIG.auraForce;
+      document.getElementById('val-drag').innerText = CONFIG.airDrag.toFixed(3);
+    }
+
+    function changeParticleCount(val) {
+      CONFIG.particleCount = parseInt(val);
+      document.getElementById('val-count').innerText = val;
+      initParticles();
+    }
+
+    function toggleForceField(checked) {
+      CONFIG.showForceField = checked;
+    }
+
+    window.addEventListener('keydown', (e) => {
+      if (e.code === 'KeyA') fireLeftSlash();
+      if (e.code === 'KeyD') fireRightSlash();
+      if (e.code === 'Space') { e.preventDefault(); fireDualSlash(); }
+    });
+
+    canvas.addEventListener('mousedown', (e) => {
+      const rect = canvas.getBoundingClientRect();
+      dragStart = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+      dragCurrent = { ...dragStart };
+      isMouseDown = true;
+    });
+
+    canvas.addEventListener('mousemove', (e) => {
+      if (!isMouseDown) return;
+      const rect = canvas.getBoundingClientRect();
+      dragCurrent = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+    });
+
+    window.addEventListener('mouseup', (e) => {
+      if (!isMouseDown) return;
+      isMouseDown = false;
+      if (dragStart && dragCurrent) {
+        const dx = dragCurrent.x - dragStart.x;
+        const dy = dragCurrent.y - dragStart.y;
+        const dist = Math.hypot(dx, dy);
+
+        if (dist > 20) {
+          const speed = Math.min(20, dist * 0.11);
+          const vx = (dx / dist) * speed;
+          const vy = (dy / dist) * speed;
+          shockwaves.push(new SwordShockwave({
+            x: dragStart.x, y: dragStart.y, vx: vx, vy: vy, radius: 50 + dist * 0.15,
+            direction: vx >= 0 ? 1 : -1, color: vx >= 0 ? '#fbbf24' : '#a855f7',
+            power: CONFIG.auraForce * (1 + dist * 0.003)
+          }));
+        }
+      }
+      dragStart = null; dragCurrent = null;
+    });
+
+    // 启动
+    loadSkillLeafAssets();
+    initParticles();
+    animate();
+  </script>
+</body>
+</html>

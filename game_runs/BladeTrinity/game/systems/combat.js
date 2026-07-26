@@ -68,6 +68,7 @@ Object.assign(BladeTrinityScene.prototype, {
       g.strokePath();
     }
     this.tweens.add({ targets: g, alpha: 0, duration: 230, onComplete: () => g.destroy() });
+    if (this._emitForegroundShockwave) this._emitForegroundShockwave(cx, cy, dir * 14, -0.5, 5);
   },
 
   // 整体闪烁：把角色【整个剪影】刷成纯色再灭，连闪几次。

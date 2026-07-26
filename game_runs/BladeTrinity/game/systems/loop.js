@@ -31,7 +31,18 @@ Object.assign(BladeTrinityScene.prototype, {
     // 但对玩家来说"防御"就该是同一个键，换个流派还要换手指是没道理的（用户定）。
     // 差别只在读法：brace/parry 读长按维持，counter 读点按触发。
     if (f.def.defense === 'counter') {
-      if (Phaser.Input.Keyboard.JustDown(this.keys.S)) return this._startDefense(f, time);
+      // ⚠️ 读 isDown 而不是 JustDown。曾经读 JustDown（"反击是瞬发动作所以该点按"），
+      // 结果按在死区里的键被整个丢掉：实测玩家 55% 的帧处在 hurt/attack/stun 三种
+      // 读不进 S 的状态，挡下率只有 15~18%，且【单纯给点按加缓冲救不回来】——
+      // 按下时闸门中位还要等 313ms，320ms 的缓冲也只能勉强够上（见 DEFENSE.counter.buffer）。
+      // 按住 = 持续表达"我要反击"，闸门一开就放，和 brace/parry 的长按是同一个惯用法。
+      // 无脑长按不会变成最优解：反击空放要吃 whiffStun(480ms)，按住就会陷入
+      // 「260ms 无敌 → 480ms 硬直」的自罚循环，比不按更惨。
+      if (this.keys.S.isDown) {
+        this._startDefense(f, time);
+        // 真起了反击才独占这一帧；只是入了缓冲就继续走位，不然按住 S 等于站桩。
+        if (f.state === 'guard') return;
+      }
     } else {
       if (this.keys.S.isDown && onGround && this._canAct(f)) {
         this._startDefense(f, time);
