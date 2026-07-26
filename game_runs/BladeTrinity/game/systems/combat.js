@@ -129,6 +129,15 @@ Object.assign(BladeTrinityScene.prototype, {
         if (f.state === 'attack') this._ghost(f);
       });
     }
+    // AI 的幻剑：和玩家同一个触发点（一记已经出手的平A 挥到一半化影），
+    // 只是玩家靠按住 J、AI 靠掷骰。走 _canArte 的同一道闸（cap.arte + 蓝 + 冷却）。
+    if (f === this.p2 && this._canArte && this._canArte(f, this.time.now) &&
+        Math.random() < (BT.AI_RT.arteOdds || 0)) {
+      this.time.delayedCall(this._arteCfg(f).holdMs, () => {
+        if (f.state === 'attack' && !f.phantom) this._startPhantom(f, this.time.now);
+      });
+    }
+
     // 前冲步 + 残影 + 刀光
     this.time.delayedCall(Math.max(0, a.from - 40), () => {
       if (f.state !== 'attack') return;

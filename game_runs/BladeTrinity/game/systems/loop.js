@@ -25,7 +25,15 @@ Object.assign(BladeTrinityScene.prototype, {
       this._doBlink(f, up ? 'rise' : 'ground', time);
       return;
     }
-    if (Phaser.Input.Keyboard.JustDown(this.keys.J)) return this._attack(f);
+    if (Phaser.Input.Keyboard.JustDown(this.keys.J)) { f.jHeldFrom = time; return this._attack(f); }
+    // 流派秘技（北神流·幻剑）：点按 J = 普通平A（上一行，手感不变），【按住不放】=
+    // 挥到一半化影成三体。挂在已经出手的那一刀上，而不是独立起手 ——
+    // 平A 走 JustDown，做成独立起手就得把平A 推迟到松手判定之后，拿全局手感换一个招。
+    // 详见 arte.js _startPhantom 的注释。
+    if (this.keys.J.isDown && f.state === 'attack' && f.jHeldFrom && this._arteCfg(f) &&
+        time - f.jHeldFrom >= this._arteCfg(f).holdMs && this._canArte(f, time)) {
+      this._startPhantom(f, time);
+    }
 
     // 防御【三派同一个键 S、同一种读法：按住维持】。
     // ⚠️ 北神曾经在这里单开一支读 JustDown（"反手飞刀是瞬发动作所以该点按"），
@@ -250,7 +258,11 @@ Object.assign(BladeTrinityScene.prototype, {
       f.atkHit = true;
       this._hit(f, opp, this._damageOf(f), dir);
       if (f.riposteUntil) f.riposteUntil = 0;   // 反击加成一次性
+      return;
     }
+    // 没打中本体 —— 看看是不是劈到了对方的幻剑分身（猜错了）。
+    // 排在本体判定【之后】：打中本体就不必再管分身，那一刀已经结算过了。
+    if (this._cleaveClones) this._cleaveClones(f);
   },
 
   // 手动改 x 的统一钳子。见 BT.EDGE_X 的注释：越界值会先渲染一帧再被弹回来。

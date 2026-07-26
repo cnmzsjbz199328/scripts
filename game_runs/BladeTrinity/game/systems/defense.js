@@ -59,9 +59,10 @@ Object.assign(BladeTrinityScene.prototype, {
     // 所以额外认一个到期时间，让描边从起防一路亮到反手斩收招。
     if (f.state === 'down') this._clearOutlineHold(f);     // 倒地要看清人，描边一律收掉
     else if (f.state === 'guard' || (f.counterGlowUntil && time < f.counterGlowUntil)) this._guardAura(f, time);
-    // 蓄力中的描边由 _tickCharge 维护（同一套 _outlineHold）。这里不能顺手清掉，
-    // 否则每帧一建一清，蓄力描边会闪成频闪。
-    else if (!f.charging) this._clearOutlineHold(f);
+    // 蓄力中的描边由 _tickCharge 维护、幻剑本体的破绽描边由 _tickPhantom 维护
+    //（都是同一套 _outlineHold）。这里不能顺手清掉，否则每帧一建一清会闪成频闪
+    // —— 幻剑那层还会因此【整个消失】，破绽没了这招就退化成抛硬币。
+    else if (!f.charging && !f.phantom) this._clearOutlineHold(f);
   },
 
   // ─────────── 外轮廓描边（防御中持续）───────────
@@ -288,6 +289,8 @@ Object.assign(BladeTrinityScene.prototype, {
     if (f.riposteUntil && this.time.now < f.riposteUntil) {
       dmg *= BT.DEFENSE.parry.riposteBonus;
     }
+    // 幻剑：赌对了本体这一刀要有回报，否则玩家没有理由为它付 60 蓝
+    if (f.phantom) dmg *= (this._arteCfg(f) || {}).dmgMul || 1;
     if (f === this.p2) dmg *= this._aiDmgScale();   // 难度旋钮×档位，只作用于电脑一侧
     return Math.round(dmg);
   },

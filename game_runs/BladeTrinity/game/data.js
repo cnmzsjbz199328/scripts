@@ -173,6 +173,38 @@ BT.KNIFE = {
   color: 0xd8d0e8, edge: 0xffffff, hilt: 0x4a3a5c,
 };
 
+// ─────────── 流派秘技（ARTE）───────────
+// 每派一记招牌大招，神级 AI 才【会用】，但玩家选到该流派也一样能放（用户定：不是 boss 特权）。
+// 阶梯到这一档给的是【内容】不是数值 —— 帝级已经把机动与防御拉到操作模型上限，
+// 再加倍率就只剩"更疼"，那是本表开头否掉的做法。
+//
+// ⚠️ 三招的【反制方式必须各不相同】，否则就是换皮：
+//   北神·幻剑 → 反制是【看破】（找出本体）
+//   剑神·（待定，建议「一の太刀·抜刀」）→ 反制是【打断】（架式期间挨打即废）
+//   水神·（待定，建议「水镜」领域）→ 反制是【停手】（领域内别打，等它结束）
+BT.ARTE = {
+  // ── 北神流 · 幻剑 ──
+  // 分身三体同时挥刀，只有本体有判定。玩家/AI 都要在"哪个是真的"上做决策。
+  //
+  // ⚠️ 设计上最要命的一条：如果真的分辨不出来，这招就不是心理战，是 1/3 抛硬币 ——
+  // 玩家输了只会觉得运气差，不会觉得"我该看出来的"，也直接撞本项目的铁律
+  // 「没有预告的瞬移背刺不是难度，是耍赖」。所以【必须留一个能读但要练的破绽】：
+  // 本体带一层极淡的描边（复用 _outlineHold，和"描边=这个人身上有真东西"的既有
+  // 视觉语言一致）。tellAlpha 就是难度旋钮：调高=新手也看得见，调低=只有老玩家读得出。
+  north: {
+    name: '幻剑', color: 0x9a6fd0,
+    cost: 60,           // 耗蓝（<ultCost 100：比剑气便宜，但放完这管就放不出奥义了）
+    holdMs: 170,        // 按住 J 超过这么久才化影（点按仍是普通平A，手感不受影响）
+    clones: 2,          // 分身数（本体 + 2 = 三体）
+    spread: 132,        // 分身相对本体的横向间距（px）
+    cloneAlpha: 0.96,   // 分身透明度：几乎不透明，不能靠这个分辨
+    tellAlpha: 0.22,    // 【破绽】本体描边的强度。难度旋钮：调高更好认
+    tellR: 7,           // 本体描边半径
+    cd: 3800,           // 冷却
+    dmgMul: 1.45,       // 本体这一刀的伤害倍率（赌对了要有回报，赌错了白挨）
+  },
+};
+
 // ─────────── 防御描边（外轮廓高亮 + 外扩）───────────
 // 图集只有一条 guard 行、三派共用，防御姿势本身分不出流派。差异靠这层描边给。
 //
@@ -361,6 +393,9 @@ BT.AI_RT = {
   // 而不是无解。这段窗口也正好是玩家的惩罚窗口，攻防有了出口。
   reguardGap: 340,
 
+  // 神级 AI 每记平A 有多大概率化影（幻剑）。别调太高：三体挥刀是【招牌】不是主食，
+  // 满场都是分身就没有"这一下要认真看"的紧张感了，也会把玩家的读招练废。
+  arteOdds: 0.34,
   // 挡得起剑气时也偶尔改成起跳躲，保住 jumpQi 这条招牌套路的出场率
   qiJumpOdds: 0.35,
 };
@@ -407,21 +442,21 @@ BT.TIERS = {
   shang: {
     name: '上级', accent: '#8fbf7a',
     routines: [], reactDelay: null, cancel: 0, footsie: 0,
-    cap: { ult: false, react: false, punish: false, perfect: false },
+    cap: { ult: false, react: false, punish: false, perfect: false, arte: false },
     mul: { decision: 1.3, guardBias: 0.3, guardOnAttack: 0.4, ult: 0, dmg: 1.0, crit: 0.6 },
   },
   sheng: {
     name: '圣级', accent: '#6fb0d0',
     // 只会「轰飞·满场剑气」（起蓄轰飞 → 满蓄 → 剑气横贯，charge.js 已实现）
     routines: [], reactDelay: 380, cancel: 0, footsie: 0,
-    cap: { ult: true, react: false, punish: false, perfect: false },
+    cap: { ult: true, react: false, punish: false, perfect: false, arte: false },
     mul: { decision: 1.15, guardBias: 0.6, guardOnAttack: 0.7, ult: 0.7, dmg: 1.0, crit: 0.8 },
   },
   wang: {
     name: '王级', accent: '#d0b25a',
     // +读招防御 → 防御成功即可能触发三派会心演出
     routines: [], reactDelay: 260, cancel: 0, footsie: 0.1,
-    cap: { ult: true, react: true, punish: false, perfect: false },
+    cap: { ult: true, react: true, punish: false, perfect: false, arte: false },
     mul: { decision: 1.0, guardBias: 1.0, guardOnAttack: 1.0, ult: 1.0, dmg: 1.0, crit: 1.0 },
   },
   di: {
@@ -443,16 +478,17 @@ BT.TIERS = {
       // 本表 BT.DEFENSE.brace 开头那条早就写了："无条件免伤会让按住 S 变成最优解"，
       // 这条对 AI 一样成立。蓝耗是完全防御【唯一】的天然衰减，拿掉就没有攻防循环了。
     },
-    cap: { ult: true, react: true, punish: true, perfect: true },
+    cap: { ult: true, react: true, punish: true, perfect: true, arte: false },
     mul: { decision: 0.95, guardBias: 2.0, guardOnAttack: 1.6, ult: 1.4, dmg: 1.0, crit: 1.45 },
   },
   shen: {
     name: '神级', accent: '#d0506a',
-    // 神级 = 帝级的全套（机动/防御/人机特权都一样），目前【只多在几个旋钮更锋利】。
+    // 神级 = 帝级的全套（机动/防御/人机特权都一样）+【流派秘技】。
     //
-    // ⚠️ 这一档暂时和帝级差得不够开，是【已知待办】而不是设计终点：帝级已经把机动与
-    // 防御拉到操作模型的上限，再往上加倍率就只剩"更疼"，那正是本表开头否掉的做法。
-    // 正确的加法是给这一档【新的内容】（三派各自的招牌秘技），不是继续堆数值。
+    // ⚠️ 这一档的差异【刻意不是数值】。帝级已经把机动与防御拉到操作模型的上限，
+    // 再往上加倍率就只剩"更疼"，那正是本表开头否掉的做法。神级点亮的是 cap.arte ——
+    // 三派各自的秘技（见 BT.ARTE），玩家在这一档才第一次见到北神流的「幻剑」。
+    // 秘技玩家也能用（用户定），所以它不是 boss 特权，是这一档 AI 才【会用】的招。
     routines: ['zoneOut', 'cornerPress', 'jumpQi', 'riseDive', 'crossBlink'],
     reactDelay: 70, cancel: 30, footsie: 0.3, punishCd: 1000,
     guardMin: 260, rtGap: 850, rtOdds: 1.8, ultCd: 4600,
@@ -468,7 +504,8 @@ BT.TIERS = {
       // ⚠️ 不许加 freeGuard，理由见帝级同名块。
     },
     // perfect：水神流 AI 的完美受流，只认反应层读招交的那次防御。
-    cap: { ult: true, react: true, punish: true, perfect: true },
+    // arte：会不会用【流派秘技】—— 这是神级唯一的独占能力。
+    cap: { ult: true, react: true, punish: true, perfect: true, arte: true },
     // ⚠️ decision 0.95 而不是"最快的 0.66"。这不是手滑 —— 诊断实测（scratchpad/ai-probe）
     // 神级有 【51% 的帧卡在自己的 attack 状态里】，而 attackLock 正是"探到威胁却出不了手"
     // 的第一大原因（29 帧 vs airborne 7 / stun 2）。平A 一记就锁 780ms，决策越快锁得越满，

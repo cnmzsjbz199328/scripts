@@ -177,6 +177,7 @@ class BladeTrinityScene extends Phaser.Scene {
     // 供 _resolveMelee 做时间轴扫掠用（低帧率下窗口可能整个夹在两帧之间）
     if (this._prevTime === undefined) this._prevTime = time;
     this._controlAI(time);
+    for (const f of this.fighters) this._tickPhantom(f, time);   // 幻剑分身跟帧 + 本体破绽描边
     for (const f of this.fighters) this._tickDefense(f, time);
     for (const f of this.fighters) this._resolveMelee(f);
     for (const f of this.fighters) this._tickSwingQi(f, time);   // 轨迹驱动：剑气贴刀相位→脱手
