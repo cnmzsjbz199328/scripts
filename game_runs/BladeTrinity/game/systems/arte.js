@@ -209,6 +209,11 @@ Object.assign(BladeTrinityScene.prototype, {
     this.cameras.main.shake(140, 0.009);
     window.GameAudio && GameAudio.play && GameAudio.play('slash');
 
+    // 剑神流奥义出刀：道场远景撕裂错位，露出底层雪山 (仅在 dojo 场景)
+    if (this.stageName === 'dojo' && this._startDojoSplitAnim) {
+      this._startDojoSplitAnim();
+    }
+
     // 判定：从自身横贯到前方一条水平带。纵向容差同近战闸门 → 【跳跃仍然躲得开】。
     const opp = this._opp(f);
     if (opp && opp.state !== 'down') {

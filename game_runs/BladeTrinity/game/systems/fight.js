@@ -190,6 +190,58 @@ Object.assign(BladeTrinityScene.prototype, {
           // scaleX 可选：纵向按地面线定标，横向另给一个值（见 config.js 的注释）
           .setOrigin(0.5, 0).setScale(l.scaleX || l.scale, l.scale).setDepth(l.depth)));
     }
+    // ── 剑神流奥义·撕裂露天底图层 (outdoor_far 垫底 + dojo far 切割上下两半) ──
+    if (this.textures.exists('far') && this.textures.exists('outdoor_far')) {
+      const scaleFar = 0.677;
+      const yCut = 475; // 44% 斩线位置 (源图 1920x1080)
+      const topH = yCut;
+      const botH = 1080 - yCut;
+
+      // ⚠️ 必须彻底 destroy 掉 map() 产生的原始整张 far 图（否则它会留在 depth -100 挡住下方的 outdoor_far！）
+      if (this.bgSets.dojo) {
+        const origFar = this.bgSets.dojo.find(im => im.texture && im.texture.key === 'far');
+        if (origFar) {
+          origFar.destroy();
+          this.bgSets.dojo = this.bgSets.dojo.filter(im => im !== origFar);
+        }
+      }
+
+      // ⚠️ Phaser 的 setCrop 是【原位裁剪】：裁出来的那块仍画在它在整张图里的原位置，
+      //    不会上移到对象锚点。所以上下两半的 y 都是 0——给下半张再加一次
+      //    topH*scaleFar 的偏移就是双重偏移，它会跑到 y≈643（屏幕只有 540）整个飞出画面，
+      //    留下的空洞直接把垫底的雪山露给玩家看（"没出刀下半部分就是雪山"就是这么来的）。
+      this.dojoCutY = topH * scaleFar;   // 斩线在屏幕上的 y，掀飞动画的 glow 也用它
+
+      // 露天雪山底层（只在屋顶被掀飞后从上半部分的空缺里露出来）- depth -100
+      // 裁到斩线为止：数字要换算到【纹理像素】——它的 scale 是 0.534 不是 scaleFar，
+      //    dojoCutY / 0.534 才是对应的纹理行数。下半张道场不透明本来就遮得住，
+      //    这一刀只是保险：任何时候雪山都不可能画到斩线以下。
+      this.dojoUnderlay = this.add.image(W / 2, 0, 'outdoor_far')
+        .setOrigin(0.5, 0).setScale(0.534).setDepth(-100).setVisible(false);
+      this.dojoUnderlay.setCrop(0, 0, 1920, this.dojoCutY / 0.534);
+
+      // 上半部分道场 - depth -90
+      this.dojoFarTop = this.add.image(W / 2, 0, 'far')
+        .setOrigin(0.5, 0).setScale(scaleFar).setDepth(-90).setVisible(false);
+      this.dojoFarTop.setCrop(0, 0, 1920, topH);
+      this.dojoFarTopBaseY = 0;
+      this.dojoFarTopBaseX = W / 2;
+
+      // 下半部分道场 - depth -89
+      this.dojoFarBottom = this.add.image(W / 2, 0, 'far')
+        .setOrigin(0.5, 0).setScale(scaleFar).setDepth(-89).setVisible(false);
+      this.dojoFarBottom.setCrop(0, topH, 1920, botH);
+      this.dojoFarBottomBaseY = 0;
+      this.dojoFarBottomBaseX = W / 2;
+
+      // 只有上下两半跟着 dojo 这套整体开关；雪山底层【不进这一组】——
+      // _showStage 的 setVisible(key === name) 会把整组一起点亮，
+      // 雪山进了组就等于开局即可见，掀飞前的道场就不再是封闭的了。
+      if (this.bgSets.dojo) {
+        this.bgSets.dojo.push(this.dojoFarTop, this.dojoFarBottom);
+      }
+    }
+
     this._showStage(0);
     // 台边警示：被逼到这里剑神流会破防。depth 25 压在前景（20）之上——
     // 它是玩法提示，不能被前景木板盖掉。
@@ -197,6 +249,66 @@ Object.assign(BladeTrinityScene.prototype, {
     const g = this.add.graphics().setDepth(25);
     g.fillStyle(0xff8a3b, 0.16);
     g.fillRect(0, FY, m, H - FY); g.fillRect(W - m, FY, m, H - FY);
+  },
+
+  // 剑神流奥义出刀：道场上半部分屋顶被彻底掀飞吹走，露出露天雪山 (每场仅触发一次，不影响招式正常使用)
+  _startDojoSplitAnim() {
+    if (!this.dojoFarTop || !this.dojoFarBottom) return;
+    if (this.dojoSplitDone) return; // 一场只被切开掀飞一次
+    this.dojoSplitDone = true;
+
+    const W = BT.GAME_W;
+    const topBaseX = this.dojoFarTopBaseX, topBaseY = this.dojoFarTopBaseY;
+    const botBaseX = this.dojoFarBottomBaseX, botBaseY = this.dojoFarBottomBaseY;
+
+    // 停止之前的缓动
+    this.tweens.killTweensOf([this.dojoFarTop, this.dojoFarBottom]);
+
+    // 雪山【到这一刻才存在】：在此之前它完全不渲染，室内是 100% 封闭的。
+    if (this.dojoUnderlay) this.dojoUnderlay.setVisible(true);
+
+    // 绘制爆发时的金光斩痕流光
+    if (this.dojoRiftGlow) this.dojoRiftGlow.destroy();
+    const glowG = this.add.graphics().setDepth(-85);
+    this.dojoRiftGlow = glowG;
+
+    // 阶段 1: 上半部分屋顶/墙面被剑气剧烈掀飞向左上方吹走 (彻底飞出屏幕，不再合拢)
+    this.tweens.add({
+      targets: this.dojoFarTop,
+      x: topBaseX - 450,
+      y: topBaseY - 350,
+      angle: -18,
+      alpha: 0,
+      duration: 700,
+      ease: 'Power2.easeOut',
+      onUpdate: () => {
+        // 动态绘制断裂瞬间的高亮斩线
+        if (glowG && this.dojoFarTop.alpha > 0.1) {
+          glowG.clear();
+          // 斩线钉在切口上，【不跟着飞走的上半张走】——它是刀留下的痕，
+          // 不是屋顶身上的一条边；跟着飞就成了往左上角划走的一道杠。
+          const midY = this.dojoCutY;
+          glowG.lineStyle(6, 0xffea9f, this.dojoFarTop.alpha);
+          glowG.lineBetween(0, midY - 2, W, midY - 6);
+          glowG.lineStyle(2, 0xffffff, this.dojoFarTop.alpha);
+          glowG.lineBetween(0, midY, W, midY - 4);
+        }
+      },
+      onComplete: () => {
+        this.dojoFarTop.setVisible(false);
+        if (glowG) glowG.destroy();
+      },
+    });
+
+    // 阶段 2: 下半部分残墙抖动微沉留存
+    this.tweens.add({
+      targets: this.dojoFarBottom,
+      x: botBaseX + 12,
+      y: botBaseY + 16,
+      angle: 1.2,
+      duration: 250,
+      ease: 'Back.easeOut',
+    });
   },
 
   // 动态背景层：序列帧各自独立纹理，建一条 anim 循环播。
@@ -223,6 +335,20 @@ Object.assign(BladeTrinityScene.prototype, {
       imgs.forEach((im) => im.setVisible(key === name));
     }
     this.stageName = name;
+
+    // 重置道场背景撕裂状态 (新一场重置，可重新掀飞屋顶)
+    this.dojoSplitDone = false;
+    if (this.dojoFarTop && this.dojoFarBottom) {
+      this.tweens.killTweensOf([this.dojoFarTop, this.dojoFarBottom]);
+      this.dojoFarTop.setPosition(this.dojoFarTopBaseX, this.dojoFarTopBaseY)
+        .setAngle(0).setAlpha(1).setVisible(name === 'dojo');
+      this.dojoFarBottom.setPosition(this.dojoFarBottomBaseX, this.dojoFarBottomBaseY)
+        .setAngle(0).setAlpha(1).setVisible(name === 'dojo');
+      // 雪山不属于任何一套背景组，复位靠这一行：新一场道场重新封闭
+      if (this.dojoUnderlay) this.dojoUnderlay.setVisible(false);
+      if (this.dojoRiftGlow) this.dojoRiftGlow.destroy();
+    }
+
     // 落叶属于室外：室内道场只留几片被风卷进来的，室外那场（枫树/银杏就在前景里）开满
     if (this._setLeafDensity) this._setLeafDensity(name === 'outdoor' ? 1 : 0.3);
   },
