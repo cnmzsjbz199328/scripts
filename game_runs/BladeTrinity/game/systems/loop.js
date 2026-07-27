@@ -234,20 +234,65 @@ Object.assign(BladeTrinityScene.prototype, {
       return true;
     }
 
-    // 已成形：【停手】。别贴脸站着 —— 拉开到刀程外等它收，这也顺带把玩家的
-    // "我可以自由出手"兑现成真的压制（施术者得追上来才打得到）。
+    // 已成形：【停手 + 保命】。停手只解决"不自伤"，解决不了"这 6 秒白挨打" ——
+    // 剥夺彻底之后界内输出恒为 0，能不能活着出去全看这一段的机动。
     if (f.state === 'attack' || f.charging) {
       // 已经出手的那一刀收不回来（收招段不可取消），但会弃招的档位可以现在就撤
       if (this._aiCancelWindow && this._aiCancelWindow(f, time)) { this._setState(f, 'idle'); }
       else return true;
     }
     if (!this._canAct(f)) return true;
+    const onGround = sp.body.blocked.down;
+    const away = -dir;
+
+    // ① 有东西要打到我了 → 【机动躲开】，不要拿防御去换。
+    //
+    // ⚠️ 威胁探测必须走 _incomingThreat（近战 + 弹丸归一成 eta），【不能用 _threatLive】。
+    // _threatLive 只认近战（`opp.state === 'attack'` + 刀程），而施术者在自己界内是
+    // 【可以自由放剑气】的 —— 用它做判据，AI 对界内飞来的剑气零响应，站着一发一发挨，
+    // 观感就是"帝级/神级根本没在躲"（用户实测反馈，也是本分支第一版的真 bug）。
+    // 这也正是反应层当初从"嗅探 opp.state"改成 eta 的同一个理由，见 routine.js。
+    //
+    // ⚠️ 躲法按威胁种类分，不是固定顺序：
+    //   · 剑气 → 【跳】。它从脚下穿过，[qiEtaMin, qiEtaMax] 就是解析解出来的可躲窗口
+    //     （h(t)>hitH 的区间，是 BT.JUMP_VY 的函数，别当独立旋钮调）。
+    //   · 近战 → 【缩地】。260ms 无敌 + 215px 横移，还顺带拉开距离；光跳起来落回原地
+    //     还在刀程里，带 lunge 的下一刀接着就到。
+    //   · 都来不及（eta 太短，跳起来赶不上）→ 架防。它【排最后】：界内挡下已经转不成
+    //     任何输出（会心被剥夺），brace 还要吃蓝，纯亏时间。
+    // ⚠️ 贴墙也照样缩地：位移会被 _clampX 吃掉，但 260ms 无敌照给 —— 这一段要的是
+    //    无敌不是位移，别学下面 ② 那样拿 room 把它挡掉。
+    const A = BT.AI_RT;
+    const th = this._incomingThreat(f, opp, dist);
+    const lead = th && th.kind === 'qi' ? (A.guardLeadQi || A.guardLead) : A.guardLead;
+    if (th && th.eta <= lead) {
+      const canBlink = onGround && time >= (f.mistReady || 0);
+      // 起跳没有独立冷却，落地才起得来 —— onGround 本身就是节流，别再另设时钟
+      const canJump = onGround && th.eta >= A.qiEtaMin && th.eta <= A.qiEtaMax;
+      const jumpAway = () => {
+        sp.setVelocityY(-BT.JUMP_VY);
+        sp.setVelocityX(f.def.speed * away * 0.6);   // 边跳边往外飘，落点离刀更远
+        this._playAir(f);
+      };
+      if (th.kind === 'qi') {
+        if (canJump) { jumpAway(); return true; }
+        if (canBlink) { this._doAIBlink(f, 'ground', away, time); return true; }
+      } else {
+        if (canBlink) { this._doAIBlink(f, 'ground', away, time); return true; }
+        if (canJump) { jumpAway(); return true; }
+      }
+      this._aiGuard(f, time, A.baitHold);
+      return true;
+    }
+
+    // ② 没有立即威胁 → 拉开到刀程外等它收。这也顺带把玩家的"我可以自由出手"
+    //    兑现成真的压制（施术者得追上来才打得到）。
     const safe = opp.def.reach + BT.ATTACK[opp.id].lunge + BT.BODY_HALF_W + 40;
-    if (dist < safe && sp.body.blocked.down) {
-      const away = -dir;
-      // 退到墙角就没地方退了 → 改成架防等它过去（剑界不吃防御，但挡得住施术者的刀）
+    if (dist < safe && onGround) {
+      // 退到墙角就没地方退了 → 换缩地翻出去；缩地也在冷却就只能架防等它过去
       const room = away < 0 ? sp.x - BT.EDGE_X : BT.GAME_W - BT.EDGE_X - sp.x;
       if (room > BT.WALL_ROOM) { sp.setVelocityX(f.def.speed * away); this._setWalk(f, away); return true; }
+      if (time >= (f.mistReady || 0)) { this._doAIBlink(f, 'ground', dir, time); return true; }  // 贴墙 → 朝对手那侧翻过去
       this._aiGuard(f, time, BT.AI_RT.baitHold);
       return true;
     }

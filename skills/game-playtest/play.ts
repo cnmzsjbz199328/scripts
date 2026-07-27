@@ -217,7 +217,52 @@ interface Probe {
           const defending = now < defendHoldUntil;
           await setKey('s', defending);
 
-          if (chargeTimeRemaining > 0) {
+          if (P.oppRealm === 'stop') {
+            // ──「剥夺剑界」成形：界内【一切进攻输出都会弹回自己】(realm.js) ──
+            // 平A/剑气原样反弹，三派会心直接被剥夺 —— 出手在这 6 秒里没有任何收益，
+            // 只有净亏。所以这一支【排在最前】，压过蓄力/防御/惩罚所有分支。
+            //
+            // ⚠️ 正解的顺序是 缩地 → 跳跃 → 架防，和 AI 侧 _aiVsRealm 保持一致：
+            //   · 缩地 260ms 无敌，唯一"确定躲得掉"的手段
+            //   · 跳跃越过近战纵向闸门（_resolveMelee 的 |Δy| ≥ 96），顶点 172.8px
+            //   · 架防排最后：界内挡下已转不成任何输出，brace 还吃蓝，纯亏时间
+            // ⚠️ 蓄力中的那一发【救不回来】：松 L 就会放出去，然后在剑界前掉头打回自己。
+            //    这里只把计时清零止损，别为了"等剑界收了再放"一直按住 —— 蓄力有上限，
+            //    按住不放照样会自己脱手，还白站 6 秒。
+            chargeTimeRemaining = 0;
+            await setKey('l', false); await setKey('j', false);
+            const out = dx > 0 ? -1 : 1;                  // 远离施术者的方向
+            // 躲法按威胁种类分（口径同 AI 侧 _aiVsRealm）：剑气从脚下穿过 → 跳；
+            // 近战 → 缩地拉开（跳起来落回原地还在刀程里，带 lunge 的下一刀接着就到）。
+            if (P.oppThreat && P.threatKind === 'qi' && P.canJumpDodge) {
+              await setKey('ArrowRight', out > 0); await setKey('ArrowLeft', out < 0);
+              await tap('ArrowUp', 80);
+            } else if (P.oppThreat && P.canBlink && now > nextBlinkTime) {
+              // ⚠️ 方向键要和 Space 同帧按下：_doBlink 读的是【当前按住的左右键】，
+              // 没按就按面向走 —— 面向恒指对手，等于朝着刀缩过去。
+              await setKey('ArrowRight', out > 0); await setKey('ArrowLeft', out < 0);
+              await tap('Space', 70);
+              nextBlinkTime = now + 900;                  // BT.BLINK.groundCd=820，留点余量
+              await relMove();
+            } else if (P.oppThreat && P.canJump) {
+              await setKey('ArrowRight', out > 0); await setKey('ArrowLeft', out < 0);
+              await tap('ArrowUp', 80);
+            } else if (P.oppThreat) {
+              await relMove(); await setKey('s', true); defendHoldUntil = now + 240;
+            } else {
+              // 没有立即威胁 → 退到刀程外等它收（施术者得追上来才打得到）
+              await setKey('s', false);
+              const clear = dist > P.myReach + 140;
+              await setKey('ArrowRight', !clear && out > 0);
+              await setKey('ArrowLeft', !clear && out < 0);
+            }
+          } else if (P.oppRealm === 'break') {
+            // 起手 820ms：圆环尚未成形，这一段【不剥夺】，挨一下剑界就作废、对方 90 蓝白扣。
+            // 所以反过来抢着打进去 —— 这是剑界仅有的两个正解之一（另一个是躲满 6 秒）。
+            await setKey('l', false); await setKey('s', false);
+            await setKey('ArrowRight', dx > 15); await setKey('ArrowLeft', dx < -15);
+            if (dist < P.myReach + 40) await tap('j', 70);
+          } else if (chargeTimeRemaining > 0) {
             // 正在蓄力剑气：站定按住 L，蓄够就松
             chargeTimeRemaining -= tickMs;
             await setKey('l', true); await relMove(); await setKey('s', false);
@@ -347,6 +392,14 @@ interface Probe {
       // 会心是防御成功后的 25% 掷骰，天然会有 0 的局；不当失败，但要说出来，
       // 免得"覆盖 OK"被读成"会心演出验过了"。
       if (!usage.crit) metrics.notes.push('会心 crit×0（防御成功后的概率演出，本局未触发）');
+      // ⚠️ realmSelfHit 与上面那些【方向相反】：它是"bot 往剥夺剑界里白送了几次自伤"，
+      // 越低越好，0 才是学会了。别看到数字大就当成"这一招演出验到了"——
+      // 验剑界演出该看 aiArte（电脑放了几次），realmSelfHit 只衡量 bot 蠢不蠢。
+      if (usage.realmSelfHit > 0) {
+        metrics.notes.push(`⚠️ 界内自伤 realmSelfHit×${usage.realmSelfHit} —— bot 在剥夺剑界成形后仍然出手，应为 0（正解是缩地/跳跃躲满 6 秒或抢在起手段打断）`);
+      } else if (usage.aiArte > 0) {
+        metrics.notes.push(`界内应对 OK: realmSelfHit×0 / 被剥夺会心×${usage.realmDeprive || 0}`);
+      }
     }
 
     // 收尾：保存最终截图 + 视频

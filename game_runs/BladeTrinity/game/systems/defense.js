@@ -241,7 +241,13 @@ Object.assign(BladeTrinityScene.prototype, {
         this._outlinePunch(target);               // 完美受流：描边猛顶一下
         this.cameras.main.shake(90, 0.005);
         // 会心 → 三段返伤（近战没有剑气可弹，用它对齐"连弹"的三次伤害）
-        if (this._rollCrit(target)) this._critMeleeReflect(target, attacker, Math.round(dmg * d.reflect));
+        //
+        // 「剥夺剑界」：界内【卸力成立、返伤归零】。卸掉对手是防御的本分（免伤 + 硬直），
+        // 而把这一击原样打回去已经是输出了，正是被剥夺的那一步。
+        // ⚠️ 判据不能写进 _reflectDamage：剑界【自己】反弹近战时调的就是它
+        //（combat.js _hit），加在里面等于剑界把自己的反弹也剥夺掉。只能加在调用点。
+        if (this._realmDeprives(target)) this._realmDeprivePop(target);
+        else if (this._rollCrit(target)) this._critMeleeReflect(target, attacker, Math.round(dmg * d.reflect));
         else this._reflectDamage(attacker, Math.round(dmg * d.reflect));
         return { dealt: 0, blocked: true, negated: false, pushback: 24 };
       }
@@ -256,6 +262,11 @@ Object.assign(BladeTrinityScene.prototype, {
       // 唯一的节流是飞刀冷却：冷却中仍然免伤，只是这一下不甩刀，避免连挨打时刷屏。
       const d = BT.DEFENSE.counter;
       this._outlinePunch(target);                  // 挡下：描边猛顶一下
+      // 「剥夺剑界」：界内【免伤成立、这一刀甩不出去】。
+      // ⚠️ 曾经是"照常甩，然后被 _qiVsTarget 掉头扎回自己"——那是三派里唯一一处
+      // 防御会自伤的地方，且玩家无从预料（甩不甩由 knifeCd 决定）。现在与另两派统一：
+      // 防御转攻这一步被剥夺，不触发。冷却也别推进，界内白扔一次冷却没道理。
+      if (this._realmDeprives(target)) { this._realmDeprivePop(target); return { dealt: 0, blocked: true, negated: false, pushback: d.pushback }; }
       if (this.time.now >= target.counterReady) {
         target.counterReady = this.time.now + d.knifeCd;
         target.counterFired = false;

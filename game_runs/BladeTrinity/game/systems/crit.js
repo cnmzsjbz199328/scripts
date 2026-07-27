@@ -18,6 +18,17 @@ Object.assign(BladeTrinityScene.prototype, {
   // 防御演出，高档位该更常见（玩家侧不受档位影响，那是玩家自己的手感基线）。
   _rollCrit(f) {
     if (!BT.CRIT || f.state === 'down') return false;
+    // 「剥夺剑界」：界内【会心根本不掷】。三派的会心都是防御成功后的转攻——三连劈砍 /
+    // 三重返 / 连弹 / 返し飞刀——剥夺剑界剥夺的正是这一步。
+    //
+    // ⚠️ 掐在【掷骰】而不是掐在伤害上。会心是随机的，玩家没法选择不触发它：把它做成
+    // "打出去再弹回自己"等于按 S 有概率莫名掉血，读作随机惩罚而不是"我不该出手"。
+    // 掐在这里，玩家看到的是"我挡住了，但反击被吃掉了"——和这一招的名字对得上。
+    // 防御本身不受影响：完全免伤/卸力硬直照常成立（见 realm.js 文件头）。
+    if (this._realmDeprives(f)) {
+      this._realmDeprivePop(f);
+      return false;
+    }
     const T = this._tierCfg && this._tierCfg();
     const m = (f === this.p2 && T && T.mul && T.mul.crit != null) ? T.mul.crit : 1;
     const hit = Math.random() < BT.CRIT.chance * m;
@@ -36,6 +47,18 @@ Object.assign(BladeTrinityScene.prototype, {
   // 这是读招成功的奖励演出，判定上当作"必中的一段脚本"，不再走一次防御博弈。
   _critHit(attacker, target, dmg, dir) {
     if (!target || target.state === 'down') return;
+    // 「剥夺剑界」：绕过 _hit 不等于绕过剑界。这条口现在只剩【主动招】会走到——
+    // 剑神抜刀（arte.js）走这里结算，而它是主动按键出的手，所以按主动进攻处理：
+    // 【原样弹回自己】+ 倒影劈砍，和平A/剑气一个待遇。
+    //
+    // ⚠️ 防御触发的会心【到不了这里】：已在 _rollCrit 掐掉（那是随机骰，见上）。
+    // 这条留着是承重的兜底 —— 以后谁再往 _critHit 上挂新的主动招，剥夺自动成立。
+    if (this._realmDeprives(attacker)) {
+      this._realmNoteSelfHit(attacker);
+      this._reflectDamage(attacker, dmg);
+      this._mirrorStrike(attacker);
+      return;
+    }
     if (attacker === this.p2) dmg = Math.round(dmg * this._aiDmgScale());   // 难度旋钮×档位同 _damageOf
     if (typeof navigator !== 'undefined' && navigator.webdriver) {
       dmg = Math.round(dmg * (target === this.p2 ? 3 : 0.3));              // playtest bot 让步，同 _hit

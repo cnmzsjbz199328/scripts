@@ -1,12 +1,31 @@
 /* BladeTrinity — 水神流奥义「剥夺剑界」。6 秒领域，界内对手出手即自伤。
  *
- * ─── 机制只有一个判据：_realmReflects ───
- * 反弹逻辑本身分散在三处钩子里，但它们【都只问这一个函数】，别在别处另写条件：
- *   · 近战  combat.js  _hit          → 命中前拦下，改走 _reflectDamage + _mirrorStrike
- *   · 弹丸  charge.js  _qiVsTarget   → 整道掉头改归属（q.crit 的豁免）
- *   · AI    loop.js    _controlAI    → 走 _realmVs：成形了就停手，起手段就抢着打断
- * 会心【绝对不被反弹】：近战会心走 crit.js _critHit 天然绕过 _hit 自动豁免，弹丸会心
- * 靠 q.crit 显式放行。那是对手在剑界里唯一的输出途径，反弹掉这一招就成了无解。
+ * ─── 机制只有一个判据：_realmDeprives ───
+ * 「界内非施术者的一切进攻输出都被剥夺」。判据只有这一个函数，六处钩子全问它，
+ * 别在别处另写条件：
+ *   · 近战    combat.js  _hit          → 命中前拦下，改走 _reflectDamage + _mirrorStrike
+ *   · 弹丸    charge.js  _qiVsTarget   → 整道掉头改归属
+ *   · 会心骰  crit.js    _rollCrit     → 【不触发】（防御照常免伤，只是转不成攻击）
+ *   · 脚本伤  crit.js    _critHit      → 反弹（抜刀这类主动招走这条口）
+ *   · 受流返伤 defense.js _resolveDefense → 免伤保留、返伤归零
+ *   · 返し飞刀 defense.js _resolveDefense → 免伤保留、这一刀甩不出去
+ *   · AI      loop.js    _controlAI    → 走 _realmVs：成形了就停手，起手段就抢着打断
+ *
+ * ⚠️ 会心【曾经是豁免的】（近战走 _critHit 绕过 _hit、弹丸靠 q.crit 显式放行），当时
+ * 叫"承重墙"：怕反弹掉它这一招就无解。已按设计决定推翻 —— 剥夺就该是彻底的，否则
+ * 这一招只是"更强的防御"而不是"支配规则"。取而代之的两条出路是【起手 820ms 抢断】
+ * 与【6 秒纯闪避】（跳跃越过近战纵向闸门 96px / 缩地 260ms 无敌），见 BT.REALM。
+ *
+ * ⚠️ 两种剥夺形态【不可互换】，这是可读性决定的：
+ *   · 主动进攻（平A / 剑气 / 抜刀）→ 【反弹自伤】。是玩家自己按的键，倒影劈砍把因果
+ *     说完整。
+ *   · 防御触发的会心（三连 / 三重返 / 连弹 / 返し飞刀）→ 【直接不触发】。会心是
+ *     _rollCrit 的随机掷骰，玩家没法选择不触发它 —— 做成自伤等于"按 S 有概率莫名
+ *     掉血"，玩家学到的是"随机惩罚"而不是"我不该出手"。
+ *
+ * ⚠️ 防御本身【不是进攻】：完全免伤/卸力硬直照常成立，被剥夺的只有"把防守转成
+ * 输出"这一步。全砍掉的话界内连活路都没有了（brace 吃蓝、闪避吃冷却，那是设计好的
+ * 生存经济，别顺手拆掉）。
  *
  * ─── 表现由三件事组成 ───
  * ① 外扩圆环：剑界的边界。半径 = 这一招的可视读数，不需要任何 UI。
@@ -62,14 +81,33 @@ if (typeof Phaser !== 'undefined' && Phaser.Renderer.WebGL) {
 Object.assign(BladeTrinityScene.prototype, {
 
   // ─────────── 机制的唯一判据 ───────────
-  // owner 的剑界此刻是否把 who 的这一击弹回去。三处钩子（combat.js _hit、
-  // charge.js _qiVsTarget、loop.js _controlAI 的 AI 停手）全部只问这一个函数。
+  // f 此刻是否被剥夺（= 在别人的剑界里，且剑界已成形）。文件头列的六处钩子全问它。
   //
-  // ⚠️ open 段【不反弹】。圆环还没成形，这 820ms 正是设计里留给对手"抢在成形前打掉它"
+  // ⚠️ open 段【不剥夺】。圆环还没成形，这 820ms 正是设计里留给对手"抢在成形前打掉它"
   // 的窗口（见 BT.REALM）—— 起手就生效的话那个选项自己就不存在了。
+  _realmDeprives(f) {
+    const rm = this.realm;
+    return !!rm && !!f && rm.owner !== f && rm.phase !== 'open';
+  },
+
+  // owner 的剑界此刻是否把 who 的这一击弹回去。语义 = "who 被剥夺，且剥夺者正是 owner"。
+  // 留着它是因为近战/弹丸两处钩子手里拿的是【被打的那一方】，要确认反弹的归属。
   _realmReflects(owner, who) {
     const rm = this.realm;
-    return !!rm && rm.owner === owner && rm.phase !== 'open' && who && who !== owner;
+    return !!rm && rm.owner === owner && this._realmDeprives(who);
+  },
+
+  // 「剥奪」提示：防御成立但转不成输出的那一下。用灰蓝而不是水蓝 —— 水蓝是剑界
+  // 自己的颜色（圆环/倒影），那是施术者的读数；被剥夺的一方看到的该是"被吃掉了"。
+  _realmDeprivePop(f) {
+    this._popText(f.sprite.x, f.sprite.y - 84, '剥奪', '#7a90a0');
+    if (this._usage && f === this.p1) this._usage.realmDeprive++;
+  },
+
+  // 遥测：玩家在界内出手、被弹回自己的次数（近战 / 弹丸 / 抜刀三处调用）。
+  // playtest 拿它断言"bot 学会了界内不出手"—— 目标是 0，不是越多越好。
+  _realmNoteSelfHit(f) {
+    if (this._usage && f === this.p1) this._usage.realmSelfHit++;
   },
 
   // 「界内对手该停手」的对外读数：给 AI 用（loop.js）也给探针用。

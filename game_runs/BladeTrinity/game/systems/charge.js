@@ -446,10 +446,12 @@ Object.assign(BladeTrinityScene.prototype, {
     // 「剥夺剑界」：界内飞来的弹丸【整道掉头】打回发弹方。排在三派防御分流之前 ——
     // 剑界的语义是"对方出手即自伤"，不是"更强的一种防御"，施术者不必在防御态。
     //
-    // ⚠️ q.crit 的弹丸【不掉头】（会心的连弹/回旋镖）。近战会心走 _critHit 天然绕过
-    // 结算所以自动豁免，弹丸这条是真的会走到这里，必须显式放行 —— 防住触发的会心是
-    // 对手在剑界里唯一的输出途径，弹回去这一招就成了无解（见 BT.REALM 的承重墙那条）。
-    if (this._realmReflects(target, q.owner) && !q.crit && !q.realmFlip) {
+    // ⚠️ 这里【没有会心豁免】。q.crit 曾经放行（会心的连弹/回旋镖不掉头），已随
+    // "剥夺要彻底"的设计决定去掉 —— 界内的会心现在在 _rollCrit 就掷不出来，所以
+    // 正常打不出会心弹丸；这条 realmFlip 之外不设例外，是为了兜住【起界之前就已经
+    // 在飞】的回旋镖：它一头扎进剑界照样掉头。别把 q.crit 加回来。
+    if (this._realmReflects(target, q.owner) && !q.realmFlip) {
+      this._realmNoteSelfHit(q.owner);
       q.dir *= -1;
       q.owner = target;
       // 只改归属与方向，外观仍用【原流派】的挥砍角 —— 同 parry 反弹那条注释：

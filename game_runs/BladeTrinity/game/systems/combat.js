@@ -190,9 +190,11 @@ Object.assign(BladeTrinityScene.prototype, {
     //
     // ⚠️ 排在 invuln 检查【之前】。剑界改写的是"出手"这件事本身，跟施术者当下有没有
     // 受击无敌无关 —— 排在后面，施术者刚挨过一下的那 380ms 里剑界会静默失效。
-    // ⚠️ 会心不走这里（crit.js 的 _critHit 直接结算），所以自动豁免 —— 那是对手在
-    // 剑界里唯一的输出途径，见 BT.REALM 的【承重墙】那条。
+    // ⚠️ 会心不走这里（crit.js 的 _critHit 直接结算），所以【这条钩子拦不住它】——
+    // 会心的剥夺在 crit.js 自己那两处（_rollCrit 不掷 / _critHit 反弹）。别以为
+    // 拦住 _hit 就拦住了全部伤害，四个扣血口见 realm.js 文件头的钩子清单。
     if (this._realmReflects(target, attacker)) {
+      this._realmNoteSelfHit(attacker);
       this._reflectDamage(attacker, dmg);
       this._mirrorStrike(attacker);
       return;

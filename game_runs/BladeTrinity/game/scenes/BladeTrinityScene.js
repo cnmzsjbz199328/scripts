@@ -142,6 +142,20 @@ class BladeTrinityScene extends Phaser.Scene {
       // canDefend 的语义是【此刻按防御键有意义吗】——bot 就是拿它决定要不要按 S 的。
       // 三派统一为长按态后这里不再分流派：条件就是"能行动且落地"。
       const canDefend = canAct && onGround;
+      // ── 「剥夺剑界」：bot 在界内的唯一情报源 ──
+      // 'stop' = 已成形，我方一切进攻输出都被剥夺（realm.js）；'break' = 还在起手
+      // 820ms，打进去能废掉它；null = 没这回事。
+      // ⚠️ 这条以前【完全没有】，bot 于是照常贴脸平A，整局往剑界里白送 6~8 次自伤
+      //（usage.realmSelfHit 实测）。探针不报，bot 再聪明也读不到。
+      const realmVs = this._realmVs ? this._realmVs(a) : null;
+      // 此刻有没有东西要打到我，以及【还有多久到】。走 AI 那套 _incomingThreat：
+      // 近战招与飞行弹丸归一成 eta，口径与 AI 侧完全一致。
+      // ⚠️ 别退回"只看 e.state === 'attack' + 刀程"的写法：施术者在自己界内可以自由放
+      // 剑气，只认近战的话 bot 对界内飞来的剑气零响应，站着一发一发挨（AI 侧犯过同样的错）。
+      const th = this._incomingThreat ? this._incomingThreat(a, e, dist) : null;
+      const thLead = th && th.kind === 'qi'
+        ? (BT.AI_RT.guardLeadQi || BT.AI_RT.guardLead) : BT.AI_RT.guardLead;
+      const oppThreat = !!th && th.eta <= thLead;
       return {
         x: sp.x, y: sp.y, vx: sp.body.velocity.x, onGround: sp.body.blocked.down,
         hp: a.hp, maxHp: a.maxHp,
@@ -157,8 +171,13 @@ class BladeTrinityScene extends Phaser.Scene {
         // attack 保持"在射程内就报 true"：Phaser 的 JustDown 事件会留到下一次
         // update 才被读取，密集按反而更容易卡到可行动的那一帧。
         // 试过改成只在 _canAct 时上报，bot 胜率反而从 3/5 掉到 2/6。
-        moveX: !fighting ? 0 : inRange ? 0 : Math.sign(dx), moveY: 0, attack: inRange,
-        dangerNow: false, dangerAhead: false,
+        // ⚠️ 剑界成形时 attack 强制报 false、moveX 掉头往外：这两个字段是【契约】，
+        // 俯视 bot 和横版 bot 都直接照着按键。只加 oppRealm 让 bot 自己判断是不够的 ——
+        // 任何一条没读到它的旧分支都会继续把 bot 送进去自伤。这里先兜住底。
+        moveX: !fighting ? 0 : realmVs === 'stop' ? -Math.sign(dx || 1)
+          : inRange ? 0 : Math.sign(dx),
+        moveY: 0, attack: realmVs === 'stop' ? false : inRange,
+        dangerNow: realmVs === 'stop', dangerAhead: false,
         // ── 敌方遥测（bot 反应式打法的依据）──
         oppState: e.state, oppDist: dist, oppHp: e.hp, oppMaxHp: e.maxHp,
         oppStartup, oppActive, oppFeint, oppCharging: !!e.charging,
@@ -168,6 +187,17 @@ class BladeTrinityScene extends Phaser.Scene {
         // 是玩家/bot 唯一确定的进攻窗口（反制方式就是冲进去打断）；
         // oppPhantom = 三体挥刀中（本体满色、分身去饱和）。
         oppIai: !!e.iai, oppPhantom: !!e.phantom,
+        // 剥夺剑界：'stop' 界内（出手即自伤，只能躲）/ 'break' 起手段（打进去能废掉它）/ null
+        oppRealm: realmVs, oppThreat,
+        // 威胁种类与剩余时间：bot 据此选躲法 —— 剑气用跳（从脚下穿过，可躲窗口
+        // [qiEtaMin, qiEtaMax]），近战用缩地（260ms 无敌 + 拉开距离）
+        threatKind: th ? th.kind : null, threatEta: th ? th.eta : null,
+        canJumpDodge: canAct && onGround && !!th &&
+          th.eta >= BT.AI_RT.qiEtaMin && th.eta <= BT.AI_RT.qiEtaMax,
+        // 我方机动是否可用：缩地 260ms 无敌是界内唯一"确定躲得掉"的手段，
+        // bot 拿它决定该缩地还是该起跳（两者都不行才退到架防）
+        canBlink: canAct && onGround && now >= (a.mistReady || 0),
+        canJump: canAct && onGround,
         // ── 我方能力现状 ──
         myDef: a.def.defense, canDefend, myReach: a.def.reach,
         tier: this.curTierId || null, tierName: (this.curTier && this.curTier.name) || null,

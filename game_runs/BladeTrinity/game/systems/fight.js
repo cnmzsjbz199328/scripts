@@ -9,7 +9,10 @@ Object.assign(BladeTrinityScene.prototype, {
     // 技能覆盖度计数（整局累计）：playtest 据此断言 bot 用没用全每一类技能。
     // arte = 玩家放了几次流派秘技；aiArte = 电脑放了几次（高档独占内容的验收口，
     // 见 arte.js _payArte —— 没有它就只能靠人眼数，而这招踩过无头计时坑）
-    this._usage = { attack: 0, charge: 0, defend: 0, crit: 0, blink: 0, jump: 0, arte: 0, aiArte: 0 };
+    // realmSelfHit / realmDeprive：界内出手被弹回自己 / 界内会心被剥夺（见 realm.js）。
+    // 这两个【越低越好】，和上面那些"用没用满"的覆盖度计数方向相反，别混着断言。
+    this._usage = { attack: 0, charge: 0, defend: 0, crit: 0, blink: 0, jump: 0, arte: 0, aiArte: 0,
+                    realmSelfHit: 0, realmDeprive: 0 };
     this.oppQueue = BT.ROSTER.filter((id) => id !== p1Id);   // 另两家，按 ROSTER 序
     this._applyTier();
     this._showStage(0);          // 重开也要回到第 1 场的室内道场
