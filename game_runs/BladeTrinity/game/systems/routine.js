@@ -53,6 +53,11 @@ Object.assign(BladeTrinityScene.prototype, {
   // 代价是这一刀白挥（伤害没打出去）—— 观感正是"他为了防我把刀收了"，读得出来。
   // 仍要求 atkCancelable：蓄力剑气那一挥掐了就没剑气了（见 _aiCancelWindow 注释）。
   _aiAbortForGuard(f, time) {
+    // 【上膛了秘技的这一刀不弃】。guardCancel 允许任意时刻弃招回防，而反应层每帧跑、
+    // 高档 reactDelay 只有 70ms —— 掷中秘技后的那 170~200ms 里几乎必被自己掐掉，
+    // 且 guardBias/guardOnAttack 倍率最高的正是最高档，于是"越强越不用独占招"（倒挂）。
+    // 这一刀本来就是要转招的，收了它等于把这一档的独占内容退还给随机数。
+    if (f.arteArmed) return false;
     if (this._aiCancelWindow(f, time)) return true;
     return f.state === 'attack' && f.atkCancelable && !!this._bypass(f).guardCancel;
   },

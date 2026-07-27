@@ -109,6 +109,10 @@ Object.assign(BladeTrinityScene.prototype, {
     // 居合架式同理：'iai' 不在 _canAct 白名单，放到后面就再没人推进它，AI 会永远
     // 站在架式里 —— 而且它是【故意不设防】的一段，卡住等于把整场送给玩家。
     if (f.iai) { this._tickIai(f, time); return; }
+    // 上膛的秘技（combat.js _attack 掷中 → arte.js _aiTickArte 转招）。
+    // ⚠️ 必须排在反应层之前：反应层 + guardCancel 会在 holdMs 内把这一刀收掉，
+    // 详见 _aiTickArte 的注释。
+    if (this._aiTickArte(f, time)) return;
     const T = this._tierCfg(), cap = T.cap, mul = T.mul;
     const dx = opp.sprite.x - sp.x, dist = Math.abs(dx), dir = dx > 0 ? 1 : -1;
 
@@ -267,6 +271,15 @@ Object.assign(BladeTrinityScene.prototype, {
     // mpReserve 至少要够一次 guardCost(34)/qiGuardCost(52)。只有 brace 真正吃这条，
     // 另两派不看蓝，留一点也不影响（换来的是奥义节奏稍缓，观感反而没那么轰炸）。
     if (f.mp < BT.MP.ultCost + (this._tierCfg().mpReserve || 0)) return null;
+    // ⚠️ 剑气还要给【流派秘技】让位。奥义判在决策层最前面，只给防御留了 mpReserve，
+    // 给秘技【一分没留】—— 抜刀 70 / 剑界 90 和奥义 100 抢同一管蓝，而一发奥义每
+    // ultCd(4600ms) 就吃掉约 regen 的全部回复（23/s ≈ 106/4.6s）。结果是"最高档独占的
+    // 那记招"常年凑不出蓝，玩家看到的仍然只是剑气。
+    // 判据只挡【此刻秘技放得出、放了奥义就放不出】这一种情形：两样都凑不出时不干预，
+    // 免得把整档的奥义一起掐掉（水神剑界 90 + 100 = 190，那样一场剑气都见不到）。
+    const arte = this._arteCfg && this._arteCfg(f);
+    if (arte && this._tierCfg().cap.arte && time >= (f.arteReady || 0) &&
+        f.mp >= arte.cost && f.mp - BT.MP.ultCost < arte.cost) return null;
     const far = dist >= BT.AI.ultMinDist;
     if (!far && !canZone) return null;
     if (Math.random() >= BT.AI.ultChance * (ultMul == null ? 1 : ultMul)) return null;

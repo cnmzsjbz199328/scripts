@@ -164,6 +164,10 @@ class BladeTrinityScene extends Phaser.Scene {
         oppStartup, oppActive, oppFeint, oppCharging: !!e.charging,
         // 当前套路名（routine.js）：playtest 据此断言高档 AI 真的把套路打出来了
         oppRoutine: e.rt ? e.rt.id : null,
+        // 秘技现况（arte.js）：oppIai = 正在摆居合架式 —— 这一段它【故意不设防】，
+        // 是玩家/bot 唯一确定的进攻窗口（反制方式就是冲进去打断）；
+        // oppPhantom = 三体挥刀中（本体满色、分身去饱和）。
+        oppIai: !!e.iai, oppPhantom: !!e.phantom,
         // ── 我方能力现状 ──
         myDef: a.def.defense, canDefend, myReach: a.def.reach,
         tier: this.curTierId || null, tierName: (this.curTier && this.curTier.name) || null,

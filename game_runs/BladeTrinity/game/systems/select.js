@@ -49,7 +49,7 @@ Object.assign(BladeTrinityScene.prototype, {
   },
 
   // ─────────── 难度徽章（折进选人屏，不新开菜单，守「即开即玩」）───────────
-  // 一行五枚徽章：上→圣→王→帝→神。默认落在王级（BT.TIER_DEFAULT），不选也能打。
+  // 一行五枚徽章：上→圣→王→帝→神。默认落在圣级（BT.TIER_DEFAULT），不选也能打。
   // 选级 = 选【起始档】，第二场自动 +1 级（阶梯在 fight.js）。
   _buildTierPicker() {
     const order = BT.TIERS.order;

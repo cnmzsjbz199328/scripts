@@ -1,4 +1,5 @@
-/* BladeTrinity — 流派秘技（ARTE）。神级 AI 会用，玩家选到该流派也能放。
+/* BladeTrinity — 流派秘技（ARTE）。帝级起的 AI 会用（神级还会挑时机用），
+ * 玩家选到该流派也能放。
  *
  * 本文件装两记：北神流「幻剑」与剑神流「一の太刀·抜刀」。
  * 水神流那记是 6 秒领域「剥夺剑界」，生命周期/相机/shader 自成一套，在 systems/realm.js。
@@ -20,7 +21,7 @@ Object.assign(BladeTrinityScene.prototype, {
   _arteCfg(f) { return BT.ARTE && BT.ARTE[f.id]; },
 
   // 这一方此刻能不能放秘技。
-  // AI 侧多一道 cap.arte（只有神级会用）；玩家侧不看档位，选到该流派就能放。
+  // AI 侧多一道 cap.arte（帝级起才会用）；玩家侧不看档位，选到该流派就能放。
   _canArte(f, time) {
     const a = this._arteCfg(f);
     if (!a) return false;
@@ -28,6 +29,26 @@ Object.assign(BladeTrinityScene.prototype, {
     if (f.phantom || time < (f.arteReady || 0)) return false;
     if (a.kind === 'realm' && this.realm) return false;   // 场上一次只允许一个剑界
     return f.mp >= a.cost;
+  },
+
+  // ─────────── AI 侧：上膛的那一刀每帧推进 ───────────
+  // combat.js _attack 掷中秘技时只置 f.arteArmed；出刀满 holdMs 就在这里转招。
+  // 返回 true = 本帧已转招（_controlAI 直接 return）。
+  //
+  // ⚠️ 必须排在 _controlAI 的【反应层之前】。反应层每帧跑，高档 reactDelay 只有 70ms，
+  // 又有人机特权 guardCancel（平A 任意时刻可弃招回防）—— 排在它之后，上膛后那
+  // 170~200ms 里探到任何威胁都会把这一刀收掉，秘技就永远转不成。
+  // 同理 routine.js _aiAbortForGuard 对 arteArmed 的这一刀【不弃】，两处是一套。
+  _aiTickArte(f, time) {
+    if (!f.arteArmed) return false;
+    const a = this._arteCfg(f);
+    // 这一刀没了（挨打/被打断/收招结束）→ 上膛作废，下一刀重新掷骰
+    if (!a || f.state !== 'attack') { f.arteArmed = false; return false; }
+    if (time - (f.atkStart || 0) < a.holdMs) return false;
+    f.arteArmed = false;
+    if (!this._canArte(f, time)) return false;    // 这段时间里蓝被打掉了之类
+    this._startArte(f, time);
+    return true;
   },
 
   // ─────────── 秘技分派 ───────────
@@ -51,9 +72,17 @@ Object.assign(BladeTrinityScene.prototype, {
   _payArte(f, time) {
     const a = this._arteCfg(f);
     f.mp = Math.max(0, f.mp - a.cost);
-    f.arteReady = time + a.cd;
+    // 冷却是秘技频率的真正上限（抜刀 6000 / 剑界 14000，一场 40~70s）。
+    // 档位可用 arteCdMul 压短（只作用于 AI 一侧：玩家的冷却不该跟着难度变）。
+    f.arteReady = time + a.cd * (f === this.p2 ? (this._tierCfg().arteCdMul || 1) : 1);
     this._drawBars();
-    if (this._usage && f === this.p1) this._usage.arte = (this._usage.arte || 0) + 1;
+    // 遥测分两条：arte = 玩家用了几次（技能覆盖度断言），aiArte = 电脑用了几次。
+    // ⚠️ aiArte 是【必需】的验收口：秘技是高档 AI 的独占内容，没有这个计数就只能靠
+    // 人眼数"这一场它放了没有"，而这招正好又踩过一次无头计时坑（见 combat.js _attack）。
+    if (this._usage) {
+      const k = f === this.p1 ? 'arte' : 'aiArte';
+      this._usage[k] = (this._usage[k] || 0) + 1;
+    }
   },
 
   // ── 水神流 · 剥夺剑界 ──（表现层与推进在 systems/realm.js）

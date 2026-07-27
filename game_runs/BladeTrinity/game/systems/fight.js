@@ -7,7 +7,9 @@ Object.assign(BladeTrinityScene.prototype, {
     this._p1Id = p1Id;
     this.round = 0;
     // 技能覆盖度计数（整局累计）：playtest 据此断言 bot 用没用全每一类技能。
-    this._usage = { attack: 0, charge: 0, defend: 0, crit: 0, blink: 0, jump: 0 };
+    // arte = 玩家放了几次流派秘技；aiArte = 电脑放了几次（高档独占内容的验收口，
+    // 见 arte.js _payArte —— 没有它就只能靠人眼数，而这招踩过无头计时坑）
+    this._usage = { attack: 0, charge: 0, defend: 0, crit: 0, blink: 0, jump: 0, arte: 0, aiArte: 0 };
     this.oppQueue = BT.ROSTER.filter((id) => id !== p1Id);   // 另两家，按 ROSTER 序
     this._applyTier();
     this._showStage(0);          // 重开也要回到第 1 场的室内道场
@@ -110,7 +112,7 @@ Object.assign(BladeTrinityScene.prototype, {
       hp: def.hp, maxHp: def.hp,
       mp: BT.MP.max, maxMp: BT.MP.max,          // 蓝：进场满管
       state: 'idle', stateUntil: 0, airborne: false,
-      invuln: 0, atkFrom: 0, atkTo: 0, atkHit: false, atkCancelable: false, prevDx: null,
+      invuln: 0, atkStart: 0, atkFrom: 0, atkTo: 0, atkHit: false, atkCancelable: false, prevDx: null,
       facingLeft: faceLeft,
       guardFrom: 0, counterReady: 0, counterFired: false, counterGlowUntil: 0, flashEvt: null,
       riposteUntil: 0, guardAura: null,
@@ -122,7 +124,8 @@ Object.assign(BladeTrinityScene.prototype, {
       // 起点，档位的 reactDelay 就是拿 now-at 来比的；guardMin/Max = 防御态的事件驱动边界
       threatSeen: null, guardMin: 0, guardMax: 0, guardRead: false, blockedAt: 0, reguardAt: 0,
       // 流派秘技（arte.js）：当前分身组 / 居合架式 / 下次可放时刻 / 玩家按住 J 的起点
-      phantom: null, iai: null, iaiRelease: 0, arteReady: 0, jHeldFrom: 0,
+      // arteArmed：AI 掷中秘技后【已上膛】的那一刀，出刀满 holdMs 转招（arte.js _aiTickArte）
+      phantom: null, iai: null, iaiRelease: 0, arteReady: 0, jHeldFrom: 0, arteArmed: false,
     };
   },
 

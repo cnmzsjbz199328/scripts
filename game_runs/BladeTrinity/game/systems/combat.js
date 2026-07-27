@@ -119,6 +119,7 @@ Object.assign(BladeTrinityScene.prototype, {
     // 这一记【是平A】：收招可被 AI 的收招接续掐掉（routine.js _aiCancelWindow）。
     // 蓄力剑气的挥砍会把它置回 false —— 那一挥掐了就没剑气了。
     f.atkCancelable = true;
+    f.atkStart = this.time.now;      // 这一刀的起点（秘技的 holdMs 从这里数，见下）
     f.atkFrom = this.time.now + a.from;
     f.atkTo = this.time.now + a.to;
     f.prevDx = null;
@@ -131,11 +132,25 @@ Object.assign(BladeTrinityScene.prototype, {
     }
     // AI 的流派秘技：和玩家同一个触发点（一记已经出手的平A 挥到一半转招），
     // 只是玩家靠按住 J、AI 靠掷骰。走 _canArte 的同一道闸（cap.arte + 蓝 + 冷却）。
-    if (f === this.p2 && this._canArte && this._canArte(f, this.time.now) &&
-        Math.random() < (BT.AI_RT.arteOdds || 0)) {
-      this.time.delayedCall(this._arteCfg(f).holdMs, () => {
-        if (f.state === 'attack' && this._canArte(f, this.time.now)) this._startArte(f, this.time.now);
-      });
+    //
+    // ⚠️ 掷中只【上膛】，转招由 _controlAI 每帧推进（arte.js _aiTickArte）。
+    // 别改回 delayedCall(holdMs)：无头下 Phaser 的 Clock 事件滞后约 6 倍（200ms 实测落在
+    // +1183ms），而平A 只有 720~830ms —— 回调到点时 state 早已不是 'attack'，重检失败、
+    // 秘技静默丢弃。表现是 playtest 里这一整类招几乎恒不触发，两道门根本测不到它。
+    f.arteArmed = false;
+    if (f === this.p2 && this._canArte && this._canArte(f, this.time.now)) {
+      const T = this._tierCfg();
+      let odds = T.arteOdds != null ? T.arteOdds : (BT.AI_RT.arteOdds || 0);
+      // 【arteSmart】神级独占：对手正在收招/硬直时上浮概率。那一段【打断不了架式】，
+      // 也正是玩家最容易被抜刀抓到的时刻 —— 于是这一档的秘技读起来是"他在抓我的破绽"，
+      // 而不是"随机放了个大招"。频率不是靠倍率涨的，是靠挑时机涨的（本表开头那条）。
+      if (T.arteSmart) {
+        const o = this._opp(f);
+        const open = o && (o.state === 'stun' || o.state === 'hurt' ||
+          (o.state === 'attack' && this.time.now > o.atkTo));
+        if (open) odds = Math.min(1, odds * T.arteSmart);
+      }
+      if (Math.random() < odds) f.arteArmed = true;
     }
 
     // 前冲步 + 残影 + 刀光

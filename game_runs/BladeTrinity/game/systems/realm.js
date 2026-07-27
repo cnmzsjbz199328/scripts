@@ -104,7 +104,7 @@ Object.assign(BladeTrinityScene.prototype, {
     this.realm = {
       owner: f, fx, dup, ring, hud, extras: [],
       phase: 'open', t0: time, r: 0,
-      until: time + R.openMs + R.holdMs,          // 收回从这个时刻开始
+      until: time + R.openMs + R.liveMs,          // 收回从这个时刻开始（liveMs = 剑界持续）
     };
     realmCam.setVisible(true);
     this._popText(f.sprite.x, f.sprite.y - 150, '剥奪剣界', '#8fe0ff');
