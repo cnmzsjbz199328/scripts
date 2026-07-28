@@ -75,3 +75,6 @@ assets_fbx/
 # 注意：game_runs/BladeTrinity/ 下的 webp/png/json 是成品图集，必须入库
 #（Cloudflare CI 部署要读，见 CLAUDE.md 产物入库规则），不要在这里忽略
 references/BladeTrinity/
+
+# PokeMood 独立站构建产物 —— 由 deploy/build.mjs 从仓库内文件重新组装，不入库
+game_runs/PokeMood/dist/

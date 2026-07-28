@@ -2,18 +2,29 @@
 <html lang="zh">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#080b12">
   <title>神 洛琪希</title>
+  <!-- BUILD:HEAD -->
   <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body { height: 100%; }
 
     body {
       background: #080b12;
       color: #e7ecf5;
       font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
       display: flex; align-items: center; justify-content: center;
-      min-height: 100vh; overflow: hidden;
+      min-height: 100vh; min-height: 100dvh; overflow: hidden;
+      /* 触碰玩具全靠拖拽做 rub 手势：必须掐掉浏览器的下拉刷新 / 双指缩放 / 长按选中 */
+      touch-action: none; overscroll-behavior: none;
+      -webkit-user-select: none; user-select: none;
+      -webkit-tap-highlight-color: transparent;
     }
 
     #game-wrapper {
@@ -22,6 +33,17 @@
       border-radius: 10px;
       box-shadow: 0 14px 44px rgba(0, 0, 0, 0.65);
       overflow: hidden;
+    }
+
+    /* 小屏 / 独立 PWA：去掉相框，画布铺满可视区（dvh 才躲得开移动端地址栏抽动） */
+    @media (max-width: 900px), (max-height: 780px), (display-mode: fullscreen), (display-mode: standalone) {
+      #game-wrapper {
+        width: 100vw; height: 100vh; height: 100dvh;
+        border: none; border-radius: 0; box-shadow: none;
+      }
+      /* 只放大容器，画布尺寸交给 Phaser 的 Scale.FIT 算，别自己拉伸 —— 会变形 */
+      #game-container { width: 100%; height: 100%; }
+      .overlay-card { padding: 24px 22px; }
     }
 
     /* ── HUD ── */
@@ -103,7 +125,24 @@
 <script src="game/scenes/StageScene.js"></script>
 <script src="game/main.js"></script>
 <script>
-  document.getElementById('start-btn').addEventListener('click', () => window.__hudStart());
+  /* 「开始」是本页唯一一次可靠的用户手势 —— 全屏必须挂在这里请求，
+   * 晚一步浏览器就以「非用户激活」为由拒绝。
+   * 桌面 / Android Chrome：真全屏。iOS Safari 不给 Web 全屏，只有「添加到主屏幕」
+   * 后以 PWA 打开才没有地址栏和底部功能条（见 deploy/README.md）。 */
+  function enterFullscreen() {
+    const el = document.documentElement;
+    const req = el.requestFullscreen || el.webkitRequestFullscreen;
+    if (!req) return;                       // iOS Safari：静默跳过，不报错不挡开始
+    try {
+      const p = req.call(el, { navigationUI: 'hide' });
+      if (p && p.catch) p.catch(() => {});  // 用户/系统拒绝也不能影响开局
+    } catch (_) {}
+  }
+
+  document.getElementById('start-btn').addEventListener('click', () => {
+    if (!navigator.webdriver) enterFullscreen();   // 无头验证不进全屏，免得干扰截图
+    window.__hudStart();
+  });
 </script>
 </body>
 </html>

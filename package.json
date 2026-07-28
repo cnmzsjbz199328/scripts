@@ -21,7 +21,9 @@
     "char:assemble": "tsx skills/char-sprite/assemble.ts",
     "game:prepare": "tsx skills/game-gen/prepare.ts",
     "game:assemble": "tsx skills/game-gen/assemble.ts",
-    "game:verify": "tsx skills/game-verify/verify.ts"
+    "game:verify": "tsx skills/game-verify/verify.ts",
+    "pokemood:build": "node game_runs/PokeMood/deploy/build.mjs",
+    "pokemood:deploy": "node game_runs/PokeMood/deploy/build.mjs && wrangler pages deploy game_runs/PokeMood/dist --project-name pokemood"
   },
   "dependencies": {
     "sharp": "^0.33.5"
