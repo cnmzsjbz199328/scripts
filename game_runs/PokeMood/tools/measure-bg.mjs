@@ -65,6 +65,37 @@ async function measureAlphaLayer(key) {
   console.log(`  全幅   最低段顶边(中位)   : ${pct(median(topsAll), H)}`);
   console.log(`  两侧列内缘               : 左 ${inL} (${((inL / W) * 100).toFixed(1)}%) / 右 ${inR} (${((inR / W) * 100).toFixed(1)}%)`);
   console.log(`  → 中央净空带宽           : ${inR - inL} px (${(((inR - inL) / W) * 100).toFixed(1)}%)`);
+
+  // 悬空体检：上面那两个数量的都是【地板带】自己的顶边，量不到「家具坐没坐在地板上」。
+  // 生图模型会把书架/壁炉画得离它自己那条地板一截，中间留绿 —— 抠透明后远景从缝里
+  // 透出来，家具就悬空了（PokeMood 首版实翻：书架和壁炉各离地 35px，肉眼一看就出戏）。
+  // 量法：找到地板带顶边后，在【地板带之上】再找每列最低的那一段，报它的底边到地板顶的距离。
+  const floorTop = median(topsAll);
+  const gaps = [];
+  for (let x = 0; x < W; x += 2) {
+    let y = floorTop - 6;                       // 从地板带上方一点开始往上找
+    while (y >= 0 && A(x, y) <= 40) y--;        // 跳过缝隙
+    if (y < 0) continue;
+    gaps.push({ x, gap: floorTop - y });
+  }
+  // 空隙分布是【双峰】的（贴地的家具一峰、吊挂物/上层隔板一峰），不要试图自动分类 ——
+  // 首版拿中位数×1.5 当阈值，正好把真正悬空的那批（35px）当成离群点滤掉了。
+  // 改成报分位数 + 超标列占比，哪一批是"该落地却没落地"由人眼看图定。
+  if (gaps.length) {
+    const q = (p) => {
+      const s = gaps.map(g => g.gap).sort((a, b) => a - b);
+      return s[Math.min(s.length - 1, Math.floor(s.length * p))];
+    };
+    const over = gaps.filter(g => g.gap > 12).length / gaps.length;
+    const tag = over > 0.15 ? '🚨' : '✅';
+    console.log(`  ${tag} 家具底→地板顶空隙   : p25 ${q(0.25)} / p50 ${q(0.5)} / p75 ${q(0.75)} / p90 ${q(0.9)} px`
+              + `   >12px 的列占 ${(over * 100).toFixed(0)}%`);
+    if (over > 0.15) {
+      console.log(`     → 有家具悬空。看图确认是哪一批，取【那批】的空隙值（不是中位数）：`);
+      console.log(`       给该层配 splitY(地板顶稍上) + bodyDy(≈该批空隙+7)，`);
+      console.log(`       StageScene._addSplitLayer 会把家具裁出来整体下沉坐到地板上。`);
+    }
+  }
 }
 
 /* 不透明层：找最强水平边（相邻行亮度差最大）作为地板线候选，报前 5 名。

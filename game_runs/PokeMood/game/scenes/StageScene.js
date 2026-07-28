@@ -56,11 +56,8 @@ PM.StageScene = class StageScene extends Phaser.Scene {
     this.bgLayers = [];
     for (const L of C.BG.LAYERS) {
       if (!this.textures.exists(L.key)) continue;    // 缺图不 404 也不崩，只是少一层
-      const img = this.add.image(C.WIDTH / 2, 0, L.key)
-        .setOrigin(0.5, 0)
-        .setDepth(L.depth);
-      img.setScale(L.scaleX ?? L.scale, L.scale);
-      this.bgLayers.push({ img, par: L.par, x0: C.WIDTH / 2, y0: 0 });
+      if (L.splitY) this._addSplitLayer(L);
+      else this._addLayer(L, 0, null, L.depth);
     }
 
     this._buildShaft();
@@ -69,6 +66,32 @@ PM.StageScene = class StageScene extends Phaser.Scene {
     this._buildMist();
     this._buildDust();
     this._buildVignette();
+  }
+
+  /* 建一张背景层。dy 是【源图像素】单位的纵向位移（好和实测值直接对得上，
+   * 不用每次心算乘 scale）；crop 给 setCrop 用，null = 整张。 */
+  _addLayer(L, dy, crop, depth) {
+    const C = PM.Config;
+    const y0 = dy * L.scale;
+    const img = this.add.image(C.WIDTH / 2, y0, L.key)
+      .setOrigin(0.5, 0)
+      .setDepth(depth);
+    img.setScale(L.scaleX ?? L.scale, L.scale);
+    if (crop) img.setCrop(crop.x, crop.y, crop.w, crop.h);
+    this.bgLayers.push({ img, par: L.par, x0: C.WIDTH / 2, y0 });
+    return img;
+  }
+
+  /* 拆层：同一张贴图裁成「地板」和「家具」两个 Image，家具下沉 bodyDy 坐到地板上。
+   * 见 config.js 里 bg_mid 的注释 —— AI 把家具画得离它自己那条地板 35px，
+   * 抠透明后远景从缝里透出来就成了悬空。setCrop 是原位渲染，
+   * 两张不做位移时叠回去和原图逐像素一致，所以这层拆分对其他定标零影响。 */
+  _addSplitLayer(L) {
+    const B = PM.Config.BG;
+    // 地板：splitY 往下整条，画在家具后一档，接缝由家具压住
+    this._addLayer(L, 0, { x: 0, y: L.splitY, w: B.SRC_W, h: B.SRC_H - L.splitY }, L.depth - 1);
+    // 家具：splitY 往上整条，整体下沉
+    this._addLayer(L, L.bodyDy, { x: 0, y: 0, w: B.SRC_W, h: L.splitY }, L.depth);
   }
 
   /* 玫瑰窗光柱：far 图上那扇窗是画死的，光柱做成会呼吸的活物才有"塔里有空气"的感觉。
