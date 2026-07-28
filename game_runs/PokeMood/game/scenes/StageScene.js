@@ -383,11 +383,17 @@ PM.StageScene = class StageScene extends Phaser.Scene {
 
   _buildBubble() {
     const C = PM.Config;
+    /* 换行宽度不能写死：气泡贴在角色侧面，可用的横向空间只有 CHAR_X-118-8（留白），
+     * 窄画布上写死 250 会让气泡压到角色身上。再减 26 是左右内边距。
+     * advancedWordWrap 必须开 —— 默认的 wordWrap 只按空格断词，中文台词整句是"一个词"，
+     * 根本不换行，宽度会一路涨到把气泡挤翻到左边（就是斗篷旁那条长台词露的馅）。 */
+    this._bubbleWrap = Math.min(250, Math.round(C.CHAR_X - 118 - 8 - 26));
     this.bubble = this.add.container(C.CHAR_X + 150, 130).setDepth(20).setAlpha(0);
     this.bubbleBg = this.add.graphics();
     this.bubbleText = this.add.text(0, 0, '', {
       fontFamily: 'Segoe UI, Microsoft YaHei, sans-serif',
-      fontSize: '17px', color: '#12181f', wordWrap: { width: 250 }, lineSpacing: 5,
+      fontSize: '17px', color: '#12181f', lineSpacing: 5,
+      wordWrap: { width: this._bubbleWrap, useAdvancedWrap: true },
     }).setOrigin(0, 0);
     this.bubble.add([this.bubbleBg, this.bubbleText]);
   }
@@ -680,16 +686,20 @@ PM.StageScene = class StageScene extends Phaser.Scene {
     this.bubbleText.setText(text);
     const w = this.bubbleText.width + 26, h = this.bubbleText.height + 20;
     this.bubbleText.setPosition(13, 10);
+    // 窄画布（竖屏手机）右侧放不下就翻到角色左边，别让气泡被裁掉
+    const C2 = PM.Config;
+    let bx = C2.CHAR_X + 118, flipped = false;
+    if (bx + w > C2.WIDTH - 8) { bx = Math.max(8, C2.CHAR_X - 118 - w); flipped = true; }
+
     this.bubbleBg.clear();
     this.bubbleBg.fillStyle(0xf4f7fb, 0.96).fillRoundedRect(0, 0, w, h, 12);
     this.bubbleBg.lineStyle(2, this.circleColor, 0.9).strokeRoundedRect(0, 0, w, h, 12);
-    this.bubbleBg.fillStyle(0xf4f7fb, 0.96)
-      .fillTriangle(16, h, 40, h, 20, h + 13);
+    /* 尾巴要指向说话的人：气泡在角色右边时挂左下角，翻到左边就得整个镜像到右下角，
+     * 否则尾巴朝着空气 —— 尺寸先算、位置先定，尾巴才知道自己该画哪边。 */
+    this.bubbleBg.fillStyle(0xf4f7fb, 0.96);
+    if (flipped) this.bubbleBg.fillTriangle(w - 16, h, w - 40, h, w - 20, h + 13);
+    else         this.bubbleBg.fillTriangle(16, h, 40, h, 20, h + 13);
 
-    // 窄画布（竖屏手机）右侧放不下就翻到角色左边，别让气泡被裁掉
-    const C2 = PM.Config;
-    let bx = C2.CHAR_X + 118;
-    if (bx + w > C2.WIDTH - 8) bx = Math.max(8, C2.CHAR_X - 118 - w);
     this.bubble.setPosition(bx, 120);
     this.tweens.killTweensOf(this.bubble);
     this.bubble.setAlpha(0).setScale(0.94);
