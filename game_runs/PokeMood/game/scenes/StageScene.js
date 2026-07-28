@@ -400,6 +400,13 @@ PM.StageScene = class StageScene extends Phaser.Scene {
 
   _buildDebug() {
     this.debugG = this.add.graphics().setDepth(30).setVisible(false);
+
+    // 触屏设备不画键盘提示：手机上没键盘，这三个键一个也按不了，
+    // 印在画面左下角只是白占地方（独立站的实机截图里很扎眼）。
+    // 判据用 pointer:coarse 而不是屏幕宽度 —— 关键在有没有键盘，不在屏幕多大；
+    // 带触屏的笔记本仍是 fine，照常显示。
+    if (PM.isTouchOnly()) { this.hintText = null; return; }
+
     // 描边不是装饰：底边现在压着前景石板条和暗角，原来那个 #4c5a72 无描边的灰
     // 直接糊进石头里读不出来了（换背景前是纯深色底，怎么写都清楚）。
     this.hintText = this.add.text(14, PM.Config.HEIGHT - 26,

@@ -16,6 +16,15 @@ function pmCanvasWidth() {
 }
 const PM_W = pmCanvasWidth();
 
+/* 纯触屏设备（手机/平板）—— 用「指针精度」判，不用屏幕宽度：
+ * 要区分的是有没有键盘，不是屏幕多大。窄窗口的桌面浏览器仍然算 fine。
+ * 刻意**不**给 webdriver 开后门：无头跑移动端模拟时要能测到真实行为，
+ * 而且现有两道门都不断言这行提示，藏掉它不影响验证。 */
+PM.isTouchOnly = function () {
+  if (typeof window === 'undefined') return false;
+  return !!(window.matchMedia && window.matchMedia('(pointer: coarse)').matches);
+};
+
 PM.Config = {
   // ── 画布 / 贴图 ──────────────────────────────────────────────
   WIDTH: PM_W,
