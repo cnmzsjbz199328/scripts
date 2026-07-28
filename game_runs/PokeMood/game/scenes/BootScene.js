@@ -28,6 +28,13 @@ PM.BootScene = class BootScene extends Phaser.Scene {
     // 区域标定的基准帧。运行时不显示，只用它的 alpha 判"这一点是不是在角色身上"
     this.load.image('base', 'assets/base.png');
 
+    // 背景三层。跟着核心批一起加载（合计约 1MB，比一张角色图集还小），
+    // 缺图不算致命：StageScene 会跳过没加载成功的层，只是没背景，游戏照玩。
+    this.load.on('loaderror', f => console.warn('[PokeMood] 资源加载失败:', f.key));
+    for (const L of C.BG.LAYERS) {
+      this.load.image(L.key, `assets/bg/${L.key.replace('bg_', '')}.webp`);
+    }
+
     for (const name of C.CORE_ANIMS) this._loadAnim(name);
   }
 

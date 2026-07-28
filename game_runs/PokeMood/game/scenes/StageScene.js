@@ -38,13 +38,86 @@ PM.StageScene = class StageScene extends Phaser.Scene {
 
   /* ── 画面 ──────────────────────────────────────────────── */
 
+  /* 背景：魔女工房·塔内，三层实拍式静态图 + 全代码气氛层。
+   *
+   * 层序（depth）：
+   *   far -100 → 光柱 -70 → mid -60 → 后景光尘 -30 → 柔光 -20 → 角色 5
+   *   → 地面雾带 6 → 法阵近弧 7 → 前景光尘 15 → fore 18 → 暗角 19 → 气泡 20
+   *
+   * 定标规则与实测值见 config.js 的 PM.Config.BG 注释：三层都 origin(0.5,0)
+   * 贴顶居中、各自按地面线定标、超出画布的部分自然裁掉。缺图就跳过该层。 */
   _buildBackdrop() {
     const C = PM.Config;
-    const g = this.add.graphics();
+    // 兜底底色：三层图全缺时也不至于是一片透明（也当 far 的天花板暗部延伸）
+    const g = this.add.graphics().setDepth(-200);
     g.fillGradientStyle(0x1b2334, 0x1b2334, 0x0d1119, 0x0d1119, 1);
     g.fillRect(0, 0, C.WIDTH, C.HEIGHT);
-    // 角色背后的一团柔光，让剪影不至于糊在背景里。
-    // 用径向渐变贴图而不是 ellipse —— 实心椭圆边缘是硬的，在深色背景上会看成一块蓝色圆盘。
+
+    this.bgLayers = [];
+    for (const L of C.BG.LAYERS) {
+      if (!this.textures.exists(L.key)) continue;    // 缺图不 404 也不崩，只是少一层
+      const img = this.add.image(C.WIDTH / 2, 0, L.key)
+        .setOrigin(0.5, 0)
+        .setDepth(L.depth);
+      img.setScale(L.scaleX ?? L.scale, L.scale);
+      this.bgLayers.push({ img, par: L.par, x0: C.WIDTH / 2, y0: 0 });
+    }
+
+    this._buildShaft();
+    this._buildHalo();
+    this._buildShadow();
+    this._buildMist();
+    this._buildDust();
+    this._buildVignette();
+  }
+
+  /* 玫瑰窗光柱：far 图上那扇窗是画死的，光柱做成会呼吸的活物才有"塔里有空气"的感觉。
+   * 用梯形渐变贴图而不是 Graphics 多边形 —— 多边形没有软边，会看成一块实心色片。 */
+  _buildShaft() {
+    const A = PM.Config.ATMOS;
+    if (!this.textures.exists('pm-shaft')) {
+      const w = 256, h = 512;
+      const cv = this.textures.createCanvas('pm-shaft', w, h);
+      const ctx = cv.getContext();
+      const gr = ctx.createLinearGradient(0, 0, 0, h);
+      gr.addColorStop(0, 'rgba(255,255,255,0.95)');
+      gr.addColorStop(0.55, 'rgba(255,255,255,0.38)');
+      gr.addColorStop(1, 'rgba(255,255,255,0)');
+      ctx.fillStyle = gr;
+      // 梯形：上窄下宽，模拟从窗口散开的光锥；左右各留软边靠 blur 做不到，改用两侧渐隐
+      ctx.beginPath();
+      ctx.moveTo(w * 0.34, 0); ctx.lineTo(w * 0.66, 0);
+      ctx.lineTo(w, h); ctx.lineTo(0, h);
+      ctx.closePath();
+      ctx.fill();
+      // 两侧渐隐：横向再叠一层 destination-in 的渐变，把硬的斜边吃掉
+      const side = ctx.createLinearGradient(0, 0, w, 0);
+      side.addColorStop(0, 'rgba(0,0,0,0)');
+      side.addColorStop(0.5, 'rgba(0,0,0,1)');
+      side.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.globalCompositeOperation = 'destination-in';
+      ctx.fillStyle = side;
+      ctx.fillRect(0, 0, w, h);
+      cv.refresh();
+    }
+    this.shaft = this.add.image(A.SHAFT_X, A.SHAFT_Y, 'pm-shaft')
+      .setOrigin(0.5, 0)
+      .setDisplaySize(A.SHAFT_W, A.SHAFT_H)
+      .setTint(A.SHAFT_COLOR)
+      .setAlpha(A.SHAFT_ALPHA)
+      .setBlendMode(Phaser.BlendModes.ADD)
+      .setDepth(-70);
+    this.tweens.add({
+      targets: this.shaft,
+      alpha: A.SHAFT_ALPHA + A.SHAFT_BREATH,
+      duration: A.SHAFT_MS, yoyo: true, repeat: -1, ease: 'Sine.easeInOut',
+    });
+  }
+
+  // 角色背后的一团柔光，让她不至于糊进背景。
+  // 用径向渐变贴图而不是 ellipse —— 实心椭圆边缘是硬的，在深色背景上会看成一块蓝色圆盘。
+  _buildHalo() {
+    const C = PM.Config;
     if (!this.textures.exists('pm-halo')) {
       const size = 512;
       const cv = this.textures.createCanvas('pm-halo', size, size);
@@ -60,8 +133,149 @@ PM.StageScene = class StageScene extends Phaser.Scene {
     this.halo = this.add.image(C.CHAR_X, 430, 'pm-halo')
       .setDisplaySize(620, 700)
       .setTint(0x33507a)
-      .setAlpha(0.55)
-      .setBlendMode(Phaser.BlendModes.ADD);
+      .setAlpha(0.42)
+      .setBlendMode(Phaser.BlendModes.ADD)
+      .setDepth(-20);
+  }
+
+  /* 接地阴影：背景换成有地板的实景之后，光有法阵还是"浮着"——
+   * 一团压在靴底的软阴影是把角色钉在地面上最便宜的一招（depth 4，在角色之后、mid 之前）。
+   * 复用 pm-halo 那张径向渐变，染黑即可，不必再建一张贴图。 */
+  _buildShadow() {
+    const C = PM.Config, A = C.ATMOS;
+    this.shadow = this.add.image(C.CHAR_X, C.BG.FOOT_Y - 4, 'pm-halo')
+      .setDisplaySize(A.SHADOW_W, A.SHADOW_H)
+      .setTint(0x000000)
+      .setAlpha(A.SHADOW_A)
+      .setDepth(4);
+  }
+
+  /* 地面雾带（DESIGN §4.5 ① 的补完）：六条视频各自烘死的法阵样式/颜色对不齐，
+   * 前景层解决不了 —— 素材法阵(y≈645~735)和靴子占的是同一块，前景盖到能遮住它的
+   * 高度就会把靴子和 feet_tap / boot_show / leg_kick 三段动画一起遮掉，
+   * 而腿还是可触区，就成了「看得见摸得着但被挡住」的错位。
+   * 所以改用半透明雾带把那一块【洗淡】：色差被压成同一个色温，靴子仍然看得清。
+   * 雾带跟着情绪染色，和法阵、气泡描边共用一套颜色语言。 */
+  _buildMist() {
+    const C = PM.Config, A = C.ATMOS;
+    if (!this.textures.exists('pm-mist')) {
+      const w = 8, h = 128;
+      const cv = this.textures.createCanvas('pm-mist', w, h);
+      const ctx = cv.getContext();
+      const gr = ctx.createLinearGradient(0, 0, 0, h);
+      gr.addColorStop(0, 'rgba(255,255,255,0)');      // 顶边必须软，硬边会看成一条横杠
+      gr.addColorStop(0.45, 'rgba(255,255,255,0.85)');
+      gr.addColorStop(1, 'rgba(255,255,255,1)');
+      ctx.fillStyle = gr;
+      ctx.fillRect(0, 0, w, h);
+      cv.refresh();
+    }
+    this.mist = this.add.image(C.WIDTH / 2, A.MIST_Y, 'pm-mist')
+      .setOrigin(0.5, 0)
+      .setDisplaySize(C.WIDTH, A.MIST_H)
+      .setAlpha(A.MIST_ALPHA)
+      .setDepth(6);
+  }
+
+  /* 光尘：后景一批慢而多（在光柱里飘），前景一批快而少（贴着镜头）。
+   * 不用粒子系统 —— 这点量自己推更好控，也省得为 12 个点建发射器。 */
+  _buildDust() {
+    const C = PM.Config, A = C.ATMOS;
+    if (!this.textures.exists('pm-dot')) {
+      const s = 16;
+      const cv = this.textures.createCanvas('pm-dot', s, s);
+      const ctx = cv.getContext();
+      const gr = ctx.createRadialGradient(s / 2, s / 2, 0, s / 2, s / 2, s / 2);
+      gr.addColorStop(0, 'rgba(255,255,255,1)');
+      gr.addColorStop(1, 'rgba(255,255,255,0)');
+      ctx.fillStyle = gr;
+      ctx.fillRect(0, 0, s, s);
+      cv.refresh();
+    }
+    const make = (n, depth, cfg) => {
+      const arr = [];
+      for (let i = 0; i < n; i++) {
+        const img = this.add.image(Phaser.Math.Between(0, C.WIDTH),
+                                   Phaser.Math.Between(0, C.HEIGHT), 'pm-dot')
+          .setDepth(depth)
+          .setBlendMode(Phaser.BlendModes.ADD)
+          .setTint(cfg.tint);
+        arr.push({
+          img,
+          r: Phaser.Math.FloatBetween(cfg.r[0], cfg.r[1]),
+          vy: Phaser.Math.FloatBetween(cfg.vy[0], cfg.vy[1]),
+          sway: Phaser.Math.FloatBetween(6, 22),
+          phase: Phaser.Math.FloatBetween(0, Math.PI * 2),
+          a: Phaser.Math.FloatBetween(cfg.a[0], cfg.a[1]),
+          bx: 0,
+        });
+        img.setDisplaySize(arr[i].r * 2, arr[i].r * 2).setAlpha(arr[i].a);
+        arr[i].bx = img.x;
+      }
+      return arr;
+    };
+    this.dustBack = make(A.DUST_BACK, -30,
+      { tint: 0xbfe9e0, r: [1.4, 3.6], vy: [-9, -3], a: [0.15, 0.45] });
+    this.dustFront = make(A.DUST_FRONT, 15,
+      { tint: 0xffe6b8, r: [2.2, 5.0], vy: [-22, -10], a: [0.10, 0.26] });
+  }
+
+  // 暗角：三层图各自的边缘亮度不一致，压一圈暗角能把它们缝成一个空间
+  _buildVignette() {
+    const C = PM.Config, A = C.ATMOS;
+    if (!this.textures.exists('pm-vig')) {
+      const w = 256, h = 205;
+      const cv = this.textures.createCanvas('pm-vig', w, h);
+      const ctx = cv.getContext();
+      const gr = ctx.createRadialGradient(w / 2, h / 2, h * 0.28, w / 2, h / 2, h * 0.78);
+      gr.addColorStop(0, 'rgba(0,0,0,0)');
+      gr.addColorStop(1, 'rgba(0,0,0,1)');
+      ctx.fillStyle = gr;
+      ctx.fillRect(0, 0, w, h);
+      cv.refresh();
+    }
+    this.add.image(C.WIDTH / 2, C.HEIGHT / 2, 'pm-vig')
+      .setDisplaySize(C.WIDTH * 1.06, C.HEIGHT * 1.06)
+      .setAlpha(A.VIGNETTE)
+      .setDepth(19);
+  }
+
+  /* 指针视差：没有相机可跟，就让鼠标当"观众的头"。三层 + 光柱按 par 系数反向偏移，
+   * 静止角色也能拿到空间感。幅度必须小 —— 大了会露出层的边缘裁切。 */
+  _updateParallax(delta) {
+    const C = PM.Config, A = C.ATMOS;
+    if (!this.bgLayers || !A.PARALLAX_MAX) return;
+    const p = this.input.activePointer;
+    const tx = ((p?.x ?? C.WIDTH / 2) / C.WIDTH - 0.5) * 2;    // -1 .. 1
+    const ty = ((p?.y ?? C.HEIGHT / 2) / C.HEIGHT - 0.5) * 2;
+    // 平滑跟随，免得鼠标一抖整个场景跟着抖
+    const k = Math.min(1, delta / 220);
+    this._paX = (this._paX ?? 0) + (tx - (this._paX ?? 0)) * k;
+    this._paY = (this._paY ?? 0) + (ty - (this._paY ?? 0)) * k;
+
+    for (const L of this.bgLayers) {
+      const m = L.par * A.PARALLAX_MAX;
+      L.img.x = L.x0 - this._paX * m;
+      L.img.y = L.y0 - this._paY * m * 0.38;   // 纵向压扁：竖幅画布里上下窜很容易露边
+    }
+    if (this.shaft) this.shaft.x = A.SHAFT_X - this._paX * 8;
+  }
+
+  _updateDust(delta) {
+    const C = PM.Config;
+    const dt = delta / 1000;
+    for (const arr of [this.dustBack, this.dustFront]) {
+      if (!arr) continue;
+      for (const d of arr) {
+        d.phase += dt * 0.9;
+        d.img.y += d.vy * dt;
+        d.img.x = d.bx + Math.sin(d.phase) * d.sway;
+        if (d.img.y < -8) {                       // 飘出上边界就从下面回来
+          d.img.y = C.HEIGHT + 8;
+          d.bx = Phaser.Math.Between(0, C.WIDTH);
+        }
+      }
+    }
   }
 
   /* 程序化法阵覆盖层（DESIGN §4.5 ①）：
@@ -69,8 +283,18 @@ PM.StageScene = class StageScene extends Phaser.Scene {
    * 与其修，不如在脚下盖一层统一的、跟着情绪变色的法阵，顺手变成情绪指示器。
    * 必须比素材自带的亮，否则底下的会透出来 —— 所以用 ADD 混合 + 高不透明度。 */
   _buildCircle() {
-    this.circle = this.add.graphics().setDepth(1);
-    this.circle.setBlendMode(Phaser.BlendModes.ADD);
+    // 画两遍：远弧在角色【身后】(depth 1)，近弧在角色【身前】(depth 7)。
+    //
+    // 为什么不能只画一层：DESIGN §4.5 要求覆盖层"亮度压过素材自带的法阵"，
+    // 但素材那圈法阵是烘死在角色贴图里的不透明像素 —— 只要覆盖层在角色之后，
+    // 重叠处永远是素材赢，写多亮都没用（首版就是 setDepth(1)，等于没盖住）。
+    // 而整圈都放到角色之前又不对：地面圆环的近侧本来就该压住脚、远侧该被脚挡住，
+    // 全画在前面会有线条横穿靴子和小腿，一眼假。
+    // 所以按屏幕 y 切一刀：远弧（上半）在后，近弧（下半，落在脚底之下）在前。
+    this.circle = this.add.graphics().setDepth(1)
+      .setBlendMode(Phaser.BlendModes.ADD);
+    this.circleNear = this.add.graphics().setDepth(7)
+      .setBlendMode(Phaser.BlendModes.ADD);
     this.circleAngle = 0;
     this.circleColor = PM.Config.MOOD_COLOR.NEUTRAL;
     this.circlePulse = 0;
@@ -78,33 +302,49 @@ PM.StageScene = class StageScene extends Phaser.Scene {
 
   _drawCircle() {
     const C = PM.Config;
-    const g = this.circle;
     const cx = C.CHAR_X, cy = 688;
     const rx = 168 + this.circlePulse * 26, ry = 44 + this.circlePulse * 8;
     const col = this.circleColor;
 
-    g.clear();
-    g.lineStyle(2.5, col, 0.85);
-    g.strokeEllipse(cx, cy, rx * 2, ry * 2);
-    g.lineStyle(1.5, col, 0.55);
-    g.strokeEllipse(cx, cy, rx * 1.56, ry * 1.56);
-    g.strokeEllipse(cx, cy, rx * 0.72, ry * 0.72);
+    this.circle.clear();
+    this.circleNear.clear();
+
+    // 屏幕坐标 y 向下：角度 0..π 是椭圆的近侧（下半），画到前景那张；其余画到背景那张。
+    const isNear = (a) => Math.sin(a) > 0;
+    const arc = (rMul, width, alpha) => {
+      const SEG = 48;
+      for (const [g, want] of [[this.circle, false], [this.circleNear, true]]) {
+        g.lineStyle(width, col, alpha);
+        let started = false;
+        for (let i = 0; i <= SEG; i++) {
+          const a = (i / SEG) * Math.PI * 2;
+          if (isNear(a) !== want) { started = false; continue; }
+          const x = cx + Math.cos(a) * rx * rMul, y = cy + Math.sin(a) * ry * rMul;
+          if (!started) { g.beginPath(); g.moveTo(x, y); started = true; }
+          else g.lineTo(x, y);
+          if (i === SEG || isNear((i + 1) / SEG * Math.PI * 2) !== want) g.strokePath();
+        }
+      }
+    };
+    arc(1.0, 2.5, 0.9);
+    arc(0.78, 1.5, 0.55);
+    arc(0.36, 1.5, 0.55);
 
     // 符文刻度：随情绪旋转，生气时转得快
-    g.lineStyle(2, col, 0.7);
     for (let i = 0; i < 12; i++) {
       const a = this.circleAngle + (i * Math.PI) / 6;
-      const x1 = cx + Math.cos(a) * rx * 0.78, y1 = cy + Math.sin(a) * ry * 0.78;
-      const x2 = cx + Math.cos(a) * rx * 0.98, y2 = cy + Math.sin(a) * ry * 0.98;
-      g.lineBetween(x1, y1, x2, y2);
+      const g = isNear(a) ? this.circleNear : this.circle;
+      g.lineStyle(2, col, 0.75);
+      g.lineBetween(cx + Math.cos(a) * rx * 0.78, cy + Math.sin(a) * ry * 0.78,
+                    cx + Math.cos(a) * rx * 0.98, cy + Math.sin(a) * ry * 0.98);
     }
-    // 内层反向小三角
-    g.lineStyle(1.5, col, 0.5);
+    // 内层反向小三角（整个画在身后：它横跨圆心，切成两半反而更乱）
+    this.circle.lineStyle(1.5, col, 0.5);
     for (let i = 0; i < 3; i++) {
       const a = -this.circleAngle * 1.6 + (i * Math.PI * 2) / 3;
       const b = a + (Math.PI * 2) / 3;
-      g.lineBetween(cx + Math.cos(a) * rx * 0.55, cy + Math.sin(a) * ry * 0.55,
-                    cx + Math.cos(b) * rx * 0.55, cy + Math.sin(b) * ry * 0.55);
+      this.circle.lineBetween(cx + Math.cos(a) * rx * 0.55, cy + Math.sin(a) * ry * 0.55,
+                              cx + Math.cos(b) * rx * 0.55, cy + Math.sin(b) * ry * 0.55);
     }
   }
 
@@ -131,10 +371,12 @@ PM.StageScene = class StageScene extends Phaser.Scene {
 
   _buildDebug() {
     this.debugG = this.add.graphics().setDepth(30).setVisible(false);
+    // 描边不是装饰：底边现在压着前景石板条和暗角，原来那个 #4c5a72 无描边的灰
+    // 直接糊进石头里读不出来了（换背景前是纯深色底，怎么写都清楚）。
     this.hintText = this.add.text(14, PM.Config.HEIGHT - 26,
       'G 显示触碰区 · M 静音 · R 重来', {
-        fontFamily: 'Consolas, monospace', fontSize: '12px', color: '#4c5a72',
-      }).setDepth(30);
+        fontFamily: 'Consolas, monospace', fontSize: '12px', color: '#93a6c4',
+      }).setStroke('#0a0d14', 4).setDepth(30);
   }
 
   /* 「这一点是不是在角色身上」——查 base.png 的 alpha。
@@ -356,7 +598,11 @@ PM.StageScene = class StageScene extends Phaser.Scene {
     this.bubbleBg.fillStyle(0xf4f7fb, 0.96)
       .fillTriangle(16, h, 40, h, 20, h + 13);
 
-    this.bubble.setPosition(PM.Config.CHAR_X + 118, 120);
+    // 窄画布（竖屏手机）右侧放不下就翻到角色左边，别让气泡被裁掉
+    const C2 = PM.Config;
+    let bx = C2.CHAR_X + 118;
+    if (bx + w > C2.WIDTH - 8) bx = Math.max(8, C2.CHAR_X - 118 - w);
+    this.bubble.setPosition(bx, 120);
     this.tweens.killTweensOf(this.bubble);
     this.bubble.setAlpha(0).setScale(0.94);
     this.tweens.add({ targets: this.bubble, alpha: 1, scale: 1, duration: 130 });
@@ -365,7 +611,11 @@ PM.StageScene = class StageScene extends Phaser.Scene {
 
   _setMoodVisual(mood, instant = false) {
     const col = PM.Config.MOOD_COLOR[mood] ?? PM.Config.MOOD_COLOR.NEUTRAL;
-    if (instant) { this.circleColor = col; this._lastMood = mood; return; }
+    if (instant) {
+      this.circleColor = col; this._lastMood = mood;
+      this._tintAtmos(col);
+      return;
+    }
     if (mood === this._lastMood) return;
     this._lastMood = mood;
 
@@ -379,7 +629,19 @@ PM.StageScene = class StageScene extends Phaser.Scene {
         this.circleColor = Phaser.Display.Color.GetColor(c.r, c.g, c.b);
       },
     });
-    this.halo.setTint(col);
+    this._tintAtmos(col);
+  }
+
+  /* 情绪配色不止染法阵：柔光和地面雾带一起走，脚下那一块才像"她的情绪把地面染了"，
+   * 而不是"地上放了个会变色的道具"。雾带要压暗再上色 —— 雾是普通混合不是 ADD，
+   * 直接吃满饱和色会在脚下糊出一条亮带，反而把靴子吃掉。 */
+  _tintAtmos(col) {
+    if (this.halo) this.halo.setTint(col);
+    if (this.mist) {
+      const c = Phaser.Display.Color.IntegerToColor(col);
+      this.mist.setTint(Phaser.Display.Color.GetColor(
+        Math.round(c.r * 0.30 + 10), Math.round(c.g * 0.30 + 12), Math.round(c.b * 0.30 + 20)));
+    }
   }
 
   _feedback(ev) {
@@ -447,6 +709,8 @@ PM.StageScene = class StageScene extends Phaser.Scene {
     this.circleAngle += 0.0006 * delta * speed;
     this.circlePulse = Math.max(0, this.circlePulse - delta / 900);
     this._drawCircle();
+    this._updateParallax(delta);
+    this._updateDust(delta);
     if (this.showRegions) this._drawDebug();
   }
 };
