@@ -1,0 +1,472 @@
+{
+  "name": "PokeMood",
+  "created_at": "2026-07-28T06:27:48.527Z",
+  "animations": {
+    "head_pat": {
+      "frameCount": 16,
+      "fps": 12,
+      "loop": false,
+      "status": "completed",
+      "segment": [
+        0,
+        1.9583
+      ],
+      "crop": [
+        345,
+        0,
+        580,
+        720
+      ],
+      "updated_at": "2026-07-28T06:29:25.927Z",
+      "frameSize": {
+        "width": 580,
+        "height": 720
+      }
+    },
+    "wand_shake": {
+      "frameCount": 16,
+      "fps": 12,
+      "loop": false,
+      "status": "completed",
+      "segment": [
+        1.9583,
+        4
+      ],
+      "crop": [
+        345,
+        0,
+        580,
+        720
+      ],
+      "updated_at": "2026-07-28T06:29:28.807Z",
+      "frameSize": {
+        "width": 580,
+        "height": 720
+      }
+    },
+    "belly": {
+      "frameCount": 16,
+      "fps": 12,
+      "loop": false,
+      "status": "completed",
+      "segment": [
+        4,
+        6.0417
+      ],
+      "crop": [
+        345,
+        0,
+        580,
+        720
+      ],
+      "updated_at": "2026-07-28T06:29:31.683Z",
+      "frameSize": {
+        "width": 580,
+        "height": 720
+      }
+    },
+    "shy": {
+      "frameCount": 16,
+      "fps": 12,
+      "loop": false,
+      "status": "completed",
+      "segment": [
+        6.0417,
+        8.2083
+      ],
+      "crop": [
+        345,
+        0,
+        580,
+        720
+      ],
+      "updated_at": "2026-07-28T06:29:34.672Z",
+      "frameSize": {
+        "width": 580,
+        "height": 720
+      }
+    },
+    "laugh": {
+      "frameCount": 16,
+      "fps": 12,
+      "loop": false,
+      "status": "completed",
+      "segment": [
+        8.2083,
+        10
+      ],
+      "crop": [
+        345,
+        0,
+        580,
+        720
+      ],
+      "updated_at": "2026-07-28T06:29:37.676Z",
+      "frameSize": {
+        "width": 580,
+        "height": 720
+      }
+    },
+    "leg_lift": {
+      "frameCount": 16,
+      "fps": 12,
+      "loop": false,
+      "status": "completed",
+      "segment": [
+        0,
+        2.1667
+      ],
+      "crop": [
+        345,
+        0,
+        580,
+        720
+      ],
+      "updated_at": "2026-07-28T06:29:40.375Z",
+      "frameSize": {
+        "width": 580,
+        "height": 720
+      }
+    },
+    "sad": {
+      "frameCount": 18,
+      "fps": 12,
+      "loop": false,
+      "status": "completed",
+      "segment": [
+        3.9583,
+        6.2917
+      ],
+      "crop": [
+        345,
+        0,
+        580,
+        720
+      ],
+      "updated_at": "2026-07-28T06:29:43.438Z",
+      "frameSize": {
+        "width": 580,
+        "height": 720
+      }
+    },
+    "cry": {
+      "frameCount": 20,
+      "fps": 12,
+      "loop": false,
+      "status": "completed",
+      "segment": [
+        6.2917,
+        10
+      ],
+      "crop": [
+        345,
+        0,
+        580,
+        720
+      ],
+      "updated_at": "2026-07-28T06:29:46.869Z",
+      "frameSize": {
+        "width": 580,
+        "height": 720
+      }
+    },
+    "wand_warn": {
+      "frameCount": 16,
+      "fps": 12,
+      "loop": false,
+      "status": "completed",
+      "segment": [
+        0,
+        2
+      ],
+      "crop": [
+        345,
+        0,
+        580,
+        720
+      ],
+      "updated_at": "2026-07-28T06:47:51.325Z",
+      "frameSize": {
+        "width": 580,
+        "height": 720
+      }
+    },
+    "head_pat_b": {
+      "frameCount": 16,
+      "fps": 12,
+      "loop": false,
+      "status": "completed",
+      "segment": [
+        2,
+        4.1667
+      ],
+      "crop": [
+        345,
+        0,
+        580,
+        720
+      ],
+      "updated_at": "2026-07-28T06:47:54.150Z",
+      "frameSize": {
+        "width": 580,
+        "height": 720
+      }
+    },
+    "boot_show": {
+      "frameCount": 18,
+      "fps": 12,
+      "loop": false,
+      "status": "completed",
+      "segment": [
+        4.1667,
+        6.8333
+      ],
+      "crop": [
+        345,
+        0,
+        580,
+        720
+      ],
+      "updated_at": "2026-07-28T06:47:57.173Z",
+      "frameSize": {
+        "width": 580,
+        "height": 720
+      }
+    },
+    "idle": {
+      "frameCount": 22,
+      "fps": 12,
+      "loop": true,
+      "status": "completed",
+      "segment": [
+        7.0417,
+        7.9583
+      ],
+      "crop": [
+        345,
+        0,
+        580,
+        720
+      ],
+      "updated_at": "2026-07-28T06:48:00.162Z",
+      "frameSize": {
+        "width": 580,
+        "height": 720
+      }
+    },
+    "wand_warn_b": {
+      "frameSize": {
+        "width": 580,
+        "height": 720
+      },
+      "frameCount": 16,
+      "fps": 12,
+      "loop": false,
+      "status": "completed",
+      "segment": [
+        0,
+        2.125
+      ],
+      "crop": [
+        345,
+        0,
+        580,
+        720
+      ],
+      "updated_at": "2026-07-28T06:57:12.158Z"
+    },
+    "coin_deny": {
+      "frameSize": {
+        "width": 580,
+        "height": 720
+      },
+      "frameCount": 16,
+      "fps": 12,
+      "loop": false,
+      "status": "completed",
+      "segment": [
+        2.125,
+        4.25
+      ],
+      "crop": [
+        345,
+        0,
+        580,
+        720
+      ],
+      "updated_at": "2026-07-28T06:57:15.040Z"
+    },
+    "angry_charge": {
+      "frameSize": {
+        "width": 580,
+        "height": 720
+      },
+      "frameCount": 14,
+      "fps": 12,
+      "loop": false,
+      "status": "completed",
+      "segment": [
+        4.25,
+        5.6667
+      ],
+      "crop": [
+        345,
+        0,
+        580,
+        720
+      ],
+      "updated_at": "2026-07-28T06:57:17.734Z"
+    },
+    "wand_warn_c": {
+      "frameSize": {
+        "width": 580,
+        "height": 720
+      },
+      "frameCount": 16,
+      "fps": 12,
+      "loop": false,
+      "status": "completed",
+      "segment": [
+        0,
+        2.2917
+      ],
+      "crop": [
+        345,
+        0,
+        580,
+        720
+      ],
+      "updated_at": "2026-07-28T07:11:00.159Z"
+    },
+    "leg_kick": {
+      "frameSize": {
+        "width": 580,
+        "height": 720
+      },
+      "frameCount": 26,
+      "fps": 12,
+      "loop": false,
+      "status": "completed",
+      "segment": [
+        4.3333,
+        6.9583
+      ],
+      "crop": [
+        345,
+        0,
+        580,
+        720
+      ],
+      "updated_at": "2026-07-28T07:11:03.608Z"
+    },
+    "water_threat": {
+      "frameSize": {
+        "width": 580,
+        "height": 720
+      },
+      "frameCount": 12,
+      "fps": 12,
+      "loop": false,
+      "status": "completed",
+      "segment": [
+        8.3333,
+        8.8333
+      ],
+      "crop": [
+        345,
+        0,
+        580,
+        720
+      ],
+      "updated_at": "2026-07-28T07:11:06.081Z"
+    },
+    "teacher_boast": {
+      "frameSize": {
+        "width": 580,
+        "height": 720
+      },
+      "frameCount": 16,
+      "fps": 12,
+      "loop": false,
+      "status": "completed",
+      "segment": [
+        0,
+        2.75
+      ],
+      "crop": [
+        345,
+        0,
+        580,
+        720
+      ],
+      "updated_at": "2026-07-28T07:18:08.342Z"
+    },
+    "feet_tap": {
+      "frameSize": {
+        "width": 580,
+        "height": 720
+      },
+      "frameCount": 24,
+      "fps": 12,
+      "loop": false,
+      "status": "completed",
+      "segment": [
+        2.75,
+        6
+      ],
+      "crop": [
+        345,
+        0,
+        580,
+        720
+      ],
+      "updated_at": "2026-07-28T07:18:12.154Z"
+    },
+    "cast_windup": {
+      "frameSize": {
+        "width": 580,
+        "height": 720
+      },
+      "frameCount": 12,
+      "fps": 12,
+      "loop": false,
+      "status": "completed",
+      "segment": [
+        6,
+        7.05
+      ],
+      "crop": [
+        345,
+        0,
+        580,
+        720
+      ],
+      "updated_at": "2026-07-28T07:18:15.010Z"
+    },
+    "happy_tilt": {
+      "frameSize": {
+        "width": 580,
+        "height": 720
+      },
+      "frameCount": 14,
+      "fps": 12,
+      "loop": false,
+      "status": "completed",
+      "segment": [
+        8.8333,
+        10
+      ],
+      "crop": [
+        345,
+        0,
+        580,
+        720
+      ],
+      "updated_at": "2026-07-28T07:18:17.874Z"
+    }
+  },
+  "frameSize": {
+    "width": 580,
+    "height": 720
+  }
+}

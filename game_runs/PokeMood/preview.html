@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<title>PokeMood 素材预览</title>
+<style>
+  :root { --bg:#12141b; --panel:#1c1f28; --line:#2c3140; --fg:#e8eaf0; --dim:#8b93a7; --acc:#6ea8ff; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font:13px/1.55 "Segoe UI",system-ui,sans-serif;
+         display:flex; height:100vh; overflow:hidden; }
+
+  /* ---- 舞台 ---- */
+  #stage { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:14px; position:relative;
+           background:radial-gradient(ellipse at 50% 78%, #263049 0%, #14161d 62%); }
+  #sprite { width:580px; height:720px; background-repeat:no-repeat; transform-origin:50% 100%;
+            image-rendering:auto; position:relative; }
+  #holder { position:relative; }
+  #floor { position:absolute; left:50%; bottom:14px; transform:translateX(-50%);
+           width:340px; height:26px; border-radius:50%; background:rgba(110,168,255,.13); filter:blur(9px); }
+  #regions { position:absolute; inset:0; pointer-events:none; }
+  #regions div { position:absolute; border:1.5px dashed; border-radius:4px; font-size:11px; color:#fff; }
+  #regions span { position:absolute; top:-17px; left:0; padding:0 4px; border-radius:3px; white-space:nowrap; }
+  #caption { min-height:22px; color:var(--dim); text-align:center; }
+  #caption b { color:var(--fg); }
+  #caption .line { margin-top:5px; color:#ffd9a0; font-size:15px; }
+
+  /* ---- 侧栏 ---- */
+  #side { width:290px; background:var(--panel); border-left:1px solid var(--line); display:flex; flex-direction:column; }
+  header { padding:13px 15px; border-bottom:1px solid var(--line); }
+  h1 { font-size:14px; margin:0 0 3px; }
+  .sub { color:var(--dim); font-size:11px; }
+  #list { flex:1; overflow:auto; padding:8px; }
+  .item { padding:8px 10px; border-radius:7px; cursor:pointer; display:flex; justify-content:space-between; align-items:baseline; gap:8px; }
+  .item:hover { background:#252a35; }
+  .item.on { background:var(--acc); color:#0b0f16; font-weight:600; }
+  .item .n { font-size:11px; opacity:.7; font-family:Consolas,monospace; }
+  .group { color:var(--dim); font-size:10.5px; letter-spacing:.08em; padding:10px 10px 4px; text-transform:uppercase; }
+  #ctl { border-top:1px solid var(--line); padding:12px 15px; display:flex; flex-direction:column; gap:10px; }
+  .row { display:flex; align-items:center; gap:9px; }
+  .row label { color:var(--dim); width:52px; flex:none; }
+  input[type=range] { flex:1; accent-color:var(--acc); }
+  .val { width:44px; text-align:right; font-family:Consolas,monospace; font-size:11px; color:var(--fg); }
+  button { background:#2a2f3b; color:var(--fg); border:1px solid var(--line); border-radius:6px; padding:6px 9px; cursor:pointer; font-size:12px; }
+  button:hover { background:#333a48; }
+  button.on { background:var(--acc); color:#0b0f16; border-color:var(--acc); }
+  .seg { display:flex; gap:5px; }
+  .seg button { flex:1; }
+  .hint { color:var(--dim); font-size:11px; }
+</style>
+</head>
+<body>
+
+<div id="stage">
+  <div id="holder">
+    <div id="floor"></div>
+    <div id="sprite"></div>
+    <div id="regions"></div>
+  </div>
+  <div id="caption"></div>
+</div>
+
+<div id="side">
+  <header>
+    <h1>PokeMood 素材预览</h1>
+    <div class="sub">22 段动画 · 6 条源视频 · 580×720 · 抠图后</div>
+  </header>
+
+  <div id="list"></div>
+
+  <div id="ctl">
+    <div class="row"><label>帧率</label><input type="range" id="fps" min="4" max="24" value="12"><span class="val" id="fpsV">12</span></div>
+    <div class="row"><label>缩放</label><input type="range" id="zoom" min="40" max="120" value="82"><span class="val" id="zoomV">82%</span></div>
+    <div class="row"><label>播放</label>
+      <div class="seg">
+        <button data-mode="once" class="on">单次</button>
+        <button data-mode="loop">循环</button>
+        <button data-mode="pingpong">往返</button>
+      </div>
+    </div>
+    <div class="row">
+      <button id="replay" style="flex:1">重播 (空格)</button>
+      <button id="prev">◀</button><button id="next">▶</button>
+    </div>
+    <div class="row">
+      <button id="toggleRegions" style="flex:1">显示 7 区框</button>
+      <button id="toggleBg">深色底</button>
+    </div>
+    <div class="hint">「往返」= 正放+倒放，用来检验能不能拿反应段**顶替缺失的 idle 循环**（首尾天然闭合）。</div>
+  </div>
+</div>
+
+<script>
+const META = {
+  idle:       { cols:7, frames:22, group:'待机',     label:'待机',        maps:'IDLE（循环 · 源帧 169–191 最闭合窗）' },
+
+  head_pat:   { cols:7, frames:16, group:'区域反应', label:'摸头 A',      maps:'head 变体 1' },
+  head_pat_b: { cols:7, frames:16, group:'区域反应', label:'摸头 B',      maps:'head 变体 2', line:'你在给我打招呼吗？' },
+  wand_shake: { cols:7, frames:16, group:'区域反应', label:'晃魔杖',      maps:'armL 变体 1（画面左臂＝角色右手，持杖那只）' },
+  teacher_boast:{cols:7,frames:16, group:'区域反应', label:'老师自夸',    maps:'armL 变体 2', line:'那是当然，我可是魔法大学老师哦！' },
+  wand_warn:  { cols:7, frames:16, group:'区域反应', label:'魔杖警告 A',  maps:'armR 变体 1（画面右臂＝角色左手）', line:'我的魔杖不是玩具哦，你要小心。' },
+  wand_warn_b:{ cols:7, frames:16, group:'区域反应', label:'魔杖警告 B',  maps:'armR 变体 2', line:'我的魔杖不是玩具哦，我再说一次。' },
+  wand_warn_c:{ cols:7, frames:16, group:'区域反应', label:'魔杖警告 C',  maps:'armR 变体 3', line:'这个啊，我花了好多金币才买上的，再摸我就会攻击你哦。' },
+  belly:      { cols:7, frames:16, group:'区域反应', label:'摸肚子',      maps:'belly（肚子）' },
+  leg_lift:   { cols:7, frames:16, group:'区域反应', label:'抬腿 A',      maps:'legL 变体 1（画面左腿＝角色右腿）' },
+  boot_show:  { cols:7, frames:18, group:'区域反应', label:'展示靴子',    maps:'legL 变体 2', line:'这个鞋吗？魔力附加品哦！远距离行走也不会累。' },
+  coin_deny:  { cols:7, frames:16, group:'区域反应', label:'否认踩钱',    maps:'legL 变体 3', line:'你说我踩到你的钱了？没有哦！' },
+  leg_kick:   { cols:7, frames:26, group:'区域反应', label:'连续踢腿',    maps:'legL 变体 4（tier2/3 更烦躁）' },
+  feet_tap:   { cols:7, frames:24, group:'区域反应', label:'左右踏脚',    maps:'legL + legR 共用（两脚交替，唯一能给右腿用的）' },
+
+  angry_charge:{cols:7, frames:14, group:'情绪',     label:'生气·蓄力',   maps:'情绪 ANGRY（法阵变形＋杖头蓄光，停在蓄力态）' },
+  water_threat:{cols:7, frames:12, group:'情绪',     label:'水球待发',    maps:'终极惩罚前摇 变体 1（停在举球态 → 前端粒子接管）' },
+  cast_windup:{ cols:7, frames:12, group:'情绪',     label:'举杖起手',    maps:'终极惩罚前摇 变体 2' },
+  shy:        { cols:7, frames:16, group:'情绪',     label:'害羞',        maps:'情绪 SHY' },
+  laugh:      { cols:7, frames:16, group:'情绪',     label:'被逗笑',      maps:'情绪 TICKLED / HAPPY 变体 1' },
+  happy_tilt: { cols:7, frames:14, group:'情绪',     label:'歪头一笑',    maps:'情绪 HAPPY 变体 2（闭眼张嘴笑）' },
+  sad:        { cols:7, frames:18, group:'情绪',     label:'委屈',        maps:'情绪 SAD（生气→哭之间的过渡）' },
+  cry:        { cols:7, frames:20, group:'情绪',     label:'小小的抽泣',  maps:'情绪 CRY' },
+};
+// 与 tools/region-calibrator.html 的 DEFAULTS 保持一致（标定完成后一起换成真值）
+const REGIONS = [
+  { id:'head',  label:'头',        color:'#ff6b6b', x:0.395, y:0.065, w:0.285, h:0.235 },
+  { id:'chest', label:'胸',        color:'#ffa94d', x:0.435, y:0.300, w:0.195, h:0.150 },
+  { id:'belly', label:'肚子',      color:'#ffd43b', x:0.435, y:0.450, w:0.195, h:0.165 },
+  { id:'armL',  label:'左臂(持杖)', color:'#69db7c', x:0.285, y:0.325, w:0.150, h:0.310 },
+  { id:'armR',  label:'右臂',      color:'#38d9a9', x:0.630, y:0.325, w:0.150, h:0.310 },
+  { id:'legL',  label:'左腿',      color:'#4dabf7', x:0.430, y:0.620, w:0.100, h:0.330 },
+  { id:'legR',  label:'右腿',      color:'#b197fc', x:0.530, y:0.620, w:0.100, h:0.330 },
+];
+const FW = 580, FH = 720;
+
+const el = id => document.getElementById(id);
+const sprite = el('sprite');
+let cur = 'head_pat', frame = 0, dir = 1, mode = 'once', fps = 12, acc = 0, last = 0, playing = true;
+
+/* ---- 侧栏列表 ---- */
+(function buildList() {
+  const list = el('list');
+  for (const g of ['待机', '区域反应', '情绪']) {
+    const h = document.createElement('div'); h.className = 'group'; h.textContent = g; list.appendChild(h);
+    for (const [k, m] of Object.entries(META)) {
+      if (m.group !== g) continue;
+      const d = document.createElement('div');
+      d.className = 'item'; d.dataset.k = k;
+      d.innerHTML = `<span>${m.label}</span><span class="n">${k} · ${m.frames}f</span>`;
+      d.onclick = () => select(k);
+      list.appendChild(d);
+    }
+  }
+})();
+
+function select(k) {
+  const m = META[k];
+  cur = k; frame = 0; dir = 1; playing = true;
+  // idle 固定往返播放（已定案）：杖头小法阵首尾帧差异大，单向循环会跳，往返才顺
+  if (k === 'idle') setMode('pingpong');
+  sprite.style.backgroundImage = `url("assets/anim/${k}.webp")`;
+  document.querySelectorAll('.item').forEach(i => i.classList.toggle('on', i.dataset.k === k));
+  el('caption').innerHTML = `<b>${m.label}</b> · ${k} · ${m.frames} 帧 → ${m.maps}`
+    + (m.line ? `<div class="line">「${m.line}」</div>` : '');
+  draw();
+}
+
+function draw() {
+  const c = META[cur].cols;
+  sprite.style.backgroundPosition = `${-(frame % c) * FW}px ${-Math.floor(frame / c) * FH}px`;
+}
+
+/* ---- 播放循环 ---- */
+function tick(t) {
+  requestAnimationFrame(tick);
+  if (!last) last = t;
+  const dt = t - last; last = t;
+  if (!playing) return;
+  acc += dt;
+  const step = 1000 / fps;
+  while (acc >= step) {
+    acc -= step;
+    const n = META[cur].frames;
+    frame += dir;
+    if (mode === 'pingpong') {
+      if (frame >= n - 1) { frame = n - 1; dir = -1; }
+      else if (frame <= 0) { frame = 0; dir = 1; }
+    } else if (frame >= n) {
+      if (mode === 'loop') frame = 0;
+      else { frame = n - 1; playing = false; }
+    }
+    draw();
+  }
+}
+requestAnimationFrame(tick);
+
+/* ---- 控件 ---- */
+el('fps').oninput = e => { fps = +e.target.value; el('fpsV').textContent = fps; };
+el('zoom').oninput = e => {
+  const z = +e.target.value / 100;
+  el('zoomV').textContent = e.target.value + '%';
+  el('holder').style.transform = `scale(${z})`;
+};
+el('holder').style.transform = 'scale(0.82)';
+function setMode(m) {
+  mode = m;
+  document.querySelectorAll('[data-mode]').forEach(x => x.classList.toggle('on', x.dataset.mode === m));
+  frame = 0; dir = 1; playing = true;
+}
+document.querySelectorAll('[data-mode]').forEach(b => b.onclick = () => setMode(b.dataset.mode));
+el('replay').onclick = () => { frame = 0; dir = 1; playing = true; };
+el('prev').onclick = () => { playing = false; frame = (frame - 1 + META[cur].frames) % META[cur].frames; draw(); };
+el('next').onclick = () => { playing = false; frame = (frame + 1) % META[cur].frames; draw(); };
+window.onkeydown = e => {
+  if (e.code === 'Space') { e.preventDefault(); el('replay').click(); }
+  if (e.code === 'ArrowLeft') el('prev').click();
+  if (e.code === 'ArrowRight') el('next').click();
+};
+
+let showRegions = false;
+el('toggleRegions').onclick = () => {
+  showRegions = !showRegions;
+  el('toggleRegions').classList.toggle('on', showRegions);
+  const box = el('regions');
+  box.innerHTML = '';
+  if (!showRegions) return;
+  for (const r of REGIONS) {
+    const d = document.createElement('div');
+    d.style.cssText = `left:${r.x * FW}px; top:${r.y * FH}px; width:${r.w * FW}px; height:${r.h * FH}px; border-color:${r.color}`;
+    d.innerHTML = `<span style="background:${r.color}">${r.label}</span>`;
+    box.appendChild(d);
+  }
+};
+let dark = true;
+el('toggleBg').onclick = () => {
+  dark = !dark;
+  el('stage').style.background = dark
+    ? 'radial-gradient(ellipse at 50% 78%, #263049 0%, #14161d 62%)'
+    : 'radial-gradient(ellipse at 50% 78%, #fdf3e0 0%, #e6d9c3 62%)';
+  el('toggleBg').textContent = dark ? '深色底' : '浅色底';
+  el('caption').style.color = dark ? '' : '#5b5347';
+};
+
+select('head_pat');
+</script>
+</body>
+</html>

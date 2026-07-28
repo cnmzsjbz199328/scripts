@@ -1,5 +1,18 @@
 [
   {
+    "id": "PokeMood",
+    "title": "神 洛琪希 (PokeMood)",
+    "tagline": "戳头、戳肚子、戳她的魔杖——反复招惹，她会从害羞一路生气到哭，然后泼你一身水。",
+    "gameType": "toy",
+    "genre": "TOY",
+    "accent": "#5fe0c8",
+    "previewBg": "#0d1119",
+    "icon": "🪄",
+    "thumbnail": "PokeMood/cover.png",
+    "path": "PokeMood/index.html",
+    "createdAt": "2026-07-28T07:50:27.787Z"
+  },
+  {
     "id": "ShapeshifterGirl",
     "title": "百变少女冒险记 (ShapeshifterGirl)",
     "tagline": "猫翻高墙、鱼渡深水、鹰滑峡谷、熊破巨石——在正确的时机，变成正确的动物。",

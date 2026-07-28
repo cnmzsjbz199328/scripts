@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>神 洛琪希</title>
+  <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #080b12;
+      color: #e7ecf5;
+      font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
+      display: flex; align-items: center; justify-content: center;
+      min-height: 100vh; overflow: hidden;
+    }
+
+    #game-wrapper {
+      position: relative;
+      border: 2px solid #2b3a52;
+      border-radius: 10px;
+      box-shadow: 0 14px 44px rgba(0, 0, 0, 0.65);
+      overflow: hidden;
+    }
+
+    /* ── HUD ── */
+    #hud {
+      display: none;
+      position: absolute; top: 0; left: 0; right: 0;
+      padding: 10px 16px; gap: 18px;
+      flex-direction: row; align-items: center;
+      background: linear-gradient(to bottom, rgba(6, 10, 18, 0.75), transparent);
+      pointer-events: none; z-index: 10; font-size: 14px; user-select: none;
+    }
+    #hud-hearts { color: #ff8fb8; letter-spacing: 2px; font-size: 17px; }
+    #hud-score { color: #9fb6d6; font-weight: 700; }
+    #hud-objective { color: #d7e3f4; flex: 1; text-align: right; font-weight: 600; }
+
+    /* ── 遮罩 ── */
+    .game-overlay {
+      position: absolute; inset: 0;
+      display: flex; align-items: center; justify-content: center;
+      z-index: 20; background: rgba(8, 11, 18, 0.94);
+    }
+    .overlay-card { text-align: center; padding: 30px 40px; max-width: 460px; }
+    .overlay-card h1 { font-size: 27px; margin-bottom: 10px; letter-spacing: 1px; }
+    .overlay-card .tag { color: #5fe0c8; font-size: 13px; letter-spacing: 3px; margin-bottom: 18px; }
+    .overlay-card p { color: #93a5bf; line-height: 1.75; margin-bottom: 22px; font-size: 14px; }
+    .overlay-card p b { color: #d7e3f4; font-weight: 600; }
+    .btn {
+      background: #5fe0c8; color: #08121a; border: none; border-radius: 7px;
+      padding: 12px 34px; font-size: 15px; font-weight: 700; cursor: pointer;
+      font-family: inherit; letter-spacing: 1px;
+    }
+    .btn:hover { background: #7cead5; }
+    #gameover-screen { display: none; }
+  </style>
+</head>
+<body>
+
+<div id="game-wrapper">
+  <div id="game-container"></div>
+
+  <div id="hud">
+    <span id="hud-hearts"></span>
+    <span id="hud-score">反应 <span id="hud-score-value">0</span></span>
+    <span id="hud-objective"><span id="hud-objective-text"></span></span>
+  </div>
+
+  <div id="start-screen" class="game-overlay">
+    <div class="overlay-card">
+      <div class="tag">POKE · MOOD</div>
+      <h1>蓝妈妈</h1>
+      <p>
+        洛琪希站在你面前。<b>点、按、摸</b>她的头、胸、肚子、手臂和腿，
+        每个地方反应都不一样。<br>
+        同一个地方反复戳，她会从害羞、被逗笑，一路到<b>生气</b>——
+        再不停手，你会被泼一身水。
+      </p>
+      <button id="start-btn" class="btn">开始</button>
+    </div>
+  </div>
+
+  <div id="gameover-screen" class="game-overlay">
+    <div class="overlay-card">
+      <h1 id="gameover-title"></h1>
+      <p id="gameover-message"></p>
+    </div>
+  </div>
+</div>
+
+<!-- 依赖序：引擎 → config → 数据 → 系统 → 场景 → main。顺序错了就是 undefined -->
+<script src="../_engine/hud.js"></script>
+<script src="../_engine/audio.js"></script>
+<script src="game/config.js"></script>
+<script src="game/regions.js"></script>
+<script src="game/reactions.js"></script>
+<script src="game/systems/touch.js"></script>
+<script src="game/systems/mood.js"></script>
+<script src="game/systems/react.js"></script>
+<script src="game/scenes/BootScene.js"></script>
+<script src="game/scenes/StageScene.js"></script>
+<script src="game/main.js"></script>
+<script>
+  document.getElementById('start-btn').addEventListener('click', () => window.__hudStart());
+</script>
+</body>
+</html>

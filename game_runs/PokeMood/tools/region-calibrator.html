@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<title>PokeMood 区域标定器</title>
+<style>
+  :root { --bg:#14161c; --panel:#1e2129; --line:#2f3441; --fg:#e6e8ee; --dim:#8b93a7; --acc:#6ea8ff; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font:13px/1.5 "Segoe UI",system-ui,sans-serif; display:flex; height:100vh; overflow:hidden; }
+  #stage { flex:1; position:relative; display:flex; align-items:center; justify-content:center; overflow:hidden; }
+  #wrap { position:relative; line-height:0; box-shadow:0 0 0 1px var(--line); }
+  #wrap.checker { background-image:linear-gradient(45deg,#2a2d36 25%,transparent 25%),linear-gradient(-45deg,#2a2d36 25%,transparent 25%),linear-gradient(45deg,transparent 75%,#2a2d36 75%),linear-gradient(-45deg,transparent 75%,#2a2d36 75%); background-size:20px 20px; background-position:0 0,0 10px,10px -10px,-10px 0; }
+  canvas { display:block; max-width:100%; }
+  .box { position:absolute; border:2px solid; cursor:move; }
+  .box .tag { position:absolute; top:-20px; left:-2px; font-size:11px; padding:1px 5px; border-radius:3px 3px 0 0; white-space:nowrap; color:#fff; }
+  .box .h { position:absolute; width:11px; height:11px; background:#fff; border:1px solid #000; }
+  .box .h.nw{left:-6px;top:-6px;cursor:nwse-resize} .box .h.ne{right:-6px;top:-6px;cursor:nesw-resize}
+  .box .h.sw{left:-6px;bottom:-6px;cursor:nesw-resize} .box .h.se{right:-6px;bottom:-6px;cursor:nwse-resize}
+  .box.sel { box-shadow:0 0 0 2px #fff inset; }
+  .box.hidden { display:none; }
+  #side { width:320px; background:var(--panel); border-left:1px solid var(--line); display:flex; flex-direction:column; }
+  #side header { padding:12px 14px; border-bottom:1px solid var(--line); }
+  h1 { font-size:14px; margin:0 0 4px; } .sub { color:var(--dim); font-size:11px; }
+  #list { flex:1; overflow:auto; padding:8px; }
+  .row { display:grid; grid-template-columns:14px 1fr auto; gap:8px; align-items:center; padding:7px 8px; border-radius:6px; cursor:pointer; }
+  .row:hover { background:#262a34; } .row.sel { background:#2f3646; }
+  .swatch { width:14px; height:14px; border-radius:3px; }
+  .nums { color:var(--dim); font-family:Consolas,monospace; font-size:10px; }
+  #tools { padding:10px 14px; border-top:1px solid var(--line); display:flex; flex-direction:column; gap:8px; }
+  button { background:#2b303c; color:var(--fg); border:1px solid var(--line); border-radius:6px; padding:8px 10px; cursor:pointer; font-size:12px; }
+  button:hover { background:#353b49; } button.pri { background:var(--acc); color:#0c1016; border-color:var(--acc); font-weight:600; }
+  label.chk { display:flex; align-items:center; gap:6px; color:var(--dim); cursor:pointer; }
+  #out { width:100%; height:150px; background:#12141a; color:#9fd0a0; border:1px solid var(--line); border-radius:6px; font:10px/1.4 Consolas,monospace; padding:8px; resize:none; }
+  #drop { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; flex-direction:column; gap:10px; color:var(--dim); pointer-events:none; text-align:center; }
+  #drop.hide { display:none; }
+  #drop b { color:var(--fg); font-size:16px; }
+  .hint { color:var(--dim); font-size:11px; }
+  kbd { background:#2b303c; border:1px solid var(--line); border-bottom-width:2px; border-radius:3px; padding:0 4px; font-family:Consolas,monospace; font-size:10px; }
+</style>
+</head>
+<body>
+
+<div id="stage">
+  <div id="wrap" class="checker"><canvas id="cv"></canvas></div>
+  <div id="drop"><b>把角色图拖进来</b>
+    <span>绿幕原图 或 已抠好的 PNG 都行<br>绿幕图会自动预览抠图效果</span></div>
+</div>
+
+<div id="side">
+  <header>
+    <h1>PokeMood 区域标定器</h1>
+    <div class="sub">拖框调整 7 个触碰区 → 复制 JSON 给 Claude</div>
+  </header>
+  <div id="list"></div>
+  <div id="tools">
+    <label class="chk"><input type="checkbox" id="key" checked> 绿幕抠图预览</label>
+    <label class="chk"><input type="checkbox" id="alpha"> 只显示轮廓内（alpha 命中预览）</label>
+    <div class="hint"><kbd>方向键</kbd> 微调 1px · <kbd>Shift+方向键</kbd> 调大小 · <kbd>H</kbd> 隐藏选中框</div>
+    <textarea id="out" readonly spellcheck="false"></textarea>
+    <button class="pri" id="copy">复制 JSON</button>
+    <button id="reset">重置为默认人体比例</button>
+  </div>
+</div>
+
+<!-- assets/base.png 的 data URI。用相对路径加载会污染 canvas（file:// 下 getImageData 抛异常），
+     所以内嵌。base.png 换了就跑：node game_runs/PokeMood/tools/embed-base.mjs -->
+<script src="base-image.js"></script>
+<script>
+// 初始值按 assets/base.png（魔女，580×720）的实际比例预置。
+// 左右一律按**画面方位**命名：armL = 画面左侧那条手臂（＝角色自己的右手，持杖那只）。
+const DEFAULTS = [
+  { id:'head',  label:'头',        color:'#ff6b6b', x:0.395, y:0.065, w:0.285, h:0.235 },
+  { id:'chest', label:'胸',        color:'#ffa94d', x:0.435, y:0.300, w:0.195, h:0.150 },
+  { id:'belly', label:'肚子',      color:'#ffd43b', x:0.435, y:0.450, w:0.195, h:0.165 },
+  { id:'armL',  label:'左臂(持杖)', color:'#69db7c', x:0.285, y:0.325, w:0.150, h:0.310 },
+  { id:'armR',  label:'右臂',      color:'#38d9a9', x:0.630, y:0.325, w:0.150, h:0.310 },
+  { id:'legL',  label:'左腿',      color:'#4dabf7', x:0.430, y:0.620, w:0.100, h:0.330 },
+  { id:'legR',  label:'右腿',      color:'#b197fc', x:0.530, y:0.620, w:0.100, h:0.330 },
+];
+const CHROMA_THRESHOLD = 110;  // 与 video-sprite/process.ts 一致
+
+let regions = structuredClone(DEFAULTS);
+let img = null, sel = null, natW = 0, natH = 0, tainted = false;
+const wrap = document.getElementById('wrap'), cv = document.getElementById('cv'), ctx = cv.getContext('2d', { willReadFrequently:true });
+let alphaMap = null;  // Uint8Array，抠图后的 alpha，用于命中预览
+
+/* ---------- 载图 + 绿幕抠图 ---------- */
+function loadSrc(src) {
+  const i = new Image();
+  i.onload = () => {
+    img = i; natW = i.naturalWidth; natH = i.naturalHeight;
+    document.getElementById('drop').classList.add('hide');
+    fit();
+    // 已抠好的 PNG（存在透明像素）不该再走绿幕抠图，否则会啃掉角色
+    ctx.clearRect(0, 0, natW, natH); ctx.drawImage(img, 0, 0);
+    let transparent = false;
+    try {
+      const s = ctx.getImageData(0, 0, natW, natH).data;
+      for (let p = 3; p < s.length; p += 4 * 97) if (s[p] < 8) { transparent = true; break; }
+    } catch (e) {
+      // canvas 被跨源图污染（不该发生，内嵌的是 data URI）——退化成"不抠图、不做 alpha 预览"
+      console.warn('canvas 取像素失败，已关闭抠图/alpha 预览：', e.message);
+      tainted = true; transparent = true;
+      document.getElementById('alpha').disabled = true;
+    }
+    document.getElementById('key').checked = !transparent;
+    layout();
+    render();
+  };
+  i.src = src;
+}
+const loadImage = file => loadSrc(URL.createObjectURL(file));
+function fit() {
+  const st = document.getElementById('stage');
+  const scale = Math.min((st.clientWidth - 60) / natW, (st.clientHeight - 60) / natH, 1);
+  cv.width = natW; cv.height = natH;
+  cv.style.width = (natW * scale) + 'px'; cv.style.height = (natH * scale) + 'px';
+  wrap.style.width = cv.style.width; wrap.style.height = cv.style.height;
+}
+function render() {
+  if (!img) return;
+  ctx.clearRect(0, 0, natW, natH);
+  ctx.drawImage(img, 0, 0);
+  if (tainted) return;
+  if (document.getElementById('key').checked) {
+    const d = ctx.getImageData(0, 0, natW, natH), p = d.data;
+    alphaMap = new Uint8Array(natW * natH);
+    for (let i = 0; i < p.length; i += 4) {
+      const dr = p[i] - 0, dg = p[i+1] - 255, db = p[i+2] - 0;
+      if (Math.sqrt(dr*dr + dg*dg + db*db) <= CHROMA_THRESHOLD) p[i+3] = 0;
+      alphaMap[i >> 2] = p[i+3];
+    }
+    ctx.putImageData(d, 0, 0);
+  } else {
+    const d = ctx.getImageData(0, 0, natW, natH);
+    alphaMap = new Uint8Array(natW * natH);
+    for (let i = 0; i < d.data.length; i += 4) alphaMap[i >> 2] = d.data[i+3];
+  }
+  if (document.getElementById('alpha').checked) maskOutside();
+}
+// 把「区域矩形内但角色轮廓外」的部分涂暗，直观展示 alpha 命中判定会漏掉哪里
+function maskOutside() {
+  const d = ctx.getImageData(0, 0, natW, natH), p = d.data;
+  for (let i = 0; i < p.length; i += 4) if (p[i+3] < 16) { p[i]=20; p[i+1]=22; p[i+2]=28; p[i+3]=90; }
+  ctx.putImageData(d, 0, 0);
+}
+
+/* ---------- 框的 DOM ---------- */
+function buildBoxes() {
+  wrap.querySelectorAll('.box').forEach(e => e.remove());
+  regions.forEach(r => {
+    const b = document.createElement('div');
+    b.className = 'box'; b.dataset.id = r.id; b.style.borderColor = r.color;
+    b.innerHTML = `<span class="tag" style="background:${r.color}">${r.label}</span>` +
+      ['nw','ne','sw','se'].map(k => `<i class="h ${k}" data-k="${k}"></i>`).join('');
+    wrap.appendChild(b);
+    b.addEventListener('pointerdown', e => startDrag(e, r, b));
+  });
+  layout();
+}
+function layout() {
+  regions.forEach(r => {
+    const b = wrap.querySelector(`.box[data-id="${r.id}"]`);
+    if (!b) return;
+    b.style.left = (r.x * 100) + '%'; b.style.top = (r.y * 100) + '%';
+    b.style.width = (r.w * 100) + '%'; b.style.height = (r.h * 100) + '%';
+    b.classList.toggle('sel', sel === r.id);
+    b.classList.toggle('hidden', !!r.hidden);
+  });
+  renderList(); renderOut();
+}
+
+/* ---------- 拖拽 / 缩放 ---------- */
+function startDrag(e, r, box) {
+  e.preventDefault(); e.stopPropagation();
+  sel = r.id; layout();
+  const handle = e.target.dataset.k || null;
+  const rect = wrap.getBoundingClientRect();
+  const sx = e.clientX, sy = e.clientY, o = { x:r.x, y:r.y, w:r.w, h:r.h };
+  const move = ev => {
+    const dx = (ev.clientX - sx) / rect.width, dy = (ev.clientY - sy) / rect.height;
+    if (!handle) { r.x = clamp(o.x + dx, -0.2, 1.2); r.y = clamp(o.y + dy, -0.2, 1.2); }
+    else {
+      if (handle.includes('w')) { r.x = o.x + dx; r.w = Math.max(0.02, o.w - dx); }
+      if (handle.includes('e')) { r.w = Math.max(0.02, o.w + dx); }
+      if (handle.includes('n')) { r.y = o.y + dy; r.h = Math.max(0.02, o.h - dy); }
+      if (handle.includes('s')) { r.h = Math.max(0.02, o.h + dy); }
+    }
+    layout();
+  };
+  const up = () => { window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); };
+  window.addEventListener('pointermove', move); window.addEventListener('pointerup', up);
+}
+const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+
+/* ---------- 侧栏 / 输出 ---------- */
+function renderList() {
+  const el = document.getElementById('list');
+  el.innerHTML = '';
+  regions.forEach(r => {
+    const d = document.createElement('div');
+    d.className = 'row' + (sel === r.id ? ' sel' : '');
+    d.innerHTML = `<span class="swatch" style="background:${r.color}"></span>
+      <span>${r.label} <span class="nums">${r.id}</span></span>
+      <span class="nums">${f(r.x)},${f(r.y)} ${f(r.w)}×${f(r.h)}</span>`;
+    d.onclick = () => { sel = r.id; layout(); };
+    el.appendChild(d);
+  });
+}
+const f = v => v.toFixed(3);
+function renderOut() {
+  const o = {};
+  regions.forEach(r => { o[r.id] = { x:+f(r.x), y:+f(r.y), w:+f(r.w), h:+f(r.h), label:r.label }; });
+  document.getElementById('out').value =
+    `// 贴图尺寸 ${natW}×${natH}\nwindow.PM.REGIONS = ${JSON.stringify(o, null, 2)};`;
+}
+
+/* ---------- 事件 ---------- */
+document.addEventListener('dragover', e => e.preventDefault());
+document.addEventListener('drop', e => { e.preventDefault(); if (e.dataTransfer.files[0]) loadImage(e.dataTransfer.files[0]); });
+document.getElementById('key').onchange = render;
+document.getElementById('alpha').onchange = render;
+document.getElementById('copy').onclick = () => {
+  navigator.clipboard.writeText(document.getElementById('out').value);
+  const b = document.getElementById('copy'); b.textContent = '已复制 ✓';
+  setTimeout(() => b.textContent = '复制 JSON', 1200);
+};
+document.getElementById('reset').onclick = () => { regions = structuredClone(DEFAULTS); sel = null; buildBoxes(); };
+window.addEventListener('keydown', e => {
+  const r = regions.find(x => x.id === sel); if (!r) return;
+  const step = 1 / (natH || 1000), stepX = 1 / (natW || 1000);
+  const k = e.key;
+  if (k === 'h' || k === 'H') { r.hidden = !r.hidden; layout(); return; }
+  if (!k.startsWith('Arrow')) return;
+  e.preventDefault();
+  const big = e.shiftKey;
+  if (k === 'ArrowLeft')  big ? r.w -= stepX : r.x -= stepX;
+  if (k === 'ArrowRight') big ? r.w += stepX : r.x += stepX;
+  if (k === 'ArrowUp')    big ? r.h -= step  : r.y -= step;
+  if (k === 'ArrowDown')  big ? r.h += step  : r.y += step;
+  layout();
+});
+window.addEventListener('resize', () => { if (img) { fit(); render(); layout(); } });
+
+buildBoxes();
+
+// 开箱即用：内嵌的 base.png 自动载入（拖入其它图片仍可覆盖）
+if (window.PM_BASE_IMAGE) loadSrc(window.PM_BASE_IMAGE);
+else console.warn('未找到 base-image.js —— 跑 node game_runs/PokeMood/tools/embed-base.mjs 生成');
+</script>
+</body>
+</html>

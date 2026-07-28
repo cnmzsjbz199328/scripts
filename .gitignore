@@ -48,6 +48,8 @@ game_runs/**/scene/backup/
 # NOT version-controlled (large). The 10s preview.mp4 in each game root IS tracked.
 game_runs/**/playtest/
 game_runs/**/_rec/
+# 专用 bot 的截图 + 报告（PokeMood 的 poke-bot 等），同属本地验证产物
+game_runs/**/bot/
 
 # showreel — concatenated demo video + all intermediate parts, local showcase only.
 # Keep only the reproducible build script.
