@@ -34,7 +34,7 @@ PM.REACTIONS = {
     1: [{ anim: 'wand_shake',   line: '需要我为你展示一下水系统魔术的咏唱吗？', voice: 'assets/audio/wand_shake.mp3' },
         { anim: 'teacher_boast', line: '那是当然！我可是魔法大学老师，也是鲁迪的师傅兼妻子哦！', voice: 'assets/audio/teacher_boast.mp3' }],
     2: [{ anim: 'wand_warn',     line: '我的魔杖不是玩具哦，你要小心。', voice: 'assets/audio/wand_warn.mp3' }],
-    3: [{ anim: 'angry_charge',  line: '我说过了吧？', voice: 'assets/audio/head_angry.mp3' }],
+    3: [{ anim: 'angry_charge',  line: '我说过了吧？', voice: 'assets/audio/arm_angry.mp3' }],
   },
 
   // 画面右臂 = 角色左手（她用这只手扶杖警告）
@@ -55,16 +55,16 @@ PM.REACTIONS = {
 
   // 素材里所有单腿动作用的都是另一条腿，这里只能复用共享的踏脚（MATERIALS「腿的问题」）
   legR: {
-    1: [{ anim: 'feet_tap', line: '请适可而止……老是盯着脚看很不礼貌哦。', voice: 'assets/audio/feet_tap.mp3' }],
-    2: [{ anim: 'feet_tap', line: '踩到什么东西了吗……应该没有吧。', voice: 'assets/audio/feet_tap.mp3' }],
-    3: [{ anim: 'leg_kick', line: '不要总是碰脚啦！', voice: 'assets/audio/leg_kick.mp3' }],
+    1: [{ anim: 'feet_tap', line: '请适可而止……老是盯着脚看很不礼貌哦。', voice: 'assets/audio/feet_tap_b.mp3' }],
+    2: [{ anim: 'feet_tap', line: '踩到什么东西了吗……应该没有吧。', voice: 'assets/audio/feet_tap_c.mp3' }],
+    3: [{ anim: 'leg_kick', line: '不要总是碰脚啦！', voice: 'assets/audio/leg_kick_b.mp3' }],
   },
 };
 
 /* 终极惩罚：已经生气了还继续戳 → 举水球 → 前端粒子朝屏幕泼你一脸 → 她哭。
  * 素材只出前摇（AI 三条视频的喷射方向全是朝画面左，弃用），释放完全由渲染层做，
  * 方向可控。见 DESIGN §4.5。 */
-PM.PUNISH = { anim: 'water_threat', line: '这是你自找的哦。', voice: 'assets/audio/water_threat.mp3' };
+PM.PUNISH = { anim: 'water_threat', line: '这是你自找的哦。', voice: 'assets/audio/punish.mp3' };
 
 /* 安抚成功（连续讨好）时的正反馈出口 */
 PM.HAPPY_REACT = { anim: 'happy_tilt', line: '哼哼～看到你这么有精神我也很高兴呢。等会儿去给鲁迪做点好吃的吧。', voice: 'assets/audio/happy_tilt.mp3' };
