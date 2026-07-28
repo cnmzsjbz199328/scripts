@@ -4,38 +4,37 @@
  * 第三下起就没人想戳了。每多一个变体，该区域的耐玩度就多一档。
  * 挑选规则见 systems/react.js：同池随机 + 不连续重复上一次。
  *
- * 台词全部由素材作者随视频提供，口吻：礼貌、略带说明欲、不凶。
- * 没有原话的动作就不给台词（宁可沉默，也别编出不像她的话）。
+ * 台词人设：洛琪希·米格路迪亚（礼貌、略带说明欲、不凶、傲娇/害羞反差萌）。
  */
 window.PM = window.PM || {};
 
 PM.REACTIONS = {
   head: {
-    1: [{ anim: 'head_pat' },
+    1: [{ anim: 'head_pat',   line: '那个……请不要随便把我当小孩子看待哦。' },
         { anim: 'head_pat_b', line: '你在给我打招呼吗？' }],
-    2: [{ anim: 'shy' }],
+    2: [{ anim: 'shy',        line: '再这样一直摸的话，头发会被摸乱的……' }],
     3: [{ anim: 'angry_charge', line: '再摸下去，我可要认真了。' }],
   },
 
   // 没有专属素材 —— 碰胸直接害羞，设计上也讲得通
   chest: {
-    1: [{ anim: 'shy' }],
-    2: [{ anim: 'shy' }],
+    1: [{ anim: 'shy',          line: '请、请注意一下举止，我好歹也是成熟的女性……' }],
+    2: [{ anim: 'shy',          line: '等一下，手碰哪里呢……请放尊重一点。' }],
     3: [{ anim: 'angry_charge', line: '那里不可以。' }],
   },
 
   belly: {
-    1: [{ anim: 'belly' }],
-    2: [{ anim: 'laugh' }],
-    3: [{ anim: 'sad' }],
+    1: [{ anim: 'belly', line: '诶？肚子怎么了吗……我今天有好好按时吃午餐哦。' }],
+    2: [{ anim: 'laugh', line: '等等……哈哈，那里很痒啦！请住手……' }],
+    3: [{ anim: 'sad',   line: '呜……一直戳肚子的教养，可不是我教给你的。' }],
   },
 
   // 画面左臂 = 角色右手 = 持杖那只
   armL: {
-    1: [{ anim: 'wand_shake' },
+    1: [{ anim: 'wand_shake',   line: '需要我为你展示一下水系统魔术的咏唱吗？' },
         { anim: 'teacher_boast', line: '那是当然，我可是魔法大学老师哦！' }],
-    2: [{ anim: 'wand_warn', line: '我的魔杖不是玩具哦，你要小心。' }],
-    3: [{ anim: 'angry_charge', line: '我说过了吧？' }],
+    2: [{ anim: 'wand_warn',     line: '我的魔杖不是玩具哦，你要小心。' }],
+    3: [{ anim: 'angry_charge',  line: '我说过了吧？' }],
   },
 
   // 画面右臂 = 角色左手（她用这只手扶杖警告）
@@ -47,18 +46,18 @@ PM.REACTIONS = {
   },
 
   legL: {
-    1: [{ anim: 'leg_lift' },
+    1: [{ anim: 'leg_lift',  line: '魔术师在长途旅行中，腿部保养也是很重要的课业哦。' },
         { anim: 'boot_show', line: '这个鞋吗？魔力附加品哦！远距离行走也不会累。' }],
     2: [{ anim: 'coin_deny', line: '你说我踩到你的钱了？没有哦！' },
-        { anim: 'feet_tap' }],
-    3: [{ anim: 'leg_kick' }],
+        { anim: 'feet_tap',  line: '一直碰脚，难道是鞋子上有尘土吗？' }],
+    3: [{ anim: 'leg_kick',  line: '真是的……就算是我，被一直戳脚也是会反击的哦！' }],
   },
 
   // 素材里所有单腿动作用的都是另一条腿，这里只能复用共享的踏脚（MATERIALS「腿的问题」）
   legR: {
-    1: [{ anim: 'feet_tap' }],
-    2: [{ anim: 'feet_tap' }],
-    3: [{ anim: 'leg_kick' }],
+    1: [{ anim: 'feet_tap', line: '请适可而止……老是盯着脚看很不礼貌哦。' }],
+    2: [{ anim: 'feet_tap', line: '踩到什么东西了吗……应该没有吧。' }],
+    3: [{ anim: 'leg_kick', line: '不要总是碰脚啦！' }],
   },
 };
 
@@ -68,4 +67,4 @@ PM.REACTIONS = {
 PM.PUNISH = { anim: 'water_threat', line: '这是你自找的哦。' };
 
 /* 安抚成功（连续讨好）时的正反馈出口 */
-PM.HAPPY_REACT = { anim: 'happy_tilt' };
+PM.HAPPY_REACT = { anim: 'happy_tilt', line: '哼哼～看到你这么有精神，我也很高兴呢。' };
