@@ -9,27 +9,58 @@ import path from 'path';
 import { execSync } from 'child_process';
 import os from 'os';
 
-const FRAME_WIDTH = 192;
-const FRAME_HEIGHT = 208;
+// 单元格尺寸：默认 192×208（与 char-sprite 图集一致），可用 --size=WxH 覆盖
+let FRAME_WIDTH = 192;
+let FRAME_HEIGHT = 208;
 const CELL_PADDING = 5;
 const CHROMA_THRESHOLD = 110;
 // Source extraction FPS — high enough to give smooth sampling for short clips
 const EXTRACT_FPS = 15;
-// 脚底基线（anchor 模式）：与现役 char-sprite 图集一致，脚底恒在 y=202
-const BASELINE_Y = 202;
+// 脚底基线（anchor 模式）：与现役 char-sprite 图集一致，脚底恒在 y=202（随 --size 等比缩放）
+let BASELINE_Y = 202;
 // 连通域清理：小于最大连通域面积 6% 的碎片（背景星点/呼气团）直接抹掉
 const MIN_BLOB_RATIO = 0.06;
 
-function chromaDist(r: number, g: number, b: number): number {
-  return Math.sqrt(r * r + (g - 255) ** 2 + b * b);
+// 抠图参数。默认 = 历史行为（纯绿 #00FF00 + 硬边 + 暗绿毛边补丁），逐字不变。
+// AI 生成的"绿幕"视频背景常常不是 #00FF00（实测有 rgb(73,166,66) 这种哑光绿，且逐帧漂移），
+// 此时用 --bg=auto 逐帧采样边框底色中位数，配合较小的 --threshold。
+type KeyOpts = { bg: [number, number, number] | 'auto'; threshold: number; soft: number };
+const DEFAULT_KEY: KeyOpts = { bg: [0, 255, 0], threshold: CHROMA_THRESHOLD, soft: 0 };
+
+// 边框像素的每通道中位数 = 本帧实际底色
+function sampleBorderBg(data: Buffer, width: number, height: number): [number, number, number] {
+  const ch: number[][] = [[], [], []];
+  const push = (x: number, y: number) => {
+    const i = (y * width + x) * 4;
+    ch[0].push(data[i]); ch[1].push(data[i + 1]); ch[2].push(data[i + 2]);
+  };
+  for (let x = 0; x < width; x += 3) { push(x, 1); push(x, height - 2); }
+  for (let y = 0; y < height; y += 3) { push(1, y); push(width - 2, y); }
+  return ch.map(a => a.sort((p, q) => p - q)[a.length >> 1]) as [number, number, number];
 }
 
-function applyChromaKey(data: Buffer): void {
+function applyChromaKey(data: Buffer, width: number, height: number, k: KeyOpts): void {
+  const bg = k.bg === 'auto' ? sampleBorderBg(data, width, height) : k.bg;
+  const isPureGreenBg = bg[0] === 0 && bg[1] === 255 && bg[2] === 0;
+
   for (let i = 0; i < data.length; i += 4) {
     const r = data[i], g = data[i + 1], b = data[i + 2];
-    const isPureGreen = chromaDist(r, g, b) <= CHROMA_THRESHOLD;
-    // Catch dark green fringe artifacts
-    const isDarkGreen = g > 80 && g > r * 1.4 && g > b * 1.4 && r < 100 && b < 100;
+    const d = Math.sqrt((r - bg[0]) ** 2 + (g - bg[1]) ** 2 + (b - bg[2]) ** 2);
+
+    if (k.soft > 0) {
+      // 软边：[threshold, threshold+soft] 线性过渡，边缘不再是锯齿
+      if (d <= k.threshold) { data[i + 3] = 0; continue; }
+      if (d < k.threshold + k.soft) {
+        data[i + 3] = Math.round((d - k.threshold) / k.soft * 255);
+        // 去溢色：半透明边缘上残留的底色往灰去饱和，消除绿边
+        if (g > r && g > b) data[i + 1] = Math.round(((r + b) / 2) * 0.5 + g * 0.5);
+      }
+      continue;
+    }
+
+    // 历史路径（硬边）
+    const isPureGreen = d <= k.threshold;
+    const isDarkGreen = isPureGreenBg && g > 80 && g > r * 1.4 && g > b * 1.4 && r < 100 && b < 100;
     if (isPureGreen || isDarkGreen) data[i + 3] = 0;
   }
 }
@@ -38,12 +69,12 @@ type Raw = { data: Buffer; width: number; height: number };
 type Box = { left: number; top: number; width: number; height: number };
 
 // 抠图后的裸 RGBA 帧
-async function keyToRaw(framePath: string): Promise<Raw> {
+async function keyToRaw(framePath: string, key: KeyOpts = DEFAULT_KEY): Promise<Raw> {
   const { data, info } = await sharp(framePath)
     .ensureAlpha()
     .raw()
     .toBuffer({ resolveWithObject: true });
-  applyChromaKey(data);
+  applyChromaKey(data, info.width, info.height, key);
   return { data, width: info.width, height: info.height };
 }
 
@@ -140,6 +171,28 @@ async function composeCell(r: Raw, crop: Box): Promise<Buffer> {
     .toBuffer();
 }
 
+// fixed 模式（--crop=L,T,W,H）：用**源坐标里一个固定的裁剪窗**，完全不看 bbox。
+// 适用前提：镜头锁定、角色质心稳定。适用场景：角色带光效/粒子（法阵、拖尾、星点），
+// 这些东西会把逐帧 bbox 撑到画面边缘并逐帧剧变 —— 此时 trim/lock/anchor 都会被光效带着抖，
+// 而固定窗天然零抖动，且保留角色在窗内的真实位移（看起来"活"而不是钉死）。
+async function composeCellFixed(r: Raw, crop: Box): Promise<Buffer> {
+  const left = Math.max(0, Math.min(crop.left, r.width - 1));
+  const top = Math.max(0, Math.min(crop.top, r.height - 1));
+  const box = {
+    left, top,
+    width: Math.max(1, Math.min(crop.width, r.width - left)),
+    height: Math.max(1, Math.min(crop.height, r.height - top)),
+  };
+  return sharp(r.data, { raw: { width: r.width, height: r.height, channels: 4 } })
+    .extract(box)
+    .resize(FRAME_WIDTH, FRAME_HEIGHT, {
+      fit: 'contain',
+      background: { r: 0, g: 0, b: 0, alpha: 0 },
+    })
+    .png()
+    .toBuffer();
+}
+
 // anchor 模式：全段统一基线（锁定镜头假设：源坐标最低点→y202，保留抬脚/下蹲的真实纵向运动）、
 // 质心X对格中心、全局统一缩放，允许超宽帧在格边被裁
 async function composeCellAnchored(r: Raw, box: Box, centroidX: number, scale: number, globalBottom: number): Promise<Buffer> {
@@ -212,8 +265,12 @@ async function processAnimation(
   frameCount: number,
   loop: boolean,
   lock: boolean,
-  opts: { start?: number; end?: number; anchor?: boolean; scale?: number; extractFps?: number; pick?: number[] } = {}
+  opts: {
+    start?: number; end?: number; anchor?: boolean; scale?: number; extractFps?: number; pick?: number[];
+    crop?: Box; key?: KeyOpts;
+  } = {}
 ) {
+  const key = opts.key ?? DEFAULT_KEY;
   const runDir = path.join('./video_runs', projectName);
   const manifestPath = path.join(runDir, 'manifest.json');
 
@@ -245,14 +302,21 @@ async function processAnimation(
     const boxes: Box[] = [];
     for (let i = 0; i < selected.length; i++) {
       process.stdout.write(`\r  keying ${i + 1}/${selected.length} ...`);
-      const r = await keyToRaw(selected[i]);
+      const r = await keyToRaw(selected[i], key);
       cleanSmallBlobs(r);
       raws.push(r);
       boxes.push(alphaBBox(r) ?? { left: 0, top: 0, width: r.width, height: r.height });
     }
 
     let usedScale: number | undefined;
-    if (opts.anchor) {
+    if (opts.crop) {
+      const c = opts.crop;
+      console.log(`\n  fixed crop ${c.width}×${c.height} @(${c.left},${c.top}) → cell ${FRAME_WIDTH}×${FRAME_HEIGHT}（不看 bbox，零抖动）`);
+      for (let i = 0; i < raws.length; i++) {
+        process.stdout.write(`\r  composing ${i + 1}/${raws.length} ...`);
+        fs.writeFileSync(path.join(outputDir, `frame_${i}.png`), await composeCellFixed(raws[i], c));
+      }
+    } else if (opts.anchor) {
       // anchor: 质心X对中 + 脚底压基线 + 全局统一缩放（跨段复用传 --scale）
       const innerW = FRAME_WIDTH - CELL_PADDING * 2;
       const innerH = FRAME_HEIGHT - CELL_PADDING * 2;
@@ -286,13 +350,19 @@ async function processAnimation(
   }
 
   const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf-8'));
+  // 帧尺寸记进项目级 + 逐动画。逐动画是为了「同一项目里少数动作需要更宽的格子」
+  // （例：角色放技能，特效横着甩出角色框外。此时给那一段更宽的 --crop 和**等比更大的 --size**，
+  //   保持 1:1 像素比，角色不会变小；游戏侧用 offsetX 把它对回去）
+  manifest.frameSize = { width: FRAME_WIDTH, height: FRAME_HEIGHT };
   manifest.animations[animName] = {
+    frameSize: { width: FRAME_WIDTH, height: FRAME_HEIGHT },
     frameCount: actualCount,
     fps,
     loop,
     status: 'completed',
     ...(opts.start !== undefined ? { segment: [opts.start, opts.end] } : {}),
     ...(manifestScale !== undefined ? { scale: Number(manifestScale.toFixed(4)) } : {}),
+    ...(opts.crop ? { crop: [opts.crop.left, opts.crop.top, opts.crop.width, opts.crop.height] } : {}),
     updated_at: new Date().toISOString(),
   };
   fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2));
@@ -302,7 +372,9 @@ async function processAnimation(
 const args = process.argv.slice(2);
 if (args.length < 3) {
   console.error('Usage: npx tsx video-process.ts <ProjectName> <AnimName> <video_path> [--fps=8] [--frames=9] [--no-loop] [--lock]');
-  console.error('  segment/anchor: [--start=1.0 --end=3.58] [--anchor] [--scale=0.42] [--extract-fps=24]');
+  console.error('  segment/anchor: [--start=1.0 --end=3.58] [--anchor] [--scale=0.42] [--extract-fps=24] [--pick=0,3,7]');
+  console.error('  cell/crop     : [--size=520x720] [--crop=360,0,516,720] [--baseline=700]');
+  console.error('  chroma key    : [--bg=auto|R,G,B] [--threshold=70] [--soft=26]');
   process.exit(1);
 }
 
@@ -315,7 +387,43 @@ const fps     = numArg('fps') ?? 8;
 const frames  = numArg('frames') ?? 9;
 const loop    = !args.includes('--no-loop');
 const lock    = args.includes('--lock');
-const pickArg = args.find(a => a.startsWith('--pick='))?.split('=')[1];
+const strArg = (name: string) => args.find(a => a.startsWith(`--${name}=`))?.split('=').slice(1).join('=');
+const pickArg = strArg('pick');
+
+// --size=WxH：改单元格尺寸；基线按 202/208 的比例等比落位，除非 --baseline 显式给
+const sizeArg = strArg('size');
+if (sizeArg) {
+  const m = /^(\d+)x(\d+)$/i.exec(sizeArg.trim());
+  if (!m) { console.error(`--size 格式应为 WxH，收到 "${sizeArg}"`); process.exit(1); }
+  FRAME_WIDTH = parseInt(m[1], 10);
+  FRAME_HEIGHT = parseInt(m[2], 10);
+  BASELINE_Y = Math.round(FRAME_HEIGHT * 202 / 208);
+}
+const baselineArg = numArg('baseline');
+if (baselineArg !== undefined) BASELINE_Y = Math.round(baselineArg);
+
+const cropArg = strArg('crop');
+let crop: Box | undefined;
+if (cropArg) {
+  const n = cropArg.split(',').map(s => parseInt(s.trim(), 10));
+  if (n.length !== 4 || n.some(v => !Number.isFinite(v))) {
+    console.error(`--crop 格式应为 L,T,W,H，收到 "${cropArg}"`); process.exit(1);
+  }
+  crop = { left: n[0], top: n[1], width: n[2], height: n[3] };
+}
+
+const bgArg = strArg('bg');
+let bg: KeyOpts['bg'] = DEFAULT_KEY.bg;
+if (bgArg === 'auto') bg = 'auto';
+else if (bgArg) {
+  const n = bgArg.split(',').map(s => parseInt(s.trim(), 10));
+  if (n.length !== 3 || n.some(v => !Number.isFinite(v))) {
+    console.error(`--bg 格式应为 auto 或 R,G,B，收到 "${bgArg}"`); process.exit(1);
+  }
+  bg = [n[0], n[1], n[2]];
+}
+const keyOpts: KeyOpts = { bg, threshold: numArg('threshold') ?? DEFAULT_KEY.threshold, soft: numArg('soft') ?? 0 };
+
 const opts = {
   start: numArg('start'),
   end: numArg('end'),
@@ -323,6 +431,8 @@ const opts = {
   scale: numArg('scale'),
   extractFps: numArg('extract-fps'),
   pick: pickArg ? pickArg.split(',').map(s => parseInt(s.trim(), 10)) : undefined,
+  crop,
+  key: keyOpts,
 };
 
 processAnimation(projectName, animName, videoPath, fps, frames, loop, lock, opts).catch(console.error);
