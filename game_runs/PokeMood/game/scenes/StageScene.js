@@ -10,8 +10,11 @@ PM.StageScene = class StageScene extends Phaser.Scene {
     const C = PM.Config;
     this.state = PM.Mood.create();
     PM.React.reset();
-    this.lockUntil = 0;
-    this.lockHard = false;      // tier3/哭：不可打断
+    /* 表演状态机（见本文件 _request / _startPerform 一节）。
+     * perform = 当前正在演的那一段（含等级）；pending = 同级排队槽（只留一格）。 */
+    this.perform = null;
+    this.pending = null;
+    this._voiceGen = 0;         // 语音世代号：一切异步回调都要拿它对表
     this.showRegions = false;
     this._lastMood = 'NEUTRAL';
 
@@ -376,9 +379,9 @@ PM.StageScene = class StageScene extends Phaser.Scene {
     this.char = this.add.sprite(C.CHAR_X, C.CHAR_Y, 'idle', 0)
       .setOrigin(0.5, 0)
       .setDepth(5);
-    this.char.on('animationcomplete', a => {
-      if (PM.Config.ANIMS[a.key]?.mode === 'once') this._releaseLock();
-    });
+    /* 刻意**不**挂 animationcomplete：表演的长度是 max(动画, 配音)，
+     * 由 update() 按绝对时间戳推进（见 _startPerform 的注释）。
+     * 挂了反而会在她还在说话时提前结束表演。 */
   }
 
   _buildBubble() {
@@ -464,7 +467,8 @@ PM.StageScene = class StageScene extends Phaser.Scene {
       this._drawDebug();
     });
     this.input.keyboard.on('keydown-M', () => {
-      if (window.GameAudio && window.GameAudio.toggle()) this._stopVoice();   // 静音要立刻掐掉正在说的那句
+      // 静音要立刻掐掉正在说的那句，并把表演长度收回来（别为一条听不见的语音继续锁着）
+      if (window.GameAudio && window.GameAudio.toggle()) { this._stopVoice(); this._trimPerform(); }
     });
     this.input.keyboard.on('keydown-R', () => this.scene.restart());
 
@@ -493,32 +497,31 @@ PM.StageScene = class StageScene extends Phaser.Scene {
 
   poke(region, gesture = 'tap') {
     const now = this.time.now;
-    // 重反应/哭泣期间不播新反应，但热度照常累加（戳了不是没代价）
-    const locked = this.lockHard && now < this.lockUntil;
-
     const ev = PM.Mood.poke(this.state, region, gesture, now);
 
     if (ev.punish) {
-      // 惩罚是整局的高潮，**允许打断任何锁**。
-      // （曾经写成"锁期间直接 return"，导致惩罚判定在锁里被丢掉，
-      //   玩家永远看不到泼水、直接跳去哭 —— poke-bot 第 3 项就是抓这个的。）
-      this._punish();
-    } else if (locked) {
-      this._nudge();
-      this._syncHud();
-      return ev;
+      /* 惩罚是整局的高潮，等级排在 tier3 之上，**抢占一切**。
+       * （曾经写成"锁期间直接 return"，导致惩罚判定在锁里被丢掉，
+       *   玩家永远看不到泼水、直接跳去哭 —— poke-bot 第 3 项就是抓这个的。）*/
+      this._request({
+        tier: 4, hard: true, anim: PM.PUNISH.anim,
+        line: PM.PUNISH.line, voice: PM.PUNISH.voice,
+        onStart: () => this._punishFx(),
+      });
     } else {
+      let act = null;
       const pick = PM.React.pick(region, ev.tier, PM.loaded);
       if (pick) {
-        this.playAnim(pick.anim, ev.tier >= 3);
-        if (pick.line) this.say(pick.line, pick.voice);
+        act = { tier: ev.tier, hard: ev.tier >= 3, anim: pick.anim, line: pick.line, voice: pick.voice };
       }
-      // 情绪本身也要有画面：升级时优先播情绪动画（若该 tier 没有专属反应）
-      // 动画被顶掉了，台词/配音也要跟着换成同一条，否则画面在笑、气泡和语音还是刚才那句
+      /* 情绪本身也要有画面：进 HAPPY 时整段换成正反馈那条。
+       * 台词/配音必须跟着一起换 —— 否则画面在笑、气泡和语音还是刚才那句。 */
       if (ev.moodChanged && ev.mood === 'HAPPY' && PM.loaded.has(PM.HAPPY_REACT.anim)) {
-        this.playAnim(PM.HAPPY_REACT.anim, false);
-        this.say(PM.HAPPY_REACT.line, PM.HAPPY_REACT.voice);
+        act = { tier: ev.tier, hard: false, anim: PM.HAPPY_REACT.anim,
+                line: PM.HAPPY_REACT.line, voice: PM.HAPPY_REACT.voice };
       }
+      if (act) this._request(act);
+      else this._nudge();     // 该等级没有可播素材，至少给点触感
     }
 
     this._setMoodVisual(this.state.mood);
@@ -527,10 +530,116 @@ PM.StageScene = class StageScene extends Phaser.Scene {
     return ev;
   }
 
-  _punish() {
-    const p = PM.PUNISH;
-    if (PM.loaded.has(p.anim)) this.playAnim(p.anim, true);
-    this.say(p.line, p.voice);
+  /* ── 表演调度：优先级 + 排队 ─────────────────────────────
+   *
+   * 一次反应 = 一段"表演"：动画 + 台词 + 配音，带一个等级 tier（惩罚是 4）。
+   * 三条规则，全部在这里落地：
+   *   ① 高等级抢占低等级 —— 低的先**快速收尾归位**（残余帧提速播完）、配音**立刻停**；
+   *   ② 同等级排队 —— 只留一格，后来的覆盖先来的（要的是"最新那次的反应"，不是补播历史）；
+   *   ③ 低等级在表演途中一律忽略，只给 _nudge 微反馈。
+   * hard（tier3 / 哭 / 惩罚）额外锁死①：除惩罚外谁都抢不走。 */
+  _request(act) {
+    const p = this.perform;
+    if (!p) { this._startPerform(act); return; }
+
+    const isPunish = act.tier >= 4;
+
+    // 正在收尾让位 → 争的是"下一个上场的是谁"，高的赢
+    if (p.phase === 'abort') {
+      if (isPunish || act.tier > p.next.tier) p.next = act;
+      else this._enqueue(act);
+      return;
+    }
+
+    if (isPunish || (!p.hard && act.tier > p.tier)) { this._beginAbort(act); return; }
+    if (act.tier >= p.tier) { this._enqueue(act); return; }
+    this._nudge();
+  }
+
+  _enqueue(act) {
+    if (!this.pending || act.tier >= this.pending.tier) this.pending = act;
+  }
+
+  /* 起一段表演。时长 = max(动画, 配音) + 余韵，**全部记成绝对时间戳、由 update() 推进**。
+   * 不用 delayedCall / animationcomplete：前者在无头环境下滞后可达数倍（会把"收尾"
+   * 拖成"卡死"），后者只知道动画完了、不知道她还在说话。 */
+  _startPerform(act) {
+    const C = PM.Config;
+    const now = this.time.now;
+    this.char.anims.timeScale = 1;
+    const animMs = this.playAnim(act.anim);
+
+    this.perform = {
+      tier: act.tier,
+      hard: !!act.hard,
+      phase: 'play',
+      animUntil: now + animMs,
+      animDone: animMs <= 0,        // loop 动画（idle）没有"演完"这回事
+      until: now + animMs + C.PERFORM_TAIL_MS,
+      next: null,
+      abortUntil: 0,
+    };
+
+    if (act.line) this.say(act.line, act.voice);   // 配音时长到手后会回来延长 until
+    if (act.onStart) act.onStart();
+  }
+
+  /* 让位：先停嘴、再把没演完的动作**快速做完**，然后才轮到高等级那段上场。
+   * 这一步是"优先级看得见"的关键 —— 直接硬切会让上一段停在半路的怪姿势上。 */
+  _beginAbort(next) {
+    const C = PM.Config;
+    const now = this.time.now;
+    const p = this.perform;
+
+    this._stopVoice();          // ① 语音立刻停，绝不允许两句叠着说
+    this._fadeBubble(140);      // ② 气泡跟着快速淡掉
+
+    const rem = p.animDone ? 0 : Math.max(0, p.animUntil - now);
+    if (rem <= C.ABORT_MIN_MS) { this.perform = null; this._startPerform(next); return; }
+
+    // ③ 残余帧提速播完：cut 封顶 ABORT_MAX_MS，所以再长的动作也在 0.38s 内归位
+    const cut = Math.min(rem, C.ABORT_MAX_MS);
+    this.char.anims.timeScale = rem / cut;
+    p.phase = 'abort';
+    p.abortUntil = now + cut;
+    p.next = next;
+  }
+
+  /* 一段表演落幕：续连击窗口 → 有排队的就接着演 → 否则回到情绪/待机姿态。 */
+  _endPerform() {
+    const C = PM.Config;
+    this.perform = null;
+    this.char.anims.timeScale = 1;
+
+    // 连击窗口从"演完"起算，玩家听完整句再戳依然算连击（config.COMBO_WINDOW_MS 注释）
+    PM.Mood.holdCombo(this.state, this.time.now + C.COMBO_WINDOW_MS);
+
+    const q = this.pending;
+    this.pending = null;
+    if (q) { this._startPerform(q); return; }
+    this._restAnim();
+  }
+
+  /* 没有表演时该摆什么姿势：情绪维持期内接着播情绪动画，否则 idle。
+   * 这条很关键 —— 惩罚播的是 water_threat（举水球），mood 却已经是 CRY；
+   * 没有这一步，`cry` 这段素材永远不会出现在游戏里，人被惹哭了却看不到哭。
+   * 情绪动画本身也是一段 tier3 表演，播完回到这里，于是在维持期内自然循环。
+   * 但它 hard=false：哭的时候再戳不该被整段吞掉，而应排队、哭完立刻接上。 */
+  _restAnim() {
+    const s = this.state;
+    const now = this.time.now;
+    if (s.mood !== 'NEUTRAL' && now < s.moodUntil - 300) {
+      const m = PM.Config.MOOD_ANIM[s.mood];
+      if (m && m !== 'idle' && PM.loaded.has(m)) {
+        this._startPerform({ tier: 3, hard: false, anim: m });
+        return;
+      }
+      return;   // 没有对应素材就停在当前末帧
+    }
+    this.char.play('idle', true);
+  }
+
+  _punishFx() {
     if (window.GameAudio) window.GameAudio.play('morph');
     // 前摇播到一半时把水泼出来（素材只有蓄力，释放由渲染层做）
     this.time.delayedCall(520, () => this._waterBurst());
@@ -608,40 +717,13 @@ PM.StageScene = class StageScene extends Phaser.Scene {
     if (window.GameAudio) window.GameAudio.play('splashBad');
   }
 
-  playAnim(key, hard = false) {
+  /* 只管放动画，不管锁 —— 锁的账在 _startPerform 那边记。
+   * @return once 动画的时长(ms)；loop/pingpong 返回 0（"没有演完这回事"）。 */
+  playAnim(key) {
     if (!PM.loaded.has(key)) key = 'idle';
     const cfg = PM.Config.ANIMS[key];
     this.char.play(key, true);
-
-    if (cfg.mode === 'once') {
-      // 锁 = 动画时长 + 冗余。带超时兜底：animationcomplete 万一丢了也能自动解锁，
-      // 否则角色会永远卡在某个反应里（ShadowForge 踩过的同源坑）
-      const dur = (cfg.frames / cfg.fps) * 1000;
-      this.lockUntil = this.time.now + dur + PM.Config.LOCK_GRACE_MS;
-      this.lockHard = hard;
-    } else {
-      this.lockUntil = 0;
-      this.lockHard = false;
-    }
-  }
-
-  /* 一段反应播完之后去哪：情绪还在维持期内就**接着播情绪动画**，否则回 idle。
-   * 这条很关键 —— 惩罚播的是 water_threat（举水球），mood 却已经是 CRY；
-   * 没有这一步，`cry` 这段素材永远不会出现在游戏里，人被惹哭了却看不到哭。
-   * 情绪动画是 once，播完再回到这里，于是在维持期内自然循环。 */
-  _releaseLock() {
-    this.lockUntil = 0;
-    this.lockHard = false;
-
-    if (this.state.mood !== 'NEUTRAL' && this.time.now < this.state.moodUntil) {
-      const moodAnim = PM.Config.MOOD_ANIM[this.state.mood];
-      if (moodAnim && moodAnim !== 'idle' && PM.loaded.has(moodAnim)) {
-        this.playAnim(moodAnim, this.state.mood === 'CRY');   // 哭不可打断
-        return;
-      }
-      return;   // 没有对应素材就停在当前末帧
-    }
-    this.char.play('idle', true);
+    return cfg.mode === 'once' ? (cfg.frames / cfg.fps) * 1000 : 0;
   }
 
   /* ── 表现 ──────────────────────────────────────────────── */
@@ -650,25 +732,64 @@ PM.StageScene = class StageScene extends Phaser.Scene {
    * 否则连点时几条语音叠着放，气泡写的是 A、耳朵听见的是 A+B+C。
    * 元素按 URL 缓存复用 —— 每次 new Audio() 首播要等一次网络/解码，
    * 语音会晚于气泡半拍；复用的元素 currentTime=0 就是瞬时重播。 */
+  /* 配音状态机。一次只允许一条在响，且**每一条异步回调都要拿世代号对表**。
+   *
+   * HTMLAudio 这层的坑全在"异步回调比它的主人活得久"上，这里逐条堵掉：
+   *   ① play() 返回 promise。停掉后它才 resolve 的话，元素会**在被停之后开始响** ——
+   *      于是抢占时旧语音诈尸，和新语音叠着说。resolve 里回头查一次"我还是当前那条吗"。
+   *   ② 元素按 URL 缓存复用，所以"旧世代"和"新世代"可能是**同一个元素**（连点同一区域）。
+   *      判据必须是 `_currentVoice !== a`（这元素还是不是当前那条），
+   *      不能只看世代号 —— 否则旧世代的清理会把刚重播的自己按停。
+   *   ③ loadedmetadata / ended 是长期监听，必须在换人时摘掉（_voiceOff），
+   *      不然缓存元素上会越挂越多，旧句子的时长/结束事件会去改新句子的气泡和表演长度。
+   *   ④ 静音时直接不播：表演长度就只按动画算，不能让一条听不见的语音把她锁在原地。 */
   _playVoice(url) {
-    if (window.GameAudio && window.GameAudio.muted) return;   // M 键静音必须也管配音
+    this._stopVoice();                                        // 换人第一件事：把上一条彻底摘干净
+    if (window.GameAudio && window.GameAudio.muted) return;    // ④ M 键静音必须也管配音
     try {
-      this._stopVoice();
       let a = (this._voiceCache ||= new Map()).get(url);
       if (!a) { a = new Audio(url); a.preload = 'auto'; this._voiceCache.set(url, a); }
+      const gen = this._voiceGen;
       this._currentVoice = a;
       a.currentTime = 0;
-      // play() 的 promise 会被下一次 pause() 打断（AbortError），忽略即可
-      const p = a.play();
-      if (p && p.catch) p.catch(() => {});
 
-      /* 配音 2.8～9.8 秒不等，气泡默认只挂 2.6 秒 —— 一半的台词会"字没了人还在说"。
-       * 拿到时长就把气泡延到说完；首播时元数据可能还没到，等一次 loadedmetadata 再补。
-       * 补的时候要确认这条还是当前那条，否则连点后旧语音的时长会把新气泡挂住。 */
-      const hold = () => this._holdBubble(a.duration);
-      if (a.readyState >= 1 && isFinite(a.duration)) hold();
-      else a.addEventListener('loadedmetadata',
-        () => { if (this._currentVoice === a) hold(); }, { once: true });
+      const mine = () => this._voiceGen === gen && this._currentVoice === a;
+
+      /* 配音 2.8～9.8 秒不等：气泡默认只挂 2.6 秒（字没了人还在说），
+       * 表演也默认只按动画算（人归位了嘴还在动）。两个都得按真实时长延。
+       * 首播时元数据可能还没到，等一次 loadedmetadata 再补。 */
+      const onMeta = () => {
+        if (!mine()) return;
+        const sec = a.duration;
+        if (!isFinite(sec) || sec <= 0) return;
+        this._holdBubble(sec);
+        if (this.perform && this.perform.phase === 'play') {
+          this.perform.until = Math.max(
+            this.perform.until, this.time.now + sec * 1000 + PM.Config.PERFORM_TAIL_MS);
+        }
+      };
+      // 说完了就别再占着表演：把 until 收回到"动画演完"和"现在"里较晚的那个
+      const onEnded = () => {
+        if (!mine()) return;
+        this._currentVoice = null;
+        this._trimPerform();
+      };
+
+      a.addEventListener('loadedmetadata', onMeta);
+      a.addEventListener('ended', onEnded);
+      this._voiceOff = () => {
+        a.removeEventListener('loadedmetadata', onMeta);
+        a.removeEventListener('ended', onEnded);
+      };
+
+      const p = a.play();
+      if (p && p.then) {
+        // ① 已经不是当前那条了才按停；是的话说明它被同一个 URL 重新启用了，别动
+        p.then(() => { if (this._currentVoice !== a) { try { a.pause(); a.currentTime = 0; } catch (e) {} } })
+         .catch(() => {});   // 被下一次 pause() 打断的 AbortError，忽略即可
+      }
+
+      if (a.readyState >= 1) onMeta();
     } catch (e) {}
   }
 
@@ -682,7 +803,25 @@ PM.StageScene = class StageScene extends Phaser.Scene {
     });
   }
 
+  _fadeBubble(ms) {
+    if (this._bubbleHide) { this._bubbleHide.remove(); this._bubbleHide = null; }
+    this.tweens.killTweensOf(this.bubble);
+    this.tweens.add({ targets: this.bubble, alpha: 0, duration: ms });
+  }
+
+  /* 语音提前结束（说完 / 静音 / 抢占）后，把表演长度收回到动画那条线上，
+   * 免得她已经不说话了却还占着通道，后面排队的迟迟上不了场。 */
+  _trimPerform() {
+    const p = this.perform;
+    if (!p || p.phase !== 'play') return;
+    const tail = PM.Config.PERFORM_TAIL_MS;
+    p.until = Math.min(p.until, Math.max(p.animUntil + tail, this.time.now + tail));
+  }
+
   _stopVoice() {
+    this._voiceGen++;                       // 世代 +1：所有在飞的回调就此作废
+    this._voiceHeld = false;
+    if (this._voiceOff) { this._voiceOff(); this._voiceOff = null; }
     const a = this._currentVoice;
     if (!a) return;
     this._currentVoice = null;
@@ -809,11 +948,29 @@ PM.StageScene = class StageScene extends Phaser.Scene {
     if (ev?.moodChanged) {
       this._setMoodVisual(this.state.mood);
       this._syncHud();
-      if (!this.lockHard) this.char.play('idle', true);
+      if (!this.perform) this.char.play('idle', true);
     }
 
-    // 锁的超时兜底（动画事件丢失时的最后一道防线）
-    if (this.lockUntil && time > this.lockUntil) this._releaseLock();
+    /* 表演状态机的唯一时钟。绝对时间戳 + 每帧比对，没有任何 delayedCall：
+     * 无头/掉帧环境下计时器滞后可达数倍，而这里滞后就等于"她卡住不动了"。 */
+    const p = this.perform;
+    if (p) {
+      if (p.phase === 'abort') {
+        if (time >= p.abortUntil) {          // 收尾归位完毕 → 高等级那段上场
+          const nxt = p.next;
+          this.perform = null;
+          this.char.anims.timeScale = 1;
+          this._startPerform(nxt);
+        }
+      } else {
+        // 动作演完但话还没说完：先回 idle 待机，别僵在末帧上干说
+        if (!p.animDone && time >= p.animUntil) {
+          p.animDone = true;
+          this.char.play('idle', true);
+        }
+        if (time >= p.until) this._endPerform();
+      }
+    }
 
     const speed = this.state.mood === 'ANGRY' || this.state.mood === 'CRY' ? 1.9 : 1;
     this.circleAngle += 0.0006 * delta * speed;

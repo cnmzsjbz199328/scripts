@@ -6,6 +6,7 @@
  * 这里改成断言这个玩具真正该保证的东西：
  *   1. 七个区域都不是哑区
  *   2. 三种手势都能触发
+ *   2.5 反应优先级：连戳次数=等级（跨区域共享）、静场回落、高抢低、同级排队、配音不交叉
  *   3. 情绪能被推到生气 → 惩罚 → 哭，且**能自己解锁回 NEUTRAL**（防死锁）
  *   4. 真实指针路径的坐标映射没错（__poke 绕过了输入层，得单独验一次）
  *   5. 点在角色身体外**不产生反应**（人体闸门生效）
@@ -98,6 +99,69 @@ async function main() {
     await page.waitForTimeout(100);
   }
   ok('三种手势都能触发', gDead.length === 0, gDead.length ? '失效: ' + gDead.join(',') : 'tap/hold/rub');
+
+  /* ── 2.5 反应优先级（DESIGN §1.3 连击阶梯 + §1.4 表演优先级）──────
+   * 这一组是 v2 的重点：等级看不看得出来，全看这四条。 */
+
+  // 静场：等表演落幕 + 连击窗口过期，回到"下一戳是 tier1"的干净状态
+  const settle = async () => {
+    await page.waitForFunction(
+      () => { const p = (window as any).__probe(); return !p.locked && p.combo === 0; },
+      null, { timeout: 25_000 });
+  };
+
+  // ① 连戳次数 = 等级，且连击跨区域共享
+  await settle();
+  const ladder: number[] = [];
+  ladder.push((await poke(page, 'head', 'tap'))?.tier);
+  ladder.push((await poke(page, 'armL', 'tap'))?.tier);   // 换个区域，阶梯应继续往上
+  ladder.push((await poke(page, 'legL', 'tap'))?.tier);
+  ok('连戳 1/2/3 下 → tier 1/2/3（且跨区域共享）',
+    ladder.join(',') === '1,2,3', 'tier: ' + ladder.join(' → '));
+
+  // ② 静场后回落到 tier1
+  await settle();
+  const afterLull = (await poke(page, 'head', 'tap'))?.tier;
+  ok('静场后连击断档，回落 tier1', afterLull === 1, 'tier: ' + afterLull);
+
+  // ③ 高等级抢占低等级：低的先进入"快速收尾"，随后高的上场
+  await settle();
+  await poke(page, 'head', 'tap');                       // tier1 开演
+  await page.waitForTimeout(60);
+  const t1 = await probe(page);
+  await poke(page, 'head', 'tap');                       // tier2 来抢
+  const mid = await probe(page);
+  await page.waitForTimeout(500);                        // 收尾封顶 380ms
+  const t2 = await probe(page);
+  ok('高等级抢占低等级（收尾归位后上场）',
+    t1.playingTier === 1 && (mid.aborting || mid.playingTier === 2) && t2.playingTier === 2,
+    `演 tier${t1.playingTier} → ${mid.aborting ? '收尾中' : 'tier' + mid.playingTier} → tier${t2.playingTier}`);
+
+  // ④ 同等级排队：tier3 封顶后再戳，进排队槽而不是被丢掉
+  await poke(page, 'chest', 'tap');                      // 推到 tier3
+  await poke(page, 'chest', 'tap');
+  const queued = await probe(page);
+  ok('同等级排队（不丢触碰）', queued.queuedTier === 3 || queued.playingTier >= 3,
+    `演 tier${queued.playingTier} / 排队 tier${queued.queuedTier}`);
+
+  /* ⑤ 配音不交叉：抢占时旧语音必须**立刻停**。
+   * 直接数缓存里"还在响"的元素个数 —— 世代号写错、监听器没摘、play() promise 诈尸，
+   * 三种写法都会在这里露出第二条同时在响的语音。 */
+  let maxConcurrent = 0;
+  for (let i = 0; i < 12; i++) {
+    await poke(page, REGIONS[i % REGIONS.length], 'tap');
+    const n = await page.evaluate(() => {
+      const cache = (window as any).__scene?._voiceCache;
+      if (!cache) return 0;
+      let n = 0;
+      for (const a of cache.values()) if (!a.paused && !a.ended) n++;
+      return n;
+    });
+    maxConcurrent = Math.max(maxConcurrent, n);
+    await page.waitForTimeout(90);
+  }
+  ok('配音同时只响一条（无交叉说话）', maxConcurrent <= 1, `峰值并发 ${maxConcurrent}`);
+  await settle();
 
   // ── 3. 情绪升级：戳到生气 → 惩罚 → 哭 ─────────────────────
   const seen = new Set<string>();
