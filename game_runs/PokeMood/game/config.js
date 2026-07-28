@@ -73,12 +73,119 @@ PM.Config = {
   BG: {
     SRC_W: 1440, SRC_H: 1152,
     FOOT_Y: 715,                 // 靴底在画布上的 y，三层定标共用的靶子
-    LAYERS: [
-      { key: 'bg_far',  scale: 0.723, depth: -100, par: 5 },
-      { key: 'bg_mid',  scale: 0.660, depth: -60,  par: 13 },
-      { key: 'bg_fore', scale: 0.660, scaleX: 0.84, depth: 18, par: 30 },
-    ],
+    DEPTH: { far: -100, mid: -60, fore: 18 },   // 层序固定，逐场景只变 scale
+    PAR:   { far: 5,    mid: 13,  fore: 30 },   // 指针视差系数，同上
   },
+
+  /* ── 场景表（多背景）────────────────────────────────────────
+   * 每个场景 = assets/bg/<dir>/{far,mid,fore}.webp + 一组定标 + 一组气氛覆盖。
+   * 贴图 key 是 `bg_<dir>_<层>`，由 BootScene 按本表拼，别在别处硬编码。
+   *
+   * scale 三个数**全部是量出来的不是挑出来的**：跑
+   *   node tools/process-bg.mjs --scene=<dir> && node tools/measure-bg.mjs --scene=<dir>
+   * 脚本会直接给出 `→ scale x.xxx` 和两条落位检查（mid 家具在不在前景缝里、
+   * fore 要多大 scaleX 才不盖斗篷）。取值理由逐场景记在下面各自的注释里。
+   * 重新生图后必须重量并回填 —— 换了图不重量，角色就会站进墙里或浮在半空。
+   *
+   * atmos 是对 ATMOS 基表的**浅覆盖**（只写与基表不同的键）。基表本身就是 tower 的值，
+   * 所以 tower 的 atmos 是空的。气氛是纯代码，换场景的"味道"主要靠这里，
+   * 比重画一张图便宜得多：光柱颜色/宽窄、雾带浓淡、暗角、光尘色温、柔光底色。 */
+  SCENES: [
+    {
+      id: 'tower', dir: 'tower', name: '魔女工房', sub: '塔内',
+      // far 候选 #2 y=989 是墙脚/近处地板交界（#1 的 653 是平台后沿，照它定标会站到半空）
+      // mid 盯【远沿】772 定标 0.660（不是站位线）；fore 底部石板条顶边 1046 → 0.660
+      // fore 的 scaleX 0.84 是硬需求：0.669 时右内缘落在 CHAR_X+197，会盖住斗篷右缘(+245)
+      scale: { far: 0.723, mid: 0.660, fore: 0.660 }, foreScaleX: 0.84,
+      atmos: {},
+    },
+    {
+      id: 'terrace', dir: 'terrace', name: '月夜露台', sub: '塔顶',
+      // fore 底部石板条顶边 1021 → 690；mid 地板远沿 781 → 515；far 是纯天空+远山，
+      // 0.723 下地平线落在栏杆之后，看着对。fore 两侧柱子本来就画得靠外
+      // （内缘 288/1145），等比铺开就已经在斗篷之外，不需要 scaleX。
+      scale: { far: 0.723, mid: 0.660, fore: 0.676 }, foreScaleX: null,
+      // 夜景：光源是月亮不是玫瑰窗 —— 光柱收窄压淡（月光不是丁达尔光锥），
+      // 冷蓝白；暗角加重把画面压成夜；光尘走清冷的银蓝
+      atmos: {
+        SHAFT_W: 220, SHAFT_H: 660, SHAFT_COLOR: 0xbcd4ff, SHAFT_ALPHA: 0.14,
+        HALO_TINT: 0x2b3f6e, DUST_BACK_TINT: 0xd6e6ff, DUST_FRONT_TINT: 0xaec8ff,
+        MIST_ALPHA: 0.22, VIGNETTE: 0.62,
+      },
+    },
+    {
+      id: 'library', dir: 'library', name: '魔法图书馆', sub: '穹顶',
+      // far 最强边 1014 是地板/书墙交界 → 0.705；mid 远沿 662 → 509；fore 底条 977 → 690。
+      // fore 右内缘 1080 等比落在画布 704，刚好在斗篷(695)外，不用 scaleX。
+      scale: { far: 0.705, mid: 0.769, fore: 0.706 }, foreScaleX: null,
+      // 室内暖烛光：光源是吊灯，光柱最宽最柔；暗角略轻（书墙本来就暗，再压就糊）
+      atmos: {
+        SHAFT_W: 340, SHAFT_H: 600, SHAFT_COLOR: 0xffd9a0, SHAFT_ALPHA: 0.18,
+        HALO_TINT: 0x5a4326, DUST_BACK_TINT: 0xffe2b0, DUST_FRONT_TINT: 0xffcf8a,
+        MIST_ALPHA: 0.24, VIGNETTE: 0.50,
+      },
+    },
+    {
+      id: 'greenhouse', dir: 'greenhouse', name: '花园温室', sub: '日光',
+      // mid 远沿 811 → 552（不硬凑 509：0.628 会让 mid 底边只到 723，
+      // 靴底 715 差 8px 就露馅，地板必须在脚下还有富余）；fore 底条 1015 → 690。
+      // fore 的 scaleX 0.80 是算出来的：两侧内缘 409/1072 等比铺开落在画布 226/689，
+      // 左边那根会啃进斗篷范围(±245 → 205/695) 21px。0.80 下变成 201/732，两边都让开。
+      scale: { far: 0.720, mid: 0.680, fore: 0.680 }, foreScaleX: 0.80,
+      // 唯一的亮调场景：光柱强而宽（正午天窗），暗角必须收到最轻，
+      // 否则一圈黑边把"明亮"两个字全抵消掉；雾带也压淡（亮地板上一条灰带很脏）
+      atmos: {
+        SHAFT_W: 380, SHAFT_H: 680, SHAFT_COLOR: 0xfff3c8, SHAFT_ALPHA: 0.26,
+        SHAFT_BREATH: 0.05,
+        HALO_TINT: 0x6f8a4a, DUST_BACK_TINT: 0xfff6cf, DUST_FRONT_TINT: 0xd8f0a8,
+        MIST_ALPHA: 0.16, VIGNETTE: 0.34,
+      },
+    },
+    {
+      id: 'aurora', dir: 'aurora', name: '雪原极光', sub: '户外',
+      // mid 远沿 816 → 555；fore 底条 1065 → 690。
+      // scaleX 0.84 这次不是为了躲斗篷（等比就够），而是为了**别把中景吃掉**：
+      // 这张 mid 的右侧那丛雪松内缘在源图 1100，0.68 下落在画布 708，
+      // 而 fore 右柱等比只到 659 —— 树整丛藏在前景后面。把前景横向推到 0.84（内缘 720）
+      // 才露得出来。这条是 measure 里 mid/fore 两组内缘要放一起看的原因。
+      scale: { far: 0.715, mid: 0.680, fore: 0.648 }, foreScaleX: 0.84,
+      // 户外雪夜：极光是漫射的，光柱几乎关掉（留一点点当"天光"），
+      // 光尘改成飘雪的意思（前景那批大而慢，靠 DUST 的 tint + 现有向上飘也读得通）；
+      // 雪地反光强，暗角中等，雾带最淡
+      atmos: {
+        SHAFT_W: 420, SHAFT_H: 520, SHAFT_COLOR: 0x9dffd8, SHAFT_ALPHA: 0.10,
+        SHAFT_BREATH: 0.09, SHAFT_MS: 7000,
+        HALO_TINT: 0x2f5a6e, DUST_BACK_TINT: 0xd8fff0, DUST_FRONT_TINT: 0xffffff,
+        MIST_ALPHA: 0.14, VIGNETTE: 0.52,
+      },
+    },
+    {
+      id: 'classroom', dir: 'classroom', name: '魔法教室', sub: '讲堂',
+      // ⚠️ **mid 未生成**（生图配额 429，见 tools/gen-bg.sh 的用法）。far/fore 已定标：
+      // far 候选 #2 y=788 是讲台地板交界 → 0.907 太大（1152×0.907 高度够但构图只剩黑板），
+      // 取 0.720 让黑板和课桌都在画面里；fore 底条 1035 → 690，两侧内缘 268/1172
+      // 等比就落在 138/762，离斗篷很远，不用 scaleX。
+      // 补 mid 的做法：配额恢复后 `bash tools/gen-bg.sh classroom`（已有的图会自动跳过），
+      // 再 `node tools/process-bg.mjs --scene=classroom && node tools/measure-bg.mjs --scene=classroom`
+      // 按远沿→画布 510~555 回填这里的 mid，最后 `node tools/preview-bg.mjs --scene=classroom` 目检。
+      // fore 底条 1035 → 690（**不是** measure 打印的 0.691：那一列换算的靶子是 FOOT_Y 715，
+      // 对 far/mid 才对；fore 要的是"压住底边但别吃掉靴子"，靶子固定 690）。
+      scale: { far: 0.720, mid: 0.680, fore: 0.667 }, foreScaleX: null,
+      omit: ['mid'],           // ← mid 补上之后删掉这行
+
+      // 室内中性光（悬浮球灯）：不给强色偏，让她自己的配色说话；暗角标准
+      atmos: {
+        SHAFT_W: 300, SHAFT_H: 580, SHAFT_COLOR: 0xd8e8ff, SHAFT_ALPHA: 0.16,
+        HALO_TINT: 0x3a4a66, DUST_BACK_TINT: 0xdfeaff, DUST_FRONT_TINT: 0xffe9c0,
+        MIST_ALPHA: 0.24, VIGNETTE: 0.55,
+      },
+    },
+  ],
+  DEFAULT_SCENE: 'tower',
+
+  // 场景切换（iOS 开 App 式展开）。reduced-motion 下整段跳过直接换。
+  SCENE_ZOOM_MS: 460,
+  SCENE_FADE_MS: 200,
 
   // ── 气氛层（全部代码绘制，唯一真源就是这张表）──────────────
   // 不用视频、不建共享素材目录：改气氛只改这里，不重生图。
@@ -87,6 +194,10 @@ PM.Config = {
     SHAFT_W: 300, SHAFT_H: 620,
     SHAFT_COLOR: 0x8fe6dc, SHAFT_ALPHA: 0.20, SHAFT_BREATH: 0.07, SHAFT_MS: 5200,
     DUST_BACK: 26, DUST_FRONT: 12,   // 光尘粒子数（后景慢而多，前景快而少）
+    // 下面三个色本来写死在 StageScene 里。多场景之后它们是"换味道"最便宜的旋钮
+    // （雪原要银白、温室要暖金），必须能逐场景覆盖，所以提到表里来。
+    HALO_TINT: 0x33507a,             // 角色背后柔光的底色（会被情绪色覆盖，这里是初值）
+    DUST_BACK_TINT: 0xbfe9e0, DUST_FRONT_TINT: 0xffe6b8,
     // 地面雾带：只负责洗淡素材自带的法阵（它在 y≈645~735），别贪高贪浓 ——
     // 首版 604/132/0.42 把整条石板地都压成黑的，地板白铺了
     MIST_Y: 626, MIST_H: 104,

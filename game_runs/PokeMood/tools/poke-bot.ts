@@ -328,6 +328,50 @@ async function main() {
   ok('点在角色身体外无反应（人体闸门）', afterOut === beforeOut,
     afterOut === beforeOut ? '静默 ✓' : '空白处也触发了反应');
 
+  /* ── 6.5 背景场景切换 ────────────────────────────────────
+   * 这个功能的"好不好看"只能人眼看（tools/shot-scenes.mjs），但有三条是能自动守住的，
+   * 而且都是真会坏的：
+   *   ① 每一套场景都装配得起来（贴图 key 拼错 / 忘了回填 scale → 切过去一片空）
+   *   ② 选择器打开时【吃掉触碰】—— 覆盖层底下就是她，漏一下就会"选场景选到一半被戳"
+   *   ③ 关掉之后触碰立刻恢复（_uiSwallow 忘了清零就是永久失灵，最难查的那种） */
+  await page.waitForTimeout(400);
+  const sceneIds: string[] = await page.evaluate(() =>
+    (window as any).PM.Scenes.list().map((s: any) => s.id));
+  const bad: string[] = [];
+  for (const id of sceneIds) {
+    const okSwitch = await page.evaluate((i) => (window as any).__setScene(i), id);
+    await page.waitForTimeout(650);                    // 展开动画 460ms + 余量
+    const pr = await probe(page);
+    // 换到自己那格会返回 false（不是失败），所以只认"切完之后 bgScene 对不对"
+    if (pr.bgScene !== id || pr.switching) bad.push(`${id}${okSwitch ? '' : '(no-op)'}`);
+  }
+  ok(`${sceneIds.length} 套背景场景都能切进去`, bad.length === 0,
+     bad.length ? '切不过去: ' + bad.join(',') : sceneIds.join(' → '));
+  await page.screenshot({ path: path.join(OUT_DIR, '04-scene.png') });
+
+  await page.evaluate(() => (window as any).__scene.openPicker());
+  await page.waitForTimeout(300);
+  const opened = (await probe(page)).pickerOpen;
+  const beforePick = (await probe(page)).reactionsPlayed;
+  // 点头部位置。它落在缩略图之间的缝里 —— 这一下**应该只是关掉覆盖层**，
+  // 绝不能穿透到她身上。（所以这里不能断言"点完 pickerOpen 还是 true"：
+  // 点空白处关闭是设计好的行为，早期版本就是这么误判成失败的。）
+  await page.mouse.move(geom.x, geom.y);
+  await page.mouse.down(); await page.waitForTimeout(60); await page.mouse.up();
+  await page.waitForTimeout(250);
+  const duringPick = await probe(page);
+  ok('选择器打开时吃掉触碰', opened && duringPick.reactionsPlayed === beforePick,
+     !opened ? '选择器压根没打开' :
+     duringPick.reactionsPlayed === beforePick ? '未穿透 ✓' : '点穿覆盖层戳到人了');
+
+  await page.evaluate(() => (window as any).__scene.closePicker());
+  await page.waitForTimeout(400);
+  const beforeBack = (await probe(page)).reactionsPlayed;
+  await page.mouse.move(geom.x, geom.y);
+  await page.mouse.down(); await page.waitForTimeout(60); await page.mouse.up();
+  await page.waitForTimeout(250);
+  ok('关掉选择器后触碰恢复', (await probe(page)).reactionsPlayed > beforeBack);
+
   // ── 7. 后台图集补齐 ─────────────────────────────────────
   await page.waitForFunction(() => (window as any).__probe().allLoaded === true, null,
     { timeout: 90_000 }).catch(() => {});

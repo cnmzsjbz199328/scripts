@@ -50,6 +50,8 @@ game_runs/**/playtest/
 game_runs/**/_rec/
 # 专用 bot 的截图 + 报告（PokeMood 的 poke-bot 等），同属本地验证产物
 game_runs/**/bot/
+# 背景装配预检图（preview-bg.mjs / shot-scenes.mjs 的输出）—— 随时可重跑，纯本地目检用
+game_runs/**/_bgcheck/
 
 # showreel — concatenated demo video + all intermediate parts, local showcase only.
 # Keep only the reproducible build script.

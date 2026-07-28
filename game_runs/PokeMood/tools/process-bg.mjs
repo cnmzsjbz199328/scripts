@@ -6,7 +6,9 @@
  *   2. 绿幕阈值可调（--gt=）。AI 绿幕不是纯绿：背景常是 rgb(73,166,66) 一类的哑光绿
  *      且逐帧漂移，默认阈值抠不动就调这个，别去改生图。
  *
- * 用法: node tools/process-bg.mjs [--gt=30]
+ * 用法: node tools/process-bg.mjs [--scene=tower] [--gt=30]
+ *   --scene 缺省 = 全部场景（assets/bg/ 下每个含 raw/ 的子目录）。
+ *   每个场景一个子目录：assets/bg/<slug>/raw/*.png → assets/bg/<slug>/*.webp
  *   far.png  — 不透明整图，直接 resize→webp（远景没有主体要抠，走绿幕只会得到一圈绿边）
  *   mid.png  — 绿幕，抠成透明（上方要露出 far）
  *   fore.png — 绿幕，抠成透明（中央必须是空的，否则会盖住角色）
@@ -18,8 +20,9 @@ import sharp from 'sharp';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const GAME_DIR = path.resolve(__dirname, '..');
-const RAW_DIR = path.join(GAME_DIR, 'assets', 'bg', 'raw');
-const OUT_DIR = path.join(GAME_DIR, 'assets', 'bg');
+const BG_ROOT = path.join(GAME_DIR, 'assets', 'bg');
+// 当前处理的场景由 main() 逐个设置（模块级可变，脚本是串行的，够用）
+let RAW_DIR = '', OUT_DIR = '', SLUG = '';
 
 const W = 1440, H = 1152;
 
@@ -39,7 +42,7 @@ async function processFar() {
   console.log('处理远景 raw/far.png (不透明整图)...');
   await sharp(src).resize(W, H, { fit: 'cover' }).webp(WEBP_OPAQUE)
     .toFile(path.join(OUT_DIR, 'far.webp'));
-  console.log(`  ✅ assets/bg/far.webp (${W}x${H})`);
+  console.log(`  ✅ assets/bg/${SLUG}/far.webp (${W}x${H})`);
 }
 
 async function processChromaKey(kind) {
@@ -98,16 +101,29 @@ async function processChromaKey(kind) {
 
   await sharp(data, { raw: { width: W, height: H, channels: 4 } })
     .webp(WEBP_ALPHA).toFile(path.join(OUT_DIR, `${kind}.webp`));
-  console.log(`  ✅ assets/bg/${kind}.webp (${W}x${H})`);
+  console.log(`  ✅ assets/bg/${SLUG}/${kind}.webp (${W}x${H})`);
 }
 
 async function main() {
-  if (!fs.existsSync(OUT_DIR)) fs.mkdirSync(OUT_DIR, { recursive: true });
-  console.log('--- PokeMood 背景分层处理 ---');
-  await processFar();
-  await processChromaKey('mid');
-  await processChromaKey('fore');
-  console.log('--- 完成，接着跑 node tools/measure-bg.mjs 定标地面线 ---');
+  const want = (process.argv.find(a => a.startsWith('--scene=')) || '').slice(8);
+  const scenes = want ? [want]
+    : fs.readdirSync(BG_ROOT, { withFileTypes: true })
+        .filter(d => d.isDirectory() && fs.existsSync(path.join(BG_ROOT, d.name, 'raw')))
+        .map(d => d.name);
+
+  console.log(`--- PokeMood 背景分层处理（${scenes.length} 个场景）---`);
+  for (const slug of scenes) {
+    SLUG = slug;
+    RAW_DIR = path.join(BG_ROOT, slug, 'raw');
+    OUT_DIR = path.join(BG_ROOT, slug);
+    if (!fs.existsSync(RAW_DIR)) { console.warn(`⚠️ 缺目录: ${slug}/raw`); continue; }
+    if (!fs.existsSync(OUT_DIR)) fs.mkdirSync(OUT_DIR, { recursive: true });
+    console.log(`\n══ 场景 ${slug} ══`);
+    await processFar();
+    await processChromaKey('mid');
+    await processChromaKey('fore');
+  }
+  console.log('\n--- 完成，接着跑 node tools/measure-bg.mjs --scene=<slug> 定标地面线 ---');
 }
 
 main().catch(err => { console.error('Fatal:', err); process.exitCode = 1; });

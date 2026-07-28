@@ -172,15 +172,32 @@ game_runs/PokeMood/assets/
 
 ## 背景素材（`assets/bg/`）
 
-魔女工房·塔内，三层。**由 `agy`（Nano Banana）生成，不是视频抽帧**，所以和角色素材
-不共用任何加工参数。源图 `assets/bg/raw/*.png`（gitignore），产物 webp 入库
-（Cloudflare CI 部署要读，见 CLAUDE.md）。
+**6 套场景，每套三层**，一个场景一个子目录：`assets/bg/<slug>/{far,mid,fore}.webp`。
+**由 `agy`（Nano Banana）生成，不是视频抽帧**，所以和角色素材不共用任何加工参数。
+源图 `assets/bg/<slug>/raw/*.png`（gitignore），产物 webp 入库
+（Cloudflare CI 部署要读，见 CLAUDE.md）。六套合计约 2.0MB —— 和 29MB 的角色图集比可以忽略，
+所以**全部**在后台批加载，只有开局那套进核心批（`BootScene._loadRest`）。
 
-| 层 | 产物 | 大小 | 绿幕 | 内容 |
-|----|------|------|------|------|
-| `far` | `far.webp` | 67KB | ❌ 不透明整图 | 塔内穹顶、玫瑰窗光柱、星图天花 |
-| `mid` | `mid.webp` | 120KB | ✅ 抠成透明 | 左书架药瓶 / 右壁炉坩埚石阶 / 底部石板地带 |
-| `fore` | `fore.webp` | 62KB | ✅ 抠成透明 | 左干草药书堆 / 右帷幔烛台 / 底部石板条 |
+| slug | 名称 | 内容 |
+|------|------|------|
+| `tower` | 魔女工房·塔内 | 穹顶玫瑰窗 / 左书架药瓶 · 右壁炉坩埚 / 左干草药书堆 · 右帷幔烛台 |
+| `terrace` | 月夜露台 | 满月夜空远山灯火 / 石栏杆望远镜星图 / 常春藤石柱 |
+| `library` | 魔法图书馆 | 圆形穹顶吊灯浮书 / 高书架活动梯 / 雕龙书柜端板 |
+| `greenhouse` | 花园温室 | 玻璃穹顶日光 / 花台橘树铜壶 / 垂吊蕨叶花簇 |
+| `aurora` | 雪原极光 | 极光雪山 / 雪松幼树石堆符文石 / 覆雪松枝 |
+| `classroom` | 魔法教室 | 符文黑板课桌拱窗 / **待补** / 木柱壁灯 |
+
+> `classroom` 的 `mid` 尚未生成（生图配额 429），在 `config.js` 里挂着 `omit: ['mid']`。
+> 补法：配额恢复后 `bash tools/gen-bg.sh classroom`（已有的图自动跳过）→ process → measure
+> → 回填 scale → 删掉 `omit`。
+
+每层的角色分工（三层都一样，不随场景变）：
+
+| 层 | 绿幕 | 职责 |
+|----|------|------|
+| `far` | ❌ 不透明整图 | 空间的"远处"，上方中央要有个亮光源给光柱借位 |
+| `mid` | ✅ 抠成透明 | 两侧家具 + 底部一整条透视地板（角色站的就是它） |
+| `fore` | ✅ 抠成透明 | 两侧画框 + 底部窄条，**中央必须全空** |
 
 > **远景不走绿幕**：它没有主体要抠，走绿幕只会得到一圈绿边 —— 背景要整张不透明图。
 > **中景「中央留空」不是硬要求**：它在角色之后，内容越界到中央不构成遮挡。
@@ -189,9 +206,14 @@ game_runs/PokeMood/assets/
 ### 加工与定标（两步，顺序不能反）
 
 ```
-node tools/process-bg.mjs      # 抠图 + despill + 归一到 1440×1152 + 前景中央占用率体检
-node tools/measure-bg.mjs      # 量三层地面线 → 回填 game/config.js 的 PM.Config.BG
+bash tools/gen-bg.sh [slug ...]              # agy 生成（提示词硬约束都在脚本头部注释里）
+node tools/process-bg.mjs [--scene=slug]     # 抠图 + despill + 归一 1440×1152 + 前景占用率体检
+node tools/measure-bg.mjs [--scene=slug]     # 量地面线 → 候选 scale + 两条落位检查
+node tools/preview-bg.mjs [--scene=slug]     # ★ 按 config.js 真值合成 + 参考线，人眼定
 ```
+
+缺 `--scene=` 就跑全部场景。定标的三个靶子各不相同（fore 是 690 不是 715）、
+`foreScaleX` 要同时满足两个不等式 —— 全写在 DESIGN §4.7 ④，回填之前先读那一节。
 
 - `process-bg.mjs` 带两道体检：**纯绿空图判定**（agy 有静默产出全绿图的前科）和
   **前景中央占用率**（>12% 就会挡住角色）。本批 fore 报 14.5%，超的那部分是底部石板条，

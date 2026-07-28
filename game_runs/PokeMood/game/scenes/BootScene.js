@@ -28,14 +28,23 @@ PM.BootScene = class BootScene extends Phaser.Scene {
     // 区域标定的基准帧。运行时不显示，只用它的 alpha 判"这一点是不是在角色身上"
     this.load.image('base', 'assets/base.png');
 
-    // 背景三层。跟着核心批一起加载（合计约 1MB，比一张角色图集还小），
-    // 缺图不算致命：StageScene 会跳过没加载成功的层，只是没背景，游戏照玩。
+    /* 背景三层。**只有开局那个场景**进核心批（约 260KB，比一张角色图集小两位数），
+     * 其余五套场景跟角色图集一起在后台补 —— 六套合起来也才 ~1.6MB，
+     * 但没必要为"可能不会去的场景"拖长开场白。
+     * 缺图不算致命：StageScene 会跳过没加载成功的层，只是没背景，游戏照玩；
+     * 场景选择器也会把没加载完的那格标成"载入中"而不是给一块黑。 */
     this.load.on('loaderror', f => console.warn('[PokeMood] 资源加载失败:', f.key));
-    for (const L of C.BG.LAYERS) {
-      this.load.image(L.key, `assets/bg/${L.key.replace('bg_', '')}.webp`);
-    }
+    this._loadSceneBg(PM.Scenes.current());
 
     for (const name of C.CORE_ANIMS) this._loadAnim(name);
+  }
+
+  // 一个场景的三层。key/path 的拼法只有 PM.Scenes 一处，别在这里手写字符串
+  _loadSceneBg(scene) {
+    for (const L of PM.Scenes.layers(scene)) {
+      if (this.textures.exists(L.key)) continue;
+      this.load.image(L.key, PM.Scenes.texPath(scene, L.layer));
+    }
   }
 
   _loadAnim(name) {
@@ -67,13 +76,18 @@ PM.BootScene = class BootScene extends Phaser.Scene {
     PM.loaded.add(name);
   }
 
-  // 后台批：用一个独立 Loader，不阻塞已经开跑的玩法场景
+  /* 后台批：用一个独立 Loader，不阻塞已经开跑的玩法场景。
+   * 背景排在动画【前面】入队 —— 它们加起来 1.3MB，而动画是 19MB；
+   * 排后面的话玩家点开场景选择器时会对着五格灰图等一分钟。 */
   _loadRest() {
     const C = PM.Config;
+    for (const s of PM.Scenes.list()) {
+      if (s.id !== PM.Scenes.currentId) this._loadSceneBg(s);
+    }
     const rest = Object.keys(C.ANIMS).filter(n => !PM.loaded.has(n));
-    if (!rest.length) return;
-
     for (const name of rest) this._loadAnim(name);
+    if (!rest.length && !this.load.list.size && !this.load.totalToLoad) return;
+
     this.load.once('complete', () => {
       for (const name of rest) this._register(name);
       PM.allLoaded = true;

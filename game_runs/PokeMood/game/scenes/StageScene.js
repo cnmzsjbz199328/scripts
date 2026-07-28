@@ -17,12 +17,22 @@ PM.StageScene = class StageScene extends Phaser.Scene {
     this._voiceGen = 0;         // 语音世代号：一切异步回调都要拿它对表
     this.showRegions = false;
     this._lastMood = 'NEUTRAL';
+    // R 重来会重跑 create()，这两个必须清 —— 在切换动画中途按 R，
+    // _switching 留着 true 就再也点不动任何东西（_uiHit 一律吞）
+    this._switching = false;
+    this._thumbs = [];
+
+    /* 当前场景的气氛表 = 基表 + 该场景的浅覆盖。所有 _build*/ /* 都读 this.atmos，
+     * **不要**再直接读 PM.Config.ATMOS —— 那是基表，读了它换场景就不生效，
+     * 而且症状很隐蔽：光柱/雾带跟着换、光尘和暗角不换，看着像"某几个场景没做完"。 */
+    this.atmos = PM.Scenes.atmos(PM.Scenes.current());
 
     this._buildBackdrop();
     this._buildCircle();
     this._buildCharacter();
     this._buildBubble();
     this._buildDebug();
+    this._buildScenePicker();
     this._buildInput();
 
     this.playAnim('idle');
@@ -56,19 +66,25 @@ PM.StageScene = class StageScene extends Phaser.Scene {
     g.fillGradientStyle(0x1b2334, 0x1b2334, 0x0d1119, 0x0d1119, 1);
     g.fillRect(0, 0, C.WIDTH, C.HEIGHT);
 
-    this.bgLayers = [];
-    for (const L of C.BG.LAYERS) {
-      if (!this.textures.exists(L.key)) continue;    // 缺图不 404 也不崩，只是少一层
-      if (L.splitY) this._addSplitLayer(L);
-      else this._addLayer(L, 0, null, L.depth);
-    }
-
+    this._applySceneLayers(PM.Scenes.current());
     this._buildShaft();
     this._buildHalo();
     this._buildShadow();
     this._buildMist();
     this._buildDust();
     this._buildVignette();
+  }
+
+  /* 换掉三层背景图（保留光柱/雾带/光尘等气氛层，它们只需要改色改参数）。
+   * 单独一个方法是为了 switchScene 能复用：切场景 = 拆旧三层 + 建新三层 + 重设气氛。 */
+  _applySceneLayers(scene) {
+    if (this.bgLayers) for (const L of this.bgLayers) L.img.destroy();
+    this.bgLayers = [];
+    for (const L of PM.Scenes.layers(scene)) {
+      if (!this.textures.exists(L.key)) continue;   // 缺图不 404 也不崩，只是少一层
+      if (L.split) this._addSplitLayer(L);
+      else this._addLayer(L, 0, null, L.depth);
+    }
   }
 
   /* 建一张背景层。dy 是【源图像素】单位的纵向位移（好和实测值直接对得上，
@@ -85,22 +101,38 @@ PM.StageScene = class StageScene extends Phaser.Scene {
     return img;
   }
 
+  /* 一整套"离屏"的场景三层（缩略图 / 展开动画用）。
+   * 和 _addLayer 用同一套 scale/scaleX，所以缩略图里看到的构图 = 切过去之后看到的构图；
+   * 各自 new Image 而不是复用真身，是因为真身还挂在画面上、且带着视差偏移。 */
+  _makeSceneImages(scene) {
+    const C = PM.Config;
+    const out = [];
+    for (const L of PM.Scenes.layers(scene)) {
+      if (!this.textures.exists(L.key)) continue;
+      const img = this.add.image(C.WIDTH / 2, 0, L.key).setOrigin(0.5, 0);
+      img.setScale(L.scaleX ?? L.scale, L.scale);
+      out.push(img);
+    }
+    return out;
+  }
+
   /* 拆层：同一张贴图裁成「地板」和「家具」两个 Image，家具下沉 bodyDy 坐到地板上。
    * 见 config.js 里 bg_mid 的注释 —— AI 把家具画得离它自己那条地板 35px，
    * 抠透明后远景从缝里透出来就成了悬空。setCrop 是原位渲染，
    * 两张不做位移时叠回去和原图逐像素一致，所以这层拆分对其他定标零影响。 */
   _addSplitLayer(L) {
     const B = PM.Config.BG;
+    const { y: splitY, dy } = L.split;
     // 地板：splitY 往下整条，画在家具后一档，接缝由家具压住
-    this._addLayer(L, 0, { x: 0, y: L.splitY, w: B.SRC_W, h: B.SRC_H - L.splitY }, L.depth - 1);
+    this._addLayer(L, 0, { x: 0, y: splitY, w: B.SRC_W, h: B.SRC_H - splitY }, L.depth - 1);
     // 家具：splitY 往上整条，整体下沉
-    this._addLayer(L, L.bodyDy, { x: 0, y: 0, w: B.SRC_W, h: L.splitY }, L.depth);
+    this._addLayer(L, dy, { x: 0, y: 0, w: B.SRC_W, h: splitY }, L.depth);
   }
 
   /* 玫瑰窗光柱：far 图上那扇窗是画死的，光柱做成会呼吸的活物才有"塔里有空气"的感觉。
    * 用梯形渐变贴图而不是 Graphics 多边形 —— 多边形没有软边，会看成一块实心色片。 */
   _buildShaft() {
-    const A = PM.Config.ATMOS;
+    const A = this.atmos;
     if (!this.textures.exists('pm-shaft')) {
       const w = 256, h = 512;
       const cv = this.textures.createCanvas('pm-shaft', w, h);
@@ -143,7 +175,7 @@ PM.StageScene = class StageScene extends Phaser.Scene {
   // 角色背后的一团柔光，让她不至于糊进背景。
   // 用径向渐变贴图而不是 ellipse —— 实心椭圆边缘是硬的，在深色背景上会看成一块蓝色圆盘。
   _buildHalo() {
-    const C = PM.Config;
+    const C = PM.Config, A = this.atmos;
     if (!this.textures.exists('pm-halo')) {
       const size = 512;
       const cv = this.textures.createCanvas('pm-halo', size, size);
@@ -158,7 +190,7 @@ PM.StageScene = class StageScene extends Phaser.Scene {
     }
     this.halo = this.add.image(C.CHAR_X, 430, 'pm-halo')
       .setDisplaySize(620, 700)
-      .setTint(0x33507a)
+      .setTint(A.HALO_TINT)
       .setAlpha(0.42)
       .setBlendMode(Phaser.BlendModes.ADD)
       .setDepth(-20);
@@ -168,7 +200,7 @@ PM.StageScene = class StageScene extends Phaser.Scene {
    * 一团压在靴底的软阴影是把角色钉在地面上最便宜的一招（depth 4，在角色之后、mid 之前）。
    * 复用 pm-halo 那张径向渐变，染黑即可，不必再建一张贴图。 */
   _buildShadow() {
-    const C = PM.Config, A = C.ATMOS;
+    const C = PM.Config, A = this.atmos;
     this.shadow = this.add.image(C.CHAR_X, C.BG.FOOT_Y - 4, 'pm-halo')
       .setDisplaySize(A.SHADOW_W, A.SHADOW_H)
       .setTint(0x000000)
@@ -183,7 +215,7 @@ PM.StageScene = class StageScene extends Phaser.Scene {
    * 所以改用半透明雾带把那一块【洗淡】：色差被压成同一个色温，靴子仍然看得清。
    * 雾带跟着情绪染色，和法阵、气泡描边共用一套颜色语言。 */
   _buildMist() {
-    const C = PM.Config, A = C.ATMOS;
+    const C = PM.Config, A = this.atmos;
     if (!this.textures.exists('pm-mist')) {
       const w = 8, h = 128;
       const cv = this.textures.createCanvas('pm-mist', w, h);
@@ -206,7 +238,7 @@ PM.StageScene = class StageScene extends Phaser.Scene {
   /* 光尘：后景一批慢而多（在光柱里飘），前景一批快而少（贴着镜头）。
    * 不用粒子系统 —— 这点量自己推更好控，也省得为 12 个点建发射器。 */
   _buildDust() {
-    const C = PM.Config, A = C.ATMOS;
+    const C = PM.Config, A = this.atmos;
     if (!this.textures.exists('pm-dot')) {
       const s = 16;
       const cv = this.textures.createCanvas('pm-dot', s, s);
@@ -241,14 +273,14 @@ PM.StageScene = class StageScene extends Phaser.Scene {
       return arr;
     };
     this.dustBack = make(A.DUST_BACK, -30,
-      { tint: 0xbfe9e0, r: [1.4, 3.6], vy: [-9, -3], a: [0.15, 0.45] });
+      { tint: A.DUST_BACK_TINT, r: [1.4, 3.6], vy: [-9, -3], a: [0.15, 0.45] });
     this.dustFront = make(A.DUST_FRONT, 15,
-      { tint: 0xffe6b8, r: [2.2, 5.0], vy: [-22, -10], a: [0.10, 0.26] });
+      { tint: A.DUST_FRONT_TINT, r: [2.2, 5.0], vy: [-22, -10], a: [0.10, 0.26] });
   }
 
   // 暗角：三层图各自的边缘亮度不一致，压一圈暗角能把它们缝成一个空间
   _buildVignette() {
-    const C = PM.Config, A = C.ATMOS;
+    const C = PM.Config, A = this.atmos;
     if (!this.textures.exists('pm-vig')) {
       const w = 256, h = 205;
       const cv = this.textures.createCanvas('pm-vig', w, h);
@@ -260,16 +292,233 @@ PM.StageScene = class StageScene extends Phaser.Scene {
       ctx.fillRect(0, 0, w, h);
       cv.refresh();
     }
-    this.add.image(C.WIDTH / 2, C.HEIGHT / 2, 'pm-vig')
+    // 存引用：暗角是逐场景的（温室 0.34 / 月夜 0.62），切场景要重设
+    this.vignette = this.add.image(C.WIDTH / 2, C.HEIGHT / 2, 'pm-vig')
       .setDisplaySize(C.WIDTH * 1.06, C.HEIGHT * 1.06)
       .setAlpha(A.VIGNETTE)
       .setDepth(19);
   }
 
+  /* ── 场景切换 ──────────────────────────────────────────────
+   *
+   * 交互取向（用户拍板）：**不做拖拽**。角色身上「按住」和「拖动」已经是 hold / rub
+   * 两个核心手势（PM.Touch.classify），再让拖角色去换场景，等于用一个一分钟按一次的
+   * 动作去污染每分钟都要用的动作。改成右上角一个按钮 → 缩略图覆盖层 → 点选。
+   * 覆盖层也不常驻：底部常驻一条 dock 会盖住 legL/legR 两个可触区
+   * （角色单元格 580×720 占满画布全高），就是「看得见摸得着但点不到」那个老毛病。 */
+
+  // 右上角入口。放右上是因为七个可触区最右只到 CHAR_X+96，这里离得最远，最不容易误触。
+  _buildScenePicker() {
+    const C = PM.Config;
+    const R = 21, x = C.WIDTH - R - 16, y = R + 16;
+    this._pickerBtnRect = new Phaser.Geom.Circle(x, y, R + 10);   // 判定比画的圈大一点
+
+    // depth 38 在覆盖层(36)【之上】：它是个开关，打开时也得亮着能再点一次关掉，
+    // 被自己开出来的半透明幕布盖住会看着像失效了
+    const g = this.add.graphics().setDepth(38);
+    g.fillStyle(0x0d1119, 0.55).fillCircle(x, y, R);
+    g.lineStyle(1.5, 0x8fa7c9, 0.7).strokeCircle(x, y, R);
+    // 图标：两张叠起来的"画框"，一眼是"换个景"而不是"设置"
+    g.lineStyle(1.6, 0xcfe0f5, 0.9);
+    g.strokeRect(x - 9, y - 7, 13, 11);
+    g.strokeRect(x - 4, y - 3, 13, 11);
+    this._pickerBtn = g;
+
+    this.uiOpen = false;
+    this.overlay = null;
+  }
+
+  togglePicker() { this.uiOpen ? this.closePicker() : this.openPicker(); }
+
+  openPicker() {
+    if (this.uiOpen || this._switching) return;
+    const C = PM.Config;
+    this.uiOpen = true;
+
+    const c = this.add.container(0, 0).setDepth(36);
+    const dim = this.add.rectangle(0, 0, C.WIDTH, C.HEIGHT, 0x070a10, 0.86).setOrigin(0, 0);
+    c.add(dim);
+    c.add(this.add.text(C.WIDTH / 2, 26, '换个地方', {
+      fontFamily: 'Segoe UI, Microsoft YaHei, sans-serif', fontSize: '19px', color: '#e6eefb',
+    }).setOrigin(0.5, 0));
+
+    /* 2 列 × 3 行。**不能用 3 行以上或底部横条**：画布高固定 720，
+     * 竖着排满就必然压到腿部可触区上方，关掉覆盖层的手势也会离腿太近。
+     *
+     * 尺寸是倒着算出来的，别凭好看改大：三行 + 每行下面一行标签 + 底部那句提示，
+     * 全部要塞进 720。tw=236 时第三行的标签正好压在提示上（实测），
+     * 收到 215 之后底部还剩 50px 空。窄画布（660）下两列 215 也放得下。 */
+    const cols = 2, gap = 18, tw = 215, th = Math.round(tw * C.HEIGHT / C.WIDTH);
+    const rowStep = th + 26;
+    const x0 = Math.round((C.WIDTH - (cols * tw + (cols - 1) * gap)) / 2), y0 = 56;
+
+    this._thumbs = [];
+    this._thumbMasks = [];
+    PM.Scenes.list().forEach((s, i) => {
+      const cx = x0 + (i % cols) * (tw + gap), cy = y0 + Math.floor(i / cols) * rowStep;
+      this._thumbs.push(this._makeThumb(c, s, cx, cy, tw, th));
+    });
+
+    c.add(this.add.text(C.WIDTH / 2, C.HEIGHT - 26, '点画面其他地方关闭', {
+      fontFamily: 'Segoe UI, Microsoft YaHei, sans-serif', fontSize: '13px', color: '#7f92ad',
+    }).setOrigin(0.5, 1));
+
+    c.setAlpha(0);
+    this.tweens.add({ targets: c, alpha: 1, duration: PM.Config.SCENE_FADE_MS });
+    this.overlay = c;
+  }
+
+  closePicker() {
+    if (!this.uiOpen) return;
+    this.uiOpen = false;
+    const c = this.overlay;
+    this.overlay = null;
+    this._thumbs = [];
+    const masks = this._thumbMasks || [];
+    this._thumbMasks = [];
+    if (!c) { for (const m of masks) m.destroy(); return; }
+    this.tweens.add({
+      targets: c, alpha: 0, duration: PM.Config.SCENE_FADE_MS,
+      // 遮罩要等淡出结束再拆：提前拆了，最后这 200ms 里缩略图会溢出到隔壁格
+      onComplete: () => { c.destroy(); for (const m of masks) m.destroy(); },
+    });
+  }
+
+  /* 一格缩略图 = 该场景的真三层，按 tw/W 整体缩小，外加一个矩形遮罩把溢出裁掉。
+   * 用真图层而不是另存一张缩略图片：这样"缩略图里长什么样 = 切过去长什么样"是**结构保证**的，
+   * 不会出现改了 scale 忘了重导缩略图那种漂移。代价是每格三张 Image，六格十八张，
+   * 只在覆盖层打开时存在，关掉就销毁。 */
+  _makeThumb(parent, scene, x, y, tw, th) {
+    const C = PM.Config;
+    const k = tw / C.WIDTH;
+    const ready = PM.Scenes.layers(scene).some(L => this.textures.exists(L.key));
+
+    const box = this.add.container(x, y);
+    box.add(this.add.rectangle(0, 0, tw, th, 0x0d1119, 1).setOrigin(0, 0));
+
+    if (ready) {
+      const inner = this.add.container(0, 0).setScale(k);
+      for (const img of this._makeSceneImages(scene)) inner.add(img);
+      // 遮罩用 Graphics 的几何遮罩（世界坐标）。少了它，1440 宽的源图缩到 0.26
+      // 还有 ~370px，会糊到隔壁格子上去
+      const mg = this.make.graphics({ x: 0, y: 0 }, false);
+      mg.fillStyle(0xffffff).fillRect(x, y, tw, th);
+      inner.setMask(mg.createGeometryMask());
+      box.add(inner);
+      /* 遮罩用的 Graphics 是 make.graphics(..., false) 建的 —— 不在显示列表上，
+       * 所以覆盖层 destroy() 带不走它。必须自己记账，否则每开一次选择器泄漏 6 个。 */
+      this._thumbMasks.push(mg);
+    } else {
+      box.add(this.add.text(tw / 2, th / 2, '载入中…', {
+        fontFamily: 'Segoe UI, sans-serif', fontSize: '13px', color: '#6d7f99',
+      }).setOrigin(0.5));
+    }
+
+    const isCur = scene.id === PM.Scenes.currentId;
+    const frame = this.add.graphics();
+    frame.lineStyle(isCur ? 2.5 : 1.2, isCur ? 0x5fe0c8 : 0x64748b, isCur ? 1 : 0.65)
+      .strokeRect(0, 0, tw, th);
+    box.add(frame);
+    box.add(this.add.text(4, th + 4, scene.name + (isCur ? ' ·当前' : ''), {
+      fontFamily: 'Segoe UI, Microsoft YaHei, sans-serif', fontSize: '13px',
+      color: isCur ? '#5fe0c8' : '#cbd6e6',
+    }).setOrigin(0, 0));
+
+    parent.add(box);
+    return { scene, rect: new Phaser.Geom.Rectangle(x, y, tw, th), ready, box };
+  }
+
+  /* iOS 开 App 式展开：新场景从缩略图那一格长到满屏，长完才真正换层。
+   *
+   * 用 Container + 几何遮罩，不用 RenderTexture 快照 —— 快照是按缩略图分辨率拍的，
+   * 放大到满屏必糊；容器缩放是每帧按当前 scale 采样原图，从头到尾都是清的。
+   * 遮罩必须跟着一起 tween，否则展开过程中 1440 宽的源图会直接铺满整屏，
+   * "从那一格里长出来"的感觉当场没了。 */
+  switchScene(id, fromRect) {
+    const C = PM.Config;
+    const scene = PM.Scenes.byId(id);
+    if (!scene || this._switching) return false;
+    if (scene.id === PM.Scenes.currentId) { this.closePicker(); return false; }
+    if (!PM.Scenes.layers(scene).some(L => this.textures.exists(L.key))) return false;
+
+    this._switching = true;
+    this.closePicker();
+
+    const commit = () => {
+      PM.Scenes.setCurrent(scene.id);
+      this.atmos = PM.Scenes.atmos(scene);
+      this._applySceneLayers(scene);
+      this._applyAtmos();
+      this._switching = false;
+      if (window.GameAudio) window.GameAudio.play('ui');
+    };
+
+    // reduced-motion：整段动画跳过。这里是全屏尺度的缩放，对前庭敏感的人最难受
+    const full = new Phaser.Geom.Rectangle(0, 0, C.WIDTH, C.HEIGHT);
+    const from = fromRect || full;
+    if (this._reducedMotion()) { commit(); return true; }
+
+    const inner = this.add.container(0, 0);
+    for (const img of this._makeSceneImages(scene)) inner.add(img);
+    const wrap = this.add.container(from.x, from.y).setDepth(50);
+    wrap.add(inner);
+    inner.setScale(from.width / C.WIDTH);
+
+    const mg = this.make.graphics({ x: 0, y: 0 }, false);
+    const drawMask = (r) => { mg.clear(); mg.fillStyle(0xffffff).fillRect(r.x, r.y, r.width, r.height); };
+    drawMask(from);
+    wrap.setMask(mg.createGeometryMask());
+
+    this.tweens.addCounter({
+      from: 0, to: 1, duration: C.SCENE_ZOOM_MS, ease: 'Cubic.easeInOut',
+      onUpdate: (t) => {
+        const p = t.getValue();
+        const x = Phaser.Math.Linear(from.x, full.x, p);
+        const y = Phaser.Math.Linear(from.y, full.y, p);
+        const w = Phaser.Math.Linear(from.width, full.width, p);
+        const h = Phaser.Math.Linear(from.height, full.height, p);
+        wrap.setPosition(x, y);
+        inner.setScale(w / C.WIDTH);
+        drawMask(new Phaser.Geom.Rectangle(x, y, w, h));
+      },
+      onComplete: () => {
+        // 先把真身换好再拆临时层：反过来的话中间会闪一帧旧背景
+        commit();
+        wrap.destroy();
+        mg.destroy();
+      },
+    });
+    return true;
+  }
+
+  /* 把当前 this.atmos 重新灌进已经建好的气氛对象。
+   * 光柱的呼吸 tween 必须先 kill 再重建 —— 它是 repeat:-1 且 alpha 目标写死在旧值上，
+   * 不杀掉的话新场景的 SHAFT_ALPHA 会被老 tween 每个循环拉回旧值，
+   * 表现为"光柱亮度自己在两个场景之间来回跳"。 */
+  _applyAtmos() {
+    const C = PM.Config, A = this.atmos;
+    if (this.shaft) {
+      this.tweens.killTweensOf(this.shaft);
+      this.shaft.setDisplaySize(A.SHAFT_W, A.SHAFT_H).setTint(A.SHAFT_COLOR).setAlpha(A.SHAFT_ALPHA);
+      this.tweens.add({
+        targets: this.shaft, alpha: A.SHAFT_ALPHA + A.SHAFT_BREATH,
+        duration: A.SHAFT_MS, yoyo: true, repeat: -1, ease: 'Sine.easeInOut',
+      });
+    }
+    if (this.mist) this.mist.setY(A.MIST_Y).setDisplaySize(C.WIDTH, A.MIST_H).setAlpha(A.MIST_ALPHA);
+    if (this.shadow) this.shadow.setDisplaySize(A.SHADOW_W, A.SHADOW_H).setAlpha(A.SHADOW_A);
+    if (this.vignette) this.vignette.setAlpha(A.VIGNETTE);
+    if (this.dustBack) for (const d of this.dustBack) d.img.setTint(A.DUST_BACK_TINT);
+    if (this.dustFront) for (const d of this.dustFront) d.img.setTint(A.DUST_FRONT_TINT);
+    // 柔光/雾带的颜色由情绪接管，这里只重设"底色"，随后立刻交回情绪那套
+    if (this.halo) this.halo.setTint(A.HALO_TINT);
+    this._tintAtmos(this.circleColor);
+  }
+
   /* 指针视差：没有相机可跟，就让鼠标当"观众的头"。三层 + 光柱按 par 系数反向偏移，
    * 静止角色也能拿到空间感。幅度必须小 —— 大了会露出层的边缘裁切。 */
   _updateParallax(delta) {
-    const C = PM.Config, A = C.ATMOS;
+    const C = PM.Config, A = this.atmos;
     if (!this.bgLayers || !A.PARALLAX_MAX) return;
     const p = this.input.activePointer;
     const tx = ((p?.x ?? C.WIDTH / 2) / C.WIDTH - 0.5) * 2;    // -1 .. 1
@@ -413,7 +662,7 @@ PM.StageScene = class StageScene extends Phaser.Scene {
     // 描边不是装饰：底边现在压着前景石板条和暗角，原来那个 #4c5a72 无描边的灰
     // 直接糊进石头里读不出来了（换背景前是纯深色底，怎么写都清楚）。
     this.hintText = this.add.text(14, PM.Config.HEIGHT - 26,
-      'G 显示触碰区 · M 静音 · R 重来', {
+      'B 换背景 · G 显示触碰区 · M 静音 · R 重来', {
         fontFamily: 'Consolas, monospace', fontSize: '12px', color: '#93a6c4',
       }).setStroke('#0a0d14', 4).setDepth(30);
   }
@@ -440,7 +689,13 @@ PM.StageScene = class StageScene extends Phaser.Scene {
   _buildInput() {
     this._isBody = this._makeBodyTest();
 
+    /* UI 优先：场景按钮和覆盖层吃掉的那一下，**不能**再走触碰判定。
+     * 这里刻意不用 GameObject 的 setInteractive —— 触碰判定挂在场景级 pointerup 上，
+     * 两套事件源的先后顺序在不同 Phaser 版本里不一样，靠"谁先触发"来互斥迟早出鬼。
+     * 改成在同一个 pointerdown 里显式分流：命中 UI 就把这一下标记掉，pointerup 直接丢弃。 */
     this.input.on('pointerdown', p => {
+      if (this._uiHit(p)) { this._down = null; this._uiSwallow = true; return; }
+      this._uiSwallow = false;
       this._down = { t: this.time.now, x: p.x, y: p.y };
       this._travel = 0;
       this._prev = { x: p.x, y: p.y };
@@ -451,6 +706,7 @@ PM.StageScene = class StageScene extends Phaser.Scene {
       this._prev = { x: p.x, y: p.y };
     });
     this.input.on('pointerup', p => {
+      if (this._uiSwallow) { this._uiSwallow = false; this._uiRelease(p); return; }
       if (!this._down) return;
       const up = { t: this.time.now, x: p.x, y: p.y };
       const gesture = PM.Touch.classify(this._down, up, this._travel);
@@ -460,6 +716,9 @@ PM.StageScene = class StageScene extends Phaser.Scene {
       this._down = null;
       if (region) this.poke(region, gesture);
     });
+
+    // B = background。用键盘也能开，桌面上比去够右上角快
+    this.input.keyboard.on('keydown-B', () => this.togglePicker());
 
     this.input.keyboard.on('keydown-G', () => {
       this.showRegions = !this.showRegions;
@@ -491,6 +750,32 @@ PM.StageScene = class StageScene extends Phaser.Scene {
       document.removeEventListener('visibilitychange', this._onVis);
       this._stopVoice();
     });
+  }
+
+  /* 这一下是不是打在 UI 上（按钮 / 已打开的覆盖层 / 切换动画进行中）。
+   * 覆盖层一旦打开就整屏吃掉 —— 覆盖层底下就是她，不整屏吃的话
+   * "点缩略图之间的空隙"会穿透过去戳到人，一边选场景一边被她抗议，很怪。 */
+  _uiHit(p) {
+    if (this._switching) return true;
+    if (this.uiOpen) return true;
+    return !!(this._pickerBtnRect && Phaser.Geom.Circle.Contains(this._pickerBtnRect, p.x, p.y));
+  }
+
+  // UI 上抬起手：按钮 → 开关；覆盖层内 → 选中那格切场景，空白处 → 关闭
+  _uiRelease(p) {
+    if (this._switching) return;
+    if (this._pickerBtnRect && Phaser.Geom.Circle.Contains(this._pickerBtnRect, p.x, p.y)) {
+      this.togglePicker();
+      return;
+    }
+    if (!this.uiOpen) return;
+    for (const t of this._thumbs || []) {
+      if (!Phaser.Geom.Rectangle.Contains(t.rect, p.x, p.y)) continue;
+      if (!t.ready) return;                       // 还没加载完的那格：点了不给反应，别把人扔进空场景
+      this.switchScene(t.scene.id, t.rect);
+      return;
+    }
+    this.closePicker();
   }
 
   /* ── 玩法 ──────────────────────────────────────────────── */

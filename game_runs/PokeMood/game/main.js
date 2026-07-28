@@ -33,7 +33,7 @@ window.PM = window.PM || {};
       return { started: false, mood: 'NEUTRAL', patience: 100, heat: {},
                lastRegion: null, lastTier: 0, locked: false, reactionsPlayed: 0,
                combo: 0, playingTier: 0, queuedTier: 0, aborting: false, resting: false,
-               voicing: false,
+               voicing: false, bgScene: PM.Scenes.currentId, pickerOpen: false, switching: false,
                anim: null, loaded: 0, allLoaded: !!PM.allLoaded };
     }
     const st = s.state;
@@ -50,6 +50,9 @@ window.PM = window.PM || {};
       aborting: !!(s.perform && s.perform.phase === 'abort'), // 正在快速收尾归位
       resting: !!(s.perform && s.perform.rest),               // 情绪待机段（等级 0，可被任何触碰抢占）
       voicing: !!s._currentVoice,                             // 有没有配音在响（查交叉说话）
+      bgScene: PM.Scenes.currentId,                           // 当前背景场景
+      pickerOpen: !!s.uiOpen,                                 // 场景选择器开着没
+      switching: !!s._switching,                              // 正在放展开动画（此间输入全吃掉）
       combo: st.combo,
       reactionsPlayed: st.reactionsPlayed,
       anim: s.char?.anims?.currentAnim?.key ?? null,
@@ -65,6 +68,15 @@ window.PM = window.PM || {};
     const s = stage();
     if (!s || !s.state) return null;
     return s.poke(regionId, gesture || 'tap');
+  };
+
+  /* 测试接缝：直接切背景场景，绕过按钮和缩略图。
+   * 和 __poke 同一个理由 —— 无头环境下合成指针事件不可靠，别拿输入层当被测对象。
+   * 返回切成功没有；缩略图那条真实路径由 poke-bot 单独走一次。 */
+  window.__setScene = function (id) {
+    const s = stage();
+    if (!s || !s.state) return false;
+    return s.switchScene(id, null);
   };
 
   // 本游戏没有叙事卡；保留契约供通用脚本调用
