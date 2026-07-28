@@ -91,18 +91,22 @@ PM.Mood = {
 
       /* 封顶溢出 = 惩罚出口。tier3 是阶梯顶，每个区域的 tier3 又只有一个变体，
        * 再往上戳只会把同一段反反复复排队重演 —— "没得升级"要变成"升到头就爆"。
-       * 于是连击到 COMBO_PUNISH_AT 直接走泼水+哭，重复的高级反应最多连着两次。 */
+       * 连击到 COMBO_PUNISH_AT 强制进生气线，再戳一下就是泼水 + 哭：
+       * 耐心还满着也照样走得到 ANGRY → 惩罚，重复的高级反应最多连着两次。 */
       const overflow = s.combo >= C.COMBO_PUNISH_AT;
 
-      if (s.mood === 'ANGRY' || overflow) {
-        // 生气了还戳（或者连戳到封顶溢出）→ 惩罚 → 哭
+      if (s.mood === 'ANGRY') {
+        // 生气了还戳 → 惩罚 → 哭
         punish = true;
         s.mood = 'CRY';
         s.patience = C.CRY_PATIENCE_AFTER;
         // 高潮过了，阶梯从头爬：不清零的话哭完第一下就又是 tier3
         s.combo = 0;
         s.comboUntil = 0;
-      } else if (s.patience <= C.PATIENCE_ANGRY_AT) {
+      } else if (overflow || s.patience <= C.PATIENCE_ANGRY_AT) {
+        /* 封顶溢出**先进生气线**，不直接跳惩罚 —— 直接跳会把 ANGRY 这一档整个跳过去
+         * （耐心还满着，害羞线一路演到哭），玩家看不到"她真的生气了"这个中间态。
+         * 进了 ANGRY，下一下就走上面那条惩罚分支，重复的 tier3 照样最多连着两次。 */
         s.mood = 'ANGRY';
       } else {
         s.mood = (region === 'belly' || region === 'legL' || region === 'legR')

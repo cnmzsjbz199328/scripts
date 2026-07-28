@@ -7,7 +7,8 @@
  *   1. 七个区域都不是哑区
  *   2. 三种手势都能触发
  *   2.5 反应优先级：连戳次数=等级（跨区域共享）、静场回落、高抢低、同级排队、配音不交叉、
- *       真实节奏（等她演完再戳）下阶梯照样爬、情绪待机段不吞触碰、封顶溢出走惩罚出口
+ *       真实节奏（等她演完再戳）下阶梯照样爬、情绪待机段不吞触碰、封顶溢出走惩罚出口、
+ *       话尾（只剩配音）不锁人
  *   3. 情绪能被推到生气 → 惩罚 → 哭，且**能自己解锁回 NEUTRAL**（防死锁）
  *   4. 真实指针路径的坐标映射没错（__poke 绕过了输入层，得单独验一次）
  *   5. 点在角色身体外**不产生反应**（人体闸门生效）
@@ -68,6 +69,8 @@ async function main() {
   page.on('pageerror', e => errors.push('pageerror: ' + e.message));
   page.on('console', m => { if (m.type() === 'error') errors.push('console: ' + m.text()); });
   page.on('requestfailed', r => errors.push('requestfailed: ' + r.url()));
+  // 404 在 console 里只有一句无主的 "Failed to load resource"，没有 URL 就无从查起
+  page.on('response', r => { if (r.status() >= 400) errors.push(`http ${r.status()}: ${r.url()}`); });
 
   fs.mkdirSync(OUT_DIR, { recursive: true });
   await page.goto(`http://127.0.0.1:${srv.port}/PokeMood/index.html?autostart`);
@@ -229,7 +232,7 @@ async function main() {
   await freshen();
   const climb: string[] = [];
   let overflowPunish = false;
-  for (let i = 0; i < 6 && !overflowPunish; i++) {
+  for (let i = 0; i < 8 && !overflowPunish; i++) {   // 溢出先进生气线，惩罚在下一下
     const ev: any = await poke(page, REGIONS[i % REGIONS.length], 'tap');
     climb.push(ev?.punish ? '惩罚' : 'tier' + ev?.tier);
     if (ev?.punish) overflowPunish = true;
@@ -237,6 +240,29 @@ async function main() {
   }
   ok('连击封顶后升级为惩罚出口（不原地重演 tier3）', overflowPunish, climb.join(' → '));
   await settle();
+
+  /* ⑨ 话尾不锁人：动作演完、只剩配音（最长的一句 9.8 秒而动作才 1.3 秒）时，
+   * 低等级触碰也该立刻接管，而不是让玩家对着一个站回 idle 的人干等 8 秒。 */
+  await freshen();
+  const tail = await page.evaluate(() => {
+    const s = (window as any).__scene;
+    // 造一段"动作已完、嘴还在说"的 tier3 表演
+    s._startPerform({ tier: 3, hard: true, anim: 'shy' });
+    s.perform.animDone = true;
+    s.perform.animUntil = s.time.now;
+    s.perform.until = s.time.now + 8000;      // 还有 8 秒配音
+    const before = s.state.reactionsPlayed;
+    const ev = s.poke('head', 'tap');          // tier1 —— 本该被"低等级忽略"挡掉
+    return {
+      tier: ev.tier,
+      played: s.state.reactionsPlayed > before,
+      tookOver: !!(s.perform && (s.perform.tier !== 3 || s.perform.phase === 'abort')),
+    };
+  });
+  ok('话尾可被任意等级打断（长配音不锁人）',
+    tail.tier === 1 && tail.played && tail.tookOver,
+    `tier${tail.tier} / ${tail.tookOver ? '已接管' : '被挡'}`);
+  await freshen();
 
   // ── 3. 情绪升级：戳到生气 → 惩罚 → 哭 ─────────────────────
   const seen = new Set<string>();

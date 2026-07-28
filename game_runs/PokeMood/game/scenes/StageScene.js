@@ -553,8 +553,17 @@ PM.StageScene = class StageScene extends Phaser.Scene {
       return;
     }
 
-    if (isPunish || (!p.hard && act.tier > p.tier)) { this._beginAbort(act); return; }
-    if (act.tier >= p.tier) { this._enqueue(act); return; }
+    /* 话尾（动作已演完、只剩配音还在响）不享有等级保护。
+     * 表演**长度**照旧以更长的音频为准（自然收尾），但"谁能打断"只按动作那条线算：
+     * 最长一句 9.8 秒而动作才 1.3 秒，若整段都受保护，玩家戳一下要干等 8 秒才有下一个反应 ——
+     * 她人已经站回 idle 了，看着就是"闲着还不理人"。打断是干净的：_beginAbort 立刻停配音。
+     * 惩罚（tier4）和情绪待机段除外：前者是整局高潮不许腰斩，后者本来就是等级 0。 */
+    const tail = p.phase === 'play' && p.animDone && !p.rest && p.tier <= 3;
+    const pTier = tail ? 0 : p.tier;
+    const pHard = tail ? false : p.hard;
+
+    if (isPunish || (!pHard && act.tier > pTier)) { this._beginAbort(act); return; }
+    if (act.tier >= pTier) { this._enqueue(act); return; }
     this._nudge();
   }
 
