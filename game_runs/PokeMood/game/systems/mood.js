@@ -44,7 +44,12 @@ PM.Mood = {
   },
 
   /* 连击窗口续期：从**表演结束**起算，不是从按下起算。
-   * 一句配音最长 9.8 秒，若从按下起算，玩家听完整句再戳就断档，阶梯永远爬不上去。 */
+   * 一句配音最长 9.8 秒，若从按下起算，玩家听完整句再戳就断档，阶梯永远爬不上去。
+   *
+   * 注意调用时机：Scene 必须在表演**进行中每帧**续期，不能只在 _endPerform 续一次 ——
+   * 只续一次的话，step() 早在演到 1.6 秒时就把 combo 清零了，等演完再来续，
+   * `combo > 0` 这道守卫已经不成立，窗口白续。症状正是这套阶梯要修的那个 bug：
+   * 玩家听完整句再戳，永远停在 tier1。 */
   holdCombo(s, until) {
     if (s.combo > 0) s.comboUntil = Math.max(s.comboUntil, until);
   },
@@ -84,8 +89,13 @@ PM.Mood = {
     } else if (tier === 3) {
       s.patience = Math.max(0, s.patience + C.PATIENCE_T3);
 
-      if (s.mood === 'ANGRY') {
-        // 生气了还戳 → 惩罚 → 哭
+      /* 封顶溢出 = 惩罚出口。tier3 是阶梯顶，每个区域的 tier3 又只有一个变体，
+       * 再往上戳只会把同一段反反复复排队重演 —— "没得升级"要变成"升到头就爆"。
+       * 于是连击到 COMBO_PUNISH_AT 直接走泼水+哭，重复的高级反应最多连着两次。 */
+      const overflow = s.combo >= C.COMBO_PUNISH_AT;
+
+      if (s.mood === 'ANGRY' || overflow) {
+        // 生气了还戳（或者连戳到封顶溢出）→ 惩罚 → 哭
         punish = true;
         s.mood = 'CRY';
         s.patience = C.CRY_PATIENCE_AFTER;

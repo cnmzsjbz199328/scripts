@@ -544,10 +544,12 @@ PM.StageScene = class StageScene extends Phaser.Scene {
 
     const isPunish = act.tier >= 4;
 
-    // 正在收尾让位 → 争的是"下一个上场的是谁"，高的赢
+    // 正在收尾让位 → 争的是"下一个上场的是谁"，高的赢；
+    // 同级进排队槽，低级照样忽略（否则会在高等级演完后补播一个已经过期的低级反应）
     if (p.phase === 'abort') {
       if (isPunish || act.tier > p.next.tier) p.next = act;
-      else this._enqueue(act);
+      else if (act.tier === p.next.tier) this._enqueue(act);
+      else this._nudge();
       return;
     }
 
@@ -572,6 +574,7 @@ PM.StageScene = class StageScene extends Phaser.Scene {
     this.perform = {
       tier: act.tier,
       hard: !!act.hard,
+      rest: !!act.rest,             // 情绪待机段：不是对触碰的回应，谁都能抢占
       phase: 'play',
       animUntil: now + animMs,
       animDone: animMs <= 0,        // loop 动画（idle）没有"演完"这回事
@@ -623,15 +626,20 @@ PM.StageScene = class StageScene extends Phaser.Scene {
   /* 没有表演时该摆什么姿势：情绪维持期内接着播情绪动画，否则 idle。
    * 这条很关键 —— 惩罚播的是 water_threat（举水球），mood 却已经是 CRY；
    * 没有这一步，`cry` 这段素材永远不会出现在游戏里，人被惹哭了却看不到哭。
-   * 情绪动画本身也是一段 tier3 表演，播完回到这里，于是在维持期内自然循环。
-   * 但它 hard=false：哭的时候再戳不该被整段吞掉，而应排队、哭完立刻接上。 */
+   * 情绪动画本身也是一段表演，播完回到这里，于是在维持期内自然循环。
+   *
+   * 但它的等级是 0（`rest`），不是 tier3 —— 它是"她现在的样子"，不是对某次触碰的回应，
+   * 不该拿反应的优先级去压玩家的下一次触碰。曾经写成 tier3：一次重反应之后的整个
+   * MOOD_HOLD_MS（2.6 秒）里，玩家戳第 1/2 下都因"低于正在演的等级"被吞成 _nudge，
+   * 而 combo 还在闷声上涨 —— 体感是"她生完气有两下没反应，然后突然又炸了"。
+   * 等级 0 意味着任何真触碰都能抢占它（收尾封顶 380ms），反应演完再回到这里续上情绪。 */
   _restAnim() {
     const s = this.state;
     const now = this.time.now;
     if (s.mood !== 'NEUTRAL' && now < s.moodUntil - 300) {
       const m = PM.Config.MOOD_ANIM[s.mood];
       if (m && m !== 'idle' && PM.loaded.has(m)) {
-        this._startPerform({ tier: 3, hard: false, anim: m });
+        this._startPerform({ tier: 0, hard: false, rest: true, anim: m });
         return;
       }
       return;   // 没有对应素材就停在当前末帧
@@ -793,18 +801,29 @@ PM.StageScene = class StageScene extends Phaser.Scene {
     } catch (e) {}
   }
 
+  /* 撤掉挂着的淡出 tween。**必须查 parent** —— 已经播完的 tween 在 Phaser 3.60 里
+   * parent 已置空，再调 remove() 会抛 "Cannot read properties of null"，
+   * 而这句在抢占路径（_beginAbort → _fadeBubble）上，一炸就是整局游戏死掉：
+   * 说完一句、等气泡自然淡完、再戳一下 —— 正常游玩必然踩到。 */
+  _killBubbleHide() {
+    const t = this._bubbleHide;
+    this._bubbleHide = null;
+    if (t && t.parent) t.remove();
+  }
+
   /* 把气泡的淡出重排到 sec 秒之后（不短于默认 2.6 秒） */
   _holdBubble(sec) {
     if (!isFinite(sec) || sec <= 0) return;
     const delay = Math.max(PM.Config.BUBBLE_MS, sec * 1000 + 260);
-    if (this._bubbleHide) this._bubbleHide.remove();
+    this._killBubbleHide();
     this._bubbleHide = this.tweens.add({
       targets: this.bubble, alpha: 0, delay, duration: 320,
+      onComplete: () => { this._bubbleHide = null; },   // 播完就撒手，别留下已失效的引用
     });
   }
 
   _fadeBubble(ms) {
-    if (this._bubbleHide) { this._bubbleHide.remove(); this._bubbleHide = null; }
+    this._killBubbleHide();
     this.tweens.killTweensOf(this.bubble);
     this.tweens.add({ targets: this.bubble, alpha: 0, duration: ms });
   }
@@ -852,6 +871,7 @@ PM.StageScene = class StageScene extends Phaser.Scene {
     this.tweens.add({ targets: this.bubble, alpha: 1, scale: 1, duration: 130 });
     this._bubbleHide = this.tweens.add({
       targets: this.bubble, alpha: 0, delay: PM.Config.BUBBLE_MS, duration: 320,
+      onComplete: () => { this._bubbleHide = null; },
     });
     // 配音放在气泡之后起：_playVoice 会按音频时长重排淡出，
     // 而上面的 killTweensOf 会把先建的那条一起杀掉
@@ -944,6 +964,17 @@ PM.StageScene = class StageScene extends Phaser.Scene {
   }
 
   update(time, delta) {
+    /* 表演期间连击不过期 —— 窗口是"演完之后还有多久"，不是"按下之后还有多久"。
+     * 必须每帧续，不能只在 _endPerform 续一次：一句配音 2.8~9.8 秒，
+     * step() 早在 COMBO_WINDOW_MS 处就把 combo 清零了，演完再续已经晚了
+     * （holdCombo 的 combo>0 守卫不成立）。见 mood.holdCombo 的注释。
+     *
+     * 情绪待机段（rest）不算 —— 窗口衡量的是"离她上一次**回应**过去多久"，
+     * 待机段一挂就是整个 MOOD_HOLD_MS，把它算进去等于白送连击。 */
+    if (this.perform && !this.perform.rest) {
+      PM.Mood.holdCombo(this.state, time + PM.Config.COMBO_WINDOW_MS);
+    }
+
     const ev = PM.Mood.step(this.state, delta, time);
     if (ev?.moodChanged) {
       this._setMoodVisual(this.state.mood);

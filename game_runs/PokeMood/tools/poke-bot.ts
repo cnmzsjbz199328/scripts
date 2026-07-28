@@ -6,7 +6,8 @@
  * 这里改成断言这个玩具真正该保证的东西：
  *   1. 七个区域都不是哑区
  *   2. 三种手势都能触发
- *   2.5 反应优先级：连戳次数=等级（跨区域共享）、静场回落、高抢低、同级排队、配音不交叉
+ *   2.5 反应优先级：连戳次数=等级（跨区域共享）、静场回落、高抢低、同级排队、配音不交叉、
+ *       真实节奏（等她演完再戳）下阶梯照样爬、情绪待机段不吞触碰、封顶溢出走惩罚出口
  *   3. 情绪能被推到生气 → 惩罚 → 哭，且**能自己解锁回 NEUTRAL**（防死锁）
  *   4. 真实指针路径的坐标映射没错（__poke 绕过了输入层，得单独验一次）
  *   5. 点在角色身体外**不产生反应**（人体闸门生效）
@@ -110,8 +111,25 @@ async function main() {
       null, { timeout: 25_000 });
   };
 
+  /* 复位她的心情与耐心。优先级这几条测的是调度，不该受前面几十次触碰累积的耐心损耗影响
+   * ——耐心掉到 50 以下后 tier3 直接跳惩罚（tier4），排队/抢占的断言就会假阴性。 */
+  const freshen = async () => {
+    await page.evaluate(() => {
+      const s = (window as any).__scene;
+      s._stopVoice();
+      s._fadeBubble(60);
+      s.perform = null;
+      s.pending = null;
+      s.char.anims.timeScale = 1;
+      Object.assign(s.state, {
+        mood: 'NEUTRAL', moodUntil: 0, patience: 100,
+        combo: 0, comboUntil: 0, soothStreak: 0,
+      });
+    });
+  };
+
   // ① 连戳次数 = 等级，且连击跨区域共享
-  await settle();
+  await freshen();
   const ladder: number[] = [];
   ladder.push((await poke(page, 'head', 'tap'))?.tier);
   ladder.push((await poke(page, 'armL', 'tap'))?.tier);   // 换个区域，阶梯应继续往上
@@ -125,7 +143,7 @@ async function main() {
   ok('静场后连击断档，回落 tier1', afterLull === 1, 'tier: ' + afterLull);
 
   // ③ 高等级抢占低等级：低的先进入"快速收尾"，随后高的上场
-  await settle();
+  await freshen();
   await poke(page, 'head', 'tap');                       // tier1 开演
   await page.waitForTimeout(60);
   const t1 = await probe(page);
@@ -138,11 +156,12 @@ async function main() {
     `演 tier${t1.playingTier} → ${mid.aborting ? '收尾中' : 'tier' + mid.playingTier} → tier${t2.playingTier}`);
 
   // ④ 同等级排队：tier3 封顶后再戳，进排队槽而不是被丢掉
-  await poke(page, 'chest', 'tap');                      // 推到 tier3
-  await poke(page, 'chest', 'tap');
+  await freshen();
+  const qTiers: any[] = [];
+  for (let i = 0; i < 4; i++) qTiers.push((await poke(page, 'chest', 'tap'))?.tier);  // 1,2,3,3
   const queued = await probe(page);
-  ok('同等级排队（不丢触碰）', queued.queuedTier === 3 || queued.playingTier >= 3,
-    `演 tier${queued.playingTier} / 排队 tier${queued.queuedTier}`);
+  ok('同等级排队（不丢触碰）', queued.queuedTier >= 3 || queued.playingTier >= 3,
+    `戳出 tier ${qTiers.join('/')} → 演 tier${queued.playingTier} / 排队 tier${queued.queuedTier}`);
 
   /* ⑤ 配音不交叉：抢占时旧语音必须**立刻停**。
    * 直接数缓存里"还在响"的元素个数 —— 世代号写错、监听器没摘、play() promise 诈尸，
@@ -161,6 +180,62 @@ async function main() {
     await page.waitForTimeout(90);
   }
   ok('配音同时只响一条（无交叉说话）', maxConcurrent <= 1, `峰值并发 ${maxConcurrent}`);
+  await settle();
+
+  /* ⑥ 真实节奏下的阶梯：**等她把整段演完（含配音）再戳**，连击仍应往上爬。
+   * ① 那条是连点，等于只覆盖了"表演还没结束"这一种节奏 —— 而恰恰是另一种节奏出过 bug：
+   * 连击窗口只在 _endPerform 续期，但 combo 早在演到 COMBO_WINDOW_MS 时就被 step 清零了，
+   * 续期的 combo>0 守卫不成立，于是听完整句再戳永远是 tier1（阶梯形同虚设）。 */
+  await freshen();
+  const paced: number[] = [];
+  for (let i = 0; i < 3; i++) {
+    paced.push((await poke(page, 'head', 'tap'))?.tier);
+    await page.waitForFunction(() => !(window as any).__probe().locked, null, { timeout: 25_000 });
+  }
+  ok('听完整段再戳依然算连击（真实节奏阶梯）',
+    paced.join(',') === '1,2,3', 'tier: ' + paced.join(' → '));
+  await settle();
+
+  /* ⑦ 情绪待机段不吞触碰。重反应后角色会循环播情绪动画（生气/哭的姿态），
+   * 那是"她现在的样子"而非对某次触碰的回应，等级 0，任何真触碰都该抢占它。
+   * 曾经它按 tier3 记账：重反应后的整个 MOOD_HOLD_MS 里，玩家戳前两下全被吞成微反馈，
+   * combo 却在闷涨 —— 体感是"她生完气有两下没反应，然后突然又炸了"。
+   * 白盒构造：真实素材下情绪窗口可能在长配音演完前就过了，等不到这个状态。 */
+  await freshen();
+  const rest = await page.evaluate(() => {
+    const s = (window as any).__scene;
+    s.perform = null; s.pending = null;
+    s.state.mood = 'ANGRY';
+    s.state.moodUntil = s.time.now + 4000;
+    s.state.combo = 0; s.state.comboUntil = 0;
+    s._restAnim();
+    const resting = !!(s.perform && s.perform.rest);
+    const before = s.state.reactionsPlayed;
+    const ev = s.poke('legL', 'tap');
+    return {
+      resting, tier: ev.tier,
+      played: s.state.reactionsPlayed > before,
+      preempted: !!(s.perform && (s.perform.phase === 'abort' || !s.perform.rest)),
+    };
+  });
+  ok('情绪待机段不吞低级触碰（tier1 也抢得走）',
+    rest.resting && rest.tier === 1 && rest.played && rest.preempted,
+    rest.resting ? `tier${rest.tier} / ${rest.preempted ? '已抢占' : '被吞'}` : '没能构造出待机段');
+  await settle();
+
+  /* ⑧ 封顶溢出 → 惩罚出口。tier3 是顶，且每区域 tier3 只有一个变体：
+   * 没有出口的话，连戳到顶之后就是同一段反应背靠背重演。COMBO_PUNISH_AT 负责收口。
+   * 耐心复位到 100，所以走到惩罚只可能是"封顶溢出"这条路，不是"耐心见底"那条。 */
+  await freshen();
+  const climb: string[] = [];
+  let overflowPunish = false;
+  for (let i = 0; i < 6 && !overflowPunish; i++) {
+    const ev: any = await poke(page, REGIONS[i % REGIONS.length], 'tap');
+    climb.push(ev?.punish ? '惩罚' : 'tier' + ev?.tier);
+    if (ev?.punish) overflowPunish = true;
+    await page.waitForTimeout(70);
+  }
+  ok('连击封顶后升级为惩罚出口（不原地重演 tier3）', overflowPunish, climb.join(' → '));
   await settle();
 
   // ── 3. 情绪升级：戳到生气 → 惩罚 → 哭 ─────────────────────

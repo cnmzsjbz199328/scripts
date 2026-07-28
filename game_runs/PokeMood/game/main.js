@@ -32,7 +32,8 @@ window.PM = window.PM || {};
     if (!s || !s.state) {
       return { started: false, mood: 'NEUTRAL', patience: 100, heat: {},
                lastRegion: null, lastTier: 0, locked: false, reactionsPlayed: 0,
-               combo: 0, playingTier: 0, queuedTier: 0, aborting: false, voicing: false,
+               combo: 0, playingTier: 0, queuedTier: 0, aborting: false, resting: false,
+               voicing: false,
                anim: null, loaded: 0, allLoaded: !!PM.allLoaded };
     }
     const st = s.state;
@@ -47,6 +48,7 @@ window.PM = window.PM || {};
       playingTier: s.perform ? s.perform.tier : 0,            // 正在演的等级
       queuedTier: s.pending ? s.pending.tier : 0,             // 排队槽里的等级
       aborting: !!(s.perform && s.perform.phase === 'abort'), // 正在快速收尾归位
+      resting: !!(s.perform && s.perform.rest),               // 情绪待机段（等级 0，可被任何触碰抢占）
       voicing: !!s._currentVoice,                             // 有没有配音在响（查交叉说话）
       combo: st.combo,
       reactionsPlayed: st.reactionsPlayed,
