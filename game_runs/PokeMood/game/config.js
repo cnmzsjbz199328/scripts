@@ -110,6 +110,7 @@ PM.Config = {
   CRY_PATIENCE_AFTER: 40,// 哭完回到的耐心值（不回满 —— 惹哭是有代价的）
   MOOD_HOLD_MS: 2600,    // 情绪态最短维持时间
   LOCK_GRACE_MS: 1200,   // 锁的超时兜底冗余（动画事件丢了也能解锁）
+  BUBBLE_MS: 2600,       // 气泡最短挂留（有配音时按音频时长自动延长，见 StageScene._holdBubble）
 
   // ── 每区域的脾气（初稿，凭手感调）────────────────────────────
   REGION_TUNE: {

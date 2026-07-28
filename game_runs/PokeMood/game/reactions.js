@@ -10,61 +10,61 @@ window.PM = window.PM || {};
 
 PM.REACTIONS = {
   head: {
-    1: [{ anim: 'head_pat',   line: '那个……请不要随便把我当小孩子看待哦。' },
-        { anim: 'head_pat_b', line: '你在给我打招呼吗？' }],
-    2: [{ anim: 'shy',        line: '头发会被摸乱的……要是被鲁迪看到的话，会很害羞的……' }],
-    3: [{ anim: 'angry_charge', line: '再摸下去，我可要叫鲁迪过来了哦。' }],
+    1: [{ anim: 'head_pat',   line: '那个……请不要随便把我当小孩子看待哦。', voice: 'assets/audio/head_pat.mp3' },
+        { anim: 'head_pat_b', line: '你在给我打招呼吗？', voice: 'assets/audio/head_pat_b.mp3' }],
+    2: [{ anim: 'shy',        line: '头发会被摸乱的……要是被鲁迪看到的话，会很害羞的……', voice: 'assets/audio/head_shy.mp3' }],
+    3: [{ anim: 'angry_charge', line: '再摸下去，我可要叫鲁迪过来了哦。', voice: 'assets/audio/head_angry.mp3' }],
   },
 
   // 没有专属素材 —— 碰胸直接害羞，设计上也讲得通
   chest: {
-    1: [{ anim: 'shy',          line: '请、请注意举止！我好歹也是成熟女性……更是鲁迪的妻子哦！' }],
-    2: [{ anim: 'shy',          line: '等一下，手碰哪里呢……请放尊重一点。' }],
-    3: [{ anim: 'angry_charge', line: '那里不可以，只有鲁迪才可以……' }],
+    1: [{ anim: 'shy',          line: '请、请注意举止！我好歹也是成熟女性……更是鲁迪的妻子哦！', voice: 'assets/audio/chest_shy.mp3' }],
+    2: [{ anim: 'shy',          line: '等一下，手碰哪里呢……请放尊重一点。', voice: 'assets/audio/chest_shy2.mp3' }],
+    3: [{ anim: 'angry_charge', line: '那里不可以，只有鲁迪才可以……', voice: 'assets/audio/chest_angry.mp3' }],
   },
 
   belly: {
-    1: [{ anim: 'belly', line: '那个……虽然鲁迪有时候也喜欢这么摸，但请不要模仿他哦。' }],
-    2: [{ anim: 'laugh', line: '等等……哈哈，那里很痒啦！请住手……' }],
-    3: [{ anim: 'sad',   line: '呜……一直戳肚子的教养，可不是我教给你的。' }],
+    1: [{ anim: 'belly', line: '那个……虽然鲁迪有时候也喜欢这么摸，但请不要模仿他哦。', voice: 'assets/audio/belly.mp3' }],
+    2: [{ anim: 'laugh', line: '等等……哈哈，那里很痒啦！请住手……', voice: 'assets/audio/belly_laugh.mp3' }],
+    3: [{ anim: 'sad',   line: '呜……一直戳肚子的教养，可不是我教给你的。', voice: 'assets/audio/sad.mp3' }],
   },
 
   // 画面左臂 = 角色右手 = 持杖那只
   armL: {
-    1: [{ anim: 'wand_shake',   line: '需要我为你展示一下水系统魔术的咏唱吗？' },
-        { anim: 'teacher_boast', line: '那是当然！我可是魔法大学老师，也是鲁迪的师傅兼妻子哦！' }],
-    2: [{ anim: 'wand_warn',     line: '我的魔杖不是玩具哦，你要小心。' }],
-    3: [{ anim: 'angry_charge',  line: '我说过了吧？' }],
+    1: [{ anim: 'wand_shake',   line: '需要我为你展示一下水系统魔术的咏唱吗？', voice: 'assets/audio/wand_shake.mp3' },
+        { anim: 'teacher_boast', line: '那是当然！我可是魔法大学老师，也是鲁迪的师傅兼妻子哦！', voice: 'assets/audio/teacher_boast.mp3' }],
+    2: [{ anim: 'wand_warn',     line: '我的魔杖不是玩具哦，你要小心。', voice: 'assets/audio/wand_warn.mp3' }],
+    3: [{ anim: 'angry_charge',  line: '我说过了吧？', voice: 'assets/audio/head_angry.mp3' }],
   },
 
   // 画面右臂 = 角色左手（她用这只手扶杖警告）
   armR: {
-    1: [{ anim: 'wand_warn',   line: '我的魔杖不是玩具哦，你要小心。' },
-        { anim: 'wand_warn_b', line: '我的魔杖不是玩具哦，我再说一次。' }],
-    2: [{ anim: 'wand_warn_c', line: '这个啊，我花了好多金币才买上的，再摸我就会攻击你哦。' }],
-    3: [{ anim: 'water_threat', line: '……我警告过你了。' }],
+    1: [{ anim: 'wand_warn',   line: '我的魔杖不是玩具哦，你要小心。', voice: 'assets/audio/wand_warn.mp3' },
+        { anim: 'wand_warn_b', line: '我的魔杖不是玩具哦，我再说一次。', voice: 'assets/audio/wand_warn_b.mp3' }],
+    2: [{ anim: 'wand_warn_c', line: '这个啊，我花了好多金币才买上的，再摸我就会攻击你哦。', voice: 'assets/audio/wand_warn_c.mp3' }],
+    3: [{ anim: 'water_threat', line: '……我警告过你了。', voice: 'assets/audio/water_threat.mp3' }],
   },
 
   legL: {
-    1: [{ anim: 'leg_lift',  line: '魔术师在长途旅行中，腿部保养也是很重要的课业哦。' },
-        { anim: 'boot_show', line: '这个鞋吗？魔力附加品哦！以前和鲁迪长途行走时多亏了它呢。' }],
-    2: [{ anim: 'coin_deny', line: '你说我踩到你的钱了？没有哦！' },
-        { anim: 'feet_tap',  line: '一直碰脚，难道是鞋子上有尘土吗？' }],
-    3: [{ anim: 'leg_kick',  line: '真是的……就算是我，被一直戳脚也是会反击的哦！' }],
+    1: [{ anim: 'leg_lift',  line: '魔术师在长途旅行中，腿部保养也是很重要的课业哦。', voice: 'assets/audio/leg_lift.mp3' },
+        { anim: 'boot_show', line: '这个鞋吗？魔力附加品哦！以前和鲁迪长途行走时多亏了它呢。', voice: 'assets/audio/boot_show.mp3' }],
+    2: [{ anim: 'coin_deny', line: '你说我踩到你的钱了？没有哦！', voice: 'assets/audio/coin_deny.mp3' },
+        { anim: 'feet_tap',  line: '一直碰脚，难道是鞋子上有尘土吗？', voice: 'assets/audio/feet_tap.mp3' }],
+    3: [{ anim: 'leg_kick',  line: '真是的……就算是我，被一直戳脚也是会反击的哦！', voice: 'assets/audio/leg_kick.mp3' }],
   },
 
   // 素材里所有单腿动作用的都是另一条腿，这里只能复用共享的踏脚（MATERIALS「腿的问题」）
   legR: {
-    1: [{ anim: 'feet_tap', line: '请适可而止……老是盯着脚看很不礼貌哦。' }],
-    2: [{ anim: 'feet_tap', line: '踩到什么东西了吗……应该没有吧。' }],
-    3: [{ anim: 'leg_kick', line: '不要总是碰脚啦！' }],
+    1: [{ anim: 'feet_tap', line: '请适可而止……老是盯着脚看很不礼貌哦。', voice: 'assets/audio/feet_tap.mp3' }],
+    2: [{ anim: 'feet_tap', line: '踩到什么东西了吗……应该没有吧。', voice: 'assets/audio/feet_tap.mp3' }],
+    3: [{ anim: 'leg_kick', line: '不要总是碰脚啦！', voice: 'assets/audio/leg_kick.mp3' }],
   },
 };
 
 /* 终极惩罚：已经生气了还继续戳 → 举水球 → 前端粒子朝屏幕泼你一脸 → 她哭。
  * 素材只出前摇（AI 三条视频的喷射方向全是朝画面左，弃用），释放完全由渲染层做，
  * 方向可控。见 DESIGN §4.5。 */
-PM.PUNISH = { anim: 'water_threat', line: '这是你自找的哦。' };
+PM.PUNISH = { anim: 'water_threat', line: '这是你自找的哦。', voice: 'assets/audio/water_threat.mp3' };
 
 /* 安抚成功（连续讨好）时的正反馈出口 */
-PM.HAPPY_REACT = { anim: 'happy_tilt', line: '哼哼～看到你这么有精神我也很高兴呢。等会儿去给鲁迪做点好吃的吧。' };
+PM.HAPPY_REACT = { anim: 'happy_tilt', line: '哼哼～看到你这么有精神我也很高兴呢。等会儿去给鲁迪做点好吃的吧。', voice: 'assets/audio/happy_tilt.mp3' };

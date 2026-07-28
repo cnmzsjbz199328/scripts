@@ -451,9 +451,29 @@ PM.StageScene = class StageScene extends Phaser.Scene {
       this._drawDebug();
     });
     this.input.keyboard.on('keydown-M', () => {
-      if (window.GameAudio) window.GameAudio.toggle();
+      if (window.GameAudio && window.GameAudio.toggle()) this._stopVoice();   // 静音要立刻掐掉正在说的那句
     });
     this.input.keyboard.on('keydown-R', () => this.scene.restart());
+
+    /* Phaser 失焦自动暂停（disableVisibilityChange:false），但 HTMLAudio 不归它管：
+     * 不接这一段的话，切走标签页画面冻住、她还在自顾自说话。 */
+    this._onVis = () => {
+      const a = this._currentVoice;
+      if (document.hidden) {
+        // 只记"是我暂停的、且还没说完的"那句；已播完的元素再 play() 会从头重放一整条
+        this._voiceHeld = !!a && !a.paused && !a.ended;
+        if (this._voiceHeld) { try { a.pause(); } catch (e) {} }
+      } else if (this._voiceHeld && a) {
+        this._voiceHeld = false;
+        const p = a.play(); if (p && p.catch) p.catch(() => {});
+      }
+    };
+    document.addEventListener('visibilitychange', this._onVis);
+    // R 重来会重跑 create()，监听器必须摘掉，否则每重来一次就多挂一个
+    this.events.once('shutdown', () => {
+      document.removeEventListener('visibilitychange', this._onVis);
+      this._stopVoice();
+    });
   }
 
   /* ── 玩法 ──────────────────────────────────────────────── */
@@ -478,11 +498,13 @@ PM.StageScene = class StageScene extends Phaser.Scene {
       const pick = PM.React.pick(region, ev.tier, PM.loaded);
       if (pick) {
         this.playAnim(pick.anim, ev.tier >= 3);
-        if (pick.line) this.say(pick.line);
+        if (pick.line) this.say(pick.line, pick.voice);
       }
       // 情绪本身也要有画面：升级时优先播情绪动画（若该 tier 没有专属反应）
+      // 动画被顶掉了，台词/配音也要跟着换成同一条，否则画面在笑、气泡和语音还是刚才那句
       if (ev.moodChanged && ev.mood === 'HAPPY' && PM.loaded.has(PM.HAPPY_REACT.anim)) {
         this.playAnim(PM.HAPPY_REACT.anim, false);
+        this.say(PM.HAPPY_REACT.line, PM.HAPPY_REACT.voice);
       }
     }
 
@@ -495,7 +517,7 @@ PM.StageScene = class StageScene extends Phaser.Scene {
   _punish() {
     const p = PM.PUNISH;
     if (PM.loaded.has(p.anim)) this.playAnim(p.anim, true);
-    this.say(p.line);
+    this.say(p.line, p.voice);
     if (window.GameAudio) window.GameAudio.play('morph');
     // 前摇播到一半时把水泼出来（素材只有蓄力，释放由渲染层做）
     this.time.delayedCall(520, () => this._waterBurst());
@@ -611,7 +633,50 @@ PM.StageScene = class StageScene extends Phaser.Scene {
 
   /* ── 表现 ──────────────────────────────────────────────── */
 
-  say(text) {
+  /* 台词配音。一次只允许一条在响：新台词一定先掐掉上一条，
+   * 否则连点时几条语音叠着放，气泡写的是 A、耳朵听见的是 A+B+C。
+   * 元素按 URL 缓存复用 —— 每次 new Audio() 首播要等一次网络/解码，
+   * 语音会晚于气泡半拍；复用的元素 currentTime=0 就是瞬时重播。 */
+  _playVoice(url) {
+    if (window.GameAudio && window.GameAudio.muted) return;   // M 键静音必须也管配音
+    try {
+      this._stopVoice();
+      let a = (this._voiceCache ||= new Map()).get(url);
+      if (!a) { a = new Audio(url); a.preload = 'auto'; this._voiceCache.set(url, a); }
+      this._currentVoice = a;
+      a.currentTime = 0;
+      // play() 的 promise 会被下一次 pause() 打断（AbortError），忽略即可
+      const p = a.play();
+      if (p && p.catch) p.catch(() => {});
+
+      /* 配音 2.8～9.8 秒不等，气泡默认只挂 2.6 秒 —— 一半的台词会"字没了人还在说"。
+       * 拿到时长就把气泡延到说完；首播时元数据可能还没到，等一次 loadedmetadata 再补。
+       * 补的时候要确认这条还是当前那条，否则连点后旧语音的时长会把新气泡挂住。 */
+      const hold = () => this._holdBubble(a.duration);
+      if (a.readyState >= 1 && isFinite(a.duration)) hold();
+      else a.addEventListener('loadedmetadata',
+        () => { if (this._currentVoice === a) hold(); }, { once: true });
+    } catch (e) {}
+  }
+
+  /* 把气泡的淡出重排到 sec 秒之后（不短于默认 2.6 秒） */
+  _holdBubble(sec) {
+    if (!isFinite(sec) || sec <= 0) return;
+    const delay = Math.max(PM.Config.BUBBLE_MS, sec * 1000 + 260);
+    if (this._bubbleHide) this._bubbleHide.remove();
+    this._bubbleHide = this.tweens.add({
+      targets: this.bubble, alpha: 0, delay, duration: 320,
+    });
+  }
+
+  _stopVoice() {
+    const a = this._currentVoice;
+    if (!a) return;
+    this._currentVoice = null;
+    try { a.pause(); a.currentTime = 0; } catch (e) {}
+  }
+
+  say(text, voice) {
     this.bubbleText.setText(text);
     const w = this.bubbleText.width + 26, h = this.bubbleText.height + 20;
     this.bubbleText.setPosition(13, 10);
@@ -629,7 +694,12 @@ PM.StageScene = class StageScene extends Phaser.Scene {
     this.tweens.killTweensOf(this.bubble);
     this.bubble.setAlpha(0).setScale(0.94);
     this.tweens.add({ targets: this.bubble, alpha: 1, scale: 1, duration: 130 });
-    this.tweens.add({ targets: this.bubble, alpha: 0, delay: 2600, duration: 320 });
+    this._bubbleHide = this.tweens.add({
+      targets: this.bubble, alpha: 0, delay: PM.Config.BUBBLE_MS, duration: 320,
+    });
+    // 配音放在气泡之后起：_playVoice 会按音频时长重排淡出，
+    // 而上面的 killTweensOf 会把先建的那条一起杀掉
+    if (voice) this._playVoice(voice);
   }
 
   _setMoodVisual(mood, instant = false) {
