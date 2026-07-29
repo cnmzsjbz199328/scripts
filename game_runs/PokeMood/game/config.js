@@ -161,17 +161,14 @@ PM.Config = {
     },
     {
       id: 'classroom', dir: 'classroom', name: '魔法教室', sub: '讲堂',
-      // ⚠️ **mid 未生成**（生图配额 429，见 tools/gen-bg.sh 的用法）。far/fore 已定标：
-      // far 候选 #2 y=788 是讲台地板交界 → 0.907 太大（1152×0.907 高度够但构图只剩黑板），
-      // 取 0.720 让黑板和课桌都在画面里；fore 底条 1035 → 690，两侧内缘 268/1172
-      // 等比就落在 138/762，离斗篷很远，不用 scaleX。
-      // 补 mid 的做法：配额恢复后 `bash tools/gen-bg.sh classroom`（已有的图会自动跳过），
-      // 再 `node tools/process-bg.mjs --scene=classroom && node tools/measure-bg.mjs --scene=classroom`
-      // 按远沿→画布 510~555 回填这里的 mid，最后 `node tools/preview-bg.mjs --scene=classroom` 目检。
+      // far 候选 #2 y=788 是讲台地板交界 → 0.907 太大（高度够但构图只剩黑板），
+      // 取 0.720 让黑板和课桌都在画面里。
+      // mid 地板远沿 809 → 550（0.630~0.686 区间里取靠上的，图底 783 才盖得过靴底 715）；
+      // 家具内缘 521/952 落在画布 314/607，稳稳在前景缝(149~752)里。
       // fore 底条 1035 → 690（**不是** measure 打印的 0.691：那一列换算的靶子是 FOOT_Y 715，
       // 对 far/mid 才对；fore 要的是"压住底边但别吃掉靴子"，靶子固定 690）。
+      // 两侧内缘 268/1172 等比就落在 149/752，离斗篷很远，不用 scaleX。
       scale: { far: 0.720, mid: 0.680, fore: 0.667 }, foreScaleX: null,
-      omit: ['mid'],           // ← mid 补上之后删掉这行
 
       // 室内中性光（悬浮球灯）：不给强色偏，让她自己的配色说话；暗角标准
       atmos: {
