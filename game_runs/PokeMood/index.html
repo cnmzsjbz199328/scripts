@@ -47,8 +47,9 @@
     }
 
     /* ── HUD ── */
+    /* 没有开始遮罩，HUD 一上来就在（__hudStart 仍会再 set 一次 flex，幂等） */
     #hud {
-      display: none;
+      display: flex;
       position: absolute; top: 0; left: 0; right: 0;
       padding: 10px 16px; gap: 18px;
       flex-direction: row; align-items: center;
@@ -90,19 +91,8 @@
     <span id="hud-objective"><span id="hud-objective-text"></span></span>
   </div>
 
-  <div id="start-screen" class="game-overlay">
-    <div class="overlay-card">
-      <div class="tag">POKE · MOOD</div>
-      <h1>蓝妈妈</h1>
-      <p>
-        洛琪希站在你面前。<b>点、按、摸</b>她的头、胸、肚子、手臂和腿，
-        每个地方反应都不一样。<br>
-        同一个地方反复戳，她会从害羞、被逗笑，一路到<b>生气</b>——
-        再不停手，你会被泼一身水。
-      </p>
-      <button id="start-btn" class="btn">开始</button>
-    </div>
-  </div>
+  <!-- 无开始遮罩：玩法就是「上手戳」，不需要一页说明挡在前面。
+       #gameover-screen 保留（共享 HUD 契约要它），#start-screen 被 hud.js 空安全跳过。 -->
 
   <div id="gameover-screen" class="game-overlay">
     <div class="overlay-card">
@@ -126,8 +116,8 @@
 <script src="game/scenes/StageScene.js"></script>
 <script src="game/main.js"></script>
 <script>
-  /* 「开始」是本页唯一一次可靠的用户手势 —— 全屏必须挂在这里请求，
-   * 晚一步浏览器就以「非用户激活」为由拒绝。
+  /* 全屏必须在用户手势里请求，晚一步浏览器就以「非用户激活」为由拒绝。
+   * 去掉开始遮罩后，第一次触碰画面就是那个手势（只试一次，失败不再骚扰）。
    * 桌面 / Android Chrome：真全屏。iOS Safari 不给 Web 全屏，只有「添加到主屏幕」
    * 后以 PWA 打开才没有地址栏和底部功能条（见 deploy/README.md）。 */
   function enterFullscreen() {
@@ -140,10 +130,14 @@
     } catch (_) {}
   }
 
-  document.getElementById('start-btn').addEventListener('click', () => {
-    if (!navigator.webdriver) enterFullscreen();   // 无头验证不进全屏，免得干扰截图
-    window.__hudStart();
-  });
+  // 无头验证不进全屏，免得干扰截图
+  if (!navigator.webdriver) {
+    document.getElementById('game-wrapper')
+      .addEventListener('pointerdown', enterFullscreen, { once: true });
+  }
+
+  // 没有「开始」按钮了，开局即开玩：亮 HUD + 触发 onStart 回调（契约不变）
+  window.__hudStart();
 </script>
 </body>
 </html>
