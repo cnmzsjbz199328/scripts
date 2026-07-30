@@ -62,7 +62,7 @@ PM.REACTIONS = {
     1: [{ anim: 'wand_warn',   line: '我的魔杖不是玩具哦，你要小心。', voice: 'assets/audio/wand_warn.mp3' },
         { anim: 'wand_warn_b', line: '我的魔杖不是玩具哦，我再说一次。', voice: 'assets/audio/wand_warn_b.mp3' }],
     2: [{ anim: 'wand_warn_c', line: '这个啊，我花了好多金币才买上的，再摸我就会攻击你哦。', voice: 'assets/audio/wand_warn_c.mp3' }],
-    3: [{ anim: 'cast_windup', line: '那么……我要开始咏唱了哦。要后悔的话，趁现在。', voice: 'assets/audio/cast_windup.mp3' }],
+    3: [{ anim: 'cast_windup', line: '说了这么多还是不听……那就让你见识一下魔法大学讲师的实力吧。', voice: 'assets/audio/cast_windup.mp3' }],
   },
 
   legL: {
