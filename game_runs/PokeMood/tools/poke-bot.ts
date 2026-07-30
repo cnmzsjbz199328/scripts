@@ -158,10 +158,13 @@ async function main() {
     t1.playingTier === 1 && (mid.aborting || mid.playingTier === 2) && t2.playingTier === 2,
     `演 tier${t1.playingTier} → ${mid.aborting ? '收尾中' : 'tier' + mid.playingTier} → tier${t2.playingTier}`);
 
-  // ④ 同等级排队：tier3 封顶后再戳，进排队槽而不是被丢掉
+  /* ④ 同等级排队：tier3 封顶后再戳，进排队槽而不是被丢掉。
+   * **必须挑一个高档不进 ANGRY 的区域**（见 config.TIER3_MOOD）：
+   * chest/armL/armR/legL 的高档就是"生气"，第 3 下进 ANGRY、第 4 下就成了惩罚（tier4），
+   * 走的是抢占路径而不是排队路径，这条断言会假阴性。head 的高档是「害羞」，安全。 */
   await freshen();
   const qTiers: any[] = [];
-  for (let i = 0; i < 4; i++) qTiers.push((await poke(page, 'chest', 'tap'))?.tier);  // 1,2,3,3
+  for (let i = 0; i < 4; i++) qTiers.push((await poke(page, 'head', 'tap'))?.tier);  // 1,2,3,3
   const queued = await probe(page);
   ok('同等级排队（不丢触碰）', queued.queuedTier >= 3 || queued.playingTier >= 3,
     `戳出 tier ${qTiers.join('/')} → 演 tier${queued.playingTier} / 排队 tier${queued.queuedTier}`);
@@ -199,18 +202,25 @@ async function main() {
     paced.join(',') === '1,2,3', 'tier: ' + paced.join(' → '));
   await settle();
 
-  /* ⑦ 情绪待机段不吞触碰。重反应后角色会循环播情绪动画（生气/哭的姿态），
-   * 那是"她现在的样子"而非对某次触碰的回应，等级 0，任何真触碰都该抢占它。
-   * 曾经它按 tier3 记账：重反应后的整个 MOOD_HOLD_MS 里，玩家戳前两下全被吞成微反馈，
-   * combo 却在闷涨 —— 体感是"她生完气有两下没反应，然后突然又炸了"。
+  /* ⑦ 情绪待机段不吞触碰。哭的时候角色会播 `cry`，那是"她现在的样子"
+   * 而非对某次触碰的回应，等级 0，任何真触碰都该抢占它。
+   * 曾经它按 tier3 记账：惹哭之后的整个 MOOD_HOLD_MS 里，玩家戳前两下全被吞成微反馈，
+   * combo 却在闷涨 —— 体感是"她哭完有两下没反应，然后突然又炸了"。
+   * 用 CRY 构造而不是 ANGRY：情绪待机现在**只剩 CRY 一条**，其余情绪一律末帧驻留
+   * （见 config.MOOD_ANIM 与 StageScene._restAnim）。
    * 白盒构造：真实素材下情绪窗口可能在长配音演完前就过了，等不到这个状态。 */
   await freshen();
   const rest = await page.evaluate(() => {
     const s = (window as any).__scene;
     s.perform = null; s.pending = null;
-    s.state.mood = 'ANGRY';
+    s.state.mood = 'CRY';
     s.state.moodUntil = s.time.now + 4000;
     s.state.combo = 0; s.state.comboUntil = 0;
+    /* _restAnim 会拒绝重播"刚演完的那一段"（见 StageScene._restAnim 的铁律注释）。
+     * 这里造的是"她已经站好了、现在开始哭"，所以得先把 _playedAnim 让开，
+     * 否则前面的触碰刚好停在 cry 上时待机段根本建不起来，这条断言会以
+     * "没能构造出待机段"假阴性。 */
+    s._playedAnim = 'idle';
     s._restAnim();
     const resting = !!(s.perform && s.perform.rest);
     const before = s.state.reactionsPlayed;
@@ -224,6 +234,67 @@ async function main() {
   ok('情绪待机段不吞低级触碰（tier1 也抢得走）',
     rest.resting && rest.tier === 1 && rest.played && rest.preempted,
     rest.resting ? `tier${rest.tier} / ${rest.preempted ? '已抢占' : '被吞'}` : '没能构造出待机段');
+  await settle();
+
+  /* ⑦.2 素材身份自检：一段素材只表达一件事。
+   * 这是"生气挥两次杖"那个 bug 的结构性根治 —— 光靠"不连着播两次"的守卫只是止血，
+   * 真正的病根是 angry_charge 同时兼着反应和情绪待机两份差事。
+   * PM.checkAnimRoles() 拿 config.ANIM_ROLE 的登记表和四张真表对账，
+   * 这里直接读它的返回值，比等 console.error 冒出来更明确。 */
+  const roles = await page.evaluate(() => ({
+    errors: (window as any).PM.checkAnimRoles(),
+    n: Object.keys((window as any).PM.ANIM_ROLE).length,
+  }));
+  ok('素材身份唯一（一段素材 = 一件事）', roles.errors.length === 0,
+    roles.errors.length ? roles.errors.join(' / ') : `${roles.n} 段全部登记且各司其职`);
+
+  /* ⑦.3 七个区域 × 三个档位全部有内容（不靠降档兜底）。
+   * 档位是全身共享的阶梯，但玩家完全可能连着戳同一个部位，那时三档都得拿得出东西。 */
+  const gaps = await page.evaluate(() => {
+    const out: string[] = [];
+    const R = (window as any).PM.REACTIONS;
+    for (const region in R) for (const t of [1, 2, 3]) {
+      if (!R[region][t] || !R[region][t].length) out.push(`${region}:${t}`);
+    }
+    return out;
+  });
+  ok('七区 × 三档全部有内容', gaps.length === 0, gaps.length ? '空槽: ' + gaps.join(',') : '21/21');
+
+  /* ⑦.5 同一段动画不连着播两次。
+   *
+   * 反应表里好几处 tier3 的 anim 与它引发的情绪 MOOD_ANIM 是**同一段**
+   * （armL/head/chest tier3 = angry_charge 而情绪 ANGRY 也是 angry_charge；
+   *  HAPPY_REACT = happy_tilt 而情绪 HAPPY 也是 happy_tilt），
+   * 于是"反应演完 → 进情绪待机段"会把同一个动作原地重做一遍 ——
+   * 玩家看到的就是"说完『我说过了吧？』之后挥了两次魔杖"（用户报的 bug）。
+   * 走**真实路径**构造：耐心压到生气阈值之下，连戳三下 armL，第三下就是
+   * tier3 + 情绪转 ANGRY，anim 正是 angry_charge。数它在这一串里起播了几次。 */
+  await freshen();
+  const dup = await page.evaluate(async () => {
+    const s = (window as any).__scene;
+    s.state.patience = 40;                 // ≤ PATIENCE_ANGRY_AT(50) → tier3 走生气线
+    /* 监听器必须是**直接传进 on() 的匿名箭头**：tsx/esbuild 的 keepNames 会给
+     * `const f = () => {}` 套一层 __name(...)，而那个 helper 只存在于 node 侧，
+     * 注入浏览器后就是 "ReferenceError: __name is not defined"。
+     * 因此收尾用 off(event) 一次摘光，不靠函数引用。 */
+    const starts: string[] = [];
+    s.char.on('animationstart', (a: any) => starts.push(a.key));
+    const moods: string[] = [];
+    for (let i = 0; i < 3; i++) {
+      /* 情绪要在**戳的那一刻**记：MOOD_HOLD_MS 只有 2.6 秒，
+       * 等下面那段 5 秒等完再读 s.state.mood，它早已回落 NEUTRAL。 */
+      moods.push(s.poke('armL', 'tap').mood);
+      await new Promise(r => setTimeout(r, 700));
+    }
+    // 等整段（含配音）落幕 + 情绪窗口过完，待机段该播的都播过了
+    await new Promise(r => setTimeout(r, 5000));
+    s.char.off('animationstart');
+    return { starts, mood: moods[2] };
+  });
+  const angryTimes = dup.starts.filter(k => k === 'angry_charge').length;
+  ok('同一段动画不连着播两次（生气不挥两次杖）',
+    dup.mood === 'ANGRY' && angryTimes === 1,
+    `第三下情绪 ${dup.mood} · angry_charge 起播 ${angryTimes} 次 · 序列 ${dup.starts.join(',')}`);
   await settle();
 
   /* ⑧ 封顶溢出 → 惩罚出口。tier3 是顶，且每区域 tier3 只有一个变体：

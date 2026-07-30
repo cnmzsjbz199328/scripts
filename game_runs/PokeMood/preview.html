@@ -180,12 +180,12 @@ const META = {
   leg_kick:   { cols:7, frames:26, group:'区域反应', label:'连续踢腿',    maps:'legL 变体 4（tier2/3 更烦躁）' },
   feet_tap:   { cols:7, frames:24, group:'区域反应', label:'左右踏脚',    maps:'legL + legR 共用（两脚交替，唯一能给右腿用的）' },
 
-  angry_charge:{cols:7, frames:14, group:'情绪',     label:'生气·蓄力',   maps:'情绪 ANGRY（法阵变形＋杖头蓄光，停在蓄力态）' },
-  water_threat:{cols:7, frames:12, group:'情绪',     label:'水球待发',    maps:'终极惩罚前摇 变体 1（停在举球态 → 前端粒子接管）' },
-  cast_windup:{ cols:7, frames:12, group:'情绪',     label:'举杖起手',    maps:'终极惩罚前摇 变体 2' },
+  angry_charge:{cols:7, frames:14, group:'情绪',     label:'生气·蓄力',   maps:'身份「生气」：chest/armL 高档 + 强制生气出口' },
+  water_threat:{cols:7, frames:12, group:'情绪',     label:'水球待发',    maps:'身份「举水球·终极前摇」：惩罚专用（停在举球态 → 前端粒子接管）' },
+  cast_windup:{ cols:7, frames:12, group:'情绪',     label:'举杖起手',    maps:'身份「开始咏唱」：armR 高档（三次警告之后）' },
   shy:        { cols:7, frames:16, group:'情绪',     label:'害羞',        maps:'情绪 SHY' },
   laugh:      { cols:7, frames:16, group:'情绪',     label:'被逗笑',      maps:'情绪 TICKLED / HAPPY 变体 1' },
-  happy_tilt: { cols:7, frames:14, group:'情绪',     label:'歪头一笑',    maps:'情绪 HAPPY 变体 2（闭眼张嘴笑）' },
+  happy_tilt: { cols:7, frames:14, group:'情绪',     label:'歪头一笑',    maps:'身份「开心」：连续讨好三次的正反馈出口' },
   sad:        { cols:7, frames:18, group:'情绪',     label:'委屈',        maps:'情绪 SAD（生气→哭之间的过渡）' },
   cry:        { cols:7, frames:20, group:'情绪',     label:'小小的抽泣',  maps:'情绪 CRY' },
 };
@@ -323,9 +323,9 @@ el('toggleBg').onclick = () => {
  * 所见即游戏里所见。背景也铺真图 —— 水是半透明的蓝，只在黑底上看会骗人。
  * ══════════════════════════════════════════════════════════════ */
 const FX_ANIMS = {
-  water_threat: { label: '水魔法·举水球', frames: 12, fps: 12, note: '惩罚正式用的这段（PM.PUNISH）' },
-  cast_windup:  { label: '水魔法·举杖起手', frames: 12, fps: 12, note: '前摇变体 2，球更小更靠上' },
-  angry_charge: { label: '水魔法·生气蓄力', frames: 14, fps: 12, note: '情绪 ANGRY，球在最高处' },
+  water_threat: { label: '水魔法·举水球', frames: 12, fps: 12, note: '惩罚专用（PM.PUNISH），球正对镜头' },
+  cast_windup:  { label: '水魔法·举杖起手', frames: 12, fps: 12, note: 'armR 高档「开始咏唱」，球更小更靠上' },
+  angry_charge: { label: '水魔法·生气蓄力', frames: 14, fps: 12, note: '身份「生气」，球在最高处' },
 };
 
 /* 滑杆表：[键, 最小, 最大, 步长]。分节标题以 '#' 开头。

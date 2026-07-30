@@ -83,6 +83,10 @@ PM.Mood = {
 
     const before = s.mood;
     let punish = false;
+    /* 强制生气：耐心见底或连击封顶溢出。此时高档**不播该部位的反应**，
+     * 改播「生气」那一段（Scene 读这个标志换成 PM.ANGRY_REACT）——
+     * 否则会出现"她被戳脚笑着，脚下法阵却是红的"这种情绪与画面打架。 */
+    let forceAngry = false;
 
     if (tier === 2) {
       s.patience = Math.max(0, s.patience + C.PATIENCE_T2);
@@ -108,9 +112,13 @@ PM.Mood = {
          * （耐心还满着，害羞线一路演到哭），玩家看不到"她真的生气了"这个中间态。
          * 进了 ANGRY，下一下就走上面那条惩罚分支，重复的 tier3 照样最多连着两次。 */
         s.mood = 'ANGRY';
+        forceAngry = true;
       } else {
-        s.mood = (region === 'belly' || region === 'legL' || region === 'legR')
-          ? 'TICKLED' : 'SHY';
+        /* 正常高档：情绪由被戳的部位决定，表在 config.TIER3_MOOD。
+         * 这张表和 REACTIONS 各区的第 3 档是配套的（头→害羞演 shy、肚子→委屈演 sad、
+         * 画面右腿→被逗笑演 laugh、其余→生气演 angry_charge/cast_windup），
+         * 改一边不改另一边，开机自检的第 ④ 类会报出来。 */
+        s.mood = C.TIER3_MOOD[region] || 'SHY';
       }
       s.moodUntil = now + C.MOOD_HOLD_MS;
       s.heat[region] = 0;   // 重反应后清零，不然会连着炸
@@ -127,6 +135,6 @@ PM.Mood = {
     s.lastRegion = region;
     s.lastTier = tier;
 
-    return { region, tier, mood: s.mood, moodChanged: s.mood !== before, punish, soothed };
+    return { region, tier, mood: s.mood, moodChanged: s.mood !== before, punish, soothed, forceAngry };
   },
 };

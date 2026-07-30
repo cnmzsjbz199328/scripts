@@ -21,6 +21,10 @@ PM.StageScene = class StageScene extends Phaser.Scene {
     // _switching 留着 true 就再也点不动任何东西（_uiHit 一律吞）
     this._switching = false;
     this._thumbs = [];
+    // 同上：R 重来会重跑 create()，这两条 tween 引用不清就会指向上一局已销毁的对象
+    this._breathTween = null;
+    this._nudgeTween = null;
+    this._playedAnim = null;
 
     /* 当前场景的气氛表 = 基表 + 该场景的浅覆盖。所有 _build*/ /* 都读 this.atmos，
      * **不要**再直接读 PM.Config.ATMOS —— 那是基表，读了它换场景就不生效，
@@ -796,10 +800,11 @@ PM.StageScene = class StageScene extends Phaser.Scene {
       /* 惩罚是整局的高潮，等级排在 tier3 之上，**抢占一切**。
        * （曾经写成"锁期间直接 return"，导致惩罚判定在锁里被丢掉，
        *   玩家永远看不到泼水、直接跳去哭 —— poke-bot 第 3 项就是抓这个的。）*/
-      const pAnim = this._pickPunishAnim();
+      const pAnim = PM.PUNISH.anim;
+      const pv = Phaser.Utils.Array.GetRandom(PM.PUNISH.variants);
       this._request({
         tier: 4, hard: true, anim: pAnim,
-        line: PM.PUNISH.line, voice: PM.PUNISH.voice,
+        line: pv.line, voice: pv.voice,
         onStart: () => this._punishFx(pAnim),
       });
     } else {
@@ -807,6 +812,12 @@ PM.StageScene = class StageScene extends Phaser.Scene {
       const pick = PM.React.pick(region, ev.tier, PM.loaded);
       if (pick) {
         act = { tier: ev.tier, hard: ev.tier >= 3, anim: pick.anim, line: pick.line, voice: pick.voice };
+      }
+      /* 强制生气（耐心见底 / 连击封顶溢出）：高档不播该部位的反应，一律换成「生气」。
+       * 不换的话，戳画面右腿封顶会是"她笑着而法阵是红的"。见 PM.ANGRY_REACT。 */
+      if (ev.forceAngry && PM.loaded.has(PM.ANGRY_REACT.anim)) {
+        act = { tier: ev.tier, hard: true, anim: PM.ANGRY_REACT.anim,
+                line: PM.ANGRY_REACT.line, voice: PM.ANGRY_REACT.voice };
       }
       /* 情绪本身也要有画面：进 HAPPY 时整段换成正反馈那条。
        * 台词/配音必须跟着一起换 —— 否则画面在笑、气泡和语音还是刚才那句。 */
@@ -879,6 +890,7 @@ PM.StageScene = class StageScene extends Phaser.Scene {
      * 她开始哭、水一滴没泼"——尤其在 water_threat 还没加载完、前摇回落成 idle
      * （只有 180ms 尾巴）时必然发生。真游戏里录到过整段没水，调参台看不出来。 */
     if (this._waterCast && !act.rest) { this._waterCast.cancel(); this._waterCast = null; }
+    this._stopBreath();          // 情绪期的末帧驻留/浮动到此为止，位置也得归位
     this.char.anims.timeScale = 1;
     const animMs = this.playAnim(act.anim);
 
@@ -934,35 +946,64 @@ PM.StageScene = class StageScene extends Phaser.Scene {
     this._restAnim();
   }
 
-  /* 没有表演时该摆什么姿势：情绪维持期内接着播情绪动画，否则 idle。
-   * 这条很关键 —— 惩罚播的是 water_threat（举水球），mood 却已经是 CRY；
-   * 没有这一步，`cry` 这段素材永远不会出现在游戏里，人被惹哭了却看不到哭。
-   * 情绪动画本身也是一段表演，播完回到这里，于是在维持期内自然循环。
+  /* 没有表演时该摆什么姿势。
    *
-   * 但它的等级是 0（`rest`），不是 tier3 —— 它是"她现在的样子"，不是对某次触碰的回应，
-   * 不该拿反应的优先级去压玩家的下一次触碰。曾经写成 tier3：一次重反应之后的整个
-   * MOOD_HOLD_MS（2.6 秒）里，玩家戳第 1/2 下都因"低于正在演的等级"被吞成 _nudge，
-   * 而 combo 还在闷声上涨 —— 体感是"她生完气有两下没反应，然后突然又炸了"。
-   * 等级 0 意味着任何真触碰都能抢占它（收尾封顶 380ms），反应演完再回到这里续上情绪。 */
+   * 铁律：**情绪不重播动作**。一段素材只表达一件事（见 reactions.js 开头和
+   * config.ANIM_ROLE），而"生气/害羞/被逗笑/开心"的高档反应本身就是那段动画 ——
+   * 演完再拿同一段当待机循环，就是把同一个动作原地重做一遍，玩家看到的是
+   * "说完『我说过了吧？』之后挥了两次魔杖"。所以情绪期里她**停在刚演完那段的末帧**
+   * （angry_charge 末帧就是举着蓄能球的生气态，正是想要的"她现在的样子"），
+   * 只叠一层极轻微的呼吸浮动，情绪继续由法阵/柔光/雾带的颜色语言表达。
+   *
+   * 唯一的例外是 CRY：`cry` 没有任何反应槽用它，身份唯一，而且它是惩罚之后的必看画面
+   * —— 没有这一步，人被惹哭了却看不到哭。它是一段真表演（rest），等级 0，
+   * 谁都能抢占（曾经写成 tier3：哭的整个 2.6 秒里玩家戳什么都被吞成微反馈，
+   * 而 combo 还在闷涨，体感是"她哭完有两下没反应，然后突然又炸了"）。
+   * 播完不续播 —— `_playedAnim` 那道守卫会拦住，她停在抽泣的末帧。 */
   _restAnim() {
     const s = this.state;
     const now = this.time.now;
-    if (s.mood !== 'NEUTRAL' && now < s.moodUntil - 300) {
-      const m = PM.Config.MOOD_ANIM[s.mood];
-      if (m && m !== 'idle' && PM.loaded.has(m)) {
+    const inMood = s.mood !== 'NEUTRAL' && now < s.moodUntil - 300;
+
+    if (inMood) {
+      const m = PM.Config.MOOD_ANIM[s.mood];       // 现在只有 CRY 一条
+      if (m && PM.loaded.has(m) && m !== this._playedAnim) {
         this._startPerform({ tier: 0, hard: false, rest: true, anim: m });
         return;
       }
-      return;   // 没有对应素材就停在当前末帧
+      this._breathe();      // 其余情绪：末帧驻留 + 呼吸
+      return;
     }
+    this._stopBreath();
     this.char.play('idle', true);
   }
 
-  /* 惩罚前摇用哪一段：按 PM.PUNISH.anim 的候选序取**第一个真加载了的**。
-   * 全都没到（开局极早）就返回队首，playAnim 照旧回落 idle —— 至少台词和水还在。 */
-  _pickPunishAnim() {
-    const list = Array.isArray(PM.PUNISH.anim) ? PM.PUNISH.anim : [PM.PUNISH.anim];
-    return list.find(k => PM.loaded.has(k)) || list[0];
+  /* 末帧驻留时的"她还活着"：极轻微的上下浮动。
+   * 幅度必须小到看不出位移（1.2px）——她是站着的，脚下还压着接地阴影和法阵，
+   * 浮大了就成了飘。**不能**改 scaleY 做呼吸：sprite 的 origin 是 (0.5, 0)，
+   * 纵向缩放推的是下边缘，靴子会陷进地板。 */
+  _breathe() {
+    if (this._breathTween) return;                 // 已经在呼吸了，别叠第二条
+    // 话比动作长时 update() 已经把她放回 idle 循环了 —— 那本来就是"活的"，
+    // 再冻一帧反而把她钉死在一个随机的待机姿势上
+    const cur = this.char.anims.currentAnim;
+    if (cur && cur.key === 'idle') return;
+    this.char.anims.pause();                       // 停在末帧
+    const y0 = PM.Config.CHAR_Y;
+    this.char.y = y0;
+    if (this._reducedMotion()) return;
+    this._breathTween = this.tweens.add({
+      targets: this.char, y: y0 - 1.2,
+      duration: 1500, yoyo: true, repeat: -1, ease: 'Sine.easeInOut',
+    });
+  }
+
+  /* 撤呼吸并归位。任何新表演开始前都要调 —— 留着的话 y 会停在浮动的中途，
+   * 而下一段动画是按 CHAR_Y 定位的，接地阴影和法阵不会跟着走。 */
+  _stopBreath() {
+    if (this._breathTween) { this._breathTween.remove(); this._breathTween = null; }
+    this.char.y = PM.Config.CHAR_Y;
+    if (this.char.anims.isPaused) this.char.anims.resume();
   }
 
   /* 惩罚特效。整套水魔法在 systems/waterfx.js 里（那边是唯一真源，
@@ -984,6 +1025,9 @@ PM.StageScene = class StageScene extends Phaser.Scene {
   playAnim(key) {
     if (!PM.loaded.has(key)) key = 'idle';
     const cfg = PM.Config.ANIMS[key];
+    /* 记下**回落之后**真正播出去的那段：_restAnim 要靠它判"这个动作刚做过"。
+     * 只在这里记，不记 update() 里那些 char.play('idle')（话尾归位不算做了个动作）。 */
+    this._playedAnim = key;
     this.char.play(key, true);
     return cfg.mode === 'once' ? (cfg.frames / cfg.fps) * 1000 : 0;
   }
@@ -1180,12 +1224,18 @@ PM.StageScene = class StageScene extends Phaser.Scene {
     if (ev.tier >= 3 && !this._reducedMotion()) this.cameras.main.shake(160, 0.004);
   }
 
-  // 被锁住时的"没用"微反馈：她躲得更远一点
+  /* 被锁住时的"没用"微反馈：她躲得更远一点。
+   * 只撤**上一次微反馈**，不能 killTweensOf(char) 一刀切 —— 情绪期的呼吸浮动
+   * 也挂在同一个对象上（只是走 y），一刀切会把它杀掉却留下 _breathTween 引用，
+   * 于是 _breathe() 以为还在呼吸、再也不重建，她从此僵着。 */
   _nudge() {
     if (this._reducedMotion()) return;
-    this.tweens.killTweensOf(this.char);
+    if (this._nudgeTween && this._nudgeTween.parent) this._nudgeTween.remove();
     this.char.x = PM.Config.CHAR_X;
-    this.tweens.add({ targets: this.char, x: PM.Config.CHAR_X + 9, duration: 70, yoyo: true, repeat: 1 });
+    this._nudgeTween = this.tweens.add({
+      targets: this.char, x: PM.Config.CHAR_X + 9, duration: 70, yoyo: true, repeat: 1,
+      onComplete: () => { this._nudgeTween = null; },
+    });
   }
 
   _reducedMotion() {
@@ -1234,7 +1284,8 @@ PM.StageScene = class StageScene extends Phaser.Scene {
     if (ev?.moodChanged) {
       this._setMoodVisual(this.state.mood);
       this._syncHud();
-      if (!this.perform) this.char.play('idle', true);
+      // 情绪期结束：撤掉末帧驻留的呼吸并归位，回到待机循环
+      if (!this.perform) { this._stopBreath(); this.char.play('idle', true); }
     }
 
     /* 表演状态机的唯一时钟。绝对时间戳 + 每帧比对，没有任何 delayedCall：

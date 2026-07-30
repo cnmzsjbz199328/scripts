@@ -56,6 +56,10 @@ PM.BootScene = class BootScene extends Phaser.Scene {
 
   create() {
     const C = PM.Config;
+    /* 素材身份自检（一段素材 = 一件事）。放在这里是因为它要读 REACTIONS/ANIMS 两张表，
+     * 而 config.js 加载时 reactions.js 还没到。报错走 console.error —— poke-bot 的
+     * "零运行时错误"那项直接接住，等于把这条设计铁律钉进了验证门。 */
+    PM.checkAnimRoles();
     for (const name of C.CORE_ANIMS) this._register(name);
     this.scene.start('Stage');
     this._loadRest();

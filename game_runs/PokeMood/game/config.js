@@ -318,13 +318,125 @@ PM.Config = {
     cry:           { frames: 20, fps: 10, mode: 'once' },
   },
 
-  // 分两批加载：核心批加载完就能玩，其余在后台补。
-  // 22 张图集合计约 29MB，一次性等完再进游戏体验太差。
-  CORE_ANIMS: ['idle', 'head_pat', 'belly', 'wand_shake', 'wand_warn',
-               'leg_lift', 'feet_tap', 'shy', 'angry_charge', 'cry'],
+  /* 分两批加载：核心批加载完就能玩，其余在后台补。
+   * 22 张图集合计约 29MB，一次性等完再进游戏体验太差。
+   * 选取原则：**七个区域的低档全在里面**（开局第一下不能没反应），
+   * 外加惩罚链那三段（angry_charge / water_threat / cry）——
+   * 惩罚在开局十几秒内就可能触发，前摇没加载就是"她站着不动，水凭空泼出来"。 */
+  CORE_ANIMS: ['idle', 'head_pat_b', 'shy', 'belly', 'laugh', 'wand_shake', 'wand_warn',
+               'leg_lift', 'feet_tap', 'angry_charge', 'water_threat', 'cry'],
 
-  MOOD_ANIM: {
-    NEUTRAL: 'idle', HAPPY: 'happy_tilt', SHY: 'shy',
-    TICKLED: 'laugh', ANGRY: 'angry_charge', SAD: 'sad', CRY: 'cry',
+  /* 高档（连戳第 3 下）跟哪种情绪走，逐区域定。
+   * 低/中档是"她对你这只手的反应"，高档是"她的状态"——状态由被戳的地方决定：
+   * 头→害羞、肚子→委屈、画面右腿→被逗笑（那段素材就是笑）、其余→生气。
+   * 这张表同时决定高档播哪段动画（见 REACTIONS 各区的 3），两边必须对得上，
+   * 对不上就是"她笑着，脚下的法阵却是红的"。 */
+  TIER3_MOOD: {
+    head: 'SHY', chest: 'ANGRY', belly: 'SAD',
+    armL: 'ANGRY', armR: 'ANGRY', legL: 'ANGRY', legR: 'TICKLED',
   },
+
+  /* 情绪维持期里她该摆什么姿势。
+   * **只剩 CRY 一条**：其余情绪一律"停在刚演完那段的末帧 + 极轻微呼吸"，
+   * 不再重播动画（见 StageScene._restAnim）。
+   * 这张表原本有七条，而其中四条（HAPPY/SHY/TICKLED/ANGRY）和反应表里的
+   * 高档动画是同一段 —— 反应演完接着进待机，就是把同一个动作原地重做一遍。
+   * `cry` 留着是因为它是惩罚之后的必看画面，且没有任何反应槽用它，身份唯一。 */
+  MOOD_ANIM: {
+    CRY: 'cry',
+  },
+};
+
+/* ── 素材身份登记表（一段素材 = 一件事）────────────────────────
+ * 每段动画在这里登记它**唯一**的身份，以及允许唤起它的位置。
+ * 位置写法：`<区域>:<档位>` / `mood:<情绪>` / `punish` / `happy` / `idle`。
+ *
+ * 身份唯一 ≠ 触发路径唯一：`shy` 允许 chest:1、chest:2、head:3 三个位置唤起，
+ * 因为它们说的是同一件事（她害羞了）。但同一段既当"反应"又当"情绪待机"就是兼职，
+ * 那是两件事 —— PM.checkAnimRoles() 开机就会把它报出来。 */
+PM.ANIM_ROLE = {
+  idle:          { id: '待机',            at: ['idle'] },
+  head_pat_b:    { id: '摸头·打招呼',      at: ['head:1'] },
+  head_pat:      { id: '摸头·抗议',        at: ['head:2'] },
+  shy:           { id: '害羞',            at: ['chest:1', 'chest:2', 'head:3'], mood: 'SHY' },
+  belly:         { id: '摸肚子·困惑',      at: ['belly:1'] },
+  laugh:         { id: '被逗笑',          at: ['belly:2', 'legR:3'], mood: 'TICKLED' },
+  sad:           { id: '委屈',            at: ['belly:3'], mood: 'SAD' },
+  angry_charge:  { id: '生气',            at: ['chest:3', 'armL:3', 'angry'], mood: 'ANGRY' },
+  wand_shake:    { id: '晃魔杖·炫技',      at: ['armL:1'] },
+  teacher_boast: { id: '自夸·师傅兼妻子',  at: ['armL:2'] },
+  wand_warn:     { id: '警告·别碰魔杖',    at: ['armR:1'] },
+  wand_warn_b:   { id: '二次警告',        at: ['armR:1'] },
+  wand_warn_c:   { id: '三次警告·预告攻击', at: ['armR:2'] },
+  cast_windup:   { id: '开始咏唱',        at: ['armR:3'], mood: 'ANGRY' },
+  leg_lift:      { id: '抬腿·保养课业',    at: ['legL:1'] },
+  boot_show:     { id: '展示靴子',        at: ['legL:1'] },
+  coin_deny:     { id: '否认踩到钱',       at: ['legL:2'] },
+  leg_kick:      { id: '反击踢',          at: ['legL:3'], mood: 'ANGRY' },
+  feet_tap:      { id: '踏脚',            at: ['legR:1', 'legR:2'] },
+  happy_tilt:    { id: '开心',            at: ['happy'], mood: 'HAPPY' },
+  water_threat:  { id: '举水球·终极前摇',  at: ['punish'] },
+  cry:           { id: '哭',              at: ['mood:CRY'], mood: 'CRY' },
+};
+
+/* 开机自检：把三张真表（REACTIONS / MOOD_ANIM / PUNISH / HAPPY_REACT）走一遍，
+ * 和上面的登记表对账。抓四类事故，全部 console.error（poke-bot 的"零运行时错误"直接接住）：
+ *   ① 一段素材兼两份差事 —— 就是"生气挥两次杖"那个 bug 的根
+ *   ② 用了没登记的位置 —— 有人偷偷把某段塞进 MOOD_ANIM
+ *   ③ 登记了却没人用 —— 死素材（cast_windup 当过好几个月的死素材）
+ *   ④ 高档动画和 TIER3_MOOD 对不上 —— 她笑着而法阵是红的
+ * 返回 errors 数组，方便 bot 直接读。 */
+PM.checkAnimRoles = function () {
+  const C = PM.Config, errors = [];
+  const used = {};                       // anim → Set(位置)
+  const use = (anim, at) => { (used[anim] ||= new Set()).add(at); };
+
+  for (const region in PM.REACTIONS) {
+    for (const tier in PM.REACTIONS[region]) {
+      for (const v of PM.REACTIONS[region][tier]) use(v.anim, `${region}:${tier}`);
+    }
+  }
+  for (const mood in C.MOOD_ANIM) use(C.MOOD_ANIM[mood], `mood:${mood}`);
+  use(PM.PUNISH.anim, 'punish');
+  use(PM.HAPPY_REACT.anim, 'happy');
+  use(PM.ANGRY_REACT.anim, 'angry');
+  use('idle', 'idle');
+
+  for (const anim in used) {
+    const role = PM.ANIM_ROLE[anim];
+    if (!role) { errors.push(`[素材身份] ${anim} 没有登记身份，却被用在 ${[...used[anim]].join('、')}`); continue; }
+    for (const at of used[anim]) {
+      if (!role.at.includes(at)) {
+        errors.push(`[素材身份] ${anim}（${role.id}）被用在未登记的位置 ${at} —— 一段素材只能表达一件事`);
+      }
+    }
+  }
+  for (const anim in PM.ANIM_ROLE) {
+    if (!used[anim]) console.warn(`[素材身份] ${anim}（${PM.ANIM_ROLE[anim].id}）登记了身份但没有任何位置用它 —— 死素材`);
+    if (!C.ANIMS[anim]) errors.push(`[素材身份] ${anim} 登记了身份但 ANIMS 里没有这段动画`);
+  }
+  /* ④ 情绪一致性：高档播的那段动画**自己申报的情绪**必须等于 TIER3_MOOD 给该区域定的情绪。
+   * 情绪段在 ANIM_ROLE 里带 `mood:` 字段（laugh 申报 TICKLED、sad 申报 SAD……），
+   * 对不上就是"她笑着，脚下的法阵却是红的"—— 画面和颜色语言打架，
+   * 而这是改一张表忘了改另一张表时最容易犯、肉眼又最容易漏的错。 */
+  const declared = (anim) => (PM.ANIM_ROLE[anim] || {}).mood;
+  for (const region in C.TIER3_MOOD) {
+    const want = C.TIER3_MOOD[region];
+    for (const v of (PM.REACTIONS[region] || {})[3] || []) {
+      const got = declared(v.anim);
+      if (!got) errors.push(`[情绪一致性] ${region} 的高档播 ${v.anim}，但它没申报情绪（ANIM_ROLE 缺 mood 字段）`);
+      else if (got !== want) errors.push(`[情绪一致性] ${region} 的高档定为 ${want}，播的却是 ${v.anim}（${got}）`);
+    }
+  }
+  // 三个情绪出口同理：进 HAPPY 播的得是开心那段，进 CRY 播的得是哭那段
+  for (const [anim, want, who] of [[PM.HAPPY_REACT.anim, 'HAPPY', 'HAPPY_REACT'],
+                                   [PM.ANGRY_REACT.anim, 'ANGRY', 'ANGRY_REACT'],
+                                   [C.MOOD_ANIM.CRY, 'CRY', 'MOOD_ANIM.CRY']]) {
+    if (anim && declared(anim) !== want) {
+      errors.push(`[情绪一致性] ${who} 要的是 ${want}，播的却是 ${anim}（${declared(anim) || '未申报'}）`);
+    }
+  }
+
+  for (const e of errors) console.error(e);
+  return errors;
 };
