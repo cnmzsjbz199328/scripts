@@ -59,8 +59,9 @@ game_runs/_showreel/*
 !game_runs/_showreel/build.sh
 
 # scratch/ is a generator workspace — track .mjs/.ts/.js sources, ignore rendered artifacts
-scratch/*.png
-scratch/*.webp
+# 用 ** 覆盖子目录：单层 scratch/*.png 匹配不到 scratch/<run>/frame_01.png（inspect 抽帧就漏网过）
+scratch/**/*.png
+scratch/**/*.webp
 
 # Video sprite runs — 源视频(外部AI生成,不可再生)+manifest(分段参数/scale,可复现抽帧)+test.html 入库；
 # 抽出的帧 png 可由 process.ts 从 mp4+manifest 重放再生，不入库
