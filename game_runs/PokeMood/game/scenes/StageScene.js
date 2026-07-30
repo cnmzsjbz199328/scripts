@@ -188,8 +188,9 @@ PM.StageScene = class StageScene extends Phaser.Scene {
       ctx.fillRect(0, 0, size, size);
       cv.refresh();
     }
-    this.halo = this.add.image(C.CHAR_X, 430, 'pm-halo')
-      .setDisplaySize(620, 700)
+    // 位置和大小都跟着角色缩放走（原值是 scale=1 时的手调值，430/620/700 都是单元格尺度）
+    this.halo = this.add.image(C.CHAR_X, C.CHAR_Y + 430 * C.CHAR_SCALE, 'pm-halo')
+      .setDisplaySize(620 * C.CHAR_SCALE, 700 * C.CHAR_SCALE)
       .setTint(A.HALO_TINT)
       .setAlpha(0.42)
       .setBlendMode(Phaser.BlendModes.ADD)
@@ -202,7 +203,7 @@ PM.StageScene = class StageScene extends Phaser.Scene {
   _buildShadow() {
     const C = PM.Config, A = this.atmos;
     this.shadow = this.add.image(C.CHAR_X, C.BG.FOOT_Y - 4, 'pm-halo')
-      .setDisplaySize(A.SHADOW_W, A.SHADOW_H)
+      .setDisplaySize(A.SHADOW_W * C.CHAR_SCALE, A.SHADOW_H * C.CHAR_SCALE)
       .setTint(0x000000)
       .setAlpha(A.SHADOW_A)
       .setDepth(4);
@@ -506,7 +507,7 @@ PM.StageScene = class StageScene extends Phaser.Scene {
       });
     }
     if (this.mist) this.mist.setY(A.MIST_Y).setDisplaySize(C.WIDTH, A.MIST_H).setAlpha(A.MIST_ALPHA);
-    if (this.shadow) this.shadow.setDisplaySize(A.SHADOW_W, A.SHADOW_H).setAlpha(A.SHADOW_A);
+    if (this.shadow) this.shadow.setDisplaySize(A.SHADOW_W * C.CHAR_SCALE, A.SHADOW_H * C.CHAR_SCALE).setAlpha(A.SHADOW_A);
     if (this.vignette) this.vignette.setAlpha(A.VIGNETTE);
     if (this.dustBack) for (const d of this.dustBack) d.img.setTint(A.DUST_BACK_TINT);
     if (this.dustFront) for (const d of this.dustFront) d.img.setTint(A.DUST_FRONT_TINT);
@@ -577,8 +578,10 @@ PM.StageScene = class StageScene extends Phaser.Scene {
 
   _drawCircle() {
     const C = PM.Config;
-    const cx = C.CHAR_X, cy = 688;
-    const rx = 168 + this.circlePulse * 26, ry = 44 + this.circlePulse * 8;
+    // 法阵画在她脚下，尺度跟着角色走（688/168/44 都是 scale=1 时量的）
+    const S = C.CHAR_SCALE;
+    const cx = C.CHAR_X, cy = C.CHAR_Y + 688 * S;
+    const rx = (168 + this.circlePulse * 26) * S, ry = (44 + this.circlePulse * 8) * S;
     const col = this.circleColor;
 
     this.circle.clear();
@@ -627,6 +630,7 @@ PM.StageScene = class StageScene extends Phaser.Scene {
     const C = PM.Config;
     this.char = this.add.sprite(C.CHAR_X, C.CHAR_Y, 'idle', 0)
       .setOrigin(0.5, 0)
+      .setScale(C.CHAR_SCALE)
       .setDepth(5);
     /* 刻意**不**挂 animationcomplete：表演的长度是 max(动画, 配音)，
      * 由 update() 按绝对时间戳推进（见 _startPerform 的注释）。
@@ -639,8 +643,11 @@ PM.StageScene = class StageScene extends Phaser.Scene {
      * 窄画布上写死 250 会让气泡压到角色身上。再减 26 是左右内边距。
      * advancedWordWrap 必须开 —— 默认的 wordWrap 只按空格断词，中文台词整句是"一个词"，
      * 根本不换行，宽度会一路涨到把气泡挤翻到左边（就是斗篷旁那条长台词露的馅）。 */
-    this._bubbleWrap = Math.min(250, Math.round(C.CHAR_X - 118 - 8 - 26));
-    this.bubble = this.add.container(C.CHAR_X + 150, 130).setDepth(20).setAlpha(0);
+    // 118 是"身体右缘"的经验值，随角色缩放收窄；气泡竖向贴头顶，也跟着 CHAR_Y 走
+    this._bubbleGap = Math.round(118 * C.CHAR_SCALE);
+    this._bubbleWrap = Math.min(250, Math.round(C.CHAR_X - this._bubbleGap - 8 - 26));
+    this.bubble = this.add.container(C.CHAR_X + this._bubbleGap + 32,
+                                     C.CHAR_Y + 130 * C.CHAR_SCALE).setDepth(20).setAlpha(0);
     this.bubbleBg = this.add.graphics();
     this.bubbleText = this.add.text(0, 0, '', {
       fontFamily: 'Segoe UI, Microsoft YaHei, sans-serif',
@@ -1147,8 +1154,9 @@ PM.StageScene = class StageScene extends Phaser.Scene {
     this.bubbleText.setPosition(13, 10);
     // 窄画布（竖屏手机）右侧放不下就翻到角色左边，别让气泡被裁掉
     const C2 = PM.Config;
-    let bx = C2.CHAR_X + 118, flipped = false;
-    if (bx + w > C2.WIDTH - 8) { bx = Math.max(8, C2.CHAR_X - 118 - w); flipped = true; }
+    const gap = this._bubbleGap;
+    let bx = C2.CHAR_X + gap, flipped = false;
+    if (bx + w > C2.WIDTH - 8) { bx = Math.max(8, C2.CHAR_X - gap - w); flipped = true; }
 
     this.bubbleBg.clear();
     this.bubbleBg.fillStyle(0xf4f7fb, 0.96).fillRoundedRect(0, 0, w, h, 12);
@@ -1236,15 +1244,15 @@ PM.StageScene = class StageScene extends Phaser.Scene {
     const g = this.debugG;
     g.clear();
     if (!this.showRegions) return;
-    const left = C.CHAR_X - C.FRAME_W / 2;
+    const left = C.CHAR_X - C.DRAW_W / 2;
     for (const id of PM.REGION_ORDER) {
       const r = PM.REGIONS[id];
       const hot = this.state.heat[id] / C.HEAT_MAX;
       g.lineStyle(2, 0x6ea8ff, 0.85);
       g.fillStyle(0xff5555, 0.10 + hot * 0.45);
-      const x = left + r.x * C.FRAME_W, y = C.CHAR_Y + r.y * C.FRAME_H;
-      g.fillRect(x, y, r.w * C.FRAME_W, r.h * C.FRAME_H);
-      g.strokeRect(x, y, r.w * C.FRAME_W, r.h * C.FRAME_H);
+      const x = left + r.x * C.DRAW_W, y = C.CHAR_Y + r.y * C.DRAW_H;
+      g.fillRect(x, y, r.w * C.DRAW_W, r.h * C.DRAW_H);
+      g.strokeRect(x, y, r.w * C.DRAW_W, r.h * C.DRAW_H);
     }
   }
 

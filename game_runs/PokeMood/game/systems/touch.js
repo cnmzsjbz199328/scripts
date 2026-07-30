@@ -11,11 +11,13 @@ window.PM = window.PM || {};
 
 PM.Touch = {
   // 世界坐标 → 单元格内的归一化坐标（0..1）
+  // 按【画布上的实际占位】DRAW_* 换算，不是单元格原尺寸 —— 角色缩放后
+  // 用 FRAME_* 会把命中框算成原大，戳头戳到帽子上方的空气。
   toFrame(wx, wy) {
     const C = PM.Config;
     return {
-      fx: (wx - (C.CHAR_X - C.FRAME_W / 2)) / C.FRAME_W,
-      fy: (wy - C.CHAR_Y) / C.FRAME_H,
+      fx: (wx - (C.CHAR_X - C.DRAW_W / 2)) / C.DRAW_W,
+      fy: (wy - C.CHAR_Y) / C.DRAW_H,
     };
   },
 

@@ -302,8 +302,8 @@ async function main() {
     const R = (window as any).PM.REGIONS.head;
     const cv = document.querySelector('canvas')!.getBoundingClientRect();
     const sx = cv.width / C.WIDTH, sy = cv.height / C.HEIGHT;
-    const fx = C.CHAR_X - C.FRAME_W / 2 + (R.x + R.w / 2) * C.FRAME_W;
-    const fy = C.CHAR_Y + (R.y + R.h / 2) * C.FRAME_H;
+    const fx = C.CHAR_X - C.DRAW_W / 2 + (R.x + R.w / 2) * C.DRAW_W;
+    const fy = C.CHAR_Y + (R.y + R.h / 2) * C.DRAW_H;
     return { x: cv.left + fx * sx, y: cv.top + fy * sy,
              outX: cv.left + 40 * sx, outY: cv.top + 120 * sy };
   });
