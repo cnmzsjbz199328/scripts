@@ -64,7 +64,14 @@ PM.REACTIONS = {
 /* 终极惩罚：已经生气了还继续戳 → 举水球 → 前端粒子朝屏幕泼你一脸 → 她哭。
  * 素材只出前摇（AI 三条视频的喷射方向全是朝画面左，弃用），释放完全由渲染层做，
  * 方向可控。见 DESIGN §4.5。 */
-PM.PUNISH = { anim: 'water_threat', line: '这是你自找的哦。', voice: 'assets/audio/punish.mp3' };
+/* anim 是**候选序**不是单值：water_threat 不在 CORE_ANIMS 里（图集 22 张分两批加载），
+ * 而惩罚在开局十几秒内就可能触发 —— 那时它多半还没到。playAnim 对没加载的 key 一律
+ * 回落 idle，于是高潮那一下变成"她站着不动，水凭空泼出来"（真游戏里录到过，
+ * 调参台看不出来，因为那边一次性把三段全加载了）。
+ * 所以给一条降级链：都是**末帧举着蓄能球**的姿势，水魔法特效的球心表 PM.WaterFx.ORB
+ * 三段都有，换哪一段特效都对得上。angry_charge 在核心批里，兜底一定成立。 */
+PM.PUNISH = { anim: ['water_threat', 'cast_windup', 'angry_charge'],
+              line: '这是你自找的哦。', voice: 'assets/audio/punish.mp3' };
 
 /* 安抚成功（连续讨好）时的正反馈出口 */
 PM.HAPPY_REACT = { anim: 'happy_tilt', line: '哼哼～看到你这么有精神我也很高兴呢。等会儿去给鲁迪做点好吃的吧。', voice: 'assets/audio/happy_tilt.mp3' };

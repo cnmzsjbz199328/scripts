@@ -756,6 +756,7 @@ PM.StageScene = class StageScene extends Phaser.Scene {
     this.events.once('shutdown', () => {
       document.removeEventListener('visibilitychange', this._onVis);
       this._stopVoice();
+      if (this._waterCast) { this._waterCast.cancel(); this._waterCast = null; }
     });
   }
 
@@ -795,10 +796,11 @@ PM.StageScene = class StageScene extends Phaser.Scene {
       /* 惩罚是整局的高潮，等级排在 tier3 之上，**抢占一切**。
        * （曾经写成"锁期间直接 return"，导致惩罚判定在锁里被丢掉，
        *   玩家永远看不到泼水、直接跳去哭 —— poke-bot 第 3 项就是抓这个的。）*/
+      const pAnim = this._pickPunishAnim();
       this._request({
-        tier: 4, hard: true, anim: PM.PUNISH.anim,
+        tier: 4, hard: true, anim: pAnim,
         line: PM.PUNISH.line, voice: PM.PUNISH.voice,
-        onStart: () => this._punishFx(),
+        onStart: () => this._punishFx(pAnim),
       });
     } else {
       let act = null;
@@ -869,6 +871,14 @@ PM.StageScene = class StageScene extends Phaser.Scene {
   _startPerform(act) {
     const C = PM.Config;
     const now = this.time.now;
+    /* 换人先撤特效：水魔法的蓄力/释放是两个延时事件，人被抢占归位了它照样会到点开火 ——
+     * 那就是"她已经在哭了，水才从空气里泼出来"。下面 act.onStart 才会重新挂上。
+     *
+     * 但 rest（情绪待机段）**不算换人**：惩罚演完立刻就会转进 CRY 的 rest 段，
+     * 那是同一件事的下半场，不是新触碰。一视同仁地撤，会出现"前摇播完、
+     * 她开始哭、水一滴没泼"——尤其在 water_threat 还没加载完、前摇回落成 idle
+     * （只有 180ms 尾巴）时必然发生。真游戏里录到过整段没水，调参台看不出来。 */
+    if (this._waterCast && !act.rest) { this._waterCast.cancel(); this._waterCast = null; }
     this.char.anims.timeScale = 1;
     const animMs = this.playAnim(act.anim);
 
@@ -948,82 +958,25 @@ PM.StageScene = class StageScene extends Phaser.Scene {
     this.char.play('idle', true);
   }
 
-  _punishFx() {
+  /* 惩罚前摇用哪一段：按 PM.PUNISH.anim 的候选序取**第一个真加载了的**。
+   * 全都没到（开局极早）就返回队首，playAnim 照旧回落 idle —— 至少台词和水还在。 */
+  _pickPunishAnim() {
+    const list = Array.isArray(PM.PUNISH.anim) ? PM.PUNISH.anim : [PM.PUNISH.anim];
+    return list.find(k => PM.loaded.has(k)) || list[0];
+  }
+
+  /* 惩罚特效。整套水魔法在 systems/waterfx.js 里（那边是唯一真源，
+   * preview.html 的调参台读同一份代码同一组参数），这里只管接上：
+   * 球心位置与蓄力/释放时机都由 PM.WaterFx 按 anim 查表，不在这里写死。
+   * 传的必须是**实际播出去那段**，不是候选队首 —— 三段的球心差着几十像素。 */
+  _punishFx(anim) {
     if (window.GameAudio) window.GameAudio.play('morph');
-    // 前摇播到一半时把水泼出来（素材只有蓄力，释放由渲染层做）
-    this.time.delayedCall(520, () => this._waterBurst());
-  }
-
-  _dropTexture() {
-    if (this.textures.exists('pm-drop')) return;
-    // 软边圆点。硬边圆放大后是一坨白球，看着像棉花不像水
-    const size = 64;
-    const cv = this.textures.createCanvas('pm-drop', size, size);
-    const ctx = cv.getContext();
-    const gr = ctx.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
-    gr.addColorStop(0, 'rgba(255,255,255,1)');
-    gr.addColorStop(0.35, 'rgba(255,255,255,0.55)');
-    gr.addColorStop(1, 'rgba(255,255,255,0)');
-    ctx.fillStyle = gr;
-    ctx.fillRect(0, 0, size, size);
-    cv.refresh();
-  }
-
-  /* 朝屏幕泼水（DESIGN §4.5 ②）：素材里的喷射方向三条视频都不对，索性用粒子做，方向可控。
-   *
-   * "冲着你来"分两层给：
-   *   ① 从杖头炸开的小水滴 —— 又小又快、边扩边淡，是"水花"
-   *   ② 溅在镜头上的水渍   —— 定在屏幕上不动、慢慢滑落淡出，是"泼到了你脸上"
-   * 第二层才是真正卖掉方向感的东西；只有第一层的话，看起来只是她身上冒了团雾。 */
-  _waterBurst() {
-    const C = PM.Config;
-    this._dropTexture();
-    const ox = C.CHAR_X - 120, oy = 300;      // 杖头水球的大致位置
-
-    // ① 水花
-    const em = this.add.particles(ox, oy, 'pm-drop', {
-      speed: { min: 340, max: 900 },
-      angle: { min: 0, max: 360 },
-      scale: { start: 0.14, end: 0.62 },
-      alpha: { start: 0.9, end: 0 },
-      lifespan: { min: 380, max: 700 },
-      quantity: 5,
-      frequency: 16,
-      tint: [0xbfe6ff, 0x6fb4f2, 0x8fd0ff],
-      blendMode: Phaser.BlendModes.ADD,
-    }).setDepth(40);
-    this.time.delayedCall(330, () => em.stop());
-    this.time.delayedCall(1400, () => em.destroy());
-
-    // ② 镜头水渍
-    this.time.delayedCall(160, () => {
-      for (let i = 0; i < 16; i++) {
-        const d = this.add.image(
-          Phaser.Math.Between(60, C.WIDTH - 60),
-          Phaser.Math.Between(60, C.HEIGHT - 120), 'pm-drop')
-          .setDepth(42)
-          .setTint(0xdff1ff)
-          .setAlpha(0)
-          .setScale(Phaser.Math.FloatBetween(0.5, 1.9))
-          .setBlendMode(Phaser.BlendModes.ADD);
-        this.tweens.add({
-          targets: d, alpha: { from: 0, to: Phaser.Math.FloatBetween(0.35, 0.75) },
-          duration: 90, delay: i * 14,
-          onComplete: () => this.tweens.add({
-            targets: d, alpha: 0, y: d.y + Phaser.Math.Between(14, 46),
-            duration: Phaser.Math.Between(700, 1500),
-            onComplete: () => d.destroy(),
-          }),
-        });
-      }
+    this._waterCast = PM.WaterFx.cast(this, {
+      anim,
+      reduced: this._reducedMotion(),
+      depth: 40,
+      onBurst: () => { if (window.GameAudio) window.GameAudio.play('splashBad'); },
     });
-
-    const flash = this.add.rectangle(C.WIDTH / 2, C.HEIGHT / 2, C.WIDTH, C.HEIGHT, 0x7fc4ff, 0.38)
-      .setDepth(41).setBlendMode(Phaser.BlendModes.ADD);
-    this.tweens.add({ targets: flash, alpha: 0, duration: 620, onComplete: () => flash.destroy() });
-
-    if (!this._reducedMotion()) this.cameras.main.shake(300, 0.009);
-    if (window.GameAudio) window.GameAudio.play('splashBad');
   }
 
   /* 只管放动画，不管锁 —— 锁的账在 _startPerform 那边记。

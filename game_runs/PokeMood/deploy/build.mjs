@@ -118,12 +118,13 @@ for (const size of [192, 512]) {
 fs.writeFileSync(path.join(DIST, 'sw.js'), `/* PokeMood 独立站 SW —— 只为可安装性与秒开外壳存在。
  * 图集合计约 29MB，不进 Cache Storage（配额风险高于收益），交给 _headers 的长缓存。 */
 // 外壳文件表变了就要改版本号，否则老装机永远拿不到新加的脚本（activate 只按名字清旧缓存）
-const CACHE = 'pokemood-shell-v2';
+const CACHE = 'pokemood-shell-v3';
 const SHELL = ['./', 'index.html', 'manifest.webmanifest', 'icon-192.png',
   'engine/hud.js', 'engine/audio.js',
   'game/config.js', 'game/regions.js', 'game/reactions.js',
   'game/systems/scenes.js',
   'game/systems/touch.js', 'game/systems/mood.js', 'game/systems/react.js',
+  'game/systems/waterfx.js',
   'game/scenes/BootScene.js', 'game/scenes/StageScene.js', 'game/main.js'];
 
 self.addEventListener('install', e => {

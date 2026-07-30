@@ -3,6 +3,10 @@
 <head>
 <meta charset="utf-8">
 <title>PokeMood 素材预览</title>
+<!-- 水魔法调参台用：加载游戏本体的 config + 特效模块（唯一真源，不复刻） -->
+<script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
+<script src="game/config.js"></script>
+<script src="game/systems/waterfx.js"></script>
 <style>
   :root { --bg:#12141b; --panel:#1c1f28; --line:#2c3140; --fg:#e8eaf0; --dim:#8b93a7; --acc:#6ea8ff; }
   * { box-sizing:border-box; }
@@ -46,6 +50,29 @@
   .seg { display:flex; gap:5px; }
   .seg button { flex:1; }
   .hint { color:var(--dim); font-size:11px; }
+
+  /* ---- 水魔法测试台 ---- */
+  #fxstage { flex:1; display:none; flex-direction:column; align-items:center; justify-content:center; gap:10px;
+             background:#0a0d14; }
+  #fxstage.on { display:flex; }
+  #stage.off { display:none; }
+  #fxcanvas { width:min(900px, calc((100vh - 96px) * 1.25)); aspect-ratio:900/720; }
+  #fxcanvas canvas { display:block; border:1px solid #2c3140; border-radius:6px; }
+  #fxcap { color:var(--dim); font-size:12px; text-align:center; }
+  #fxcap b { color:var(--fg); }
+  /* 两块控制面板互斥。!important 是必须的：两块面板的 display 写在行内 style 上
+     （它们各自要 flex 布局），行内样式压得过普通类选择器，不加就是两块一起显示。 */
+  #ctl-fx { display:none; }
+  #ctl-fx.on { display:flex !important; }
+  #ctl-anim.off { display:none !important; }
+  #list { min-height:130px; }          /* 参数面板很高，不给下限的话列表会被挤成 0 */
+  #fxparams { max-height:38vh; overflow:auto; display:flex; flex-direction:column; gap:5px; padding-right:3px; }
+  #fxparams .row { gap:6px; }
+  #fxparams .row label { width:88px; font-size:11px; }
+  /* min-width:0 —— range 的默认最小宽度会把整行撑出侧栏，数值那列被挤到屏幕外看不见 */
+  #fxparams input[type=range] { min-width:0; }
+  #fxparams .sec { color:var(--dim); font-size:10.5px; letter-spacing:.06em; margin-top:6px; text-transform:uppercase; }
+  #fxparams .val { width:52px; flex:none; white-space:nowrap; }   /* flex:none：不加会被压窄，400 显示成 40 */
 </style>
 </head>
 <body>
@@ -59,15 +86,22 @@
   <div id="caption"></div>
 </div>
 
+<div id="fxstage">
+  <div id="fxcanvas"></div>
+  <div id="fxcap"></div>
+</div>
+
 <div id="side">
   <header>
     <h1>PokeMood 素材预览</h1>
     <div class="sub">22 段动画 · 6 条源视频 · 580×720 · 抠图后</div>
+    <div class="sub">＋ 水魔法调参台（真 Phaser，与游戏同一份特效代码）</div>
   </header>
 
   <div id="list"></div>
 
-  <div id="ctl">
+  <div id="ctl" style="display:contents">
+  <div id="ctl-anim" style="border-top:1px solid var(--line); padding:12px 15px; display:flex; flex-direction:column; gap:10px;">
     <div class="row"><label>帧率</label><input type="range" id="fps" min="4" max="24" value="12"><span class="val" id="fpsV">12</span></div>
     <div class="row"><label>缩放</label><input type="range" id="zoom" min="40" max="120" value="82"><span class="val" id="zoomV">82%</span></div>
     <div class="row"><label>播放</label>
@@ -86,6 +120,45 @@
       <button id="toggleBg">深色底</button>
     </div>
     <div class="hint">「往返」= 正放+倒放，用来检验能不能拿反应段**顶替缺失的 idle 循环**（首尾天然闭合）。</div>
+  </div>
+
+  <!-- 水魔法调参台：参数真源是 game/systems/waterfx.js 的 PM.WaterFx.P，
+       这里只是给它挂滑杆。调好按「导出参数」把改动写回那个文件。 -->
+  <div id="ctl-fx" style="border-top:1px solid var(--line); padding:12px 15px; flex-direction:column; gap:9px;">
+    <div class="row">
+      <button id="fxPlay" style="flex:1">▶ 整段（动作+特效）</button>
+      <button id="fxBurst">只放释放</button>
+    </div>
+    <div class="row"><label>慢放</label>
+      <div class="seg">
+        <button data-ts="1" class="on">1×</button>
+        <button data-ts="0.5">½×</button>
+        <button data-ts="0.25">¼×</button>
+      </div>
+    </div>
+    <div class="row">
+      <button id="fxBg" class="on" style="flex:1">真背景</button>
+      <button id="fxReduced">reduced</button>
+      <button id="fxLoop">循环</button>
+    </div>
+    <div class="row">
+      <button id="fxHeadOn" class="on" style="flex:1">正对镜头</button>
+      <button id="fxCone">斜着泼</button>
+    </div>
+    <div class="row"><label>帧</label><input type="range" id="fxFrame" min="0" max="11" value="11"><span class="val" id="fxFrameV">11</span></div>
+    <div class="row">
+      <button id="fxOrb" style="flex:1">① 定球心（点画面）</button>
+      <button id="fxAim">② 定方向</button>
+    </div>
+    <div class="row"><label>球半径</label><input type="range" id="fxOrbR" min="8" max="120" value="46"><span class="val" id="fxOrbRV">46</span></div>
+    <div id="fxAimOut" class="hint"></div>
+    <div id="fxparams"></div>
+    <div class="row">
+      <button id="fxExport" style="flex:1">导出参数（复制到剪贴板）</button>
+      <button id="fxReset">复位</button>
+    </div>
+    <div class="hint">球心坐标不是估的，是逐帧量高亮青蓝像素得到的；<b>时机</b>两条压在球出现/定住的那两帧上。</div>
+  </div>
   </div>
 </div>
 
@@ -135,6 +208,8 @@ let cur = 'head_pat', frame = 0, dir = 1, mode = 'once', fps = 12, acc = 0, last
 /* ---- 侧栏列表 ---- */
 (function buildList() {
   const list = el('list');
+  // 特效那一组在文件末尾才定义（FX_ANIMS 在下面），这里只占位，稍后 buildFxItems 填
+  const slot = document.createElement('div'); slot.id = 'fxslot'; list.appendChild(slot);
   for (const g of ['待机', '区域反应', '情绪']) {
     const h = document.createElement('div'); h.className = 'group'; h.textContent = g; list.appendChild(h);
     for (const [k, m] of Object.entries(META)) {
@@ -150,6 +225,7 @@ let cur = 'head_pat', frame = 0, dir = 1, mode = 'once', fps = 12, acc = 0, last
 
 function select(k) {
   const m = META[k];
+  if (fxMode) leaveFx();
   cur = k; frame = 0; dir = 1; playing = true;
   // idle 固定往返播放（已定案）：杖头小法阵首尾帧差异大，单向循环会跳，往返才顺
   if (k === 'idle') setMode('pingpong');
@@ -207,7 +283,8 @@ el('replay').onclick = () => { frame = 0; dir = 1; playing = true; };
 el('prev').onclick = () => { playing = false; frame = (frame - 1 + META[cur].frames) % META[cur].frames; draw(); };
 el('next').onclick = () => { playing = false; frame = (frame + 1) % META[cur].frames; draw(); };
 window.onkeydown = e => {
-  if (e.code === 'Space') { e.preventDefault(); el('replay').click(); }
+  if (e.code === 'Space') { e.preventDefault(); (fxMode ? el('fxPlay') : el('replay')).click(); }
+  if (fxMode) return;
   if (e.code === 'ArrowLeft') el('prev').click();
   if (e.code === 'ArrowRight') el('next').click();
 };
@@ -234,6 +311,481 @@ el('toggleBg').onclick = () => {
     : 'radial-gradient(ellipse at 50% 78%, #fdf3e0 0%, #e6d9c3 62%)';
   el('toggleBg').textContent = dark ? '深色底' : '浅色底';
   el('caption').style.color = dark ? '' : '#5b5347';
+};
+
+/* ══════════════════════════════════════════════════════════════
+ * 水魔法调参台
+ *
+ * 为什么用真 Phaser 而不是在 DOM 里另画一遍：特效的唯一真源是
+ * game/systems/waterfx.js，DOM 复刻一份就等于开了第二个真源，调好的手感
+ * 搬回游戏里必然不一样（混合模式、粒子、tween 缓动都对不上）。
+ * 这里加载的是游戏本体的 config.js + waterfx.js，画布尺寸/球心换算全都一致，
+ * 所见即游戏里所见。背景也铺真图 —— 水是半透明的蓝，只在黑底上看会骗人。
+ * ══════════════════════════════════════════════════════════════ */
+const FX_ANIMS = {
+  water_threat: { label: '水魔法·举水球', frames: 12, fps: 12, note: '惩罚正式用的这段（PM.PUNISH）' },
+  cast_windup:  { label: '水魔法·举杖起手', frames: 12, fps: 12, note: '前摇变体 2，球更小更靠上' },
+  angry_charge: { label: '水魔法·生气蓄力', frames: 14, fps: 12, note: '情绪 ANGRY，球在最高处' },
+};
+
+/* 滑杆表：[键, 最小, 最大, 步长]。分节标题以 '#' 开头。
+ * 只列**调得动手感**的；颜色三个键不给滑杆（滑杆调不出颜色，直接改文件）。 */
+const FX_TUNE = [
+  '#时机（ms，动画第 0 帧起算）',
+  ['@charge', 0, 1400, 20], ['@burst', 0, 1600, 20],
+  '#① 蓄力',
+  ['CHARGE_MS', 120, 900, 20], ['CHARGE_DROPS', 0, 30, 1], ['ORB_SWELL', 1, 2.2, 0.05],
+  '#② 喷射',
+  ['JET_MS', 80, 700, 20], ['JET_RATE', 6, 40, 1], ['JET_QTY', 1, 8, 1],
+  ['JET_AIM', -180, 180, 1], ['JET_SPREAD', 5, 90, 1],
+  ['JET_SPEED_MIN', 60, 900, 20], ['JET_SPEED_MAX', 300, 1800, 20],
+  ['JET_ACCEL', 0, 2400, 50], ['JET_SCALE_END', 0.4, 4, 0.1], ['JET_LIFE', 200, 1200, 20],
+  '#② 水幕 / 大水舌（冲脸的主力）',
+  ['SHEET_A', 0, 1, 0.02], ['SHEET_MS', 120, 900, 20], ['SHEET_SCALE', 2, 14, 0.5],
+  ['TONGUE_N', 0, 14, 1], ['TONGUE_MS', 150, 900, 20], ['TONGUE_SCALE', 1, 7, 0.2],
+  '#③ 镜头水珠',
+  ['SPLAT_N', 0, 40, 1], ['SPLAT_MIN', 0.1, 1, 0.02], ['SPLAT_MAX', 0.3, 2.5, 0.05],
+  ['SPLAT_HOLD', 0, 900, 20], ['SPLAT_SLIDE', 300, 3000, 50], ['SPLAT_FALL', 0, 300, 5],
+  ['SPLAT_TRAIL', 0, 12, 1],
+  '#全屏反应',
+  ['RING_MS', 150, 1200, 20], ['RING_SCALE', 1.5, 9, 0.2],
+  ['FLASH_A', 0, 0.6, 0.01], ['FLASH_MS', 100, 900, 20],
+  ['WET_A', 0, 0.4, 0.01], ['WET_MS', 300, 3000, 50],
+  ['SHAKE_MS', 0, 700, 20], ['SHAKE_AMT', 0, 0.03, 0.001], ['PUNCH', 0, 0.06, 0.002],
+];
+
+let fxMode = false, fxGame = null, fxScene = null, fxAnim = 'water_threat';
+let fxTs = 1, fxReduced = false, fxLoopOn = false, fxBgOn = true;
+let fxAimOn = false, fxAimPoint = null, fxOrbOn = false;
+const FX_ORB_DEFAULT = JSON.parse(JSON.stringify(PM.WaterFx.ORB));
+const FX_DEFAULT = JSON.parse(JSON.stringify(PM.WaterFx.P));
+const FX_CUE_DEFAULT = JSON.parse(JSON.stringify(PM.WaterFx.CUE));
+
+(function buildFxItems() {
+  const slot = el('fxslot');
+  const h = document.createElement('div');
+  h.className = 'group'; h.textContent = '特效（Phaser 实时）';
+  slot.appendChild(h);
+  for (const [k, m] of Object.entries(FX_ANIMS)) {
+    const d = document.createElement('div');
+    d.className = 'item'; d.dataset.k = 'fx:' + k;
+    d.innerHTML = `<span>${m.label}</span><span class="n">${k}</span>`;
+    d.onclick = () => enterFx(k);
+    slot.appendChild(d);
+  }
+})();
+
+function enterFx(anim) {
+  fxAnim = anim;
+  fxMode = true;
+  playing = false;                                  // 停掉 DOM 那台播放器，别空转
+  el('stage').classList.add('off');
+  el('fxstage').classList.add('on');
+  el('ctl-anim').classList.add('off');
+  el('ctl-fx').classList.add('on');
+  document.querySelectorAll('.item').forEach(i => i.classList.toggle('on', i.dataset.k === 'fx:' + anim));
+  el('fxcap').innerHTML = `<b>${FX_ANIMS[anim].label}</b> · ${anim} · ${FX_ANIMS[anim].note}`;
+  syncFxAnimUI();
+  if (!fxGame) bootFx(); else { refreshFxParams(); fxPlay(); }
+}
+
+/* 换动作时把「按动作分开存」的那几样跟着换：帧数上限、球半径、读数。
+ * 忘了同步的话，会拿上一段的半径去标下一段的球心 —— 标定全废。 */
+function syncFxAnimUI() {
+  const n = FX_ANIMS[fxAnim].frames;
+  el('fxFrame').max = n - 1;
+  el('fxFrame').value = n - 1;
+  el('fxFrameV').textContent = n - 1;
+  el('fxOrbR').value = PM.WaterFx.ORB[fxAnim].r;
+  el('fxOrbRV').textContent = PM.WaterFx.ORB[fxAnim].r;
+  fxAimPoint = null;
+  reportAim();
+}
+
+function leaveFx() {
+  fxMode = false;
+  el('stage').classList.remove('off');
+  el('fxstage').classList.remove('on');
+  el('ctl-anim').classList.remove('off');
+  el('ctl-fx').classList.remove('on');
+  if (fxScene) fxScene.stopLoop();
+}
+
+/* 画布固定 900×720（= 宽屏下游戏的实际画布），CHAR_X 跟着改。
+ * config.js 是按 window 比例算 WIDTH 的，preview 的侧栏会把它算窄，
+ * 这里覆盖成定值，免得调出来的方向感换个窗口就不对。 */
+function bootFx() {
+  PM.Config.WIDTH = 900;
+  PM.Config.CHAR_X = 450;
+
+  class FxScene extends Phaser.Scene {
+    constructor() { super('Fx'); }
+
+    preload() {
+      const C = PM.Config;
+      const txt = this.add.text(450, 340, '载入素材…', {
+        fontFamily: 'Segoe UI, sans-serif', fontSize: '15px', color: '#8fa7c9',
+      }).setOrigin(0.5);
+      this.load.on('complete', () => txt.destroy());
+      for (const k of Object.keys(FX_ANIMS)) {
+        this.load.spritesheet(k, `assets/anim/${k}.webp`, { frameWidth: C.FRAME_W, frameHeight: C.FRAME_H });
+      }
+      for (const L of ['far', 'mid', 'fore']) this.load.image('bg_' + L, `assets/bg/tower/${L}.webp`);
+    }
+
+    create() {
+      const C = PM.Config;
+      // 背景：照 config 里 tower 那组量出来的 scale 铺，和游戏一致（顶边对齐、居中）
+      const sc = C.SCENES[0];
+      this.bg = [];
+      for (const L of ['far', 'mid', 'fore']) {
+        if (!this.textures.exists('bg_' + L)) continue;
+        const img = this.add.image(C.WIDTH / 2, 0, 'bg_' + L).setOrigin(0.5, 0)
+          .setScale(L === 'fore' && sc.foreScaleX ? sc.foreScaleX : sc.scale[L], sc.scale[L])
+          .setDepth(C.BG.DEPTH[L]);
+        this.bg.push(img);
+      }
+      for (const [k, m] of Object.entries(FX_ANIMS)) {
+        this.anims.create({
+          key: k, frames: this.anims.generateFrameNumbers(k, { start: 0, end: m.frames - 1 }),
+          frameRate: m.fps, repeat: 0,
+        });
+      }
+      /* setScale(CHAR_SCALE) 是**必须的**，不是抄漏的一行。
+       * 少了它，调参台把她画成原尺寸（720 高），游戏里却是 0.78（561.6 高），
+       * 于是「点画面定球心」标出来的坐标只对调参台成立 —— 而且更阴的是：
+       * 十字的位置也走 anchor()（乘了 0.78），两个错误在调参台里**刚好互相抵消**，
+       * 目检看着完美贴在球上，一到游戏里就偏低五十多像素。
+       * 调参台和游戏的角色尺度必须逐字一致，否则标定的是空气。 */
+      this.char = this.add.sprite(C.CHAR_X, C.CHAR_Y, fxAnim, 0)
+        .setOrigin(0.5, 0).setScale(C.CHAR_SCALE ?? 1).setDepth(5);
+      this.cameras.main.setBackgroundColor('#0a0d14');
+
+      // 球心十字：调 ORB 坐标时肉眼对位用（默认关）
+      this.mark = this.add.graphics().setDepth(60).setVisible(false);
+      // 瞄准辅助线：锥心 + 两条锥边（开「瞄准」才画）
+      this.aimG = this.add.graphics().setDepth(61).setVisible(false);
+
+      /* 点画面定喷射方向：角度是**从球心到点击点**算的，所以标定的是
+       * "水往哪儿去"而不是一个抽象的度数。JET_AIM 是画布坐标系的角度：
+       * 0° 正右、90° 正下（y 轴朝下），画面正对镜头的"泼你一脸"大致落在 55~75°。 */
+      this.input.on('pointerdown', p => {
+        /* ① 定球心：把点到的画布坐标换算回**单元格坐标**（580×720，中线 290）存进
+         * PM.WaterFx.ORB —— 那张表存的就是单元格坐标，因为画布宽度会随窗口变
+         * （config 里 WIDTH 是按屏幕比例算的），存画布坐标换台机器就跑偏。 */
+        if (fxOrbOn) {
+          const C = PM.Config, s = C.CHAR_SCALE ?? 1;
+          const o = PM.WaterFx.ORB[fxAnim];
+          o.x = Math.round((p.worldX - C.CHAR_X) / s + C.FRAME_W / 2);
+          o.y = Math.round((p.worldY - C.CHAR_Y) / s);
+          this.mark.setVisible(true);
+          this.drawMark(); this.drawAim(); reportAim();
+          return;
+        }
+        if (!fxAimOn) return;
+        const a = PM.WaterFx.anchor(fxAnim, PM.Config);
+        const deg = Math.round(Phaser.Math.RadToDeg(Math.atan2(p.worldY - a.y, p.worldX - a.x)));
+        PM.WaterFx.P.JET_AIM = deg;
+        fxAimPoint = { x: Math.round(p.worldX), y: Math.round(p.worldY) };
+        syncFxRow('JET_AIM');
+        this.drawAim();
+        reportAim();
+        this.burstOnly();
+      });
+
+      fxScene = this;
+      buildFxParams();
+      fxPlay();
+    }
+
+    /* 一次完整表演：动画从头 + 同一份 PM.WaterFx.cast 编排。
+     * 慢放要三处一起给：时间事件、tween、动画；粒子在 waterfx 里单独收 timeScale。 */
+    run() {
+      this.stopLoop();
+      this.time.timeScale = fxTs;
+      this.tweens.timeScale = fxTs;
+      this.anims.globalTimeScale = fxTs;
+      this.char.setTexture(fxAnim, 0);
+      this.char.play(fxAnim);
+      this.drawMark();
+      this._cast = PM.WaterFx.cast(this, { anim: fxAnim, reduced: fxReduced, depth: 40, timeScale: fxTs });
+      const tail = (PM.WaterFx.cue(fxAnim).burst + 2600) / fxTs;
+      if (fxLoopOn) this._loop = this.time.delayedCall(tail * fxTs, () => this.run());
+    }
+
+    burstOnly() {
+      this.stopLoop();
+      this.time.timeScale = fxTs; this.tweens.timeScale = fxTs; this.anims.globalTimeScale = fxTs;
+      this.char.setTexture(fxAnim, FX_ANIMS[fxAnim].frames - 1);   // 直接摆末帧（举球态）
+      this.char.anims.stop();
+      this.drawMark();
+      PM.WaterFx.burst(this, { anim: fxAnim, reduced: fxReduced, depth: 40, timeScale: fxTs });
+    }
+
+    stopLoop() {
+      if (this._loop) { this._loop.remove(false); this._loop = null; }
+      if (this._cast) { this._cast.cancel(); this._cast = null; }
+    }
+
+    drawMark() {
+      const a = PM.WaterFx.anchor(fxAnim, PM.Config);
+      this.mark.clear().lineStyle(1.5, 0xff5555, 0.9)
+        .lineBetween(a.x - 14, a.y, a.x + 14, a.y)
+        .lineBetween(a.x, a.y - 14, a.x, a.y + 14)
+        .strokeCircle(a.x, a.y, a.r);
+    }
+
+    // 锥心实线 + 两条锥边虚意 + 落点圈：把「水往哪儿去、散多开」画出来
+    drawAim() {
+      const P = PM.WaterFx.P;
+      const a = PM.WaterFx.anchor(fxAnim, PM.Config);
+      const g = this.aimG.clear().setVisible(fxAimOn);
+      if (!fxAimOn) return;
+      const L = 1000;
+      // 正对镜头没有"方向"可标：画一圈放射短线，示意水是从球心四面铺开的
+      if (P.JET_MODE !== 'cone') {
+        g.lineStyle(1.5, 0x5fe0c8, 0.55);
+        for (let d = 0; d < 360; d += 15) {
+          const r = Phaser.Math.DegToRad(d);
+          g.lineBetween(a.x + Math.cos(r) * a.r * 1.4, a.y + Math.sin(r) * a.r * 1.4,
+                        a.x + Math.cos(r) * a.r * 3.2, a.y + Math.sin(r) * a.r * 3.2);
+        }
+        return;
+      }
+      const ray = (deg, col, w, alpha) => {
+        const r = Phaser.Math.DegToRad(deg);
+        g.lineStyle(w, col, alpha)
+          .lineBetween(a.x, a.y, a.x + Math.cos(r) * L, a.y + Math.sin(r) * L);
+      };
+      ray(P.JET_AIM, 0x5fe0c8, 2, 0.95);
+      ray(P.JET_AIM - P.JET_SPREAD, 0x5fe0c8, 1, 0.4);
+      ray(P.JET_AIM + P.JET_SPREAD, 0x5fe0c8, 1, 0.4);
+      if (fxAimPoint) g.lineStyle(2, 0xffd76a, 0.95).strokeCircle(fxAimPoint.x, fxAimPoint.y, 9);
+    }
+  }
+
+  fxGame = new Phaser.Game({
+    type: Phaser.AUTO,
+    parent: 'fxcanvas',
+    width: 900, height: 720,
+    backgroundColor: '#0a0d14',
+    /* 无头连拍要能把 WebGL 画布逐帧读回来（__fxFrames），不开这个读到的是空白。
+     * 这是调参台专用页面，那点开销无所谓；游戏本体不开。 */
+    render: { preserveDrawingBuffer: true },
+    scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.NO_CENTER },
+    scene: [FxScene],
+  });
+}
+
+function fxPlay() { if (fxScene) fxScene.run(); }
+
+/* 滑杆按 FX_TUNE 生成。'@charge'/'@burst' 走 CUE（按当前动作分别存），其余走 P。 */
+function buildFxParams() {
+  const box = el('fxparams');
+  box.innerHTML = '';
+  for (const spec of FX_TUNE) {
+    if (typeof spec === 'string') {
+      const s = document.createElement('div'); s.className = 'sec'; s.textContent = spec.slice(1);
+      box.appendChild(s); continue;
+    }
+    const [key, min, max, step] = spec;
+    const row = document.createElement('div'); row.className = 'row';
+    const dec = step < 1 ? String(step).split('.')[1].length : 0;
+    const get = () => key[0] === '@' ? PM.WaterFx.CUE[fxAnim][key.slice(1)] : PM.WaterFx.P[key];
+    const set = v => { if (key[0] === '@') PM.WaterFx.CUE[fxAnim][key.slice(1)] = v; else PM.WaterFx.P[key] = v; };
+    row.innerHTML = `<label title="${key}">${key.replace('@', '')}</label>`
+      + `<input type="range" min="${min}" max="${max}" step="${step}" value="${get()}">`
+      + `<span class="val">${get().toFixed(dec)}</span>`;
+    const [inp, val] = [row.querySelector('input'), row.querySelector('.val')];
+    inp.oninput = () => {
+      set(+inp.value); val.textContent = (+inp.value).toFixed(dec);
+      // 方向/锥角改了要重画瞄准线，否则辅助线和实际喷射对不上，越调越糊涂
+      if (key === 'JET_AIM' || key === 'JET_SPREAD') { if (fxScene) fxScene.drawAim(); reportAim(); }
+    };
+    row.dataset.k = key;
+    box.appendChild(row);
+  }
+  reportAim();
+}
+
+/* 单条滑杆回写（代码改了值之后同步 UI）。点画面定方向时要用：
+ * 只改 P 不刷新滑杆的话，下一次拖那根滑杆会把刚点出来的角度弹回旧值。 */
+function syncFxRow(key) {
+  const row = el('fxparams').querySelector(`.row[data-k="${key}"]`);
+  if (!row) return;
+  const v = key[0] === '@' ? PM.WaterFx.CUE[fxAnim][key.slice(1)] : PM.WaterFx.P[key];
+  const inp = row.querySelector('input');
+  inp.value = v;
+  row.querySelector('.val').textContent = (+v).toFixed(+inp.step < 1 ? String(inp.step).split('.')[1].length : 0);
+}
+
+/* 把当前瞄准读数写给侧栏。要报的是**两个数一起**：
+ * 落点（画布坐标，900×720，原点左上）和它换算出来的 JET_AIM 角度。
+ * 只报角度的话，换个球心位置同一个角度指向的地方就不一样了。 */
+function reportAim() {
+  const P = PM.WaterFx.P;
+  const o = PM.WaterFx.ORB[fxAnim];
+  const a = PM.WaterFx.anchor(fxAnim, PM.Config);
+  const orbLine = `<b>${fxAnim}</b>: { x: <b>${o.x}</b>, y: <b>${o.y}</b>, r: <b>${o.r}</b> }`
+    + ` <span style="opacity:.6">（单元格坐标 580×720；画布上在 ${Math.round(a.x)}, ${Math.round(a.y)}）</span>`;
+  const aimLine = P.JET_MODE === 'cone'
+    ? (fxAimPoint
+        ? `<br>方向：落点 (${fxAimPoint.x}, ${fxAimPoint.y}) → <b>JET_AIM = ${P.JET_AIM}°</b>，锥角 ±${P.JET_SPREAD}°`
+        : `<br>方向：0°=正右、90°=正下，点画面即定`)
+    : `<br><span style="opacity:.6">正对镜头模式：不挑方向，JET_AIM / JET_SPREAD 不参与</span>`;
+  el('fxAimOut').innerHTML = orbLine + aimLine;
+}
+
+// 切动作时 @charge/@burst 是按动作分开存的，滑杆要跟着刷新
+function refreshFxParams() {
+  for (const row of el('fxparams').querySelectorAll('.row')) {
+    const k = row.dataset.k;
+    if (!k || k[0] !== '@') continue;
+    const v = PM.WaterFx.CUE[fxAnim][k.slice(1)];
+    row.querySelector('input').value = v;
+    row.querySelector('.val').textContent = v.toFixed(0);
+  }
+}
+
+el('fxPlay').onclick = () => { refreshFxParams(); fxPlay(); };
+el('fxBurst').onclick = () => fxScene && fxScene.burstOnly();
+document.querySelectorAll('[data-ts]').forEach(b => b.onclick = () => {
+  fxTs = +b.dataset.ts;
+  document.querySelectorAll('[data-ts]').forEach(x => x.classList.toggle('on', x === b));
+  fxPlay();
+});
+/* 两个标定模式互斥：同一次点击不能既是球心又是方向 */
+function setCalib(mode) {
+  fxOrbOn = mode === 'orb';
+  fxAimOn = mode === 'aim';
+  el('fxOrb').classList.toggle('on', fxOrbOn);
+  el('fxAim').classList.toggle('on', fxAimOn);
+  el('fxOrb').textContent = fxOrbOn ? '① 定球心中（点画面）' : '① 定球心（点画面）';
+  el('fxAim').textContent = fxAimOn ? '② 定方向中' : '② 定方向';
+  if (fxScene) { fxScene.mark.setVisible(fxOrbOn); fxScene.drawMark(); fxScene.drawAim(); }
+  reportAim();
+}
+el('fxOrb').onclick = () => setCalib(fxOrbOn ? null : 'orb');
+el('fxAim').onclick = () => setCalib(fxAimOn ? null : 'aim');
+
+// 帧滑杆：定球心时要停在**球真正出现的那一帧**上对位，不能拿末帧凑
+el('fxFrame').oninput = e => {
+  const f = +e.target.value;
+  el('fxFrameV').textContent = f;
+  if (!fxScene) return;
+  fxScene.stopLoop();
+  fxScene.char.anims.stop();
+  fxScene.char.setTexture(fxAnim, f);
+};
+el('fxOrbR').oninput = e => {
+  PM.WaterFx.ORB[fxAnim].r = +e.target.value;
+  el('fxOrbRV').textContent = e.target.value;
+  if (fxScene) fxScene.drawMark();
+  reportAim();
+};
+
+function setJetMode(m) {
+  PM.WaterFx.P.JET_MODE = m;
+  el('fxHeadOn').classList.toggle('on', m === 'camera');
+  el('fxCone').classList.toggle('on', m === 'cone');
+  if (fxScene) fxScene.drawAim();
+  reportAim();
+  fxPlay();
+}
+el('fxHeadOn').onclick = () => setJetMode('camera');
+el('fxCone').onclick = () => setJetMode('cone');
+el('fxReduced').onclick = () => {
+  fxReduced = !fxReduced;
+  el('fxReduced').classList.toggle('on', fxReduced);
+  fxPlay();
+};
+el('fxLoop').onclick = () => {
+  fxLoopOn = !fxLoopOn;
+  el('fxLoop').classList.toggle('on', fxLoopOn);
+  if (fxLoopOn) fxPlay(); else if (fxScene) fxScene.stopLoop();
+};
+el('fxBg').onclick = () => {
+  fxBgOn = !fxBgOn;
+  el('fxBg').classList.toggle('on', fxBgOn);
+  // 关背景 = 纯黑底看纯特效；开着才是真实对比度（半透明的蓝在黑底上会骗人）
+  if (fxScene) for (const b of fxScene.bg) b.setVisible(fxBgOn);
+};
+el('fxReset').onclick = () => {
+  Object.assign(PM.WaterFx.P, JSON.parse(JSON.stringify(FX_DEFAULT)));
+  Object.assign(PM.WaterFx.CUE, JSON.parse(JSON.stringify(FX_CUE_DEFAULT)));
+  Object.assign(PM.WaterFx.ORB, JSON.parse(JSON.stringify(FX_ORB_DEFAULT)));
+  buildFxParams(); syncFxAnimUI();
+  setJetMode(PM.WaterFx.P.JET_MODE);
+};
+
+/* 导出：只吐**与默认值不同**的那些，省得回填时对着 30 行大眼瞪小眼。 */
+el('fxExport').onclick = () => {
+  const lines = [];
+  for (const k of Object.keys(PM.WaterFx.P)) {
+    if (PM.WaterFx.P[k] !== FX_DEFAULT[k]) lines.push(`  ${k}: ${PM.WaterFx.P[k]},`);
+  }
+  const cues = [];
+  for (const a of Object.keys(PM.WaterFx.CUE)) {
+    const c = PM.WaterFx.CUE[a], d = FX_CUE_DEFAULT[a];
+    if (c.charge !== d.charge || c.burst !== d.burst) {
+      cues.push(`  ${a}: { charge: ${c.charge}, burst: ${c.burst} },`);
+    }
+  }
+  // 球心：三段各自比默认值，改过的才吐。这是要回填进 PM.WaterFx.ORB 的那几行
+  const orbs = [];
+  for (const k of Object.keys(PM.WaterFx.ORB)) {
+    const o = PM.WaterFx.ORB[k], d = FX_ORB_DEFAULT[k];
+    if (o.x !== d.x || o.y !== d.y || o.r !== d.r) {
+      orbs.push(`  ${k}: { x: ${o.x}, y: ${o.y}, r: ${o.r} },`);
+    }
+  }
+  // 落点单独报一行：JET_AIM 是从球心算的角度，脱离球心那个数没法复核
+  const aim = fxAimPoint
+    ? `// 瞄准落点（${fxAnim}，画布 900×720）: (${fxAimPoint.x}, ${fxAimPoint.y})\n` : '';
+  const out = (orbs.length ? '// → PM.WaterFx.ORB（单元格坐标 580×720）\n' + orbs.join('\n') + '\n' : '')
+            + aim
+            + (lines.length ? '// → PM.WaterFx.P\n' + lines.join('\n') + '\n' : '')
+            + (cues.length ? '// → PM.WaterFx.CUE\n' + cues.join('\n') + '\n' : '')
+            || '（没有任何参数被改动）';
+  // 剪贴板可能被权限挡掉（无头、非安全上下文）；文本照样落在下面的 caption 和 console 里
+  try { navigator.clipboard && navigator.clipboard.writeText(out).catch(() => {}); } catch (_) {}
+  el('fxcap').innerHTML = `<b>已复制</b><pre style="text-align:left;font-size:11px;color:#9fb6d6">${out}</pre>`;
+  console.log(out);
+};
+
+// 无头截图用：__fx.play('water_threat') / __fx.burst()
+window.__fx = {
+  enter: enterFx,
+  play: fxPlay,
+  burst: () => fxScene && fxScene.burstOnly(),
+  ready: () => !!fxScene,
+  scene: () => fxScene,
+  mark: on => fxScene && fxScene.mark.setVisible(on),
+  P: () => PM.WaterFx.P,
+
+  /* 逐帧连拍：录 ms 毫秒内**每一个渲染帧**（缩到 scale 倍存 PNG dataURL）。
+   * 无头下 rAF 只有 ~15fps，按墙钟去 sleep+截图会拍到一堆"还没开始/已经结束"，
+   * 时间轴根本对不上（返工两次的教训）。逐帧录就没有这个问题：
+   * 拍到的每一张都是真实渲染过的一帧，还带着它自己的场景时间戳。 */
+  rec(ms = 2600, scale = 0.5) {
+    const s = fxScene;
+    const src = fxGame.canvas;
+    const cv = document.createElement('canvas');
+    cv.width = src.width * scale; cv.height = src.height * scale;
+    const ctx = cv.getContext('2d');
+    const frames = [];
+    const t0 = s.time.now;
+    // postrender 是 **game** 级事件（Phaser.Core.Events），场景上没有这个事件；
+    // 挂到场景上收不到任何回调 —— 录出来是 0 帧
+    const on = () => {
+      ctx.drawImage(src, 0, 0, cv.width, cv.height);
+      frames.push({ t: Math.round(s.time.now - t0), png: cv.toDataURL('image/png') });
+      if (s.time.now - t0 > ms) fxGame.events.off('postrender', on);
+    };
+    fxGame.events.on('postrender', on);
+    window.__fxFrames = frames;
+    return true;
+  },
 };
 
 select('head_pat');
