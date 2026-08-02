@@ -58,6 +58,9 @@ window.PM = window.PM || {};
       anim: s.char?.anims?.currentAnim?.key ?? null,
       loaded: PM.loaded ? PM.loaded.size : 0,
       allLoaded: !!PM.allLoaded,
+      cameo: !!(s.cameo && s.cameo.visible),                 // 本场景有没有木桶（逐场景落位）
+      cameoOpen: !!s._cameoOpen,                             // 桶是开着的（他探着头）还是密封
+      cameoPlaying: !!(s.cameo && s.cameo.anims.isPlaying),  // 顶开/放下正在演
     };
   };
 
@@ -68,6 +71,15 @@ window.PM = window.PM || {};
     const s = stage();
     if (!s || !s.state) return null;
     return s.poke(regionId, gesture || 'tap');
+  };
+
+  /* 测试接缝：戳一下木桶（客串彩蛋）。两段式，一次调用只走一段（顶开或放下）。
+   * 返回这一下有没有生效——正在演/本场景没桶/图集还没到都是 false。
+   * 和 __poke 同一个理由：无头下合成指针事件不可靠，直调场景方法。
+   * 真实指针路径（命中框对不对得上）由截图目检，不由这条接缝证明。 */
+  window.__pokeCameo = function () {
+    const s = stage();
+    return s && s.pokeCameo ? s.pokeCameo() : false;
   };
 
   /* 测试接缝：直接切背景场景，绕过按钮和缩略图。

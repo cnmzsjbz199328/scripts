@@ -213,6 +213,86 @@ PM.StageScene = class StageScene extends Phaser.Scene {
       .setDepth(4);
   }
 
+  /* ── 客串：木桶里的男孩 ────────────────────────────────────
+   * 见 config.js 的 C.CAMEO 注释（为什么不进 ANIMS、为什么不挂在「戳空」上）。
+   *
+   * 懒建：图集排在后台批，create() 跑的时候贴图通常还没到。用 update() 里一句
+   * `PM.allLoaded` 轮询而不是挂 loader 事件 —— R 重来会重跑 create()，
+   * 挂事件就得记着摘，轮询没有这份负担（这条在 _onVis 那里已经踩过一次）。 */
+  _buildCameo() {
+    const C = PM.Config, K = C.CAMEO;
+    if (this.cameo || !this.textures.exists(K.KEY)) return;
+    // origin 落在【桶底】那条基线上：y 直接就是着地线，和角色锚靴底同一套思路，
+    // 改缩放不会让桶陷进地里或浮起来
+    /* 接地阴影：和她那团一个做法（复用 pm-halo 染黑）。不加的话桶是"贴"在地板上的——
+     * 素材本身按 SKILL 规范禁了阴影，接地一律在这边补。 */
+    this.cameoShadow = this.add.image(0, 0, 'pm-halo')
+      .setTint(0x000000)
+      .setDepth(K.DEPTH - 1);
+    this.cameo = this.add.sprite(0, 0, K.KEY, 0)
+      .setOrigin(0.5, K.BASE_Y / K.CELL_H)
+      .setDepth(K.DEPTH);
+    this._placeCameo();
+  }
+
+  // 当前场景的落位；表里没有这个场景 = 这里不放桶
+  _cameoPlace() { return PM.Config.CAMEO.PLACE[PM.Scenes.currentId] || null; }
+
+  /* 按当前场景摆位。**换场景后必须重调** —— 六套背景的地面线和透视各不相同，
+   * 沿用上一个场景的坐标就是把桶留在半空。没登记的场景直接隐藏。 */
+  _placeCameo() {
+    const C = PM.Config, K = C.CAMEO;
+    if (!this.cameo) return;
+    const p = this._cameoPlace();
+    /* 一律复位成密封态：换场景时如果他正开着，新场景里就会凭空出现一个已经打开的桶，
+     * 而玩家在这个场景里根本没点过它。两段式下"开着"是玩家保持的状态，
+     * 状态不该跨场景带走。 */
+    this.cameo.anims.stop();
+    this.cameo.setFrame(0);
+    this._cameoOpen = false;
+    this.cameo.setVisible(!!p);
+    this.cameoShadow.setVisible(!!p);
+    if (!p) return;
+    const cx = C.CHAR_X + p.X_OFF;
+    this.cameo.setPosition(cx, p.GROUND_Y).setScale(p.SCALE);
+    this.cameoShadow.setPosition(cx, p.GROUND_Y - 2)
+      .setDisplaySize((K.BOX_R - K.BOX_L) * p.SCALE * 1.25, 34 * p.SCALE)
+      .setAlpha(this.atmos.SHADOW_A * 0.8);
+  }
+
+  /* 桶的命中框（画布坐标）。四个边界全部由实测值 + 当前落位算，不写死像素 ——
+   * 改缩放/改位置/换素材时命中框自己跟着走，不会出现"看着在桶上却戳不到"。
+   * 用密封时的顶边 BOX_TOP 而不是探头时的：框按最小状态算，探出来的头在框外
+   * 也无所谓，玩家要戳的是桶。 */
+  _cameoRect() {
+    const C = PM.Config, K = C.CAMEO;
+    const p = this._cameoPlace();
+    if (!p) return null;
+    const cx = C.CHAR_X + p.X_OFF;
+    const halfW = (K.BOX_R - K.BOX_L) / 2 * p.SCALE + K.HIT_PAD;
+    const top = p.GROUND_Y - (K.BASE_Y - K.BOX_TOP) * p.SCALE - K.HIT_PAD;
+    return { x: cx - halfW, y: top, w: halfW * 2, h: p.GROUND_Y + K.HIT_PAD - top };
+  }
+
+  _hitCameo(x, y) {
+    if (!this.cameo || !this.cameo.visible) return false;
+    const r = this._cameoRect();
+    return !!r && x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h;
+  }
+
+  /* 戳桶 → 顶开 / 放下，**一次点击只走一段**，演完停在末帧等下一次点击。
+   * 返回这一下有没有生效（正在演的时候返回 false）。
+   * 刻意**不碰她的任何状态**：不加连击、不动情绪、不抢表演槽、不出声。
+   * 这是个背景彩蛋，抢戏就变成第二套玩法了——她才是主角。 */
+  pokeCameo() {
+    const K = PM.Config.CAMEO;
+    if (!this.cameo || !this.cameo.visible) return false;   // 本场景没登记落位 = 没有桶可戳
+    if (this.cameo.anims.isPlaying) return false;           // 演出中吞掉，这就是防连点的闸门
+    this._cameoOpen = !this._cameoOpen;
+    this.cameo.play(this._cameoOpen ? K.ANIM_OUT : K.ANIM_IN);
+    return true;
+  }
+
   /* 地面雾带（DESIGN §4.5 ① 的补完）：六条视频各自烘死的法阵样式/颜色对不齐，
    * 前景层解决不了 —— 素材法阵(y≈645~735)和靴子占的是同一块，前景盖到能遮住它的
    * 高度就会把靴子和 feet_tap / boot_show / leg_kick 三段动画一起遮掉，
@@ -454,6 +534,7 @@ PM.StageScene = class StageScene extends Phaser.Scene {
       this.atmos = PM.Scenes.atmos(scene);
       this._applySceneLayers(scene);
       this._applyAtmos();
+      this._placeCameo();     // 逐场景落位：换了地面就得重摆，否则桶留在上一个场景的地面线上
       this._switching = false;
       if (window.GameAudio) window.GameAudio.play('ui');
     };
@@ -725,7 +806,11 @@ PM.StageScene = class StageScene extends Phaser.Scene {
       const { fx, fy } = PM.Touch.toFrame(up.x, up.y);
       const region = PM.Touch.hitRegion(fx, fy, this._isBody);
       this._down = null;
-      if (region) this.poke(region, gesture);
+      if (region) { this.poke(region, gesture); return; }
+      /* 没命中她 → 再看是不是戳在桶上。顺序不能反：桶在她剪影之外，
+       * hitRegion 对那一块本来就返回 null，两套判定不会抢，
+       * 但先问她再问桶能保证「离她近的一下永远归她」。 */
+      this._hitCameo(up.x, up.y) && this.pokeCameo();
     });
 
     // B = background。用键盘也能开，桌面上比去够右上角快
@@ -1257,6 +1342,14 @@ PM.StageScene = class StageScene extends Phaser.Scene {
       g.fillRect(x, y, r.w * C.DRAW_W, r.h * C.DRAW_H);
       g.strokeRect(x, y, r.w * C.DRAW_W, r.h * C.DRAW_H);
     }
+    // 桶的命中框也画出来（换个颜色，一眼分得清是哪一套判定）
+    const b = this.cameo && this.cameo.visible ? this._cameoRect() : null;
+    if (b) {
+      g.lineStyle(2, 0xffc46e, 0.85);
+      g.fillStyle(0xffc46e, 0.12);
+      g.fillRect(b.x, b.y, b.w, b.h);
+      g.strokeRect(b.x, b.y, b.w, b.h);
+    }
   }
 
   _syncHud() {
@@ -1315,6 +1408,8 @@ PM.StageScene = class StageScene extends Phaser.Scene {
     this._drawCircle();
     this._updateParallax(delta);
     this._updateDust(delta);
+    // 客串图集在后台批，create() 时通常还没到 —— 到了就建，一次而已
+    if (!this.cameo && PM.allLoaded) this._buildCameo();
     if (this.showRegions) this._drawDebug();
   }
 };

@@ -474,6 +474,32 @@
       "loop": false,
       "status": "completed",
       "updated_at": "2026-07-30T12:14:12.403Z"
+    },
+    "rudeus_barrel": {
+      "frameSize": {
+        "width": 192,
+        "height": 208
+      },
+      "frameCount": 14,
+      "fps": 12,
+      "loop": false,
+      "status": "completed",
+      "segment": [
+        0,
+        null
+      ],
+      "updated_at": "2026-08-02T05:12:30.983Z"
+    },
+    "aurora_rudeus_peek": {
+      "frameSize": {
+        "width": 192,
+        "height": 208
+      },
+      "frameCount": 9,
+      "fps": 12,
+      "loop": false,
+      "status": "completed",
+      "updated_at": "2026-08-01T23:35:38.586Z"
     }
   },
   "frameSize": {

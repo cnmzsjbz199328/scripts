@@ -54,6 +54,35 @@ PM.BootScene = class BootScene extends Phaser.Scene {
     });
   }
 
+  /* 客串（木桶男孩）走自己的加载路径：单元格是 192×208，不是她的 580×720。
+   * 借 _loadAnim 会按 580×720 去切，出来是一堆错位的碎片而不是报错。 */
+  _loadCameo() {
+    const K = PM.Config.CAMEO;
+    this.load.spritesheet(K.KEY, `assets/anim/${K.KEY}.webp`, {
+      frameWidth: K.CELL_W, frameHeight: K.CELL_H,
+    });
+  }
+
+  /* 两段式：顶开 / 放下各一条，都是 once —— 演完停在末帧，就是当前状态的静止姿势
+   * （顶开停在探头，放下停在密封）。不用 yoyo：yoyo 是"一次点击自动一个来回"，
+   * 而这里要的是两次点击各管一段。
+   * 倒放那条【显式列帧】而不是 start>end —— generateFrameNumbers 的 start/end
+   * 不保证降序可用，列出来最省事也最没歧义。 */
+  _registerCameo() {
+    const K = PM.Config.CAMEO;
+    if (!this.textures.exists(K.KEY)) return;
+    const fwd = Array.from({ length: K.FRAMES }, (_, i) => i);
+    const back = fwd.slice().reverse();
+    for (const [key, list] of [[K.ANIM_OUT, fwd], [K.ANIM_IN, back]]) {
+      if (this.anims.exists(key)) continue;
+      this.anims.create({
+        key,
+        frames: this.anims.generateFrameNumbers(K.KEY, { frames: list }),
+        frameRate: K.FPS, repeat: 0,
+      });
+    }
+  }
+
   create() {
     const C = PM.Config;
     /* 素材身份自检（一段素材 = 一件事）。放在这里是因为它要读 REACTIONS/ANIMS 两张表，
@@ -90,10 +119,13 @@ PM.BootScene = class BootScene extends Phaser.Scene {
     }
     const rest = Object.keys(C.ANIMS).filter(n => !PM.loaded.has(n));
     for (const name of rest) this._loadAnim(name);
+    // 客串排在后台批：它是彩蛋，开局第一下用不上，没理由让它拖长开场白
+    this._loadCameo();
     if (!rest.length && !this.load.list.size && !this.load.totalToLoad) return;
 
     this.load.once('complete', () => {
       for (const name of rest) this._register(name);
+      this._registerCameo();
       PM.allLoaded = true;
     });
     this.load.start();
