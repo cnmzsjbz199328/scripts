@@ -1,0 +1,162 @@
+* { box-sizing: border-box; }
+html, body { width: 100%; height: 100%; }
+body {
+  margin: 0;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #05060d;
+  color: #f5f0df;
+  font-family: "Noto Sans SC", "Microsoft YaHei", system-ui, sans-serif;
+}
+button { font: inherit; }
+#game-wrapper {
+  position: relative;
+  width: 960px;
+  height: 576px;
+  flex: 0 0 auto;
+  overflow: hidden;
+  border: 1px solid #3a3457;
+  border-radius: 12px;
+  background: #070913;
+  box-shadow: 0 22px 80px #000c, 0 0 0 1px #f2c86e12;
+  transform-origin: center center;
+}
+#game-canvas { position: absolute; inset: 0; width: 960px; height: 576px; display: block; }
+.game-shell { position: absolute; inset: 0; padding: 12px 14px 14px; }
+.topbar { height: 46px; display: flex; align-items: center; justify-content: space-between; }
+.brand, .top-actions, .fighter-info, .hp-block, .panel-title, .score-strip { display: flex; align-items: center; }
+.brand { gap: 10px; }
+.brand-mark { width: 32px; height: 32px; display: grid; place-items: center; border: 1px solid #8c7442; background: linear-gradient(145deg, #32284a, #111426); transform: rotate(45deg); box-shadow: 0 0 22px #d5a83d22; }
+.brand-mark span { color: #f2c86e; font-size: 17px; transform: rotate(-45deg); }
+.brand h1 { margin: 0; color: #fff3cf; font: 600 18px Georgia, "Songti SC", serif; letter-spacing: .14em; }
+.brand p { margin: 2px 0 0; color: #797e99; font-size: 8px; letter-spacing: .24em; }
+.top-actions { gap: 7px; }
+.round-chip, .phase-chip { padding: 6px 9px; border: 1px solid #353957; border-radius: 999px; color: #a9afc5; font-size: 9px; letter-spacing: .13em; }
+.phase-chip { color: #f2c86e; border-color: #745f37; }
+.icon-button { width: 29px; height: 29px; border: 1px solid #4a4563; border-radius: 50%; color: #f2c86e; background: #14152a; cursor: pointer; font-size: 19px; line-height: 1; transition: .2s; }
+.icon-button:hover, .icon-button:focus-visible { border-color: #f2c86e; color: #fff2bd; transform: rotate(-35deg); outline: none; }
+.game-layout { height: calc(100% - 46px); display: grid; grid-template-columns: minmax(0, 1fr) 226px; gap: 12px; }
+.battle-table, .side-panel section { border: 1px solid #2d314b; background: linear-gradient(155deg, #161a30e8, #090c1af2); box-shadow: inset 0 1px #ffffff0c, 0 16px 34px #0005; }
+.battle-table { min-width: 0; overflow: hidden; position: relative; display: grid; grid-template-rows: 54px 190px 48px 26px 1fr; border-radius: 17px; }
+.battle-table::before { content: ""; position: absolute; inset: 74px 40px 110px; border: 1px solid #81704a20; border-radius: 50%; box-shadow: inset 0 0 70px #6e5ccc16; pointer-events: none; }
+.player-row { position: relative; z-index: 2; min-width: 0; padding: 8px 14px; gap: 10px; border-bottom: 1px solid #272c43; }
+.self-row { border-top: 1px solid #272c43; border-bottom: 0; }
+.fighter-info { min-width: 140px; gap: 8px; }
+.avatar { width: 32px; height: 32px; display: grid; place-items: center; flex: 0 0 auto; border: 1px solid #bea45e; border-radius: 50%; color: #f2c86e; background: #28223a; font-size: 8px; font-weight: 800; letter-spacing: .06em; transition: transform .18s; transform: translateX(calc(var(--cursor-x, 0) * 1px)); }
+.enemy-avatar { color: #b8c6ff; border-color: #6474ab; background: #202a45; transform: none; }
+.fighter-info span { display: block; color: #7f879f; font-size: 9px; }
+.fighter-info strong { display: block; margin-top: 1px; color: #ece9dd; font-size: 11px; }
+.hp-block { gap: 7px; }
+.hp { display: flex; gap: 3px; }
+.hp-block small { color: #747b94; font-size: 8px; white-space: nowrap; }
+.heart-icon { font-size: 14px; line-height: 1; transition: .35s; }
+.heart-icon.alive { color: #ef5570; filter: drop-shadow(0 0 6px #ef557077); }
+.heart-icon.lost { color: #33384c; transform: scale(.82); }
+.score-block { margin-left: auto; color: #777f9d; font-size: 8px; }
+.score-block strong { margin-left: 4px; color: #f2c86e; font: 700 14px Georgia, serif; }
+.deck-count { margin-left: auto; color: #777f9d; font-size: 8px; white-space: nowrap; }
+.enemy-deck { display: flex; flex-direction: row-reverse; padding-right: 10px; }
+.enemy-deck .card-back { width: 22px; height: 32px; margin-right: -11px; border-radius: 4px; }
+.enemy-deck .card-back span { font-size: 9px; }
+.arena { position: relative; z-index: 1; min-width: 0; padding: 13px 12px 5px; display: flex; align-items: center; justify-content: center; }
+.intent-panel { position: absolute; top: 8px; left: 50%; z-index: 3; min-width: 190px; padding: 5px 12px; text-align: center; border: 1px solid #373d59; border-radius: 999px; background: #101429dd; box-shadow: 0 5px 15px #0004; transform: translateX(-50%); }
+.intent-panel span, .intent-panel small { display: block; color: #7f879f; font-size: 8px; }
+.intent-panel strong { display: block; margin: 1px 0; color: #e4e8fa; font-size: 11px; }
+.duel-stage { width: 100%; display: grid; grid-template-columns: 94px minmax(140px, 1fr) 94px; align-items: center; justify-content: center; gap: 22px; margin-top: 16px; }
+.played-card { position: relative; width: 94px; aspect-ratio: 5 / 7; filter: drop-shadow(0 14px 15px #0009); }
+.enemy-played { transform: rotate(-4deg); }
+.player-played { transform: rotate(4deg); }
+.has-result .played-card { animation: reveal .42s cubic-bezier(.2,.8,.2,1); }
+.impact-zone { min-height: 98px; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+.impact-zone .versus { color: #646c88; font: 700 25px Georgia, serif; }
+.impact-zone strong { color: #ffe7a5; font: 600 22px Georgia, "Songti SC", serif; text-shadow: 0 0 20px #f0b83c66; }
+.impact-zone small { max-width: 150px; margin-top: 5px; color: #8e96aa; font-size: 9px; line-height: 1.35; }
+.outcome-win .impact-zone strong { color: #ffe7a5; }
+.outcome-lose .impact-zone strong { color: #ff9dad; }
+.outcome-tie .impact-zone strong { color: #d4d7e0; }
+.score-badge { position: absolute; right: -11px; top: -11px; z-index: 8; width: 34px; height: 34px; display: grid; place-items: center; border: 1px solid #f7d88c; border-radius: 50%; background: #171226; color: #fff3bd; font: 700 15px Georgia, serif; box-shadow: 0 0 20px #f3c96555; }
+.empty-card { width: 100%; height: 100%; display: grid; place-content: center; justify-items: center; gap: 2px; color: #5a6078; border: 1px dashed #444b68; border-radius: 10px; background: #15192a66; }
+.empty-card span { font-size: 25px; }
+.empty-card small { font-size: 8px; }
+.hand-label { position: relative; z-index: 2; padding: 2px 15px 0; display: flex; align-items: center; justify-content: space-between; border-top: 1px solid #272c43; }
+.hand-label span { color: #dfe0e8; font-size: 10px; font-weight: 700; }
+.hand-label span b { color: #f2c86e; font-size: 9px; }
+.hand-label small { color: #777f9d; font-size: 8px; }
+.hand { position: relative; z-index: 2; min-height: 0; padding: 4px 12px 12px; display: flex; align-items: end; justify-content: center; gap: 9px; overflow: hidden; }
+.hand-card { width: 96px; min-width: 0; aspect-ratio: 5 / 7; padding: 0; border: 0; border-radius: 10px; color: inherit; background: none; cursor: pointer; transform-origin: center bottom; transition: transform .22s, filter .22s; }
+.hand-card:hover:not(:disabled), .hand-card:focus-visible:not(:disabled) { transform: translateY(-10px) scale(1.035); filter: drop-shadow(0 15px 16px #000b); outline: none; }
+.hand-card:focus-visible .card-face, .hand-card.selected .card-face { box-shadow: 0 0 0 2px #f2c86e, inset 0 0 0 3px #ffffff66; }
+.hand-card.selected { transform: translateY(-5px); }
+.hand-card:disabled { cursor: default; }
+.card-face, .card-back { position: relative; width: 100%; height: 100%; overflow: hidden; border: 1px solid #646b83; border-radius: 10px; background: linear-gradient(155deg, #f4f0e4, #cfc8ba); color: #171522; box-shadow: inset 0 0 0 2px #ffffff66; }
+.card-face::after { content: ""; position: absolute; inset: 4px; pointer-events: none; border: 1px solid #4d465833; border-radius: 7px; }
+.card-corner { position: absolute; z-index: 5; top: 6px; left: 7px; display: flex; flex-direction: column; align-items: center; font-family: Georgia, serif; line-height: .9; }
+.card-corner strong { font-size: 12px; }
+.card-corner span { font-size: 12px; }
+.media-slot { position: absolute; inset: 21px 7px 34px; display: grid; place-items: center; overflow: hidden; border-radius: 6px; background: radial-gradient(circle at 50% 35%, #706791, #25233a 70%); color: #d9d3e8; }
+.media-slot::before, .media-slot::after { content: ""; position: absolute; width: 80%; aspect-ratio: 1; border: 1px solid #ffffff20; transform: rotate(45deg); animation: orbit 8s linear infinite; }
+.media-slot::after { width: 55%; animation-direction: reverse; animation-duration: 5s; }
+.media-initial { z-index: 2; font: 500 34px Georgia, "Songti SC", serif; opacity: .8; text-shadow: 0 0 20px #fff5; }
+.media-status { position: absolute; z-index: 3; bottom: 4px; padding: 2px 4px; border: 1px solid #ffffff22; border-radius: 999px; background: #0d102080; color: #c7c4d2; font-size: 6px; letter-spacing: .04em; }
+.card-copy { position: absolute; z-index: 4; left: 8px; right: 8px; bottom: 7px; }
+.card-copy strong, .card-copy span { display: block; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.card-copy strong { font-size: 8px; }
+.card-copy span { margin-top: 1px; color: #625e6b; font-size: 6px; }
+.card-sigil { position: absolute; top: 6px; right: 7px; z-index: 4; font: 14px Georgia, serif; opacity: .8; }
+.suit-heart, .suit-diamond { color: #a4213c; }
+.suit-spade .media-slot { background: radial-gradient(circle at 50% 35%, #53637d, #202535 70%); }
+.suit-heart .media-slot { background: radial-gradient(circle at 50% 35%, #a15e76, #3c2130 70%); }
+.suit-diamond .media-slot { background: radial-gradient(circle at 50% 35%, #965a66, #39222d 70%); }
+.suit-club .media-slot { background: radial-gradient(circle at 50% 35%, #568075, #1f3633 70%); }
+.joker-dragon { background: linear-gradient(145deg, #262735, #0d0e14); color: #f1e4bf; border-color: #ac9768; }
+.joker-human { background: linear-gradient(145deg, #ebe1f7, #afa1cc); color: #2c1c3e; border-color: #a989d2; }
+.joker-dragon .media-slot { background: radial-gradient(circle, #b7a67b, #30313b 38%, #0b0c10 75%); }
+.joker-human .media-slot { background: radial-gradient(circle, #d8c8ff, #604982 40%, #251a35 75%); }
+.joker-dragon .card-copy span, .joker-human .card-copy span { color: currentColor; opacity: .68; }
+.card-face.compact .media-status { display: none; }
+.card-back { display: grid; place-items: center; color: #e6c978; border-color: #5e526f; background: repeating-linear-gradient(45deg, #1e2038 0 7px, #282341 7px 14px); box-shadow: inset 0 0 0 3px #131526, inset 0 0 0 4px #9f895755; }
+.card-back::before { content: ""; position: absolute; inset: 9%; border: 1px solid #ab925f77; border-radius: 7px; transform: rotate(2deg); }
+.card-back span { font: 700 20px Georgia, serif; text-shadow: 0 0 14px #e5bd5c88; }
+.card-back.muted { opacity: .12; }
+.side-panel { min-width: 0; display: grid; grid-template-rows: 1.3fr auto 1fr auto; gap: 9px; }
+.side-panel section { border-radius: 13px; }
+.rule-card { padding: 13px; }
+.panel-title { gap: 7px; }
+.panel-glyph { color: #e4bf67; font-size: 17px; }
+.side-panel h2 { margin: 0; color: #ebe5d7; font-size: 12px; }
+.rule-card ol { margin: 13px 0 0; padding: 0; list-style: none; counter-reset: rule; }
+.rule-card li { position: relative; margin: 0 0 11px; padding-left: 25px; counter-increment: rule; }
+.rule-card li::before { content: counter(rule); position: absolute; left: 0; top: -1px; width: 18px; height: 18px; display: grid; place-items: center; border: 1px solid #75684a; border-radius: 50%; color: #e5c36f; font-size: 8px; }
+.rule-card li b, .rule-card li span { display: block; }
+.rule-card li b { color: #d9d9df; font-size: 9px; line-height: 1.45; }
+.rule-card li span { margin-top: 1px; color: #7f879f; font-size: 8px; line-height: 1.35; }
+.rule-card i { font-style: normal; color: #d7dce9; }
+.rule-card i.heart, .rule-card i.diamond { color: #ef627c; }
+.joker-note { padding: 10px 13px; border-color: #5a4d3344 !important; background: linear-gradient(145deg, #211b28, #111321) !important; }
+.joker-note strong { color: #e6c672; font: 9px Georgia, serif; letter-spacing: .18em; }
+.joker-note p { margin: 6px 0 0; color: #8f96aa; font-size: 8px; line-height: 1.4; }
+.joker-note p b { color: #d8d4c9; }
+.battle-log-card { min-height: 0; padding: 12px; overflow: hidden; }
+.battle-log-card > div:last-child { margin-top: 7px; }
+.battle-log-card p { margin: 0; padding: 6px 0; border-bottom: 1px solid #242940; color: #686f87; font-size: 8px; line-height: 1.35; }
+.battle-log-card p.latest { color: #c8cbd7; }
+.score-strip { min-height: 28px; justify-content: center; gap: 6px; border: 1px solid #5d4d30; border-radius: 10px; color: #8e8a7d; background: #1b1723cc; font-size: 8px; }
+.score-strip strong { color: #f2c86e; font: 700 14px Georgia, serif; }
+.score-strip em { color: #65657a; font-style: normal; }
+.game-overlay { position: absolute; inset: 0; z-index: 20; display: flex; align-items: center; justify-content: center; padding: 20px; background: #050711d9; backdrop-filter: blur(7px); }
+.overlay-card { width: 470px; padding: 28px 34px; text-align: center; border: 1px solid #6f5e3c; border-radius: 18px; background: radial-gradient(circle at 50% 0, #3b3058, #111425 58%); box-shadow: 0 25px 70px #000, inset 0 1px #fff2; }
+.overlay-kicker { color: #9c88be; font-size: 8px; letter-spacing: .27em; }
+.overlay-card h2 { margin: 10px 0 7px; color: #ffe4a0; font: 700 39px Georgia, "Songti SC", serif; text-shadow: 0 0 28px #e8bb5366; }
+.overlay-card .tagline { margin: 0 0 14px; color: #e2c87e; font: italic 13px Georgia, "Songti SC", serif; }
+.overlay-card .story-setting { margin: 0 0 20px; color: #a3a6b8; font-size: 10px; line-height: 1.8; }
+.controls-hint { margin: 14px 0 0; color: #737991; font-size: 8px; }
+.game-btn { padding: 10px 30px; border: 1px solid #d6b764; border-radius: 7px; color: #241b25; background: linear-gradient(135deg, #f5d782, #c8943e); box-shadow: 0 6px 22px #d3a84433; cursor: pointer; font-size: 11px; font-weight: 800; letter-spacing: .1em; transition: transform .16s, box-shadow .16s; }
+.game-btn:hover, .game-btn:focus-visible { transform: translateY(-2px); box-shadow: 0 10px 28px #d3a84466; outline: none; }
+.gameover-card h2.win { color: #ffe4a0; }
+.gameover-card h2.lose { color: #ff9dad; }
+.gameover-card h2.tie { color: #d9dce6; }
+@keyframes reveal { from { opacity: 0; transform: rotateY(80deg) scale(.8); } to { opacity: 1; transform: rotateY(0) scale(1); } }
+@keyframes orbit { to { transform: rotate(405deg); } }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; } }

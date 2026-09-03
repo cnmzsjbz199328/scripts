@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="三招决胜：观察技能类型，用克制、连携和 Joker 赢下五轮牌局。">
+  <title>三招决胜 · Dynamic Card Duel</title>
+  <link rel="stylesheet" href="game/styles.css">
+</head>
+<body>
+  <div id="game-wrapper">
+    <canvas id="game-canvas" width="1920" height="1152" aria-hidden="true"></canvas>
+    <main class="game-shell">
+      <header class="topbar">
+        <div class="brand">
+          <div class="brand-mark" aria-hidden="true"><span>⚔</span></div>
+          <div><h1>三招决胜</h1><p>DYNAMIC CARD DUEL</p></div>
+        </div>
+        <div class="top-actions">
+          <span class="round-chip" id="round-value">ROUND 1 / 5</span>
+          <span class="phase-chip" id="phase-value">准备中</span>
+          <button class="icon-button" id="reset-btn" type="button" aria-label="重新开始">↻</button>
+        </div>
+      </header>
+
+      <div class="game-layout">
+        <section class="battle-table" id="battle-table" aria-label="卡牌对决区">
+          <div class="player-row enemy-row">
+            <div class="fighter-info"><div class="avatar enemy-avatar">AI</div><div><span>对手</span><strong>迷雾旅人</strong></div></div>
+            <div class="hp-block"><div class="hp" id="enemy-hp" aria-label="对手生命"></div><small id="enemy-hp-value">3 / 3</small></div>
+            <div class="deck-count"><span id="enemy-count">5</span> 张</div>
+            <div class="enemy-deck" id="enemy-deck" aria-label="对手剩余手牌"></div>
+          </div>
+
+          <div class="arena">
+            <div class="intent-panel"><span>对手正在准备</span><strong id="enemy-intent">—</strong><small id="intent-caption">角色与点数将在翻牌时揭晓</small></div>
+            <div class="duel-stage" id="duel-stage">
+              <div class="played-card enemy-played" id="enemy-played"><div class="card-back"><span>Ⅲ</span></div></div>
+              <div class="impact-zone"><span class="versus" id="impact-headline">VS</span><small id="impact-detail">从手牌中选择一张应对</small></div>
+              <div class="played-card player-played" id="player-played"><div class="empty-card"><span>+</span><small>你的出牌</small></div></div>
+            </div>
+          </div>
+
+          <div class="player-row self-row">
+            <div class="fighter-info"><div class="avatar player-avatar">YOU</div><div><span>玩家</span><strong>冒险者</strong></div></div>
+            <div class="hp-block"><div class="hp" id="player-hp" aria-label="玩家生命"></div><small id="player-hp-value">3 / 3</small></div>
+            <div class="score-block">累计得分 <strong id="score-value">0</strong></div>
+          </div>
+
+          <div class="hand-label"><span>你的手牌 <b id="hand-count">5</b></span><small id="action-hint">点击一张牌立即出牌 · A/D 选择 · J/空格确认</small></div>
+          <div class="hand" id="player-hand" aria-label="你的手牌"></div>
+        </section>
+
+        <aside class="side-panel" aria-label="规则与战斗记录">
+          <section class="rule-card">
+            <div class="panel-title"><span class="panel-glyph">◎</span><h2>只记住三件事</h2></div>
+            <ol>
+              <li><b>数字越大越强</b><span>克制时获得额外点数</span></li>
+              <li><b><i class="heart">♥</i> 克 <i>♠</i> 克 <i>♣</i> 克 <i class="diamond">♦</i> 克 <i class="heart">♥</i></b><span>未相邻的类型直接比点数</span></li>
+              <li><b>连续使用同一角色 +2</b><span>同角色反制触发完美反制 +5</span></li>
+            </ol>
+          </section>
+          <section class="joker-note"><strong>JOKER</strong><p><b>龙神</b>：15 点，不受普通克制。</p><p><b>人神</b>：复制对手的牌面与类型，并 +1。</p></section>
+          <section class="battle-log-card"><div class="panel-title"><span class="panel-glyph">✧</span><h2>战斗记录</h2></div><div id="battle-log"></div></section>
+          <div class="score-strip"><span>本招得分</span><strong id="round-score">—</strong><em>:</em><strong id="enemy-round-score">—</strong><span>对手</span></div>
+        </aside>
+      </div>
+    </main>
+
+    <div id="start-screen" class="game-overlay">
+      <div class="overlay-card">
+        <div class="overlay-kicker">A FIVE-ROUND CARD DUEL</div>
+        <h2>三招决胜</h2>
+        <p class="tagline">看穿花色，读懂命运，在五轮之内赢下对决。</p>
+        <p class="story-setting">迷雾旅人把五张牌扣在桌上。每一张牌都是一个角色、一个技能类型，和一条可能改变战局的命运线。<br>用克制拿分，用连携滚雪球，把两张 Joker 留给真正需要的时刻。</p>
+        <button id="start-btn" class="game-btn" type="button">▶ 开始对决</button>
+        <p class="controls-hint">点击手牌出牌　·　A / D 或 ← → 选择　·　J / 空格确认　·　R 重开</p>
+      </div>
+    </div>
+
+    <div id="gameover-screen" class="game-overlay" style="display:none">
+      <div class="overlay-card gameover-card">
+        <div class="overlay-kicker">DUEL COMPLETE</div>
+        <h2 id="gameover-title">胜利</h2>
+        <p id="gameover-message" class="story-setting"></p>
+        <button id="restart-btn" class="game-btn" type="button">↻ 再来一局</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Static, ordered scripts: data → systems → renderer → scenes → controller. -->
+  <script src="game/config.js"></script>
+  <script src="game/data.js"></script>
+  <script src="game/state.js"></script>
+  <script src="game/systems/deck.js"></script>
+  <script src="game/systems/duel.js"></script>
+  <script src="game/systems/effects.js"></script>
+  <script src="game/render.js"></script>
+  <script src="game/scenes/BootScene.js"></script>
+  <script src="game/scenes/DuelScene.js"></script>
+  <script src="game/main.js"></script>
+  <script>
+    (function () {
+      var W = 960, H = 576, wrap = document.getElementById('game-wrapper');
+      function fit() {
+        if (!wrap) return;
+        var scale = Math.min(window.innerWidth / W, window.innerHeight / H, 1);
+        wrap.style.transform = 'scale(' + scale + ')';
+      }
+      window.addEventListener('resize', fit);
+      window.addEventListener('orientationchange', fit);
+      fit();
+    })();
+  </script>
+</body>
+</html>

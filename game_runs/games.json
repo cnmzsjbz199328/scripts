@@ -1,5 +1,19 @@
 [
   {
+    "id": "ThreeMoves",
+    "title": "三招决胜 (ThreeMoves)",
+    "tagline": "观察对手的技能类型，用克制、连携与 Joker 赢下五轮牌局。",
+    "gameType": "card-duel",
+    "genre": "CARD DUEL",
+    "accent": "#f2c86e",
+    "previewBg": "#070913",
+    "icon": "⚔️",
+    "thumbnail": null,
+    "previewVideo": "ThreeMoves/preview.mp4",
+    "path": "ThreeMoves/index.html",
+    "createdAt": "2026-09-03T00:00:00.000Z"
+  },
+  {
     "id": "PokeMood",
     "title": "神 洛琪希 (PokeMood)",
     "tagline": "戳头、戳肚子、戳她的魔杖——反复招惹，她会从害羞一路生气到哭，然后泼你一身水。",
