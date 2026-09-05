@@ -1,0 +1,366 @@
+# 三招决胜：连续帧图片角色动作迁移计划
+
+状态：待执行，作为新的素材生产基线
+
+更新日期：2026-09-05
+
+适用范围：`game_runs/ThreeMoves/` 的角色基础图与四类动作素材
+
+本计划取代“独立视频生成 + 分段 + Extend + video-sprite”的角色动作生产路线。它只负责素材生产、处理、审查和交接，不修改游戏玩法代码。
+
+## 1. 已确认的需求与决策
+
+### 1.1 用户目标
+
+当前目标不是继续修复已有视频，而是改用连续帧图片生成一套动作：
+
+```text
+可靠的原始角色基准图
+    -> 一次生成一张 3×3、9 帧连续动作图
+    -> char-sprite 抠绿、切帧、装配
+    -> 逐帧审查对齐和边缘
+    -> 通过后接入游戏
+```
+
+这样做的目的有三点：
+
+1. 用一张连续帧图表达完整动作，减少独立视频之间的人物漂移。
+2. 通过固定的 9 帧顺序直接掌握动作时间节点。
+3. 将抠绿、切帧和最终透明化集中到统一流水线，避免处理结果反过来污染生成参考。
+
+### 1.2 新的硬性原则
+
+- 生成参考只能使用未抠图、未裁切、未缩放、未经过 `char-sprite` 或 `video-sprite` 的原始角色图。
+- 透明 PNG、抠绿 PNG、精灵帧、图集和游戏部署图都属于派生结果，不能作为 AI 角色参考。
+- 每个动作使用一张 3×3 网格图，按从左到右、从上到下排列 9 个连续帧。
+- 9 个单元格必须使用相同的镜头、画布、角色比例、人物朝向和构图规则。
+- 人物脚底、身体主轴和画面中心要保持稳定；动作造成的肢体伸展可以变化，但不能产生镜头级横移或缩放。
+- 背景统一为纯绿 `#00FF00`，网格线使用深绿 `#006600`，不使用黑色分隔线，不添加投影。
+- 只有生成完成后才执行抠绿和切帧。透明输出不得回灌到后续生成。
+- 先做鲁迪的单个动作试验，试验通过后再扩展四个动作，最后再批量处理其他角色。
+
+## 2. 对旧方案和旧信息的清理
+
+这里的“清理”首先是清理生产语义和使用边界，不是立即删除文件。现有文件可能仍需用于对比、追溯或回滚，因此默认保留。
+
+### 2.1 旧视频路线降级为归档对照物
+
+以下内容不再作为新动作素材的生产来源，也不再作为质量合格的基准：
+
+- `video_runs/ThreeMoves/source/` 下鲁迪的 Veo/Flow 视频。
+- `video_runs/ThreeMoves/other_characters/` 下其他角色的视频。
+- `video_runs/ThreeMovesOther/` 下由旧视频拆出的动画结果。
+- Flow 中使用 Extend 连接动作片段的实验结果。
+- 旧视频的 `manifest.json` 中标记为 completed 的结果。
+
+保留原因：这些文件可用于确认“人物偏移为何不可接受”、比较新旧路线，或在用户明确要求时恢复旧版本。它们不应直接复制到 `game_runs/ThreeMoves/assets/media/` 作为新的最终动作资源。
+
+### 2.2 旧基准图的分类
+
+目前鲁迪相关文件已按以下方式分类：
+
+| 文件 | 分类 | 新方案是否可作生成参考 |
+|---|---|---:|
+| `char_runs/ThreeMoves/Rudeus/source/Rudeus_base.png` | 原始候选源，1086×1448，RGB，无透明通道 | 可以，先做视觉确认 |
+| `char_runs/ThreeMoves/Rudeus/reference/frame_0.png` | `char-sprite` 处理后的 192×208 RGBA 帧 | 不可以 |
+| `game_runs/ThreeMoves/assets/media/characters/Rudeus_base.png` | 与上一个文件相同的部署派生图 | 不可以 |
+| `char_runs/ThreeMoves/Rudeus/output/` | 精灵图及元数据输出目录 | 不可以 |
+
+旧的 `reference/frame_0.png` 与游戏目录中的 `Rudeus_base.png` 已确认是同一个派生文件。它们可能已经适合游戏显示，但不适合作为 AI 参考；边缘的抗锯齿、绿幕残留或透明化痕迹可能被模型重新生成。
+
+### 2.3 Git 和工作区清理边界
+
+当前工作区存在用户已有修改和未跟踪素材，包括：
+
+- `game_runs/ThreeMoves/index.html`、`game_runs/ThreeMoves/game/styles.css` 的已有修改。
+- `game_runs/ThreeMoves/assets/media/` 下已有角色和 Joker 资源。
+- `video_runs/ThreeMoves/`、`video_runs/ThreeMovesOther/` 以及其他视频产物。
+
+执行本计划时：
+
+- 不执行 `git reset`、`git checkout`、递归删除或批量覆盖。
+- 不删除旧视频、旧 manifest 或旧游戏资源。
+- 新试验先使用隔离目录和明确的 `pilot` 命名。
+- 只有验收通过后，才将最终产物复制到正式媒体目录。
+- 若需要真正删除旧文件，必须另行确认删除范围和可恢复方式。
+
+### 2.4 对旧质量结论的处理
+
+旧视频中曾出现角色位置、人物大小和身份一致性问题；旧的偏移统计只能作为失败案例，不能作为新方案的验收基准。包括曾被标记为偏移候选的其他角色，在新图片帧路线完成前不作最终质量结论。
+
+## 3. 新的目录与命名方案
+
+### 3.1 试验阶段目录
+
+为避免覆盖已有 `ThreeMoves/Rudeus` 记录，第一轮使用隔离目录：
+
+```text
+char_runs/
+  ThreeMovesImagePilot/
+    Rudeus/
+      source/
+        Rudeus_base.png       # 只读原始参考副本
+        attack_grid.png       # Flow 生成的 3×3 动作图
+      reference/              # 仅保存流水线产生的透明参考帧
+      rows/
+        attack/               # 9 个最终帧
+      output/
+        spritesheet.webp
+        char.json
+      manifest.json
+```
+
+试验不使用 `video_runs`，也不把生成的图片放在 `game_runs/ThreeMoves/assets/media/` 中直接覆盖旧资源。
+
+### 3.2 验收后的正式目录
+
+鲁迪试验通过后，正式素材仍按项目约定归档到：
+
+```text
+char_runs/ThreeMoves/Rudeus/
+  source/
+    Rudeus_base.png
+    attack_grid.png
+    guard_grid.png
+    ability_grid.png
+    special_grid.png
+  rows/
+    attack/frame_0.png ... frame_8.png
+    guard/frame_0.png ... frame_8.png
+    ability/frame_0.png ... frame_8.png
+    special/frame_0.png ... frame_8.png
+  output/
+    spritesheet.webp
+    char.json
+  manifest.json
+```
+
+最终接入游戏时，才将验收后的图集、元数据和注册信息同步到：
+
+```text
+game_runs/ThreeMoves/assets/media/characters/
+game_runs/ThreeMoves/assets/media/registry.js
+```
+
+## 4. 第一阶段：鲁迪原始基准图审计
+
+### 4.1 文件审计
+
+先确认 `char_runs/ThreeMoves/Rudeus/source/Rudeus_base.png`：
+
+- 是原始未抠图版本，而不是从透明帧反向导出的版本。
+- 人物身份特征完整：发型、脸、服装、法杖/武器和主色没有被裁掉。
+- 人物完整出现在画面内，头顶、脚部和左右肢体没有贴边。
+- 背景和人物边缘没有明显的绿幕污染、黑色描边或透明孔洞。
+- 画面比例、朝向和希望用于游戏的显示姿态符合当前基础角色设计。
+
+### 4.2 参考图保全
+
+确认后，将原始源作为只读基准；可以复制到试验目录，但不能使用以下文件替代它：
+
+- `reference/frame_0.png`。
+- `rows/*/frame_*.png`。
+- `output/spritesheet.webp`。
+- 游戏媒体目录中的缩小图。
+- 任意旧视频截图或旧视频切帧。
+
+如果视觉检查发现源文件本身已经带有绿幕或边缘污染，则先修复/重新取得原始图，并重新做审计；不直接进入动作生成。
+
+## 5. 第二阶段：建立 char-sprite 试验工程
+
+使用项目已有的 `char-sprite` 流程，不手工切帧：
+
+```powershell
+npx tsx skills/char-sprite/prepare.ts "ThreeMovesImagePilot/Rudeus" --anims=attack --fps=8
+npx tsx skills/char-sprite/process.ts "ThreeMovesImagePilot/Rudeus" attack "<path-to-attack_grid.png>"
+npx tsx skills/char-sprite/assemble.ts "ThreeMovesImagePilot/Rudeus"
+```
+
+流水线固定输出：
+
+- 每帧 `192×208` 像素。
+- 每个动作 9 帧。
+- 默认播放速率 8 fps；动作节奏需要调整时，在 manifest 中按动作调整，不改动源图的网格结构。
+- 通过纯绿/深绿识别完成透明化。
+- 输出透明 PNG 帧、WebP 图集和 `char.json`。
+
+注意：`process.ts` 的抠绿只在生成结果进入处理阶段后执行。不能为了“先看看效果”把处理后的帧再次上传到 Flow。
+
+## 6. 第三阶段：在 Flow 生成鲁迪的第一张动作图
+
+### 6.1 Flow 操作原则
+
+在 Flow 中：
+
+
+1. 使用当前项目中的原始参考图，而不是游戏目录中的小尺寸透明图。
+2. 选择图片生成/连续帧图片路线，不使用 Veo 视频生成、不使用 Extend。
+3. 第一轮只生成 `attack_grid.png`，不同时批量生成四个动作。
+4. 每次重试都继续使用同一份原始参考图，不把上一次生成结果作为参考。
+5. 下载原始生成图后再交给本地 `char-sprite`，不要在 Flow 中预先抠绿或裁成单帧。
+
+### 6.2 动作网格要求
+
+第一轮 `attack` 采用以下 9 帧逻辑，允许模型在帧间自然过渡，但不允许改变镜头和人物根位置：
+
+| 帧 | 动作职责 |
+|---:|---|
+| 0 | 稳定待机/动作起始姿势 |
+| 1 | 轻微蓄力 |
+| 2 | 蓄力加强，身体主轴保持稳定 |
+| 3 | 起手 |
+| 4 | 攻击接触或主要命中姿态 |
+| 5 | 动作峰值/武器或手臂完全展开 |
+| 6 | 收势 |
+| 7 | 回收至待机 |
+| 8 | 稳定待机，作为衔接尾帧 |
+
+最后 1～2 帧必须回到稳定待机，以便动作结束后接回角色基础状态。动作的实际播放时长通过 fps 或游戏播放策略控制，不通过重新生成独立视频来拼接。
+
+### 6.3 提示词模板
+
+提示词以项目视觉规范为准，核心约束如下；具体招式描述可在不改变结构的情况下替换：
+
+```text
+Using the original unprocessed Rudeus character reference, create one 3x3 sprite sheet
+with 9 sequential full-body animation frames for a front-facing magical attack.
+Read the frames left to right, top to bottom: idle start, anticipation, wind-up,
+attack start, contact pose, peak follow-through, recovery, return to idle, stable idle.
+
+Keep the exact same character identity, outfit, hair, proportions, camera angle,
+canvas framing, body scale, feet baseline, and lighting across all 9 cells.
+The character stays centered in each cell; only the action pose changes.
+Show the complete body with generous margins. Use a pure green background #00FF00.
+Use thin solid dark green grid separators #006600 between the 3x3 cells.
+No shadows, no scenery, no camera movement, no zoom, no extra characters,
+no text, no cropped limbs, no black grid lines, no transparency artifacts.
+```
+
+若生成结果包含背景、摄影机变化、人物重新设计、单元格数量错误、网格线颜色错误或帧间跳变，则整张图退回，不进入切帧阶段。
+
+## 7. 第四阶段：试验结果处理与质量审查
+
+### 7.1 自动检查
+
+处理完成后检查：
+
+- 是否产生完整的 9 个帧文件。
+- 每帧是否为 `192×208`。
+- `manifest.json` 的动作名、帧数、fps 和输出路径是否一致。
+- 图集的行顺序是否为 `attack`，没有混入旧动作。
+- 透明区域是否真的透明，而不是白色、黑色或残留绿色。
+- 是否存在异常小连通域、孤立背景块或网格线残留。
+
+### 7.2 人工视觉审查
+
+以棋盘背景或深色背景预览 9 帧，重点检查：
+
+- 脸部、头发、服装和法杖是否保持鲁迪身份。
+- 人物整体高度是否突然放大或缩小。
+- 头顶、肩部、躯干中心和脚底是否有异常跳动。
+- 攻击峰值帧是否有肢体断裂、重复手臂或武器变形。
+- 帧 0 与帧 8 是否足够接近，可以自然回到待机。
+- 绿色边缘、黑边、半透明污染和背景孔洞是否明显。
+- 网格线是否被误识别为人物的一部分。
+
+### 7.3 量化对齐门槛
+
+将 9 帧与原始参考图以及彼此进行比较，至少记录：
+
+- 人物主体的 alpha 加权中心 X/Y。
+- 主体高度和宽度。
+- 脚底最低点位置。
+- 头部中心位置。
+- 每帧的非透明像素面积。
+- 绿色/深绿色残留像素数量。
+
+第一轮采用“明显错误即退回”的质量门槛，而不是为了通过统计而自动拉伸每一帧。允许动作产生合理的手臂、武器和身体姿势变化；不允许人物整体像镜头一样横移、缩放或改变身份。
+
+## 8. 第五阶段：通过后扩展四个动作
+
+鲁迪的第一张 `attack` 网格通过后，再使用同一份原始参考图和同一套构图约束生成：
+
+| 动作行 | 游戏花色映射 | 主要动作方向 |
+|---|---|---|
+| `attack` | `spade` | 攻击/斩击 |
+| `guard` | `heart` | 守护/结界 |
+| `ability` | `diamond` | 能力/爆发 |
+| `special` | `club` | 特殊/奇袭 |
+
+每个动作独立生成一张 3×3 网格，但四张图必须共用：
+
+- 同一个未处理原始参考图。
+- 同一个角色构图和镜头位置。
+- 同一个画布比例和网格规则。
+- 同一套审查指标。
+
+不允许使用 `attack_grid.png` 生成 `guard_grid.png`，也不允许把任何已经生成或处理的动作帧作为下一个动作的身份参考。
+
+## 9. 第六阶段：推广到其他角色
+
+鲁迪四个动作全部通过后，再按项目 P0 清单逐角色推进。每个角色遵循相同的“单动作试验门”：
+
+1. 确认该角色原始未处理源。
+2. 生成一个代表性动作的 3×3 网格。
+3. 处理并审查边缘、比例和对齐。
+4. 通过后再生成剩余动作。
+5. 四动作通过后才进入游戏媒体目录。
+
+如果某个角色出现大幅偏移，不允许用透明结果或旧视频结果补救；应回到原始基准图、构图提示词和单动作重试。
+
+## 10. 部署与回滚
+
+### 10.1 部署条件
+
+只有满足以下条件，才允许替换正式资源：
+
+- 四个动作都有 9 帧。
+- 每个动作的 manifest 和图集一致。
+- 透明边缘通过审查。
+- 人物对齐和身份一致性通过审查。
+- 游戏中能正确读取帧尺寸、行名、fps 和循环设置。
+- 移动端和桌面端预览没有明显裁切。
+
+### 10.2 回滚原则
+
+- 新试验先保存在 `ThreeMovesImagePilot` 隔离目录。
+- 不覆盖旧视频归档。
+- 不在试验阶段覆盖 `game_runs/ThreeMoves/assets/media/`。
+- 正式替换前保留旧的部署资源清单和校验值。
+- 若新动作不合格，游戏继续使用旧静态图或占位回退，不把未验收帧混入正式资源。
+
+## 11. 执行顺序与暂停点
+
+### 本轮只执行
+
+1. 创建并确认本计划文档。
+2. 审计鲁迪原始基准图。
+3. 在 Flow 中生成一张 `attack_grid.png`。
+4. 下载原始网格图到隔离试验目录。
+5. 运行 `char-sprite` 的 prepare/process/assemble。
+6. 展示并审查 9 帧结果。
+
+### 必须暂停并等待判断
+
+- 原始参考图本身不干净。
+- Flow 生成的网格结构不正确。
+- 人物身份或大小出现明显变化。
+- 抠绿后出现明显边缘污染。
+- 9 帧的对齐表现仍然不稳定。
+
+只有鲁迪的第一组 `attack` 试验通过后，才制定四动作批量生成的具体执行批次；本计划不授权直接批量生成或删除旧资产。
+
+## 12. 交付记录
+
+每完成一个角色，记录以下信息：
+
+- 原始参考图路径及校验值。
+- Flow 生成图路径及生成日期。
+- 使用的动作提示词版本。
+- `char-sprite` 实际命令。
+- 9 帧审查结论和需要返工的帧号。
+- manifest、图集和最终媒体路径。
+- 是否已同步到游戏目录。
+- 旧素材是否仍作为回退资源保留。
+
+本次计划文档创建时未操作 Flow、未删除旧文件、未覆盖游戏资源；后续执行应严格按上述试验与验收门推进。
