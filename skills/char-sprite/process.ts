@@ -22,6 +22,11 @@ interface Component {
   centerX: number;
 }
 
+interface SilhouetteResult {
+  removedPixels: number;
+  keptPixels: number;
+}
+
 function chromaDist(r: number, g: number, b: number): number {
   return Math.sqrt(r * r + (g - 255) ** 2 + b * b);
 }
@@ -100,6 +105,41 @@ function findComponents(data: Buffer, width: number, height: number): Component[
   return components;
 }
 
+function bboxGap(a: Component, b: Component): number {
+  const dx = a.maxX < b.minX ? b.minX - a.maxX : b.maxX < a.minX ? a.minX - b.maxX : 0;
+  const dy = a.maxY < b.minY ? b.minY - a.maxY : b.maxY < a.minY ? a.minY - b.maxY : 0;
+  return Math.max(dx, dy);
+}
+
+/** Keep the character silhouette and nearby, meaningful body fragments only. */
+function keepMainSilhouette(data: Buffer, width: number, height: number): SilhouetteResult {
+  const components = findComponents(data, width, height);
+  if (components.length <= 1) {
+    return { removedPixels: 0, keptPixels: components[0]?.area ?? 0 };
+  }
+
+  const main = components.reduce((largest, current) => current.area > largest.area ? current : largest);
+  const keep = new Set<Component>([main]);
+  for (const component of components) {
+    if (component === main) continue;
+    if (component.area >= main.area * 0.08 && bboxGap(component, main) <= 12) {
+      keep.add(component);
+    }
+  }
+
+  let removedPixels = 0;
+  let keptPixels = 0;
+  for (const component of components) {
+    if (keep.has(component)) {
+      keptPixels += component.area;
+      continue;
+    }
+    removedPixels += component.area;
+    for (const idx of component.pixels) data[idx * 4 + 3] = 0;
+  }
+  return { removedPixels, keptPixels };
+}
+
 function groupIntoFrames(components: Component[], frameCount: number): Component[][] | null {
   if (!components.length) return null;
   const largest = Math.max(...components.map(c => c.area));
@@ -148,10 +188,10 @@ async function renderGroupAsFrame(data: Buffer, imgWidth: number, _imgHeight: nu
       cropBuf[dst+2] = data[src+2]; cropBuf[dst+3] = data[src+3];
     }
   }
-  return fitCropToCell(cropBuf, cropW, cropH, true);
+  return fitCropToCell(cropBuf, cropW, cropH, true, false);
 }
 
-async function renderSlotAsFrame(data: Buffer, imgWidth: number, imgHeight: number, slotIdx: number): Promise<Buffer> {
+async function renderSlotAsFrame(data: Buffer, imgWidth: number, imgHeight: number, slotIdx: number): Promise<{ frame: Buffer; silhouette: SilhouetteResult }> {
   const GRID_COLS = 3;
   const GRID_ROWS = 3;
   const slotW = imgWidth / GRID_COLS;
@@ -174,10 +214,12 @@ async function renderSlotAsFrame(data: Buffer, imgWidth: number, imgHeight: numb
       }
     }
   }
-  return fitCropToCell(slotBuf, w, h, false);
+  const silhouette = keepMainSilhouette(slotBuf, w, h);
+  const frame = await fitCropToCell(slotBuf, w, h, true, true);
+  return { frame, silhouette };
 }
 
-async function fitCropToCell(cropBuf: Buffer, cropW: number, cropH: number, useTrim: boolean): Promise<Buffer> {
+async function fitCropToCell(cropBuf: Buffer, cropW: number, cropH: number, useTrim: boolean, bottomAlign: boolean): Promise<Buffer> {
   let pipeline = sharp(cropBuf, { raw: { width: cropW, height: cropH, channels: 4 } });
   if (useTrim) pipeline = pipeline.trim();
 
@@ -190,13 +232,21 @@ async function fitCropToCell(cropBuf: Buffer, cropW: number, cropH: number, useT
     .png()
     .toBuffer();
 
+  const resizedMeta = await sharp(resized).metadata();
+  const resizedW = resizedMeta.width ?? 0;
+  const resizedH = resizedMeta.height ?? 0;
+  const left = Math.round((FRAME_WIDTH - resizedW) / 2);
+  const top = bottomAlign
+    ? FRAME_HEIGHT - CELL_PADDING - resizedH
+    : Math.round((FRAME_HEIGHT - resizedH) / 2);
+
   return sharp({ create: { width: FRAME_WIDTH, height: FRAME_HEIGHT, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } } })
-    .composite([{ input: resized, gravity: 'center' }])
+    .composite([{ input: resized, left, top }])
     .png()
     .toBuffer();
 }
 
-async function extractFrames(inputPath: string, outputDir: string): Promise<void> {
+async function extractFrames(charName: string, rowName: string, inputPath: string, outputDir: string): Promise<boolean> {
   fs.mkdirSync(outputDir, { recursive: true });
 
   const { data, info } = await sharp(inputPath).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
@@ -208,11 +258,17 @@ async function extractFrames(inputPath: string, outputDir: string): Promise<void
   // For 3x3 grids, slot-based extraction preserves cell alignment, feet baseline, and detached magic effects
   const useSlots = true;
   console.log(`  extraction method: ${useSlots ? 'slots' : 'components'}`);
+  let warned = false;
 
   for (let i = 0; i < FRAME_COUNT; i++) {
-    const frameBuf = await renderSlotAsFrame(data, info.width, info.height, i);
-    fs.writeFileSync(path.join(outputDir, `frame_${i}.png`), frameBuf);
+    const { frame, silhouette } = await renderSlotAsFrame(data, info.width, info.height, i);
+    if (silhouette.removedPixels > silhouette.keptPixels * 0.03) {
+      warned = true;
+      console.warn(`${charName}/${rowName}/frame_${i} STRAY-REMOVED ${silhouette.removedPixels}px`);
+    }
+    fs.writeFileSync(path.join(outputDir, `frame_${i}.png`), frame);
   }
+  return warned;
 }
 
 async function processRow(charName: string, rowName: string, inputPath: string) {
@@ -223,6 +279,7 @@ async function processRow(charName: string, rowName: string, inputPath: string) 
     console.error(`Manifest not found. Run prepare first: npx tsx skills/char-sprite/prepare.ts ${charName}`);
     process.exit(1);
   }
+  const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf-8'));
 
   const isReference = rowName === 'reference';
   const outputDir = isReference
@@ -241,13 +298,15 @@ async function processRow(charName: string, rowName: string, inputPath: string) 
     const groups = groupIntoFrames(components, 1);
     const frameBuf = groups
       ? await renderGroupAsFrame(data, info.width, info.height, groups[0])
-      : await renderSlotAsFrame(data, info.width, info.height, 0);
+      : (await renderSlotAsFrame(data, info.width, info.height, 0)).frame;
     fs.writeFileSync(path.join(outputDir, 'frame_0.png'), frameBuf);
   } else {
-    await extractFrames(inputPath, outputDir);
+    const strayRemoved = await extractFrames(charName, rowName, inputPath, outputDir);
+    if (strayRemoved) {
+      manifest.rows[rowName] = { ...(manifest.rows[rowName] ?? {}), review: 'stray-removed' };
+    }
   }
 
-  const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf-8'));
   const entry = { status: 'completed', updated_at: new Date().toISOString(), path: outputDir };
 
   if (isReference) {

@@ -275,4 +275,26 @@ registry.js 无需改（12 人条目已带 `spritesheet` / `charJson` 路径，�
 
 ## 附录 A：P1 审计结果
 
-（P1 执行时在此追加：`audit.ts` 输出表 + 12×4 的 R/N 判定 + 接触表目检结论）
+审计脚本：`npx tsx skills/char-sprite/audit.ts ThreeMoves`。
+
+- 范围：12 人 × 4 动作 × 9 帧 = 48 张 grid / 432 帧；仅纳入四行齐全的正式角色，base-only 的 Roxy、Hitogami、Orsted 不在本轮范围。
+- 旧图集自动审计：所有目标帧尺寸均为 192×208；自动连通域只有 `Kishirika/special` 出现 STRAY 候选；基线极差超过 12px 的动作集中在 Paul、Ruijerd、Zanoba 等动作；GREEN / SCALE 以候选标记记录，不单独触发重生成。
+- 接触表目检：`Cliff/special/frame_6` 确认存在悬空/断裂手掌风险；`Rudeus/guard` 确认武器跨帧出现/消失且形态不一致。未发现其他动作达到断肢、额外魔法/发光或大面积污染的 R 类门槛。
+- R 类总数：2（未超过暂停阈值 15）；N 类：46。P2 后若任一 N 类出现裁脚、左右跑偏、动作糊，转入 R 类复核。
+
+| 角色 | R 类动作 | N 类动作 | 自动候选标记（旧图集） |
+|---|---|---|---|
+| Cliff | `special` | `attack`, `guard`, `ability` | 四行 GREEN/SCALE；`special` 接触表 R |
+| Eris | — | `attack`, `guard`, `ability`, `special` | 四行 GREEN/SCALE |
+| ErisGreyrat | — | `attack`, `guard`, `ability`, `special` | 四行 GREEN/SCALE |
+| Ghislaine | — | `attack`, `guard`, `ability`, `special` | 四行 GREEN/SCALE |
+| Kishirika | — | `attack`, `guard`, `ability`, `special` | `special` 另有 STRAY 候选，P2 过滤后复核 |
+| Nanahoshi | — | `attack`, `guard`, `ability`, `special` | 四行 GREEN/SCALE |
+| Paul | — | `attack`, `guard`, `ability`, `special` | `ability`/`special` BASELINE；其余轻微 SCALE |
+| Perugius | — | `attack`, `guard`, `ability`, `special` | 轻微 GREEN/SCALE |
+| Rudeus | `guard` | `attack`, `ability`, `special` | 四行 GREEN/SCALE；`guard` 接触表 R |
+| Ruijerd | — | `attack`, `guard`, `ability`, `special` | 三行动作 BASELINE/GREEN/SCALE |
+| Sylphiette | — | `attack`, `guard`, `ability`, `special` | 轻微 GREEN/SCALE |
+| Zanoba | — | `attack`, `guard`, `ability`, `special` | `attack`/`ability`/`special` BASELINE |
+
+P1 结论：进入 P2；R 类只对 Cliff/special 与 Rudeus/guard 执行提示词 v3 定点重生成，其他动作先走确定性管线修复。
