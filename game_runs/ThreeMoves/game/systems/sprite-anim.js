@@ -27,9 +27,9 @@
     return entry;
   }
 
-  function setFrame(layer, frame, row) {
-    layer.style.backgroundPositionX = (frame / 8 * 100) + '%';
-    layer.style.backgroundPositionY = (row / 3 * 100) + '%';
+  function setFrame(layer, frame, row, cols, rows) {
+    layer.style.backgroundPositionX = (cols > 1 ? (frame / (cols - 1)) * 100 : 0) + '%';
+    layer.style.backgroundPositionY = (rows > 1 ? (row / (rows - 1)) * 100 : 0) + '%';
   }
 
   function removeActive(item) {
@@ -43,10 +43,17 @@
       return;
     }
 
-    var row = api.ROW_BY_SUIT[suit];
-    if (row === undefined) {
-      finish(done);
-      return;
+    var cols = Number(media.sheetCols) > 0 ? Number(media.sheetCols) : 9;
+    var rows = Number(media.sheetRows) > 0 ? Number(media.sheetRows) : 4;
+    var row;
+    if (rows === 1) {
+      row = 0;
+    } else {
+      row = api.ROW_BY_SUIT[suit];
+      if (row === undefined) {
+        finish(done);
+        return;
+      }
     }
 
     var sheet = ensureSheet(media);
@@ -59,7 +66,8 @@
     layer.className = 'sprite-anim';
     layer.setAttribute('aria-hidden', 'true');
     layer.style.backgroundImage = 'url("' + media.spritesheet + '")';
-    setFrame(layer, 0, row);
+    layer.style.backgroundSize = (cols * 100) + '% ' + (rows * 100) + '%';
+    setFrame(layer, 0, row, cols, rows);
     slotEl.appendChild(layer);
 
     var item = { slot: slotEl, layer: layer, raf: 0, done: done, sheetSrc: media.spritesheet, finished: false };
@@ -76,7 +84,7 @@
     item.abort = function () { cleanup(true); };
 
     if (!root.requestAnimationFrame) {
-      setFrame(layer, 8, row);
+      setFrame(layer, cols - 1, row, cols, rows);
       cleanup(true);
       return;
     }
@@ -94,7 +102,7 @@
         cleanup(true);
         return;
       }
-      setFrame(layer, frame, row);
+      setFrame(layer, frame, row, cols, rows);
       item.raf = root.requestAnimationFrame(tick);
     }
     item.raf = root.requestAnimationFrame(tick);

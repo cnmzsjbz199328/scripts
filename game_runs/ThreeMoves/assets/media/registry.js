@@ -19,8 +19,8 @@
   };
 
   var jokers = {
-    Orsted: { base: base + 'jokers/Orsted_base.png' },
-    Hitogami: { base: base + 'jokers/Hitogami_base.png' }
+    Orsted: { base: base + 'jokers/Orsted_base.png', spritesheet: base + 'jokers/Orsted_joker.webp', sheetCols: 9, sheetRows: 1 },
+    Hitogami: { base: base + 'jokers/Hitogami_base.png', spritesheet: base + 'jokers/Hitogami_joker.webp', sheetCols: 9, sheetRows: 1 }
   };
 
   var characterIdsByDisplayName = {
