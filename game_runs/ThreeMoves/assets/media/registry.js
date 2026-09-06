@@ -6,7 +6,7 @@
     Kishirika: { base: base + 'characters/Kishirika_base.png', spritesheet: base + 'characters/Kishirika_spritesheet.webp', charJson: base + 'characters/Kishirika_char.json' },
     Nanahoshi: { base: base + 'characters/Nanahoshi_base.png', spritesheet: base + 'characters/Nanahoshi_spritesheet.webp', charJson: base + 'characters/Nanahoshi_char.json' },
     Eris: { base: base + 'characters/Eris_base.png', spritesheet: base + 'characters/Eris_spritesheet.webp', charJson: base + 'characters/Eris_char.json' },
-    Cliff: { base: base + 'characters/Cliff_base.png' },
+    Cliff: { base: base + 'characters/Cliff_base.png', spritesheet: base + 'characters/Cliff_spritesheet.webp', charJson: base + 'characters/Cliff_char.json' },
     Zanoba: { base: base + 'characters/Zanoba_base.png', spritesheet: base + 'characters/Zanoba_spritesheet.webp', charJson: base + 'characters/Zanoba_char.json' },
     Paul: { base: base + 'characters/Paul_base.png', spritesheet: base + 'characters/Paul_spritesheet.webp', charJson: base + 'characters/Paul_char.json' },
     Ghislaine: { base: base + 'characters/Ghislaine_base.png', spritesheet: base + 'characters/Ghislaine_spritesheet.webp', charJson: base + 'characters/Ghislaine_char.json' },

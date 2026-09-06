@@ -1,6 +1,6 @@
 # 三招决胜：连续帧图片角色动作迁移计划
 
-状态：批量执行阶段已完成 11/13 花色角色 × 4 动作并增量同步游戏媒体目录；**Cliff 四动作待生成**（原图已于 2026-09-06 补审通过，此前从 §13 清单漏列）；Roxy 因参考图含魔法阵/水法球/透明底仍阻塞待补干净原图；绿边统一整改已完成。剩余两名角色（Cliff、Roxy）的自包含执行单见 `plans/three-moves-remaining-tasks-handoff.md`
+状态：批量执行阶段已完成 12/13 花色角色 × 4 动作并增量同步游戏媒体目录；**Cliff 四动作已完成并同步**；Roxy 因参考图含魔法阵/水法球/透明底仍阻塞待补干净原图；绿边统一整改已完成。剩余 Roxy 的自包含执行单见 `plans/three-moves-remaining-tasks-handoff.md`
 
 更新日期：2026-09-06
 
@@ -414,6 +414,17 @@ no text, no cropped limbs, no black grid lines, no transparency artifacts.
 
 > 复核补记（2026-09-06）：本表逐行"审查结论"只做了整体目测，未逐角色按 §13.7 记录绿边残留有无、也未按 §13.3 步骤 4"角色和动作各占一条"回写 §12（实际以本汇总表代替 44 条明细）。留档粗于计划约定，后续如需追溯单动作返工历史需重新目检。
 
+### 12.3 Cliff / 四动作（已验收并同步，2026-09-06）
+
+- 原始参考图：`char_runs/ThreeMoves/Cliff/source/Cliff_base.png`，SHA-256 `dc34cd11a5ec558998c89b3f9fe770d7096dae270f2da2eecb81f45681e55603`，1086×1448 RGB；隔离副本 `char_runs/ThreeMovesImagePilot/Cliff/source/Cliff_base.png` 哈希一致，旧静态 base 保留作回退。
+- `attack`：生成图 `char_runs/ThreeMovesImagePilot/Cliff/source/attack_grid.png`（2026-09-06）；§13.2 v2 徒手 `unarmed strike` 提示词；结论：9 帧齐全、纯物理徒手动作、无魔法/发光/粒子，少量边缘绿残留可接受；产物 `rows/attack/frame_0..8.png`。
+- `guard`：生成图 `char_runs/ThreeMovesImagePilot/Cliff/source/guard_grid.png`（2026-09-06）；§13.2 v2 物理防御姿态提示词；结论：9 帧齐全、无护盾/结界/特效，构图与基线稳定，少量边缘绿残留可接受；产物 `rows/guard/frame_0..8.png`。
+- `ability`：生成图 `char_runs/ThreeMovesImagePilot/Cliff/source/ability_grid.png`（2026-09-06）；§13.2 v2 物理蓄力全力一击提示词；结论：9 帧齐全、以身体力学表现发力、无冲击波/能量/发光，少量边缘绿残留可接受；产物 `rows/ability/frame_0..8.png`。
+- `special`：生成图 `char_runs/ThreeMovesImagePilot/Cliff/source/special_grid.png`（2026-09-06）；§13.2 v2 徒手 `unarmed surprise-attack maneuver` 提示词；结论：9 帧齐全、快速步法与徒手突袭、无速度线/魔法/粒子，少量边缘绿残留可接受；产物 `rows/special/frame_0..8.png`。
+- `char-sprite` 命令：`prepare.ts "ThreeMovesImagePilot/Cliff" '--anims=attack,guard,ability,special' --fps=8` → `process.ts`（reference、attack、guard、ability、special）→ `assemble.ts`；PowerShell 中对逗号参数加引号以保留四行名称。
+- 自动验收：36 帧均为 192×208；`output/spritesheet.webp` 为 1728×832；`output/char.json` 行序为 attack/guard/ability/special、各 `frameCount:9`、`fps:8`；manifest 四行均 `status:"completed"`。目检通过身份一致、脚底基线稳定、无断肢/额外武器/魔法元素；绿边记录为少量轻微边缘残留，无大面积污染。
+- 产物路径：`char_runs/ThreeMovesImagePilot/Cliff/{rows/*,output/spritesheet.webp,output/char.json,manifest.json}`，已迁移至 `char_runs/ThreeMoves/Cliff/`；已同步 `game_runs/ThreeMoves/assets/media/characters/Cliff_spritesheet.webp` 与 `Cliff_char.json`；`game_runs/ThreeMoves/assets/media/registry.js` 已保留 `base` 并加入 `spritesheet` / `charJson`。
+
 ## 13. 批量执行计划：13 名角色 × 4 动作（2026-09-05 制定，供生成 Agent 执行）
 
 用户已确认鲁迪 attack 试验"基本满意，小瑕疵可接受，后期再调整"，据此授权将流程扩展到全部 13 名花色角色的四个动作。范围经用户确认：**只做 13 名花色角色（roster），不含 Orsted / Hitogami 两张 Joker**（Joker 在 `game_runs/ThreeMoves/game/data.js` 里没有 suit，游戏逻辑不触发四招式，保持现状静态占位图）。
@@ -426,9 +437,9 @@ Flow 的 3×3 网格图生成目前是人工在浏览器操作，不是脚本 AP
    **处理方式**：跳过 Roxy，先完成其余审计合格角色；Roxy 需要人工重新提供或重新绘制一张纯绿幕、无发光特效、无魔法阵的原始立绘，审计通过（走一遍 §4.1 清单）后再补做四动作。不要尝试用现有污染图"将就"生成，也不要自行脑补裁剪/抠除魔法阵——那属于对参考图的加工，同样违反 §1.2。
 2. **提交当前未入库的基础设施修复**：`git status` 显示 `skills/char-sprite/process.ts`（切帧改为固定 slot 而非连通域分组，是本轮跑通 3×3 网格切帧的关键修复）和 `char_runs/registry.js` 仍是未提交的工作区改动。建议人工先确认这两处改动、提交一次基线 commit，再开始批量任务，避免长时间批量作业过程中这份修复被误覆盖或与其他改动冲突。
 
-### 13.1 角色清单与原始参考审计（11 人已完成，Cliff 补审通过待生成，Roxy 阻塞）
+### 13.1 角色清单与原始参考审计（12 人已完成，Roxy 阻塞）
 
-> roster 共 **13** 人。下表首版遗漏 Cliff（克里夫，roster rank 5，游戏会发其四门花色牌、四招式全触发）；Cliff 原图已于 2026-09-06 补审通过（纯绿幕、徒手、无特效），四动作待生成。剩余 Cliff + Roxy 两名角色的自包含执行单见 `plans/three-moves-remaining-tasks-handoff.md`。
+> roster 共 **13** 人。下表首版遗漏 Cliff（克里夫，roster rank 5，游戏会发其四门花色牌、四招式全触发）；Cliff 原图已于 2026-09-06 补审通过，四动作已完成并同步。剩余 Roxy 的自包含执行单见 `plans/three-moves-remaining-tasks-handoff.md`。
 
 | 英文目录名 | 中文显示名 | 原始参考路径 | 分辨率/格式 | SHA-256 | 审计状态 |
 |---|---|---|---|---|---|
@@ -444,7 +455,7 @@ Flow 的 3×3 网格图生成目前是人工在浏览器操作，不是脚本 AP
 | Ruijerd | 瑞杰路德 | `char_runs/ThreeMoves/Ruijerd/source/Ruijerd_base.png` | 1086×1448 RGB | `9dc52dc08dab48c86e9421122726a07959a1f0670f94f061f1322b81c6bbbfd2` | 通过 |
 | Sylphiette | 希露菲叶特 | `char_runs/ThreeMoves/Sylphiette/source/Sylphiette_base.png` | 1086×1448 RGB | `bc011e79ad469cd0424a6accf317c8eb11722bac3abbf98f71f2e8a2a75c3667` | 通过 |
 | Zanoba | 扎诺巴 | `char_runs/ThreeMoves/Zanoba/source/Zanoba_base.png` | 1086×1448 RGB | `e24aea1f4072957ef1f3484208ba358f1730884411bcceee6236d51daea61797` | 通过 |
-| Cliff | 克里夫 | `char_runs/ThreeMoves/Cliff/source/Cliff_base.png` | 1086×1448 RGB | `dc34cd11a5ec558998c89b3f9fe770d7096dae270f2da2eecb81f45681e55603` | 通过（纯绿幕 `#00FF00`、全身居中留白、徒手无武器、无特效；2026-09-06 补审，首版清单漏列）——**四动作待生成，见交接单** |
+| Cliff | 克里夫 | `char_runs/ThreeMoves/Cliff/source/Cliff_base.png` | 1086×1448 RGB | `dc34cd11a5ec558998c89b3f9fe770d7096dae270f2da2eecb81f45681e55603` | 通过并已同步（纯绿幕 `#00FF00`、全身居中留白、徒手无武器、无特效；2026-09-06 补审并完成四动作） |
 
 12 人的通过结论（含 2026-09-06 补审的 Cliff）基于缩略图批量目测（纯绿幕、无透明通道、无发光/魔法阵、人物完整未贴边），未逐人做 4 倍放大级别检查；如果某个角色在生成阶段反复出现异常，先回头用 §4.1 清单重新审计该角色的原始参考图，而不是默认参考图无问题。
 
@@ -576,7 +587,7 @@ no text, no cropped limbs, no black grid lines, no transparency artifacts.
 | Ruijerd | 已同步游戏目录 | 已同步游戏目录 | 已同步游戏目录 | 已同步游戏目录 |
 | Sylphiette | 已同步游戏目录 | 已同步游戏目录 | 已同步游戏目录 | 已同步游戏目录 |
 | Zanoba | 已同步游戏目录 | 已同步游戏目录 | 已同步游戏目录 | 已同步游戏目录 |
-| Cliff | 待生成 | 待生成 | 待生成 | 待生成 |
+| Cliff | 已同步游戏目录（§12.3） | 已同步游戏目录（§12.3） | 已同步游戏目录（§12.3） | 已同步游戏目录（§12.3） |
 
 ### 13.5 部署策略：按角色增量同步，不等全部 13 人完成
 
@@ -592,21 +603,21 @@ no text, no cropped limbs, no black grid lines, no transparency artifacts.
 
 ### 13.8 当前成果与剩余待办事项清单（2026-09-06 更新）
 
-#### 1. 已完成成果（11 / 13 角色）
-- **已交付**：`Rudeus`, `Eris`, `ErisGreyrat`, `Ghislaine`, `Kishirika`, `Nanahoshi`, `Paul`, `Perugius`, `Ruijerd`, `Sylphiette`, `Zanoba`。
-- **产物形态**：11 位角色共计 44 个 3×3 连续动作网格图；396 张 `192×208` 透明单帧；11 份完整 `spritesheet.webp` 图集与 `char.json` 元数据装配归档于 `char_runs/ThreeMovesImagePilot/`，并同步到正式 `char_runs/ThreeMoves/`。
-- **游戏接入**：11 位角色的 WebP 图集与元数据已增量写入 `game_runs/ThreeMoves/assets/media/characters/`；`game_runs/ThreeMoves/assets/media/registry.js` 已为对应条目增加 `spritesheet` / `charJson` 路径，保留原有 `base` 静态图回退。
-- **统一整改**：`skills/char-sprite/process.ts` 增加仅作用于透明邻域的绿色边缘去溢出步骤；44 张网格图的分隔带统一为 `#006600`，并已重跑 11 位角色全部 44 个动作。
-- **版本控制（2026-09-06）**：以上产物已提交（`process.ts` 基线修复、11 组游戏媒体 `webp`+`char.json`、两份 registry、本计划文档）。注意 `game_runs/**/*.json` 默认被 `.gitignore` 忽略，11 个 `*_char.json` 是 `git add -f` 强制入库的；后续接前端播放前若加入 Cliff/Roxy，其 `char.json` 同样需 `-f`，或改在 `.gitignore` 增补 `!game_runs/ThreeMoves/assets/media/**/*_char.json` 例外。
+#### 1. 已完成成果（12 / 13 角色）
+- **已交付**：`Rudeus`, `Eris`, `ErisGreyrat`, `Ghislaine`, `Kishirika`, `Nanahoshi`, `Paul`, `Perugius`, `Ruijerd`, `Sylphiette`, `Zanoba`, `Cliff`。
+- **产物形态**：12 位角色共计 48 个 3×3 连续动作网格图；432 张 `192×208` 透明单帧；12 份完整 `spritesheet.webp` 图集与 `char.json` 元数据装配归档于 `char_runs/ThreeMovesImagePilot/`，并同步到正式 `char_runs/ThreeMoves/`。
+- **游戏接入**：12 位角色的 WebP 图集与元数据已增量写入 `game_runs/ThreeMoves/assets/media/characters/`；`game_runs/ThreeMoves/assets/media/registry.js` 已为对应条目增加 `spritesheet` / `charJson` 路径，保留原有 `base` 静态图回退。
+- **统一整改**：`skills/char-sprite/process.ts` 增加仅作用于透明邻域的绿色边缘去溢出步骤；已有 44 张历史网格图的分隔带统一为 `#006600`，Cliff 新增 4 张也按同一流程处理。
+- **版本控制（2026-09-06）**：以上产物已提交（`process.ts` 基线修复、12 组游戏媒体 `webp`+`char.json`、两份 registry、本计划文档）。注意 `game_runs/**/*.json` 默认被 `.gitignore` 忽略，12 个 `*_char.json` 是 `git add -f` 强制入库的；后续接前端播放前若加入 Roxy，其 `char.json` 同样需 `-f`，或改在 `.gitignore` 增补 `!game_runs/ThreeMoves/assets/media/**/*_char.json` 例外。
 
-#### 2. 剩余待办任务分解（Cliff + Roxy 共 2 角色）
+#### 2. 剩余待办任务分解（Roxy 1 角色；Cliff 已完成）
 
 > 完整可复制执行单见 **`plans/three-moves-remaining-tasks-handoff.md`**（含四动作提示词、逐条命令、验收清单、迁移与提交步骤）。以下仅为索引。
 
-- **任务一：Cliff（克里夫）四动作生成（不阻塞，可直接开工）**
+- **任务一：Cliff（克里夫）四动作生成（已完成，2026-09-06）**
   - 原图 `char_runs/ThreeMoves/Cliff/source/Cliff_base.png` 已审计通过（纯绿幕、徒手无武器）。
   - 按 §13.2 v2 提示词（attack/special 的 ACTION_LABEL 用徒手版 `unarmed strike` / `unarmed surprise-attack maneuver`）+ §13.3 循环，隔离目录 `ThreeMovesImagePilot/Cliff/` 生成 → 处理 → 审查 → 四动作全过后迁移正式目录 + 增量同步游戏媒体 + registry.js 加 `spritesheet`/`charJson`。
-  - 交付记录按 §12.1 格式追加，更新 §13.4 进度表 Cliff 行。
+  - 已按 §12.1 格式追加至 §12.3，§13.4 进度表 Cliff 行已更新为“已同步游戏目录”。
 - **任务二：解除 Roxy 阻塞项（待补原图）**
   - 当前源图为 580×720 带透明底、水法球与脚下魔法阵的派生图；需提供/重绘一张纯绿幕 `#00FF00`、无特效、约 1086×1448 RGB 的原始立绘，走 §4.1 审计。
 - **任务三：Roxy 解锁后补跑与同步**
