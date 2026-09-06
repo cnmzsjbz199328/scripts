@@ -3,19 +3,19 @@
   var base = 'assets/media/';
 
   var characters = {
-    Kishirika: { base: base + 'characters/Kishirika_base.png' },
-    Nanahoshi: { base: base + 'characters/Nanahoshi_base.png' },
-    Eris: { base: base + 'characters/Eris_base.png' },
+    Kishirika: { base: base + 'characters/Kishirika_base.png', spritesheet: base + 'characters/Kishirika_spritesheet.webp', charJson: base + 'characters/Kishirika_char.json' },
+    Nanahoshi: { base: base + 'characters/Nanahoshi_base.png', spritesheet: base + 'characters/Nanahoshi_spritesheet.webp', charJson: base + 'characters/Nanahoshi_char.json' },
+    Eris: { base: base + 'characters/Eris_base.png', spritesheet: base + 'characters/Eris_spritesheet.webp', charJson: base + 'characters/Eris_char.json' },
     Cliff: { base: base + 'characters/Cliff_base.png' },
-    Zanoba: { base: base + 'characters/Zanoba_base.png' },
-    Paul: { base: base + 'characters/Paul_base.png' },
-    Ghislaine: { base: base + 'characters/Ghislaine_base.png' },
-    Ruijerd: { base: base + 'characters/Ruijerd_base.png' },
-    Perugius: { base: base + 'characters/Perugius_base.png' },
-    Sylphiette: { base: base + 'characters/Sylphiette_base.png' },
+    Zanoba: { base: base + 'characters/Zanoba_base.png', spritesheet: base + 'characters/Zanoba_spritesheet.webp', charJson: base + 'characters/Zanoba_char.json' },
+    Paul: { base: base + 'characters/Paul_base.png', spritesheet: base + 'characters/Paul_spritesheet.webp', charJson: base + 'characters/Paul_char.json' },
+    Ghislaine: { base: base + 'characters/Ghislaine_base.png', spritesheet: base + 'characters/Ghislaine_spritesheet.webp', charJson: base + 'characters/Ghislaine_char.json' },
+    Ruijerd: { base: base + 'characters/Ruijerd_base.png', spritesheet: base + 'characters/Ruijerd_spritesheet.webp', charJson: base + 'characters/Ruijerd_char.json' },
+    Perugius: { base: base + 'characters/Perugius_base.png', spritesheet: base + 'characters/Perugius_spritesheet.webp', charJson: base + 'characters/Perugius_char.json' },
+    Sylphiette: { base: base + 'characters/Sylphiette_base.png', spritesheet: base + 'characters/Sylphiette_spritesheet.webp', charJson: base + 'characters/Sylphiette_char.json' },
     Roxy: { base: base + 'characters/Roxy_base.png' },
-    ErisGreyrat: { base: base + 'characters/ErisGreyrat_base.png' },
-    Rudeus: { base: base + 'characters/Rudeus_base.png' }
+    ErisGreyrat: { base: base + 'characters/ErisGreyrat_base.png', spritesheet: base + 'characters/ErisGreyrat_spritesheet.webp', charJson: base + 'characters/ErisGreyrat_char.json' },
+    Rudeus: { base: base + 'characters/Rudeus_base.png', spritesheet: base + 'characters/Rudeus_spritesheet.webp', charJson: base + 'characters/Rudeus_char.json' }
   };
 
   var jokers = {

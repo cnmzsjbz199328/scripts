@@ -1,0 +1,44 @@
+{
+  "name": "ThreeMovesImagePilot/Paul",
+  "type": "char-sprite-v1",
+  "dimensions": {
+    "width": 1728,
+    "height": 832
+  },
+  "frameSize": {
+    "width": 192,
+    "height": 208
+  },
+  "rows": [
+    "attack",
+    "guard",
+    "ability",
+    "special"
+  ],
+  "animations": {
+    "attack": {
+      "row": 0,
+      "frameCount": 9,
+      "fps": 8,
+      "loop": true
+    },
+    "guard": {
+      "row": 1,
+      "frameCount": 9,
+      "fps": 8,
+      "loop": true
+    },
+    "ability": {
+      "row": 2,
+      "frameCount": 9,
+      "fps": 8,
+      "loop": true
+    },
+    "special": {
+      "row": 3,
+      "frameCount": 9,
+      "fps": 8,
+      "loop": true
+    }
+  }
+}
