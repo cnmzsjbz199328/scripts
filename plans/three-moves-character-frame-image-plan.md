@@ -1,6 +1,6 @@
 # 三招决胜：连续帧图片角色动作迁移计划
 
-状态：批量执行阶段已完成 12/13 花色角色 × 4 动作并增量同步游戏媒体目录；**Cliff 四动作已完成并同步**；Roxy 因参考图含魔法阵/水法球/透明底仍阻塞待补干净原图；绿边统一整改已完成。剩余 Roxy 的自包含执行单见 `plans/three-moves-remaining-tasks-handoff.md`
+状态：批量执行阶段已完成 12/13 花色角色 × 4 动作并增量同步游戏媒体目录；连续帧专项修复 P1–P5 已完成；Roxy 因参考图含魔法阵/水法球/透明底仍阻塞待补干净原图。帧 1→8 单次播放、不循环、idle 用静态图；剩余 Roxy 的自包含执行单见 `plans/three-moves-remaining-tasks-handoff.md`
 
 更新日期：2026-09-06
 
@@ -382,14 +382,14 @@ no text, no cropped limbs, no black grid lines, no transparency artifacts.
 - 提示词版本：§6.3 v2（纯物理挥杖，禁魔法/发光/粒子）。
 - `char-sprite` 命令：与 §5 完全一致（prepare --anims=attack --fps=8 → process → assemble）。
 - 9 帧审查结论：
-  - 复核**推翻**了交付报告"无任何魔法光环/法球"的原始措辞——`_review/` 目录下 15:36 的旧截图确实显示过带发光球、无武器的失败版本；但该版本已被 15:51-15:52 重新生成的最终版本取代，**最终交付的 `rows/attack/frame_0~8.png` 和 `output/spritesheet.webp` 经拼图复核确认全程手持木杖、无魔法特效**，符合 §1.2 硬性原则。`_review/` 目录里的旧截图未清理，容易让后续查阅者误判现状，建议清理或加时间戳标注。
+  - 复核**推翻**了交付报告"无任何魔法光环/法球"的原始措辞——旧 `_review/` 截图曾显示带发光球、无武器的失败版本；该版本已被最终版本取代，**最终交付的 `rows/attack/frame_0~8.png` 和 `output/spritesheet.webp` 经拼图复核确认全程手持木杖、无魔法特效**，符合 §1.2 硬性原则。旧 `_review/` 残留已在 P5 移出项目目录。
   - 复核**不认可**交付报告"抠绿边缘利落，无绿色描边"的结论——4 倍放大检查显示肩部、大衣描边、腿部、法杖与黑袍交叉处有肉眼可见的绿色边缘残留，不是抗锯齿级别的噪声。用户复看后判定**可接受，留待后续统一整改**，不阻塞后续角色批量推进（见 §13.7）。
   - 脚底基线、身体中心、帧 0/8 循环对齐均通过（原报告 §5 数据表核实无误）。
 - 产物路径：`char_runs/ThreeMovesImagePilot/Rudeus/{rows/attack/frame_0~8.png, output/spritesheet.webp, output/char.json, manifest.json}`。
 - 是否同步游戏目录：否，仍在隔离目录 `ThreeMovesImagePilot/`；`char_runs/registry.js` 中新增的 `ThreeMovesImagePilot/Rudeus` 条目是 `assemble.ts` 的全局索引副作用，不是游戏正式 registry（`game_runs/ThreeMoves/assets/media/registry.js`），未违反 §3.2/§10.1。
 - 旧素材保留情况：`game_runs/ThreeMoves/assets/media/characters/Rudeus_base.png`（静态基准图）未改动，继续作为当前部署版本。
 
-### 12.2 批量生产已交付角色归档（截至 2026-09-06，共 11 位角色完成 4 动作）
+### 12.2 批量生产已交付角色归档（截至 2026-09-06，共 12 位角色完成 4 动作）
 
 所有已完成角色均在隔离目录 `char_runs/ThreeMovesImagePilot/<Character>/` 下完成：
 1. 3×3 纯物理动作网格生成（`source/{attack,guard,ability,special}_grid.png`）。
@@ -409,28 +409,27 @@ no text, no cropped limbs, no black grid lines, no transparency artifacts.
 | **Ruijerd** | `9dc52dc08da...` | `char_runs/ThreeMovesImagePilot/Ruijerd/` | 约 350 KB | 全 4 动作通过，长枪物理突刺与架枪 |
 | **Sylphiette** | `bc011e79ad4...` | `char_runs/ThreeMovesImagePilot/Sylphiette/` | 约 350 KB | 全 4 动作通过，短杖物理动作 |
 | **Zanoba** | `e24aea1f407...` | `char_runs/ThreeMovesImagePilot/Zanoba/` | 约 350 KB | 全 4 动作通过，徒手怪力体术 |
+| **Cliff** | `dc34cd11a5ec...` | `char_runs/ThreeMovesImagePilot/Cliff/` | 约 350 KB | 全 4 动作通过；special 已按 v3 重生成 |
 
-以上 11 位角色均使用 §13.2 v2 纯物理提示词；每个角色均执行 `prepare → process(reference + 4 rows) → assemble`，每个动作 9 帧，正式目录与游戏媒体目录均已同步。统一绿边整改后重新生成的帧仍通过 192×208、透明通道、9 帧齐全、图集 1728×832 自动校验。
+以上 12 位角色均已执行修复后 `process.ts` 的 `prepare → process(reference + 4 rows) → assemble` 流程；Cliff/special 与 Rudeus/guard 另按 v3 重生成并严格复核。每个动作均为 9 帧，正式目录与游戏媒体目录均已同步；12 份 formal `char.json` 的 `name` 已统一为 `ThreeMoves/<C>`。
 
-> 复核补记（2026-09-06）：本表逐行"审查结论"只做了整体目测，未逐角色按 §13.7 记录绿边残留有无、也未按 §13.3 步骤 4"角色和动作各占一条"回写 §12（实际以本汇总表代替 44 条明细）。留档粗于计划约定，后续如需追溯单动作返工历史需重新目检。
+P2/P3/P4 自动复核结果：48 个动作、432 帧全部为 192×208，12 张图集全部为 1728×832；每帧最大连通域占比 100%，每动作最低不透明行均为 202（极差 0px），无 BROKEN/STRAY，最终 slot 输出 GREEN 残留均低于 0.3%。动作姿态带来的 SCALE 候选仍按已知限制记录，不改变本轮 1→8 单次播放验收结论。
 
-### 12.3 Cliff / 四动作（已同步，2026-09-06；独立复核发现未达标项，待专项修复后重判）
+> 复核补记（2026-09-06）：本表保留批量归档用途；逐动作 R/N 判定、自动指标与接触表结论以专项计划附录 A 为准。帧 0≠帧 8、动作帧间轻微缩放差仍是当前单次播放模式下的已知限制，不作为本轮退回理由。
 
-> **复核订正（2026-09-06，逐帧目检）**：本条下方"目检通过身份一致、脚底基线稳定、无断肢/额外武器"与实际帧不符——
-> - `special/frame_6` 有一只五指张开、不连手臂的**悬空手掌**（带黄绿污染），已随图集第 4 行第 7 格同步进游戏媒体。属 §7.1/§7.2 硬伤。
-> - 4 行的**帧 0 与帧 8 不构成循环**，帧内人物随构图**竖直跳动 / 脚底基线漂移**，grid 有**镜头级缩放**。
-> - 同类问题抽查 Rudeus 亦存在，为全 12 人共性。
->
-> 处理：见 **`plans/three-moves-frame-remediation-plan.md`**（前端已定"1→8 单次播放、不循环"，故帧 0≠帧 8 与轻微缩放差记为已知限制；悬空肢体/断肢/基线跳动走管线修复 + 定点重生成）。本条结论待该轮修复完成后重写。
+### 12.3 专项修复复核记录（2026-09-06，P1–P4 已完成）
 
-- 原始参考图：`char_runs/ThreeMoves/Cliff/source/Cliff_base.png`，SHA-256 `dc34cd11a5ec558998c89b3f9fe770d7096dae270f2da2eecb81f45681e55603`，1086×1448 RGB；隔离副本 `char_runs/ThreeMovesImagePilot/Cliff/source/Cliff_base.png` 哈希一致，旧静态 base 保留作回退。
-- `attack`：生成图 `char_runs/ThreeMovesImagePilot/Cliff/source/attack_grid.png`（2026-09-06）；§13.2 v2 徒手 `unarmed strike` 提示词；结论：9 帧齐全、纯物理徒手动作、无魔法/发光/粒子，少量边缘绿残留可接受；产物 `rows/attack/frame_0..8.png`。
-- `guard`：生成图 `char_runs/ThreeMovesImagePilot/Cliff/source/guard_grid.png`（2026-09-06）；§13.2 v2 物理防御姿态提示词；结论：9 帧齐全、无护盾/结界/特效，构图与基线稳定，少量边缘绿残留可接受；产物 `rows/guard/frame_0..8.png`。
-- `ability`：生成图 `char_runs/ThreeMovesImagePilot/Cliff/source/ability_grid.png`（2026-09-06）；§13.2 v2 物理蓄力全力一击提示词；结论：9 帧齐全、以身体力学表现发力、无冲击波/能量/发光，少量边缘绿残留可接受；产物 `rows/ability/frame_0..8.png`。
-- `special`：生成图 `char_runs/ThreeMovesImagePilot/Cliff/source/special_grid.png`（2026-09-06）；§13.2 v2 徒手 `unarmed surprise-attack maneuver` 提示词；结论：9 帧齐全、快速步法与徒手突袭、无速度线/魔法/粒子，少量边缘绿残留可接受；产物 `rows/special/frame_0..8.png`。
-- `char-sprite` 命令：`prepare.ts "ThreeMovesImagePilot/Cliff" '--anims=attack,guard,ability,special' --fps=8` → `process.ts`（reference、attack、guard、ability、special）→ `assemble.ts`；PowerShell 中对逗号参数加引号以保留四行名称。
-- 自动验收：36 帧均为 192×208；`output/spritesheet.webp` 为 1728×832；`output/char.json` 行序为 attack/guard/ability/special、各 `frameCount:9`、`fps:8`；manifest 四行均 `status:"completed"`。目检通过身份一致、脚底基线稳定、无断肢/额外武器/魔法元素；绿边记录为少量轻微边缘残留，无大面积污染。
-- 产物路径：`char_runs/ThreeMovesImagePilot/Cliff/{rows/*,output/spritesheet.webp,output/char.json,manifest.json}`，已迁移至 `char_runs/ThreeMoves/Cliff/`；已同步 `game_runs/ThreeMoves/assets/media/characters/Cliff_spritesheet.webp` 与 `Cliff_char.json`；`game_runs/ThreeMoves/assets/media/registry.js` 已保留 `base` 并加入 `spritesheet` / `charJson`。
+专项范围为 12 人 × 4 动作 × 9 帧。P1 自动审计结合接触表目检将 `Cliff/special` 与 `Rudeus/guard` 判为 R 类，其余 46 个动作判为 N 类；未触发 R 类超过 15 个的暂停点。
+
+- 管线修复：`skills/char-sprite/process.ts` 对 slot 路径先保留主轮廓并过滤远离杂散连通域，再对 trim 后人物外接框做确定性底对齐；未做逐帧缩放归一化。
+- Cliff：`special_grid.v2.png` 留档；v3 重生成后的 `special_grid.png` 已处理并同步，九格均正面、徒手、无游离肢体，`frame_6` 悬空手掌问题不再存在。
+- Rudeus：`guard_grid.v2.png` 留档；v3 重生成后的 `guard_grid.png` 已处理并同步，九格均徒手且装备一致，旧 guard 的武器跨帧不一致不再存在。
+- 自动验收：48 动作 / 432 帧，全部 192×208；图集全部 1728×832；最大连通域 100%；各动作最低不透明行均为 202；manifest 四行均 `completed`；formal 与游戏媒体同步；`char.json` `name` 均为 `ThreeMoves/<C>`。
+- 绿边记录：最终管线审计 432 帧均低于 0.3% GREEN 残留；仍保留 §13.7 的严格门，防止后续生成重新引入大面积绿/黑块或挖空断肢。
+
+- Cliff 原始参考图：`char_runs/ThreeMoves/Cliff/source/Cliff_base.png`，SHA-256 `dc34cd11a5ec558998c89b3f9fe770d7096dae270f2da2eecb81f45681e55603`；special 旧图保留为 `source/special_grid.v2.png`，v3 最终图为 `source/special_grid.png`。
+- Rudeus guard 旧图保留为 `char_runs/ThreeMoves/Rudeus/source/guard_grid.v2.png`，v3 最终图为 `guard_grid.png`；九格均徒手，无武器跨帧变化。
+- 两个 R 类动作均使用修复后 `process.ts`，通过严格版身份、肢体连接、装备一致性、无魔法/发光/粒子、单次 1→8 播放验收；formal 输出已重新 assemble 并同步游戏媒体。
 
 ## 13. 批量执行计划：13 名角色 × 4 动作（2026-09-05 制定，供生成 Agent 执行）
 
@@ -442,7 +441,7 @@ Flow 的 3×3 网格图生成目前是人工在浏览器操作，不是脚本 AP
 
 1. **Roxy 参考图不合格，暂缓生成**：`char_runs/ThreeMoves/Roxy/source/Roxy_base.png` 是 580×720 RGBA（其余 12 人均为约 1086×1448 RGB 无透明通道），已带透明背景、法杖顶端有实体化发光水法球、脚下带魔法阵——不符合 §1.2"生成参考只能使用未抠图、未裁切、未缩放、未经过 char-sprite/video-sprite 处理"的硬性要求。已确认工作区内没有更干净的替代原图（`reference/frame_0.png` 和游戏媒体图都是更小的派生图，不能用）。
    **处理方式**：跳过 Roxy，先完成其余审计合格角色；Roxy 需要人工重新提供或重新绘制一张纯绿幕、无发光特效、无魔法阵的原始立绘，审计通过（走一遍 §4.1 清单）后再补做四动作。不要尝试用现有污染图"将就"生成，也不要自行脑补裁剪/抠除魔法阵——那属于对参考图的加工，同样违反 §1.2。
-2. **提交当前未入库的基础设施修复**：`git status` 显示 `skills/char-sprite/process.ts`（切帧改为固定 slot 而非连通域分组，是本轮跑通 3×3 网格切帧的关键修复）和 `char_runs/registry.js` 仍是未提交的工作区改动。建议人工先确认这两处改动、提交一次基线 commit，再开始批量任务，避免长时间批量作业过程中这份修复被误覆盖或与其他改动冲突。
+2. **基础设施修复已入库**：P2 管线与 `audit.ts` 已提交 `5bce5b6`；P3 全量重跑与旧图集 SHA-256 留档已提交 `37653a6`；P4 两个 R 类动作的 v3 定点重生成与 P5 文档收尾在本轮提交。
 
 ### 13.1 角色清单与原始参考审计（12 人已完成，Roxy 阻塞）
 
@@ -550,7 +549,7 @@ no text, no cropped limbs, no black grid lines, no transparency artifacts.
 
 ### 13.3 每个角色 × 动作的执行流程
 
-对 13.1 表里"通过"的角色按下面的循环跑。截至 2026-09-06 已完成 11 人；**剩 Cliff（可直接开工）与 Roxy（解除 §13.0 阻塞后）**——两者已展开为可直接复制的执行单，见 `plans/three-moves-remaining-tasks-handoff.md`，本节循环是其依据：
+对 13.1 表里"通过"的角色按下面的循环跑。截至 2026-09-06 已完成 12 人；**仅剩 Roxy（解除 §13.0 阻塞后）**。Cliff 已按本节流程完成并在专项修复中重验，Roxy 的自包含执行单见 `plans/three-moves-remaining-tasks-handoff.md`。
 
 ```text
 对每个角色 <Character>：
@@ -606,7 +605,7 @@ no text, no cropped limbs, no black grid lines, no transparency artifacts.
 
 ### 13.7 已知可接受瑕疵基线（不重复阻塞，但要统一整改）
 
-鲁迪 attack 的最终帧存在肉眼可见的绿色边缘残留（见 §12.1），用户已确认"可以接受，后期可以再调整"。批量生产 13 人 × 4 动作期间，这类**轻微**边缘残留不作为单帧退回理由，但每个角色审查时仍要在 §12 记录里注明"是否存在绿边残留"，为后续统一修 `skills/char-sprite/process.ts` 的抠像/去边逻辑积累样本，而不是每个角色各自悄悄将就。若某一帧的绿色残留达到大面积挖空、断肢、或明显可辨认的色块级别（不是 1~3px 描边），仍按 §7.1 标准退回，不适用本条豁免。
+最终自动审计的 432 帧 GREEN 残留均低于 0.3%；人工仍按边缘无大面积污染复核。若后续生成达到大面积挖空、断肢、可辨认色块、魔法/发光/粒子，仍按严格门退回。帧 0≠帧 8 与动作帧间轻微缩放差属于当前播放模式的已知限制；改为循环播放时必须另起全量重生成。
 
 ### 13.8 当前成果与剩余待办事项清单（2026-09-06 更新）
 
@@ -614,25 +613,24 @@ no text, no cropped limbs, no black grid lines, no transparency artifacts.
 - **已交付**：`Rudeus`, `Eris`, `ErisGreyrat`, `Ghislaine`, `Kishirika`, `Nanahoshi`, `Paul`, `Perugius`, `Ruijerd`, `Sylphiette`, `Zanoba`, `Cliff`。
 - **产物形态**：12 位角色共计 48 个 3×3 连续动作网格图；432 张 `192×208` 透明单帧；12 份完整 `spritesheet.webp` 图集与 `char.json` 元数据装配归档于 `char_runs/ThreeMovesImagePilot/`，并同步到正式 `char_runs/ThreeMoves/`。
 - **游戏接入**：12 位角色的 WebP 图集与元数据已增量写入 `game_runs/ThreeMoves/assets/media/characters/`；`game_runs/ThreeMoves/assets/media/registry.js` 已为对应条目增加 `spritesheet` / `charJson` 路径，保留原有 `base` 静态图回退。
-- **统一整改**：`skills/char-sprite/process.ts` 增加仅作用于透明邻域的绿色边缘去溢出步骤；已有 44 张历史网格图的分隔带统一为 `#006600`，Cliff 新增 4 张也按同一流程处理。
-- **版本控制（2026-09-06）**：以上产物已提交（`process.ts` 基线修复、12 组游戏媒体 `webp`+`char.json`、两份 registry、本计划文档）。注意 `game_runs/**/*.json` 默认被 `.gitignore` 忽略，12 个 `*_char.json` 是 `git add -f` 强制入库的；后续接前端播放前若加入 Roxy，其 `char.json` 同样需 `-f`，或改在 `.gitignore` 增补 `!game_runs/ThreeMoves/assets/media/**/*_char.json` 例外。
+- **统一整改**：`process.ts` 已加入 slot 杂散连通域过滤与 trim 外接框底对齐；已有网格继续使用 `#006600` 分隔带，R 类新图按 v3 加锁。
+- **版本控制（2026-09-06）**：P2 提交 `5bce5b6`，P3 提交 `37653a6`；P4 与文档收尾单独提交。注意 `game_runs/**/*.json` 默认被 `.gitignore` 忽略，12 个 `*_char.json` 是 `git add -f` 强制入库的；后续接前端播放前若加入 Roxy，其 `char.json` 同样需 `-f`，或改在 `.gitignore` 增补 `!game_runs/ThreeMoves/assets/media/**/*_char.json` 例外。
 
-#### 2. 剩余待办任务分解（连续帧专项修复 + Roxy；Cliff 生成已完成但待修复）
+#### 2. 剩余待办任务分解（仅 Roxy）
 
 > 执行单：**`plans/three-moves-frame-remediation-plan.md`**（专项修复，先做）、**`plans/three-moves-remaining-tasks-handoff.md`**（Roxy）。以下仅为索引。
 
-- **任务零：连续帧素材专项修复（12 人 × 4 动作，先做）**
-  - 独立复核发现全 12 人共性缺陷：悬空/断裂肢体（已确认 `Cliff/special/frame_6`）、逐帧竖直跳动 / 脚底基线漂移、镜头级缩放、装备跨行不一致；`char.json` 的 `name` 字段未随迁移改名。
-  - 前端已定"帧 1→8 单次播放、不循环、idle 用静态图"→ 帧 0≠帧 8、动作帧间轻微缩放差记为已知限制；其余走 `process.ts` 管线修复（杂散连通域过滤 + 脚底基线底对齐）+ 按审计清单定点重生成。
-  - 详见 `plans/three-moves-frame-remediation-plan.md`（P1 审计 → P2 管线 → P3 全量重跑 → P4 定点重生成 → P5 收尾 → P6 前推 Roxy）。
+- **任务零：连续帧素材专项修复（已完成）**
+  - P1–P4 已完成；P1 判定 2 个 R 类动作，P2/P3 消除基线漂移与杂散连通域，P4 完成 Cliff/special 与 Rudeus/guard 的 v3 重生成；P5 记录与清理在本轮完成。
+  - 详见 `plans/three-moves-frame-remediation-plan.md` 附录 A。
 
 - **任务一：Cliff（克里夫）四动作生成（已完成，2026-09-06）**
   - 原图 `char_runs/ThreeMoves/Cliff/source/Cliff_base.png` 已审计通过（纯绿幕、徒手无武器）。
-  - 按 §13.2 v2 提示词（attack/special 的 ACTION_LABEL 用徒手版 `unarmed strike` / `unarmed surprise-attack maneuver`）+ §13.3 循环，隔离目录 `ThreeMovesImagePilot/Cliff/` 生成 → 处理 → 审查 → 四动作全过后迁移正式目录 + 增量同步游戏媒体 + registry.js 加 `spritesheet`/`charJson`。
-  - 已按 §12.1 格式追加至 §12.3，§13.4 进度表 Cliff 行已更新为“已同步游戏目录”。
+  - attack/guard/ability 沿用 v2；special 已用 v3 严格重生成并保留 `special_grid.v2.png` 回退。
+  - 已追加至 §12.3，§13.4 进度表 Cliff 行已更新为“已同步游戏目录”。
 - **任务二：解除 Roxy 阻塞项（待补原图）**
   - 当前源图为 580×720 带透明底、水法球与脚下魔法阵的派生图；需提供/重绘一张纯绿幕 `#00FF00`、无特效、约 1086×1448 RGB 的原始立绘，走 §4.1 审计。
 - **任务三：Roxy 解锁后补跑与同步**
-  - 原图审计通过后（覆盖前把旧文件备份为 `Roxy_base.polluted.png`、记录新 SHA-256），按相同 v2 纯物理提示词（持杖法师，attack 用 `staff swing attack`）、`char-sprite` 流水线、逐帧验收和增量同步流程补齐 4 动作。
-- **任务四：收尾**
-  - 两名角色都进游戏媒体后，顶部状态行改为 13/13，§13.4 全绿，本清单清空；删除 `char_runs/ThreeMovesImagePilot/Rudeus/_review/`（§12.1 已标注的旧失败版截图残留）。
+  - 原图审计通过后（覆盖前把旧文件备份为 `Roxy_base.polluted.png`、记录新 SHA-256），按 v3 纯物理提示词锁（持杖法师，attack 用 `staff swing attack`）、修复后 `char-sprite` 流水线、逐帧验收和增量同步流程补齐 4 动作。
+- **任务四：收尾（本轮完成）**
+  - 12 人专项产物已进游戏媒体，formal `char.json` 名称已修正，`char_runs/ThreeMovesImagePilot/Rudeus/_review/` 已清理；Roxy 仍因原图阻塞，不改写为 13/13。

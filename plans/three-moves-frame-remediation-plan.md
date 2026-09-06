@@ -24,7 +24,7 @@
 | D1 | **断肢 / 悬空肢体**：`Cliff/special/frame_6` 脚边有一只五指张开、不连手臂的手掌，带黄绿污染 | 已同步进 `game_runs/.../Cliff_spritesheet.webp` 第 4 行第 7 格 | **必修（硬伤）** | 管线杂散连通域过滤（P2）；过滤不净则重生成该动作（P4） |
 | D2 | **逐帧竖直跳动 / 脚底基线漂移**：帧内人物垂直位置随构图浮动，special 行还有腾空帧 | Cliff/Rudeus 全部 4 grid | **必修** | 管线脚底基线底对齐（P2），纯栅格位移、确定性、无需重生成 |
 | D3 | **镜头级缩放**：grid 里帧 0 是"小人 + 大留白"，帧 1–8 推近；动作帧之间尺度不一 | Cliff/Rudeus 全部 4 grid | 部分修 | 管线底对齐后成品帧缩放差被压小；剩余轻微缩放差**按已知限制记录**，不重生成（除非 P1 审计判为"大幅畸变级"） |
-| D4 | **装备跨行不一致**：Rudeus ability/special 行法杖时有时无 / 形变 | 抽查 Rudeus | **必修（若 P1 审计确认）** | 重生成该动作（P4），v3 提示词加 EQUIPMENT LOCK |
+| D4 | **装备跨行不一致**：Rudeus guard 行武器时有时无 / 形态不一致 | P1 接触表复核 Rudeus/guard | **必修** | 重生成该动作（P4），v3 提示词加 EQUIPMENT LOCK |
 | D5 | **帧 0 ≠ 帧 8，无法循环**：4 行帧 8 都停在动作中段 | Cliff/Rudeus 全部 4 行 | 本轮不修 | 记录为已知限制；约束前端"1→8 一次性、不循环" |
 | D6 | **`char.json` 的 `name` 字段仍是 `ThreeMovesImagePilot/Cliff`**（formal 与游戏媒体都没改）| `game_runs/.../Cliff_char.json` | 轻 | P5：formal 目录重跑 `assemble.ts`，或在同步脚本里改名 |
 | D7 | **§12.2 / §12.3 留档不实**：Cliff §12.3 写"目检通过…无断肢…脚底基线稳定"与 D1/D2 冲突；§12.2 11 人只有一行汇总、无逐动作绿边记录 | 主计划 §12 | 轻 | P5：按实情重写 §12 记录 |
@@ -263,13 +263,13 @@ registry.js 无需改（12 人条目已带 `spritesheet` / `charJson` 路径，�
 
 ## 7. 完成标准
 
-- [ ] `audit.ts` 对 12 名角色全部动作：连通域 ≥ 98%、基线极差 < 6px、绿残留 < 0.3%、尺寸/帧数齐
-- [ ] P1 附录 A 的 R 类动作全部重生成并通过严格验收门
-- [ ] 12 名角色 formal 目录与游戏媒体 `char.json` 的 `name` == `ThreeMoves/<C>`
-- [ ] 主计划 §12.2 / §12.3 / §13.7 / §13.8 已按实情更新
-- [ ] `char_runs/ThreeMovesImagePilot/Rudeus/_review/` 已删
-- [ ] 交接单 Roxy 段已换 v3 提示词 + 指向修复后管线
-- [ ] P2 / P3 / P4 产物均已提交
+- [x] `audit.ts` 对 12 名角色全部动作：连通域 ≥ 98%、基线极差 < 6px、绿残留 < 0.3%、尺寸/帧数齐
+- [x] P1 附录 A 的 R 类动作全部重生成并通过严格验收门
+- [x] 12 名角色 formal 目录与游戏媒体 `char.json` 的 `name` == `ThreeMoves/<C>`
+- [x] 主计划 §12.2 / §12.3 / §13.7 / §13.8 已按实情更新
+- [x] `char_runs/ThreeMovesImagePilot/Rudeus/_review/` 已删
+- [x] 交接单 Roxy 段已换 v3 提示词 + 指向修复后管线
+- [x] P2 / P3 / P4 产物均已提交
 
 ---
 
@@ -298,3 +298,12 @@ registry.js 无需改（12 人条目已带 `spritesheet` / `charJson` 路径，�
 | Zanoba | — | `attack`, `guard`, `ability`, `special` | `attack`/`ability`/`special` BASELINE |
 
 P1 结论：进入 P2；R 类只对 Cliff/special 与 Rudeus/guard 执行提示词 v3 定点重生成，其他动作先走确定性管线修复。
+
+### P2–P5 执行回写（2026-09-06）
+
+- P2 已提交：`5bce5b6`（`audit.ts`、slot 杂散连通域过滤、trim 外接框底对齐）。Cliff 特殊动作自检后最低不透明行统一为 202。
+- P3 已提交：`37653a6`。12 人使用现有 grid 全量重跑；覆盖前旧 formal 图集 SHA-256 保存在 `scratch/three-moves-spritesheets-before.sha256`；formal assemble 后同步游戏媒体。
+- P4 已完成：Cliff/special 第 2 次 v3 生成通过严格门（第 1 次因出现背面格退回）；Rudeus/guard 第 1 次 v3 生成通过严格门。旧图分别保留为 `special_grid.v2.png` / `guard_grid.v2.png`。
+- P5 已完成：formal `char.json` 的 `name` 均为 `ThreeMoves/<C>`；Rudeus `_review` 已移出项目目录；主计划 §12.2/§12.3/§13.7/§13.8 与 Roxy 交接单已按实际结果更新。
+- 最终自动验收：48 动作 / 432 帧；全部 192×208；12 张图集 1728×832；最大连通域 100%；每动作最低不透明行 202；无 BROKEN/STRAY；GREEN 残留均低于 0.3%；R 类均通过严格目检与同步。
+- 已知限制照实保留：帧 0≠帧 8、动作帧间轻微缩放差；后续若改为循环播放需另起全量重生成。

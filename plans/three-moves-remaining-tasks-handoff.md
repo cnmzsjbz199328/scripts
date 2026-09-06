@@ -191,6 +191,32 @@ No shadows, no scenery, no camera movement, no zoom, no extra characters,
 no text, no cropped limbs, no black grid lines, no transparency artifacts.
 ```
 
+#### v3 统一锁（R 类重生成与 Roxy 必须追加）
+
+```text
+SIZE AND BASELINE LOCK — apply to all 9 cells equally:
+Frame every cell so the standing character's head-to-heel height fills the SAME
+fraction, about 72%, of the cell. Do NOT zoom in, punch in, crop closer, or enlarge
+the character in the action cells — the action is shown by limb movement, not by the
+camera moving closer.
+The character's feet rest on the same horizontal ground line in every cell, about
+88% down from the top of the cell. Keep at least one foot planted on that line in
+every cell: no airborne poses, no jumping, no leaving the cell edges.
+
+ANATOMY / EQUIPMENT LOCK:
+Every hand, arm, foot and leg stays visibly connected to the body in every cell.
+Never draw a detached, floating, or free-standing body part. No duplicated arms,
+no fused or broken limbs, no extra fingers-only shapes.
+Keep identical equipment across all 9 cells: <PERSISTENT_ITEM>.
+The character and that equipment are the only rendered elements besides the pure
+green background.
+
+Frame 9 (bottom-right) returns to the same size and calm standing idle stance as
+Frame 1 (top-left), arms lowered.
+```
+
+`<PERSISTENT_ITEM>`：徒手角色填 `no weapon or held object appears in any cell — the character stays bare-handed`；持械角色填 `the same staff / sword / spear as in the reference, same length and design in every cell`。R 类若出现断肢、装备跨帧变化、推近/缩小、腾空、魔法/发光/粒子或大面积绿/黑块，整张退回，不进切帧。
+
 ### 2.4 处理（每张网格图各一次，全部指向隔离目录）
 
 ```bash
@@ -339,7 +365,7 @@ sha256sum char_runs/ThreeMoves/Roxy/source/Roxy_base.png    # 记录新哈希，
 | ability | `power exertion strike at maximum physical force` | `maximum-effort physical strength through body mechanics and muscle tension alone`（挥杖发力，无法术） |
 | special | `quick surprise-attack maneuver` | `fast footwork and a surprise strike using her own body and staff` |
 
-其余（9-CELL SEQUENCE、构图约束、禁魔法清单、`No shadows...` 收尾行）与 §2.3 各块逐字一致，只把主语改成 `she / her`、把 `unarmed strike` 换成 `staff swing attack` 等。**禁魔法清单必须保留并强化**——Roxy 是法师，模型极易自动补法术光效，这是她最高风险点。
+其余（9-CELL SEQUENCE、构图约束、禁魔法清单、`No shadows...` 收尾行）与 §2.3 各块一致，只把主语改成 `she / her`、把 `unarmed strike` 换成 `staff swing attack` 等；并且必须追加上面的 **v3 统一锁**，持械项目填 `the same staff as in the reference, same length and design in every cell`。**禁魔法清单必须保留并强化**——Roxy 是法师，模型极易自动补法术光效，这是她最高风险点。生成后必须使用修复后的 `skills/char-sprite/process.ts`，验收走专项计划 §4 严格门。
 
 命令模板（`prepare` 一次建四行）：
 
@@ -365,7 +391,7 @@ npx tsx skills/char-sprite/assemble.ts "ThreeMovesImagePilot/Roxy"
 - [ ] 主计划顶部状态行改为 `13/13 花色角色完成`
 - [ ] 主计划 §13.4 进度表 Cliff、Roxy 四格全部 `已同步游戏目录`
 - [ ] 主计划 §13.8 "剩余待办"清单清空 / 标记完成
-- [ ] 删除 `char_runs/ThreeMovesImagePilot/Rudeus/_review/`（主计划 §12.1 标注的旧失败版截图残留，会误导后续查阅）
+- [x] 删除 `char_runs/ThreeMovesImagePilot/Rudeus/_review/`（主计划 §12.1 标注的旧失败版截图残留，会误导后续查阅）
 - [ ] 确认 `game_runs/ThreeMoves/assets/media/registry.js` 13 名 roster 全部带 `spritesheet` / `charJson`，两张 Joker 维持仅 `base`
 
 > 提醒：本批产物只接入"素材 + registry 路径"。让前端真正播放这些帧（换掉静态基准图）是**另一项工作**（主计划 §13.6），需单独确认需求与排期；届时注意 `*_char.json` 的 `.gitignore` 例外问题（见主计划 §13.8）。

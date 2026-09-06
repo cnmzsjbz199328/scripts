@@ -55,15 +55,15 @@ function removeGreenEdgeSpill(data: Buffer, width: number, height: number): void
       const i = idx * 4;
       const r = data[i], g = data[i + 1], b = data[i + 2];
       const dist = chromaDist(r, g, b);
-      const greenSpill = dist > CHROMA_THRESHOLD && dist <= 190 &&
-        g > r * 1.25 && g > b * 1.25 && r < 150 && b < 150;
+      const greenSpill = dist > CHROMA_THRESHOLD && dist <= 420 &&
+        g > r * 1.10 && g > b * 1.10 && r < 240 && b < 240;
       if (!greenSpill) continue;
 
       let touchesTransparent = false;
-      for (let oy = -2; oy <= 2 && !touchesTransparent; oy++) {
+      for (let oy = -12; oy <= 12 && !touchesTransparent; oy++) {
         const ny = y + oy;
         if (ny < 0 || ny >= height) continue;
-        for (let ox = -2; ox <= 2; ox++) {
+        for (let ox = -12; ox <= 12; ox++) {
           const nx = x + ox;
           if (nx < 0 || nx >= width) continue;
           if (alpha[ny * width + nx] <= 16) { touchesTransparent = true; break; }
@@ -232,7 +232,19 @@ async function fitCropToCell(cropBuf: Buffer, cropW: number, cropH: number, useT
     .png()
     .toBuffer();
 
-  const resizedMeta = await sharp(resized).metadata();
+  let cleanedResized = resized;
+  if (bottomAlign) {
+    const { data: resizedData, info: resizedInfo } = await sharp(resized)
+      .ensureAlpha()
+      .raw()
+      .toBuffer({ resolveWithObject: true });
+    removeGreenEdgeSpill(resizedData, resizedInfo.width, resizedInfo.height);
+    cleanedResized = await sharp(resizedData, {
+      raw: { width: resizedInfo.width, height: resizedInfo.height, channels: 4 }
+    }).png().toBuffer();
+  }
+
+  const resizedMeta = await sharp(cleanedResized).metadata();
   const resizedW = resizedMeta.width ?? 0;
   const resizedH = resizedMeta.height ?? 0;
   const left = Math.round((FRAME_WIDTH - resizedW) / 2);
@@ -241,7 +253,7 @@ async function fitCropToCell(cropBuf: Buffer, cropW: number, cropH: number, useT
     : Math.round((FRAME_HEIGHT - resizedH) / 2);
 
   return sharp({ create: { width: FRAME_WIDTH, height: FRAME_HEIGHT, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } } })
-    .composite([{ input: resized, left, top }])
+    .composite([{ input: cleanedResized, left, top }])
     .png()
     .toBuffer();
 }
