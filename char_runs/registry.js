@@ -1306,5 +1306,410 @@ window.CHAR_REGISTRY = {
       }
     },
     "spritesheet": "ThreeMovesImagePilot/Cliff/output/spritesheet.webp"
+  },
+  "ThreeMoves/Cliff": {
+    "name": "ThreeMoves/Cliff",
+    "type": "char-sprite-v1",
+    "dimensions": {
+      "width": 1728,
+      "height": 832
+    },
+    "frameSize": {
+      "width": 192,
+      "height": 208
+    },
+    "rows": [
+      "attack",
+      "guard",
+      "ability",
+      "special"
+    ],
+    "animations": {
+      "attack": {
+        "row": 0,
+        "frameCount": 9,
+        "fps": 8,
+        "loop": true
+      },
+      "guard": {
+        "row": 1,
+        "frameCount": 9,
+        "fps": 8,
+        "loop": true
+      },
+      "ability": {
+        "row": 2,
+        "frameCount": 9,
+        "fps": 8,
+        "loop": true
+      },
+      "special": {
+        "row": 3,
+        "frameCount": 9,
+        "fps": 8,
+        "loop": true
+      }
+    },
+    "spritesheet": "ThreeMoves/Cliff/output/spritesheet.webp"
+  },
+  "ThreeMoves/Ghislaine": {
+    "name": "ThreeMoves/Ghislaine",
+    "type": "char-sprite-v1",
+    "dimensions": {
+      "width": 1728,
+      "height": 832
+    },
+    "frameSize": {
+      "width": 192,
+      "height": 208
+    },
+    "rows": [
+      "attack",
+      "guard",
+      "ability",
+      "special"
+    ],
+    "animations": {
+      "attack": {
+        "row": 0,
+        "frameCount": 9,
+        "fps": 8,
+        "loop": true
+      },
+      "guard": {
+        "row": 1,
+        "frameCount": 9,
+        "fps": 8,
+        "loop": true
+      },
+      "ability": {
+        "row": 2,
+        "frameCount": 9,
+        "fps": 8,
+        "loop": true
+      },
+      "special": {
+        "row": 3,
+        "frameCount": 9,
+        "fps": 8,
+        "loop": true
+      }
+    },
+    "spritesheet": "ThreeMoves/Ghislaine/output/spritesheet.webp"
+  },
+  "ThreeMoves/Kishirika": {
+    "name": "ThreeMoves/Kishirika",
+    "type": "char-sprite-v1",
+    "dimensions": {
+      "width": 1728,
+      "height": 832
+    },
+    "frameSize": {
+      "width": 192,
+      "height": 208
+    },
+    "rows": [
+      "attack",
+      "guard",
+      "ability",
+      "special"
+    ],
+    "animations": {
+      "attack": {
+        "row": 0,
+        "frameCount": 9,
+        "fps": 8,
+        "loop": true
+      },
+      "guard": {
+        "row": 1,
+        "frameCount": 9,
+        "fps": 8,
+        "loop": true
+      },
+      "ability": {
+        "row": 2,
+        "frameCount": 9,
+        "fps": 8,
+        "loop": true
+      },
+      "special": {
+        "row": 3,
+        "frameCount": 9,
+        "fps": 8,
+        "loop": true
+      }
+    },
+    "spritesheet": "ThreeMoves/Kishirika/output/spritesheet.webp"
+  },
+  "ThreeMoves/Nanahoshi": {
+    "name": "ThreeMoves/Nanahoshi",
+    "type": "char-sprite-v1",
+    "dimensions": {
+      "width": 1728,
+      "height": 832
+    },
+    "frameSize": {
+      "width": 192,
+      "height": 208
+    },
+    "rows": [
+      "attack",
+      "guard",
+      "ability",
+      "special"
+    ],
+    "animations": {
+      "attack": {
+        "row": 0,
+        "frameCount": 9,
+        "fps": 8,
+        "loop": true
+      },
+      "guard": {
+        "row": 1,
+        "frameCount": 9,
+        "fps": 8,
+        "loop": true
+      },
+      "ability": {
+        "row": 2,
+        "frameCount": 9,
+        "fps": 8,
+        "loop": true
+      },
+      "special": {
+        "row": 3,
+        "frameCount": 9,
+        "fps": 8,
+        "loop": true
+      }
+    },
+    "spritesheet": "ThreeMoves/Nanahoshi/output/spritesheet.webp"
+  },
+  "ThreeMoves/Paul": {
+    "name": "ThreeMoves/Paul",
+    "type": "char-sprite-v1",
+    "dimensions": {
+      "width": 1728,
+      "height": 832
+    },
+    "frameSize": {
+      "width": 192,
+      "height": 208
+    },
+    "rows": [
+      "attack",
+      "guard",
+      "ability",
+      "special"
+    ],
+    "animations": {
+      "attack": {
+        "row": 0,
+        "frameCount": 9,
+        "fps": 8,
+        "loop": true
+      },
+      "guard": {
+        "row": 1,
+        "frameCount": 9,
+        "fps": 8,
+        "loop": true
+      },
+      "ability": {
+        "row": 2,
+        "frameCount": 9,
+        "fps": 8,
+        "loop": true
+      },
+      "special": {
+        "row": 3,
+        "frameCount": 9,
+        "fps": 8,
+        "loop": true
+      }
+    },
+    "spritesheet": "ThreeMoves/Paul/output/spritesheet.webp"
+  },
+  "ThreeMoves/Perugius": {
+    "name": "ThreeMoves/Perugius",
+    "type": "char-sprite-v1",
+    "dimensions": {
+      "width": 1728,
+      "height": 832
+    },
+    "frameSize": {
+      "width": 192,
+      "height": 208
+    },
+    "rows": [
+      "attack",
+      "guard",
+      "ability",
+      "special"
+    ],
+    "animations": {
+      "attack": {
+        "row": 0,
+        "frameCount": 9,
+        "fps": 8,
+        "loop": true
+      },
+      "guard": {
+        "row": 1,
+        "frameCount": 9,
+        "fps": 8,
+        "loop": true
+      },
+      "ability": {
+        "row": 2,
+        "frameCount": 9,
+        "fps": 8,
+        "loop": true
+      },
+      "special": {
+        "row": 3,
+        "frameCount": 9,
+        "fps": 8,
+        "loop": true
+      }
+    },
+    "spritesheet": "ThreeMoves/Perugius/output/spritesheet.webp"
+  },
+  "ThreeMoves/Ruijerd": {
+    "name": "ThreeMoves/Ruijerd",
+    "type": "char-sprite-v1",
+    "dimensions": {
+      "width": 1728,
+      "height": 832
+    },
+    "frameSize": {
+      "width": 192,
+      "height": 208
+    },
+    "rows": [
+      "attack",
+      "guard",
+      "ability",
+      "special"
+    ],
+    "animations": {
+      "attack": {
+        "row": 0,
+        "frameCount": 9,
+        "fps": 8,
+        "loop": true
+      },
+      "guard": {
+        "row": 1,
+        "frameCount": 9,
+        "fps": 8,
+        "loop": true
+      },
+      "ability": {
+        "row": 2,
+        "frameCount": 9,
+        "fps": 8,
+        "loop": true
+      },
+      "special": {
+        "row": 3,
+        "frameCount": 9,
+        "fps": 8,
+        "loop": true
+      }
+    },
+    "spritesheet": "ThreeMoves/Ruijerd/output/spritesheet.webp"
+  },
+  "ThreeMoves/Sylphiette": {
+    "name": "ThreeMoves/Sylphiette",
+    "type": "char-sprite-v1",
+    "dimensions": {
+      "width": 1728,
+      "height": 832
+    },
+    "frameSize": {
+      "width": 192,
+      "height": 208
+    },
+    "rows": [
+      "attack",
+      "guard",
+      "ability",
+      "special"
+    ],
+    "animations": {
+      "attack": {
+        "row": 0,
+        "frameCount": 9,
+        "fps": 8,
+        "loop": true
+      },
+      "guard": {
+        "row": 1,
+        "frameCount": 9,
+        "fps": 8,
+        "loop": true
+      },
+      "ability": {
+        "row": 2,
+        "frameCount": 9,
+        "fps": 8,
+        "loop": true
+      },
+      "special": {
+        "row": 3,
+        "frameCount": 9,
+        "fps": 8,
+        "loop": true
+      }
+    },
+    "spritesheet": "ThreeMoves/Sylphiette/output/spritesheet.webp"
+  },
+  "ThreeMoves/Zanoba": {
+    "name": "ThreeMoves/Zanoba",
+    "type": "char-sprite-v1",
+    "dimensions": {
+      "width": 1728,
+      "height": 832
+    },
+    "frameSize": {
+      "width": 192,
+      "height": 208
+    },
+    "rows": [
+      "attack",
+      "guard",
+      "ability",
+      "special"
+    ],
+    "animations": {
+      "attack": {
+        "row": 0,
+        "frameCount": 9,
+        "fps": 8,
+        "loop": true
+      },
+      "guard": {
+        "row": 1,
+        "frameCount": 9,
+        "fps": 8,
+        "loop": true
+      },
+      "ability": {
+        "row": 2,
+        "frameCount": 9,
+        "fps": 8,
+        "loop": true
+      },
+      "special": {
+        "row": 3,
+        "frameCount": 9,
+        "fps": 8,
+        "loop": true
+      }
+    },
+    "spritesheet": "ThreeMoves/Zanoba/output/spritesheet.webp"
   }
 };
