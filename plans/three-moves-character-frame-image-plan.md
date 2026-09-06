@@ -414,7 +414,14 @@ no text, no cropped limbs, no black grid lines, no transparency artifacts.
 
 > 复核补记（2026-09-06）：本表逐行"审查结论"只做了整体目测，未逐角色按 §13.7 记录绿边残留有无、也未按 §13.3 步骤 4"角色和动作各占一条"回写 §12（实际以本汇总表代替 44 条明细）。留档粗于计划约定，后续如需追溯单动作返工历史需重新目检。
 
-### 12.3 Cliff / 四动作（已验收并同步，2026-09-06）
+### 12.3 Cliff / 四动作（已同步，2026-09-06；独立复核发现未达标项，待专项修复后重判）
+
+> **复核订正（2026-09-06，逐帧目检）**：本条下方"目检通过身份一致、脚底基线稳定、无断肢/额外武器"与实际帧不符——
+> - `special/frame_6` 有一只五指张开、不连手臂的**悬空手掌**（带黄绿污染），已随图集第 4 行第 7 格同步进游戏媒体。属 §7.1/§7.2 硬伤。
+> - 4 行的**帧 0 与帧 8 不构成循环**，帧内人物随构图**竖直跳动 / 脚底基线漂移**，grid 有**镜头级缩放**。
+> - 同类问题抽查 Rudeus 亦存在，为全 12 人共性。
+>
+> 处理：见 **`plans/three-moves-frame-remediation-plan.md`**（前端已定"1→8 单次播放、不循环"，故帧 0≠帧 8 与轻微缩放差记为已知限制；悬空肢体/断肢/基线跳动走管线修复 + 定点重生成）。本条结论待该轮修复完成后重写。
 
 - 原始参考图：`char_runs/ThreeMoves/Cliff/source/Cliff_base.png`，SHA-256 `dc34cd11a5ec558998c89b3f9fe770d7096dae270f2da2eecb81f45681e55603`，1086×1448 RGB；隔离副本 `char_runs/ThreeMovesImagePilot/Cliff/source/Cliff_base.png` 哈希一致，旧静态 base 保留作回退。
 - `attack`：生成图 `char_runs/ThreeMovesImagePilot/Cliff/source/attack_grid.png`（2026-09-06）；§13.2 v2 徒手 `unarmed strike` 提示词；结论：9 帧齐全、纯物理徒手动作、无魔法/发光/粒子，少量边缘绿残留可接受；产物 `rows/attack/frame_0..8.png`。
@@ -610,9 +617,14 @@ no text, no cropped limbs, no black grid lines, no transparency artifacts.
 - **统一整改**：`skills/char-sprite/process.ts` 增加仅作用于透明邻域的绿色边缘去溢出步骤；已有 44 张历史网格图的分隔带统一为 `#006600`，Cliff 新增 4 张也按同一流程处理。
 - **版本控制（2026-09-06）**：以上产物已提交（`process.ts` 基线修复、12 组游戏媒体 `webp`+`char.json`、两份 registry、本计划文档）。注意 `game_runs/**/*.json` 默认被 `.gitignore` 忽略，12 个 `*_char.json` 是 `git add -f` 强制入库的；后续接前端播放前若加入 Roxy，其 `char.json` 同样需 `-f`，或改在 `.gitignore` 增补 `!game_runs/ThreeMoves/assets/media/**/*_char.json` 例外。
 
-#### 2. 剩余待办任务分解（Roxy 1 角色；Cliff 已完成）
+#### 2. 剩余待办任务分解（连续帧专项修复 + Roxy；Cliff 生成已完成但待修复）
 
-> 完整可复制执行单见 **`plans/three-moves-remaining-tasks-handoff.md`**（含四动作提示词、逐条命令、验收清单、迁移与提交步骤）。以下仅为索引。
+> 执行单：**`plans/three-moves-frame-remediation-plan.md`**（专项修复，先做）、**`plans/three-moves-remaining-tasks-handoff.md`**（Roxy）。以下仅为索引。
+
+- **任务零：连续帧素材专项修复（12 人 × 4 动作，先做）**
+  - 独立复核发现全 12 人共性缺陷：悬空/断裂肢体（已确认 `Cliff/special/frame_6`）、逐帧竖直跳动 / 脚底基线漂移、镜头级缩放、装备跨行不一致；`char.json` 的 `name` 字段未随迁移改名。
+  - 前端已定"帧 1→8 单次播放、不循环、idle 用静态图"→ 帧 0≠帧 8、动作帧间轻微缩放差记为已知限制；其余走 `process.ts` 管线修复（杂散连通域过滤 + 脚底基线底对齐）+ 按审计清单定点重生成。
+  - 详见 `plans/three-moves-frame-remediation-plan.md`（P1 审计 → P2 管线 → P3 全量重跑 → P4 定点重生成 → P5 收尾 → P6 前推 Roxy）。
 
 - **任务一：Cliff（克里夫）四动作生成（已完成，2026-09-06）**
   - 原图 `char_runs/ThreeMoves/Cliff/source/Cliff_base.png` 已审计通过（纯绿幕、徒手无武器）。
