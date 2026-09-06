@@ -35,6 +35,40 @@ function applyChromaKey(data: Buffer): void {
   }
 }
 
+// Remove the narrow anti-aliased green halo that remains just inside the
+// silhouette after the hard chroma key. The neighborhood check keeps this
+// targeted to background-facing edge pixels, so green costume/hair areas
+// farther inside the character remain intact.
+function removeGreenEdgeSpill(data: Buffer, width: number, height: number): void {
+  const alpha = new Uint8Array(width * height);
+  for (let i = 0; i < width * height; i++) alpha[i] = data[i * 4 + 3];
+
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const idx = y * width + x;
+      if (alpha[idx] <= 16) continue;
+      const i = idx * 4;
+      const r = data[i], g = data[i + 1], b = data[i + 2];
+      const dist = chromaDist(r, g, b);
+      const greenSpill = dist > CHROMA_THRESHOLD && dist <= 190 &&
+        g > r * 1.25 && g > b * 1.25 && r < 150 && b < 150;
+      if (!greenSpill) continue;
+
+      let touchesTransparent = false;
+      for (let oy = -2; oy <= 2 && !touchesTransparent; oy++) {
+        const ny = y + oy;
+        if (ny < 0 || ny >= height) continue;
+        for (let ox = -2; ox <= 2; ox++) {
+          const nx = x + ox;
+          if (nx < 0 || nx >= width) continue;
+          if (alpha[ny * width + nx] <= 16) { touchesTransparent = true; break; }
+        }
+      }
+      if (touchesTransparent) data[i + 3] = 0;
+    }
+  }
+}
+
 function findComponents(data: Buffer, width: number, height: number): Component[] {
   const visited = new Uint8Array(width * height);
   const components: Component[] = [];
@@ -167,16 +201,16 @@ async function extractFrames(inputPath: string, outputDir: string): Promise<void
 
   const { data, info } = await sharp(inputPath).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
   applyChromaKey(data);
+  removeGreenEdgeSpill(data, info.width, info.height);
 
   const components = findComponents(data, info.width, info.height);
   // Always try BFS grouping for single rows; fall back to slots if it fails
-  const groups = groupIntoFrames(components, FRAME_COUNT);
-  console.log(`  extraction method: ${groups ? 'components' : 'slots'}`);
+  // For 3x3 grids, slot-based extraction preserves cell alignment, feet baseline, and detached magic effects
+  const useSlots = true;
+  console.log(`  extraction method: ${useSlots ? 'slots' : 'components'}`);
 
   for (let i = 0; i < FRAME_COUNT; i++) {
-    const frameBuf = groups
-      ? await renderGroupAsFrame(data, info.width, info.height, groups[i])
-      : await renderSlotAsFrame(data, info.width, info.height, i);
+    const frameBuf = await renderSlotAsFrame(data, info.width, info.height, i);
     fs.writeFileSync(path.join(outputDir, `frame_${i}.png`), frameBuf);
   }
 }
@@ -202,6 +236,7 @@ async function processRow(charName: string, rowName: string, inputPath: string) 
     fs.mkdirSync(outputDir, { recursive: true });
     const { data, info } = await sharp(inputPath).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
     applyChromaKey(data);
+    removeGreenEdgeSpill(data, info.width, info.height);
     const components = findComponents(data, info.width, info.height);
     const groups = groupIntoFrames(components, 1);
     const frameBuf = groups
