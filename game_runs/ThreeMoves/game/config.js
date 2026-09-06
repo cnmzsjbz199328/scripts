@@ -7,6 +7,8 @@
     MAX_ROUNDS: 5,
     START_HP: 3,
     RESULT_DELAY: 1450,
+    ANIM_FPS: 12,
+    ANIM_ENABLED: true,
     COLORS: {
       ink: '#f2c86e',
       violet: '#7c68d8',

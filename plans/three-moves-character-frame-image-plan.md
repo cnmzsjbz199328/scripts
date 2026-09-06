@@ -601,7 +601,7 @@ no text, no cropped limbs, no black grid lines, no transparency artifacts.
 
 ### 13.6 游戏侧改动边界
 
-本计划仍然只负责素材生产、处理、审查、按 §13.5 的方式接入媒体资源；不涉及 `game_runs/ThreeMoves/game/` 下的玩法代码、结算逻辑或 UI 改动。如果四个动作的帧图需要在前端播放（而不是只换静态基准图），需要额外的前端播放接入工作，这不在本计划范围内，需要另外确认需求和排期。
+本计划仍然只负责素材生产、处理、审查、按 §13.5 的方式接入媒体资源；不涉及 `game_runs/ThreeMoves/game/` 下的玩法代码、结算逻辑或 UI 改动。前端播放已由 `plans/three-moves-frame-frontend-playback-plan.md` 接入。
 
 ### 13.7 已知可接受瑕疵基线（不重复阻塞，但要统一整改）
 

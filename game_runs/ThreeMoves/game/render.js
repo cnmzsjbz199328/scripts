@@ -41,6 +41,10 @@
   function Renderer(state) {
     this.state = state;
     this.lastResultKey = '';
+    this.lastAnimKey = '';
+    this.lastPreloadKey = '';
+    this.animDone = false;
+    this.animDoneCount = 0;
     this.onStart = function () {};
     this.onRestart = function () {};
     this.onPlay = function () {};
@@ -63,6 +67,12 @@
         if (button) this.onPlay(button.getAttribute('data-card-id'));
       }.bind(this));
     }
+    var restartGame = function () {
+      if (NS.SpriteAnim) NS.SpriteAnim.stopAll();
+      this.onRestart();
+    }.bind(this);
+    if (restart) restart.addEventListener('click', restartGame);
+    if (reset) reset.addEventListener('click', restartGame);
   };
 
   Renderer.prototype.render = function () {
@@ -138,8 +148,46 @@
     if (wrapper) wrapper.style.setProperty('--cursor-x', String(state.player.x));
     var resultKey = result ? state.round + ':' + result.outcome + ':' + result.playerCard.id : '';
     if (resultKey && resultKey !== this.lastResultKey && NS.Systems.Effects) NS.Systems.Effects.burst(result.outcome);
+    if (!resultKey) {
+      if (this.lastAnimKey && NS.SpriteAnim) NS.SpriteAnim.stopAll();
+      this.lastAnimKey = '';
+      this.animDone = false;
+      this.animDoneCount = 0;
+    }
+    var playerSlot = playerPlayed && playerPlayed.querySelector('.media-slot');
+    var enemySlot = enemyPlayed && enemyPlayed.querySelector('.media-slot');
+    var remountInterrupted = resultKey && resultKey === this.lastAnimKey && !this.animDone &&
+      ((!playerSlot || !playerSlot.querySelector('.sprite-anim')) || (!enemySlot || !enemySlot.querySelector('.sprite-anim')));
+    if (resultKey && (resultKey !== this.lastAnimKey || remountInterrupted) && state.phase === 'resolving' && NS.SpriteAnim && !isBotMode(state)) {
+      var playerMedia = NS.Media && NS.Media.getCardMedia ? NS.Media.getCardMedia(result.playerCard) : null;
+      var enemyMedia = NS.Media && NS.Media.getCardMedia ? NS.Media.getCardMedia(result.enemyCard) : null;
+      var animationKey = resultKey;
+      this.lastAnimKey = resultKey;
+      this.animDone = false;
+      this.animDoneCount = 0;
+      var markDone = function () {
+        if (this.lastAnimKey !== animationKey) return;
+        this.animDoneCount += 1;
+        this.animDone = this.animDoneCount >= 2;
+      }.bind(this);
+      NS.SpriteAnim.playOnce(playerSlot, playerMedia, result.playerCard.suit, markDone);
+      NS.SpriteAnim.playOnce(enemySlot, enemyMedia, result.enemyCard.suit, markDone);
+    }
+    if (state.phase === 'ready' && NS.SpriteAnim && NS.Media && NS.Media.getCardMedia) {
+      var preloadIds = state.playerHand.map(function (card) { return card.id; });
+      preloadIds.push(state.enemyIntent ? state.enemyIntent.id : '');
+      var preloadKey = preloadIds.join('|');
+      if (preloadKey !== this.lastPreloadKey) {
+        NS.SpriteAnim.preload(state.playerHand.map(NS.Media.getCardMedia).concat(state.enemyIntent ? [NS.Media.getCardMedia(state.enemyIntent)] : []));
+        this.lastPreloadKey = preloadKey;
+      }
+    }
     this.lastResultKey = resultKey;
   };
+
+  function isBotMode(state) {
+    return !!(root.navigator && root.navigator.webdriver) || state.mode === 'test';
+  }
 
   NS.Renderer = Renderer;
 })(window);
