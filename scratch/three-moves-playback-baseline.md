@@ -56,3 +56,19 @@ playtest 产物：`game_runs\\ThreeMoves\\playtest\\playthrough.webm`、`game_ru
 - `ANIM_ENABLED=false`：不挂载动画层，回落静态观感。
 - 人工浏览器窗口：当前环境未提供可用 Chrome/IAB 标签，以上目检由本地 Playwright 页面截图与 DOM 时间采样完成。
 - `preview.mp4`：本机未安装 `ffmpeg`，未能从收尾 `playthrough.webm` 重编码更新根目录预览。
+
+## Joker + Roxy 收尾门（2026-09-06）
+
+- `verify.ts ThreeMoves`: exit code `0`, `pass=true`, L0/L1/L2 全通过。
+- `playtest.ts ThreeMoves`: `win / 9.1s / Act 5 / score 50 / HP 3 / 5 cards / stuck=false / runtimeErrors=[]`。
+- `__probe()` keys（排序）：`act, cardActive, cellX, dangerAhead, dangerNow, deathBudget, deaths, enemyHandCount, goalScore, handCount, hp, locked, lost, maxHp, mode, nextGoalX, onGround, outcome, phase, round, roundScore, score, started, tie, vx, won, worldW, x, y`；与既有契约一致。
+- Playwright 定向检查：双 Joker 同播两层均为 `900% 100%`，动画结束后层数为 `0`；四花色行分别为 `0% / 33.3333% / 66.6667% / 100%`；Roxy 仍无动画层；`ANIM_ENABLED=false` 无动画层；score badge/card copy 各保留 2 个；无 console/page error。
+- Roxy base：`1086×1448 rgb24`，SHA-256 `ED237919638C99E199D520771FD159BDD9B42718A502BF02108B7030C9787155`；source 与游戏媒体副本一致；旧图备份 SHA-256 `D1905944377C498F3537B3D1C2EDF72F947DEB3C4B0A4A62D5644E68C5D9069B`。
+
+> 2026-09-07 更正：上行记录的是 greenscreen fix 前的运行时副本。source base 继续保持 `1086×1448 rgb24`；运行时卡面副本现为 `192×208 rgba`，SHA-256 `210FEE887C6417B1214B5B8425F35EDF4AA6BF9FCB8D8BE14DE31E1327EAFAFE`，与 `char_runs/ThreeMoves/Roxy/reference/frame_0.png` 一致。
+
+## Roxy greenscreen fix 收尾门（2026-09-07）
+
+- `npx tsx skills/char-sprite/process.ts "ThreeMoves/Roxy" reference ...` 成功；产物 `192×208 rgba`，四角 alpha=0，opaque bbox `x=52..140, y=5..202`，不透明近绿比例 `0.00%`。
+- 真实卡面截图 `scratch/roxy_card_verify.png` 目检通过：无亮绿方块、绿边、黑边或半透明毛刺；短木杖可见；无魔法阵、水法球、发光；比例与站位与兄弟角色一致。
+- 修复后 `verify.ts ThreeMoves`：`pass=true`，L0/L1/L2 全通过；`play.ts ThreeMoves`：`win / 9.1s / Act 5 / score 50 / HP 3 / 5 cards / stuck=false / runtimeErrors=[]`。

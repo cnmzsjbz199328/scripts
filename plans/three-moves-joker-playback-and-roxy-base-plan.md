@@ -314,6 +314,7 @@ sha256sum char_runs/ThreeMoves/Roxy/source/Roxy_base.png game_runs/ThreeMoves/as
 - [x] `plans/three-moves-frame-frontend-playback-plan.md` 已补充 Joker 播放与 Roxy base 已处理、Roxy 动作仍待办。
 - [x] 素材主计划 §13.1 Roxy 行已更新新哈希与「污染已解除」。
 - [x] `scratch/three-moves-playback-baseline.md` 已追加本次 verify / playtest / probe keys 作为下一次回归锚点。
+- [x] Roxy greenscreen 回归已完成：运行时 `Roxy_base.png` 已由纯绿原图替换为 `192×208 rgba` 透明参考帧，真实卡面截图无绿方块；`verify` / `playtest` 均与基线一致。
 
 ---
 
