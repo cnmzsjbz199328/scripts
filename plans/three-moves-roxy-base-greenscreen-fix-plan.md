@@ -318,7 +318,7 @@ Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
 - [x] `plans/three-moves-joker-playback-and-roxy-base-plan.md` §8 已补回归事实。
 - [x] 新 `game_runs/ThreeMoves/assets/media/characters/Roxy_base.png` sha256：`210FEE887C6417B1214B5B8425F35EDF4AA6BF9FCB8D8BE14DE31E1327EAFAFE`。
 - [x] 是否用了附录 B 兜底：否；`process.ts reference` 正常完成。
-- [x] 提交哈希：`e6f4b4e`（`fix(ThreeMoves): remove Roxy greenscreen from card asset`）。
+- [x] 提交哈希：`c9de822`（`fix(ThreeMoves): remove Roxy greenscreen from card asset`）。
 
 ---
 
