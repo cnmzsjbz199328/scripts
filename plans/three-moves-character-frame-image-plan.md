@@ -1,6 +1,6 @@
 # 三招决胜：连续帧图片角色动作迁移计划
 
-状态：批量执行阶段已完成 12/13 花色角色 × 4 动作并增量同步游戏媒体目录；连续帧专项修复 P1–P5 已完成；Roxy 因参考图含魔法阵/水法球/透明底仍阻塞待补干净原图。帧 1→8 单次播放、不循环、idle 用静态图；剩余 Roxy 的自包含执行单见 `plans/three-moves-remaining-tasks-handoff.md`
+状态：批量执行阶段已完成 12/13 花色角色 × 4 动作并增量同步游戏媒体目录；连续帧专项修复 P1–P5 已完成；Roxy 干净 base 已补齐并解除原图阻塞，四动作仍待生成。帧 1→8 单次播放、不循环、idle 用静态图；剩余 Roxy 的自包含执行单见 `plans/three-moves-remaining-tasks-handoff.md`
 
 更新日期：2026-09-06
 
@@ -439,8 +439,8 @@ Flow 的 3×3 网格图生成目前是人工在浏览器操作，不是脚本 AP
 
 ### 13.0 前置阻塞项（必须先处理，不能跳过）
 
-1. **Roxy 参考图不合格，暂缓生成**：`char_runs/ThreeMoves/Roxy/source/Roxy_base.png` 是 580×720 RGBA（其余 12 人均为约 1086×1448 RGB 无透明通道），已带透明背景、法杖顶端有实体化发光水法球、脚下带魔法阵——不符合 §1.2"生成参考只能使用未抠图、未裁切、未缩放、未经过 char-sprite/video-sprite 处理"的硬性要求。已确认工作区内没有更干净的替代原图（`reference/frame_0.png` 和游戏媒体图都是更小的派生图，不能用）。
-   **处理方式**：跳过 Roxy，先完成其余审计合格角色；Roxy 需要人工重新提供或重新绘制一张纯绿幕、无发光特效、无魔法阵的原始立绘，审计通过（走一遍 §4.1 清单）后再补做四动作。不要尝试用现有污染图"将就"生成，也不要自行脑补裁剪/抠除魔法阵——那属于对参考图的加工，同样违反 §1.2。
+1. **Roxy base 阻塞已解除**：`char_runs/ThreeMoves/Roxy/source/Roxy_base.png` 已替换为 `1086×1448 RGB` 纯绿不透明原始重绘图，SHA-256 为 `ED237919638C99E199D520771FD159BDD9B42718A502BF02108B7030C9787155`；旧污染图保留为 `Roxy_base.polluted.png`。新图已通过 §4.1 审计：短木杖、无高身法杖、无水法球/魔法阵/发光/投影。
+   **后续**：Roxy 四动作仍按本计划流程补做；不得把本次 base 重绘图当作已完成的动作帧。
 2. **基础设施修复已入库**：P2 管线与 `audit.ts` 已提交 `5bce5b6`；P3 全量重跑与旧图集 SHA-256 留档已提交 `37653a6`；P4 两个 R 类动作的 v3 定点重生成与 P5 文档收尾在本轮提交。
 
 ### 13.1 角色清单与原始参考审计（12 人已完成，Roxy 阻塞）
@@ -457,7 +457,7 @@ Flow 的 3×3 网格图生成目前是人工在浏览器操作，不是脚本 AP
 | Nanahoshi | 七星静香 | `char_runs/ThreeMoves/Nanahoshi/source/Nanahoshi_base.png` | 1086×1448 RGB | `52a5387c305246680fa740e3b0ecf42a923b7b7b8adbb0d5cfa77cf5ed8c7749` | 通过 |
 | Paul | 保罗 | `char_runs/ThreeMoves/Paul/source/Paul_base.png` | 1086×1448 RGB | `5b5ca1d67d0080c3973f5962a68cd68e60ca7ae060cf1745f2a084a82ce63964` | 通过 |
 | Perugius | 佩尔基乌斯 | `char_runs/ThreeMoves/Perugius/source/Perugius_base.png` | 1090×1443 RGB | `a6e93dba5340f12b03d9281de1670b47e26849c53e156b354c51d236cea31845` | 通过（分辨率与其他人略有差异，目测仍是干净原图，非派生裁切） |
-| Roxy | 洛琪希 | `char_runs/ThreeMoves/Roxy/source/Roxy_base.png` | 580×720 RGBA | `d1905944377c498f3537b3d1c2edf72f947deb3c4b0a4a62d5644e68c5d9069b` | **阻塞**，见 §13.0 第 1 条 |
+| Roxy | 洛琪希 | `char_runs/ThreeMoves/Roxy/source/Roxy_base.png` | 1086×1448 RGB | `ED237919638C99E199D520771FD159BDD9B42718A502BF02108B7030C9787155` | **基准图通过，污染已解除；四动作待做** |
 | Ruijerd | 瑞杰路德 | `char_runs/ThreeMoves/Ruijerd/source/Ruijerd_base.png` | 1086×1448 RGB | `9dc52dc08dab48c86e9421122726a07959a1f0670f94f061f1322b81c6bbbfd2` | 通过 |
 | Sylphiette | 希露菲叶特 | `char_runs/ThreeMoves/Sylphiette/source/Sylphiette_base.png` | 1086×1448 RGB | `bc011e79ad469cd0424a6accf317c8eb11722bac3abbf98f71f2e8a2a75c3667` | 通过 |
 | Zanoba | 扎诺巴 | `char_runs/ThreeMoves/Zanoba/source/Zanoba_base.png` | 1086×1448 RGB | `e24aea1f4072957ef1f3484208ba358f1730884411bcceee6236d51daea61797` | 通过 |
@@ -549,7 +549,7 @@ no text, no cropped limbs, no black grid lines, no transparency artifacts.
 
 ### 13.3 每个角色 × 动作的执行流程
 
-对 13.1 表里"通过"的角色按下面的循环跑。截至 2026-09-06 已完成 12 人；**仅剩 Roxy（解除 §13.0 阻塞后）**。Cliff 已按本节流程完成并在专项修复中重验，Roxy 的自包含执行单见 `plans/three-moves-remaining-tasks-handoff.md`。
+对 13.1 表里"通过"的角色按下面的循环跑。截至 2026-09-06 已完成 12 人；**仅剩 Roxy 四动作**。Roxy base 已解除 §13.0 阻塞，Cliff 已按本节流程完成并在专项修复中重验，Roxy 的自包含执行单见 `plans/three-moves-remaining-tasks-handoff.md`。
 
 ```text
 对每个角色 <Character>：
@@ -589,7 +589,7 @@ no text, no cropped limbs, no black grid lines, no transparency artifacts.
 | Nanahoshi | 已同步游戏目录 | 已同步游戏目录 | 已同步游戏目录 | 已同步游戏目录 |
 | Paul | 已同步游戏目录 | 已同步游戏目录 | 已同步游戏目录 | 已同步游戏目录 |
 | Perugius | 已同步游戏目录 | 已同步游戏目录 | 已同步游戏目录 | 已同步游戏目录 |
-| Roxy | 阻塞（§13.0） | 阻塞 | 阻塞 | 阻塞 |
+| Roxy | 基准图已通过；待生成 | 待生成 | 待生成 | 待生成 |
 | Ruijerd | 已同步游戏目录 | 已同步游戏目录 | 已同步游戏目录 | 已同步游戏目录 |
 | Sylphiette | 已同步游戏目录 | 已同步游戏目录 | 已同步游戏目录 | 已同步游戏目录 |
 | Zanoba | 已同步游戏目录 | 已同步游戏目录 | 已同步游戏目录 | 已同步游戏目录 |
@@ -628,9 +628,9 @@ no text, no cropped limbs, no black grid lines, no transparency artifacts.
   - 原图 `char_runs/ThreeMoves/Cliff/source/Cliff_base.png` 已审计通过（纯绿幕、徒手无武器）。
   - attack/guard/ability 沿用 v2；special 已用 v3 严格重生成并保留 `special_grid.v2.png` 回退。
   - 已追加至 §12.3，§13.4 进度表 Cliff 行已更新为“已同步游戏目录”。
-- **任务二：解除 Roxy 阻塞项（待补原图）**
-  - 当前源图为 580×720 带透明底、水法球与脚下魔法阵的派生图；需提供/重绘一张纯绿幕 `#00FF00`、无特效、约 1086×1448 RGB 的原始立绘，走 §4.1 审计。
-- **任务三：Roxy 解锁后补跑与同步**
-  - 原图审计通过后（覆盖前把旧文件备份为 `Roxy_base.polluted.png`、记录新 SHA-256），按 v3 纯物理提示词锁（持杖法师，attack 用 `staff swing attack`）、修复后 `char-sprite` 流水线、逐帧验收和增量同步流程补齐 4 动作。
+- **任务二：解除 Roxy 阻塞项（已完成）**
+  - 已重绘并同步 `1086×1448 RGB` 干净 base；旧污染图备份为 `Roxy_base.polluted.png`，新 SHA-256 为 `ED237919638C99E199D520771FD159BDD9B42718A502BF02108B7030C9787155`。
+- **任务三：Roxy 解锁后补跑与同步（待办）**
+  - 按 v3 纯物理提示词锁（持短木杖，attack 用 `staff swing attack`）、修复后 `char-sprite` 流水线、逐帧验收和增量同步流程补齐 4 动作。
 - **任务四：收尾（本轮完成）**
-  - 12 人专项产物已进游戏媒体，formal `char.json` 名称已修正，`char_runs/ThreeMovesImagePilot/Rudeus/_review/` 已清理；Roxy 仍因原图阻塞，不改写为 13/13。
+  - 12 人专项产物已进游戏媒体，formal `char.json` 名称已修正，`char_runs/ThreeMovesImagePilot/Rudeus/_review/` 已清理；Roxy base 已解除阻塞，但四动作仍不改写为 13/13。
