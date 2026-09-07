@@ -83,8 +83,6 @@
         image.addEventListener('error', function () { this.remove(); });
         slot.appendChild(image);
       }
-      var status = slot.querySelector('.media-status');
-      if (status && status.textContent !== '静态基准') status.textContent = '静态基准';
     }
   }
 

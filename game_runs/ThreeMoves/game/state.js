@@ -5,6 +5,7 @@
     return {
       mode: mode || 'normal',
       started: false,
+      primerSeen: false,
       phase: 'menu',
       round: 1,
       maxRounds: NS.Config.MAX_ROUNDS,
@@ -50,6 +51,7 @@
     if (mode) state.mode = mode;
     var deal = NS.Systems.Deck.deal(state.mode);
     state.started = true;
+    state.primerSeen = false;
     state.phase = 'ready';
     state.round = 1;
     state.playerHp = NS.Config.START_HP;
@@ -107,10 +109,16 @@
     emit(state);
   }
 
+  function dismissPrimer(state) {
+    state.primerSeen = true;
+    emit(state);
+  }
+
   function playCard(state, cardId) {
     if (!state.started || state.phase !== 'ready' || !state.enemyIntent) return false;
     var playerCard = state.playerHand.find(function (card) { return card.id === cardId; });
     if (!playerCard) return false;
+    state.primerSeen = true;
     var enemyCard = state.enemyIntent;
     var result = NS.Systems.Duel.resolve(playerCard, enemyCard, state.previousPlayer, state.previousEnemy);
     state.result = result;
@@ -158,5 +166,6 @@
     advance: advance,
     select: select,
     nudge: nudge,
+    dismissPrimer: dismissPrimer,
   };
 })(window);

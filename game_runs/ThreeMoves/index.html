@@ -18,7 +18,7 @@
         </div>
         <div class="top-actions">
           <span class="round-chip" id="round-value">ROUND 1 / 5</span>
-          <span class="phase-chip" id="phase-value">准备中</span>
+          <button class="icon-button" id="help-btn" type="button" aria-label="规则速记">?</button>
           <button class="icon-button" id="reset-btn" type="button" aria-label="重新开始">↻</button>
         </div>
       </header>
@@ -28,16 +28,14 @@
           <div class="player-row enemy-row">
             <div class="fighter-info"><div class="avatar enemy-avatar">AI</div><div><span>对手</span><strong>迷雾旅人</strong></div></div>
             <div class="hp-block"><div class="hp" id="enemy-hp" aria-label="对手生命"></div><small id="enemy-hp-value">3 / 3</small></div>
-            <div class="deck-count"><span id="enemy-count">5</span> 张</div>
-            <div class="enemy-deck" id="enemy-deck" aria-label="对手剩余手牌"></div>
+            <div class="deck-count">手牌 <span id="enemy-count">5</span></div>
           </div>
 
           <div class="arena">
-            <div class="intent-panel"><span>对手正在准备</span><strong id="enemy-intent">—</strong><small id="intent-caption">角色与点数将在翻牌时揭晓</small></div>
             <div class="duel-stage" id="duel-stage">
-              <div class="played-card enemy-played" id="enemy-played"><div class="card-back"><span>Ⅲ</span></div></div>
-              <div class="impact-zone"><span class="versus" id="impact-headline">VS</span><small id="impact-detail">从手牌中选择一张应对</small></div>
-              <div class="played-card player-played" id="player-played"><div class="empty-card"><span>+</span><small>你的出牌</small></div></div>
+              <div class="played-card enemy-played" id="enemy-played"></div>
+              <div class="impact-zone"><span class="versus" id="impact-headline">VS</span><small id="impact-detail"></small></div>
+              <div class="played-card player-played" id="player-played"></div>
             </div>
           </div>
 
@@ -47,22 +45,19 @@
             <div class="score-block">累计得分 <strong id="score-value">0</strong></div>
           </div>
 
-          <div class="hand-label"><span>你的手牌 <b id="hand-count">5</b></span><small id="action-hint">点击一张牌立即出牌 · A/D 选择 · J/空格确认</small></div>
+          <div class="hand-label"><span>你的手牌 <b id="hand-count">5</b></span><small id="action-hint">点击出牌</small></div>
           <div class="hand" id="player-hand" aria-label="你的手牌"></div>
         </section>
 
-        <aside class="side-panel" aria-label="规则与战斗记录">
-          <section class="rule-card">
-            <div class="panel-title"><span class="panel-glyph">◎</span><h2>只记住三件事</h2></div>
-            <ol>
-              <li><b>数字越大越强</b><span>克制时获得额外点数</span></li>
-              <li><b><i class="heart">♥</i> 克 <i>♠</i> 克 <i>♣</i> 克 <i class="diamond">♦</i> 克 <i class="heart">♥</i></b><span>未相邻的类型直接比点数</span></li>
-              <li><b>连续使用同一角色 +2</b><span>同角色反制触发完美反制 +5</span></li>
-            </ol>
-          </section>
-          <section class="joker-note"><strong>JOKER</strong><p><b>龙神</b>：15 点，不受普通克制。</p><p><b>人神</b>：复制对手的牌面与类型，并 +1。</p></section>
-          <section class="battle-log-card"><div class="panel-title"><span class="panel-glyph">✧</span><h2>战斗记录</h2></div><div id="battle-log"></div></section>
-          <div class="score-strip"><span>本招得分</span><strong id="round-score">—</strong><em>:</em><strong id="enemy-round-score">—</strong><span>对手</span></div>
+        <aside class="rules-pop" id="rules-pop" aria-label="规则速记" hidden>
+          <button class="rules-pop-close" id="rules-pop-close" type="button" aria-label="收起">×</button>
+          <h2>只记住三件事</h2>
+          <ol>
+            <li><b>数字越大越强</b><span>克制时再加点数</span></li>
+            <li><b><i class="heart">♥</i> 克 <i>♠</i> 克 <i>♣</i> 克 <i class="diamond">♦</i> 克 <i class="heart">♥</i></b><span>未相邻的类型直接比点数</span></li>
+            <li><b>连续使用同一角色 +2</b><span>同角色反制触发完美反制 +5</span></li>
+          </ol>
+          <p class="rules-pop-joker"><b>JOKER</b>　龙神 15 点免疫克制　·　人神复制对手牌面并 +1</p>
         </aside>
       </div>
     </main>
