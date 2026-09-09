@@ -432,5 +432,19 @@
     "previewVideo": null,
     "path": "VoiceTypography/index.html",
     "createdAt": null
+  },
+  {
+    "id": "BoxCrawler",
+    "title": "箱内爬行 (BoxCrawler)",
+    "tagline": "四肢贴着内壁，只有左右——绕过墙角、躲开尖刺，把自己爬出这只木箱。",
+    "gameType": "arcade",
+    "genre": "PRECISION",
+    "accent": "#8fd3ff",
+    "previewBg": "#120e0a",
+    "icon": "📦",
+    "thumbnail": null,
+    "previewVideo": "BoxCrawler/preview.mp4",
+    "path": "BoxCrawler/index.html",
+    "createdAt": "2026-09-09T00:00:00.000Z"
   }
 ]

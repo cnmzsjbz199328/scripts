@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>箱内爬行 · Box Crawler</title>
+  <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #080604;
+      color: #f3e9d8;
+      font-family: 'Segoe UI', monospace;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      overflow: hidden;
+    }
+
+    #game-wrapper {
+      position: relative;
+      border: 3px solid #5c4632;
+      border-radius: 8px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.7);
+      overflow: hidden;
+      width: 960px; height: 576px;
+      flex: 0 0 auto;
+      transform-origin: center center;
+    }
+
+    #hud {
+      display: none;
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      padding: 10px 14px;
+      gap: 18px;
+      flex-direction: row;
+      align-items: center;
+      background: linear-gradient(to bottom, rgba(0,0,0,0.55), transparent);
+      pointer-events: none;
+      z-index: 10;
+      font-size: 15px;
+      user-select: none;
+    }
+    #hud-hearts { color: #d8463a; letter-spacing: 3px; font-size: 17px; }
+    #hud-score  { color: #8fd3ff; font-weight: 700; }
+    #hud-objective { color: #f3e9d8; flex: 1; text-align: center; font-weight: 600; }
+
+    .game-overlay {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 20;
+      background: rgba(10, 7, 4, 0.92);
+      backdrop-filter: blur(3px);
+    }
+    .overlay-card {
+      text-align: center;
+      max-width: 520px;
+      padding: 36px 40px;
+      background: #241b12;
+      border: 2px solid #8fd3ff;
+      border-radius: 12px;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.5);
+    }
+    .overlay-card h2 { font-size: 1.9rem; margin-bottom: 8px; color: #8fd3ff; letter-spacing: 0.06em; }
+    .overlay-card .tagline { font-size: 0.95rem; color: #ffd469; margin-bottom: 16px; font-style: italic; }
+    .overlay-card .story-setting { font-size: 0.88rem; color: #cbbfa9; line-height: 1.65; margin-bottom: 24px; }
+    .overlay-card .controls-hint { font-size: 0.78rem; color: #9bb0c4; line-height: 1.8; margin-top: 14px; }
+
+    .game-btn {
+      display: inline-block;
+      padding: 12px 36px;
+      font-size: 1rem;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: transform 0.1s, box-shadow 0.1s;
+    }
+    .game-btn:hover  { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(0,0,0,0.4); }
+    .game-btn:active { transform: translateY(0); }
+    #start-btn   { background: #8fd3ff; color: #12100c; }
+    #restart-btn { background: #d8463a; color: #fff; }
+
+    #gameover-title.win  { color: #7cffb2; }
+    #gameover-title.lose { color: #d8463a; }
+
+    html, body { width: 100%; height: 100%; }
+  </style>
+</head>
+<body>
+  <div id="game-wrapper">
+    <div id="game-container"></div>
+
+    <div id="hud">
+      <div id="hud-hearts" title="本舱剩余机会">▮▮▮▮</div>
+      <div id="hud-score">通关: <span id="hud-score-value">0</span></div>
+      <div id="hud-objective"><span id="hud-objective-text">用 ← / → 沿内壁爬到舱口</span></div>
+    </div>
+
+    <div id="start-screen" class="game-overlay">
+      <div class="overlay-card">
+        <h2>📦 箱内爬行</h2>
+        <p class="tagline">四肢贴着内壁，只有左右，爬到舱口就出去。</p>
+        <p class="story-setting">你被封进一只木箱。身体永远吸附在内壁那条发光的导轨上，只能沿它前后爬。到墙角会自动撑一下转过去，反向时会先调头。集齐散落的电池，舱口才会亮——五道内壁，线性爬完就通关。</p>
+        <button id="start-btn" class="game-btn" onclick="window.__hudStart()">▶ START</button>
+        <p class="controls-hint">
+          ← / → （或 A / D） 沿轨道爬行 ·　R 回本舱起点 ·　M 静音
+        </p>
+      </div>
+    </div>
+
+    <div id="gameover-screen" class="game-overlay" style="display:none">
+      <div class="overlay-card">
+        <h2 id="gameover-title">GAME OVER</h2>
+        <p id="gameover-message" class="story-setting"></p>
+        <button id="restart-btn" class="game-btn" onclick="location.reload()">↩ RESTART</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // 关卡脚手架占位（verify L0 查引用存在性；本作关卡数据在 game/levels.js）
+    window.GAME_CONFIG   = { map: { width: 960, height: 540 }, renderMode: 'procedural', engine: 'phaser-rail-crawl',
+      note: 'Stick figure crawls along the inside walls of a crate on a 1-D arc-length rail. Only left/right. Reach the hatch. 5 linear levels, no save, no select.' };
+    window.TILEMAP_DATA  = { width: 15, height: 9, tileWidth: 64, tileHeight: 64, tileIndex: {}, layers: { obstacles: [] } };
+    window.ENTITIES_DATA = [];
+    // HUD 心形字形：木箱 → 用方块电量格
+    window.GAME_HUD_GLYPHS = { full: '▮', empty: '▯' };
+  </script>
+
+  <!-- ── 共享引擎层 ── -->
+  <script src="../_engine/audio.js"></script>
+  <script src="../_engine/hud.js"></script>
+
+  <!-- ── 本游戏：数据 → 系统 → 渲染 → 场景 → 装配（按依赖顺序）── -->
+  <script src="game/config.js"></script>
+  <script src="game/levels.js"></script>
+  <script src="game/path.js"></script>
+  <script src="game/systems/crawler.js"></script>
+  <script src="game/systems/hazards.js"></script>
+  <script src="game/render.js"></script>
+  <script src="game/scenes/BootScene.js"></script>
+  <script src="game/scenes/LevelScene.js"></script>
+  <script src="game/main.js"></script>
+  <script>
+    /* 整台等比缩放到视口（canvas + HUD 一起缩，比例不变）*/
+    (function () {
+      var W = 960, H = 576;
+      var wrap = document.getElementById('game-wrapper');
+      function fit() {
+        if (!wrap) return;
+        var s = Math.min(window.innerWidth / W, window.innerHeight / H, 1);
+        wrap.style.transform = 'scale(' + s + ')';
+      }
+      window.addEventListener('resize', fit);
+      window.addEventListener('orientationchange', fit);
+      fit();
+    })();
+  </script>
+</body>
+</html>
