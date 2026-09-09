@@ -1,0 +1,58 @@
+{
+  "name": "BoxCrawler",
+  "created_at": "2026-09-09T13:58:18.632Z",
+  "animations": {
+    "turnAround": {
+      "frameSize": {
+        "width": 216,
+        "height": 232
+      },
+      "frameCount": 14,
+      "fps": 14,
+      "loop": false,
+      "status": "completed",
+      "segment": [
+        2.4,
+        3.5
+      ],
+      "scale": 0.8835,
+      "updated_at": "2026-09-09T14:02:36.255Z"
+    },
+    "crawl": {
+      "frameSize": {
+        "width": 216,
+        "height": 232
+      },
+      "frameCount": 8,
+      "fps": 10,
+      "loop": true,
+      "status": "completed",
+      "segment": [
+        0.5,
+        1.46
+      ],
+      "scale": 0.8835,
+      "updated_at": "2026-09-09T14:02:33.275Z"
+    },
+    "cornerCrawl": {
+      "frameSize": {
+        "width": 216,
+        "height": 232
+      },
+      "frameCount": 16,
+      "fps": 13,
+      "loop": false,
+      "status": "completed",
+      "segment": [
+        3.45,
+        4.95
+      ],
+      "scale": 0.8835,
+      "updated_at": "2026-09-09T14:02:39.331Z"
+    }
+  },
+  "frameSize": {
+    "width": 216,
+    "height": 232
+  }
+}
