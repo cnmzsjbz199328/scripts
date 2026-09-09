@@ -1,0 +1,26 @@
+{
+  "name": "AgeDamperVideo",
+  "created_at": "2026-09-08T02:11:21.964Z",
+  "animations": {
+    "morph": {
+      "frameSize": {
+        "width": 96,
+        "height": 112
+      },
+      "frameCount": 36,
+      "fps": 15,
+      "loop": false,
+      "status": "completed",
+      "segment": [
+        0,
+        5.2
+      ],
+      "scale": 0.1525,
+      "updated_at": "2026-09-09T12:15:19.477Z"
+    }
+  },
+  "frameSize": {
+    "width": 96,
+    "height": 112
+  }
+}
