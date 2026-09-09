@@ -1,0 +1,198 @@
+{
+  "name": "Wren",
+  "created_at": "2026-08-29T07:54:07.030Z",
+  "animations": {
+    "look_up_right": {
+      "frameSize": {
+        "width": 192,
+        "height": 208
+      },
+      "frameCount": 6,
+      "fps": 8,
+      "loop": true,
+      "status": "completed",
+      "segment": [
+        0,
+        3.41667
+      ],
+      "scale": 0.2991,
+      "updated_at": "2026-08-29T07:54:19.319Z"
+    },
+    "look_down_left": {
+      "frameSize": {
+        "width": 192,
+        "height": 208
+      },
+      "frameCount": 6,
+      "fps": 8,
+      "loop": true,
+      "status": "completed",
+      "segment": [
+        3.41667,
+        6.04167
+      ],
+      "scale": 0.2991,
+      "updated_at": "2026-08-29T07:54:43.265Z"
+    },
+    "look_down_right": {
+      "frameSize": {
+        "width": 192,
+        "height": 208
+      },
+      "frameCount": 6,
+      "fps": 8,
+      "loop": true,
+      "status": "completed",
+      "segment": [
+        6.04167,
+        8.41667
+      ],
+      "scale": 0.2991,
+      "updated_at": "2026-08-29T07:54:47.022Z"
+    },
+    "look_up_right_v2": {
+      "frameSize": {
+        "width": 192,
+        "height": 208
+      },
+      "frameCount": 6,
+      "fps": 8,
+      "loop": true,
+      "status": "completed",
+      "segment": [
+        0,
+        4
+      ],
+      "scale": 0.2991,
+      "updated_at": "2026-08-29T08:01:33.190Z"
+    },
+    "look_down_left_v2": {
+      "frameSize": {
+        "width": 192,
+        "height": 208
+      },
+      "frameCount": 6,
+      "fps": 8,
+      "loop": true,
+      "status": "completed",
+      "segment": [
+        4,
+        6.58333
+      ],
+      "scale": 0.2991,
+      "updated_at": "2026-08-29T08:01:37.876Z"
+    },
+    "look_down_right_v2": {
+      "frameSize": {
+        "width": 192,
+        "height": 208
+      },
+      "frameCount": 6,
+      "fps": 8,
+      "loop": true,
+      "status": "completed",
+      "segment": [
+        6.58333,
+        8.41667
+      ],
+      "scale": 0.2991,
+      "updated_at": "2026-08-29T08:01:42.004Z"
+    },
+    "look_left": {
+      "frameSize": {
+        "width": 192,
+        "height": 208
+      },
+      "frameCount": 6,
+      "fps": 8,
+      "loop": true,
+      "status": "completed",
+      "segment": [
+        0,
+        2.25
+      ],
+      "scale": 0.2991,
+      "updated_at": "2026-08-29T08:09:12.771Z"
+    },
+    "look_right": {
+      "frameSize": {
+        "width": 192,
+        "height": 208
+      },
+      "frameCount": 6,
+      "fps": 8,
+      "loop": true,
+      "status": "completed",
+      "segment": [
+        2.25,
+        3.70833
+      ],
+      "scale": 0.2991,
+      "updated_at": "2026-08-29T08:09:16.663Z"
+    },
+    "look_up": {
+      "frameSize": {
+        "width": 192,
+        "height": 208
+      },
+      "frameCount": 6,
+      "fps": 8,
+      "loop": true,
+      "status": "completed",
+      "segment": [
+        3.70833,
+        6.20833
+      ],
+      "scale": 0.2991,
+      "updated_at": "2026-08-29T08:09:20.777Z"
+    },
+    "look_down": {
+      "frameSize": {
+        "width": 192,
+        "height": 208
+      },
+      "frameCount": 6,
+      "fps": 8,
+      "loop": true,
+      "status": "completed",
+      "segment": [
+        6.20833,
+        8.79167
+      ],
+      "scale": 0.2991,
+      "updated_at": "2026-08-29T08:09:24.960Z"
+    },
+    "look_center": {
+      "frameSize": {
+        "width": 192,
+        "height": 208
+      },
+      "frameCount": 6,
+      "fps": 8,
+      "loop": true,
+      "status": "completed",
+      "segment": [
+        8.79167,
+        10
+      ],
+      "scale": 0.2991,
+      "updated_at": "2026-08-29T08:12:45.515Z"
+    },
+    "look_up_left": {
+      "frameSize": {
+        "width": 192,
+        "height": 208
+      },
+      "frameCount": 6,
+      "fps": 8,
+      "loop": true,
+      "status": "completed",
+      "scale": 0.2991,
+      "updated_at": "2026-08-29T08:39:26.850Z"
+    }
+  },
+  "frameSize": {
+    "width": 192,
+    "height": 208
+  }
+}
