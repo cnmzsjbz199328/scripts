@@ -16,12 +16,17 @@ window.BC = window.BC || {};
     let event = null;
 
     // ── 调头：正在爬行且方向反转 → 锁定移动、播 turnAround ──
-    if (state.mode === 'crawl' && sign !== 0 && state.moving && sign !== state.dir) {
-      state.mode = 'turn';
-      state.turnLockT = cfg.turnLockMs / 1000;
-      state.dir = sign;
-      state.moving = false;
-      return { state, event: 'turn', slow: false, moving: false };
+    // 反向时清掉角点触发标记；否则刚完成正向过角后按返回，会在同一
+    // 个 cornerWindow 内再次触发正向 corner 动画，把 s 拉回角点。
+    if (state.mode === 'crawl' && sign !== 0 && sign !== state.dir) {
+      state.cornerIdx = -1;
+      if (state.moving) {
+        state.mode = 'turn';
+        state.turnLockT = cfg.turnLockMs / 1000;
+        state.dir = sign;
+        state.moving = false;
+        return { state, event: 'turn', slow: false, moving: false };
+      }
     }
 
     // ── 调头锁定中：不推进 s，等锁定结束 ──
@@ -40,8 +45,15 @@ window.BC = window.BC || {};
     for (let i = 0; i < cfg.corners.length; i++) {
       if (Math.abs(state.s - cfg.corners[i].s) < cfg.cornerWindow) { curCorner = i; slow = true; break; }
     }
-    if (curCorner !== -1 && curCorner !== state.cornerIdx) event = 'corner';
-    state.cornerIdx = curCorner;
+    // cornerTurnCCW is authored for +s only. Returning traverses the same
+    // polyline in reverse and must never enter the forward-only corner lock.
+    if (sign > 0) {
+      if (curCorner !== -1 && curCorner !== state.cornerIdx) event = 'corner';
+      state.cornerIdx = curCorner;
+    } else if (sign < 0) {
+      slow = false;
+      state.cornerIdx = -1;
+    }
 
     if (sign === 0) { state.moving = false; return { state, event, slow, moving: false }; }
 

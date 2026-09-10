@@ -42,7 +42,7 @@ const config = {
   width: window.BC.Config.GAME_W,
   height: window.BC.Config.GAME_H,
   parent: 'game-container',
-  backgroundColor: '#120e0a',
+  backgroundColor: '#241a12',
   scene: [window.BC.BootScene, window.BC.LevelScene],
 };
 

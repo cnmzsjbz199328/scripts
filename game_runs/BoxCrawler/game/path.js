@@ -36,7 +36,10 @@ window.BC = window.BC || {};
     const total = L.reduce((a, b) => a + b, 0);
     let rem = Math.max(0, Math.min(s, total));
     for (let i = 0; i < L.length; i++) {
-      if (rem <= L[i] || i === L.length - 1) {
+      // At an exact vertex, use the outgoing segment's angle. This lets a
+      // corner-turn animation hand off directly to the wall it just entered
+      // instead of briefly snapping back to the incoming wall orientation.
+      if (rem < L[i] || i === L.length - 1) {
         const a = pts[i], b = pts[i + 1];
         const f = L[i] > 0 ? rem / L[i] : 0;
         const dx = b[0] - a[0], dy = b[1] - a[1];

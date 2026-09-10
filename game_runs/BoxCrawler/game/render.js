@@ -40,8 +40,8 @@ window.BC = window.BC || {};
     }
 
     // 暗角
-    g.fillStyle(0x000000, 0.28).fillRect(0, 0, GAME_W, y0);
-    g.fillStyle(0x000000, 0.28).fillRect(0, GAME_H - y0, GAME_W, y0);
+    g.fillStyle(0x000000, 0.16).fillRect(0, 0, GAME_W, y0);
+    g.fillStyle(0x000000, 0.16).fillRect(0, GAME_H - y0, GAME_W, y0);
   }
 
   // 沿折线画一条带辉光的粗导轨

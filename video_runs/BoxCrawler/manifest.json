@@ -34,21 +34,18 @@
       "scale": 0.8835,
       "updated_at": "2026-09-09T14:02:33.275Z"
     },
-    "cornerCrawl": {
+    "cornerTurnCCW": {
       "frameSize": {
         "width": 216,
         "height": 232
       },
-      "frameCount": 16,
-      "fps": 13,
+      "frameCount": 8,
+      "fps": 16,
       "loop": false,
       "status": "completed",
-      "segment": [
-        3.45,
-        4.95
-      ],
-      "scale": 0.8835,
-      "updated_at": "2026-09-09T14:02:39.331Z"
+      "source": "source/turn_ccw_generated_raw.png",
+      "mirroredFromFrame": 4,
+      "updated_at": "2026-09-10T00:00:00.000Z"
     }
   },
   "frameSize": {

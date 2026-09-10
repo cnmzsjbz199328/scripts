@@ -9,7 +9,7 @@
 |----|------|-----------|------|
 | crawl（正常爬行） | ~12–36 | 0.50–1.46 | 四肢着地沿底边爬，面朝右，原地循环 |
 | turnAround（调头） | ~58–84 | 2.40–3.50 | 爬到右墙角站起 → 转体 180° → 落回四肢面朝左；apex ≈ 源帧 69（00:02:21） |
-| cornerCrawl（拐角爬行） | ~83–119 | 3.45–4.95 | 面朝左爬到左下角 → 撑起 → 转竖直贴左墙 |
+| cornerTurnCCW（逆时针拐角） | generated | 5 帧 / 16fps（跳过前 3 张回撤姿态） | 向右爬到右墙角 → 扶墙 → 逆时针转 90° 贴右墙 |
 | （未接入）climb | ~126–184 | 5.25–7.67 | 贴左墙手脚交替上爬，可循环 |
 
 ## 复现步骤
@@ -39,14 +39,14 @@ CMN="--extract-fps=24 --anchor --size=216x232 --scale=0.8835 --bg=auto --thresho
 
 npx tsx skills/video-sprite/process.ts BoxCrawler crawl       source/box_stripped.mp4 --start=0.50 --end=1.46 --frames=8  --fps=10           $CMN
 npx tsx skills/video-sprite/process.ts BoxCrawler turnAround  source/box_stripped.mp4 --start=2.40 --end=3.50 --frames=14 --fps=14 --no-loop $CMN
-npx tsx skills/video-sprite/process.ts BoxCrawler cornerCrawl source/box_stripped.mp4 --start=3.45 --end=4.95 --frames=16 --fps=13 --no-loop $CMN
+# cornerTurnCCW：使用 source/turn_ccw_generated_raw.png，经 tools/prepare_turn_frames.mjs 生成
 ```
 
 ### 3. 拼图集
 
 ```bash
 npx tsx skills/video-sprite/assemble.ts BoxCrawler
-# → output/spritesheet.webp (3456×696, 3 行 × 16 列, 单帧 216×232) + output/sprite.json
+# → output/spritesheet.webp (3024×696, 3 行 × 14 列, 单帧 216×232) + output/sprite.json
 ```
 
 ## 备注
@@ -54,3 +54,7 @@ npx tsx skills/video-sprite/assemble.ts BoxCrawler
 - 地面上左右调头直接用这组 turnAround（源视频本身有自然调头，非 flipX）。
   反方向的调头 = 把 turnAround `setFlipX` 播放即可。
 - 想补墙面攀爬：`process.ts BoxCrawler climb source/box_stripped.mp4 --start=5.25 --end=7.60 --frames=8 --fps=10 $CMN`
+
+### 拐角动作更新
+
+`cornerTurnCCW` 使用 `source/turn_ccw_generated_raw.png` 生成 8 帧逆时针 90°扶墙过角动作；第 4 帧起做水平镜像。运行时只播放第 4–8 帧，跳过前 3 张仍在水平回撤的姿态，再切换到墙面爬行，避免路径旋转与动作帧重复叠加。

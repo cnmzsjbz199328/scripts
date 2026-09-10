@@ -9,7 +9,7 @@
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     body {
-      background: #080604;
+      background: #14100c;
       color: #f3e9d8;
       font-family: 'Segoe UI', monospace;
       display: flex;
@@ -39,7 +39,7 @@
       gap: 18px;
       flex-direction: row;
       align-items: center;
-      background: linear-gradient(to bottom, rgba(0,0,0,0.55), transparent);
+      background: linear-gradient(to bottom, rgba(0,0,0,0.28), transparent);
       pointer-events: none;
       z-index: 10;
       font-size: 15px;
@@ -86,7 +86,6 @@
     }
     .game-btn:hover  { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(0,0,0,0.4); }
     .game-btn:active { transform: translateY(0); }
-    #start-btn   { background: #8fd3ff; color: #12100c; }
     #restart-btn { background: #d8463a; color: #fff; }
 
     #gameover-title.win  { color: #7cffb2; }
@@ -105,18 +104,6 @@
       <div id="hud-objective"><span id="hud-objective-text">用 ← / → 沿内壁爬到舱口</span></div>
     </div>
 
-    <div id="start-screen" class="game-overlay">
-      <div class="overlay-card">
-        <h2>📦 箱内爬行</h2>
-        <p class="tagline">四肢贴着内壁，只有左右，爬到舱口就出去。</p>
-        <p class="story-setting">你被封进一只木箱。身体永远吸附在内壁那条发光的导轨上，只能沿它前后爬。到墙角会自动撑一下转过去，反向时会先调头。集齐散落的电池，舱口才会亮——五道内壁，线性爬完就通关。</p>
-        <button id="start-btn" class="game-btn" onclick="window.__hudStart()">▶ START</button>
-        <p class="controls-hint">
-          ← / → （或 A / D） 沿轨道爬行 ·　R 回本舱起点 ·　M 静音
-        </p>
-      </div>
-    </div>
-
     <div id="gameover-screen" class="game-overlay" style="display:none">
       <div class="overlay-card">
         <h2 id="gameover-title">GAME OVER</h2>
@@ -129,7 +116,7 @@
   <script>
     // 关卡脚手架占位（verify L0 查引用存在性；本作关卡数据在 game/levels.js）
     window.GAME_CONFIG   = { map: { width: 960, height: 540 }, renderMode: 'procedural', engine: 'phaser-rail-crawl',
-      note: 'Stick figure crawls along the inside walls of a crate on a 1-D arc-length rail. Only left/right. Reach the hatch. 5 linear levels, no save, no select.' };
+      note: 'Stick figure crawls along the inside walls of a crate on a 1-D arc-length rail. Only left/right. Reach the hatch. 4 linear levels, no save, no select.' };
     window.TILEMAP_DATA  = { width: 15, height: 9, tileWidth: 64, tileHeight: 64, tileIndex: {}, layers: { obstacles: [] } };
     window.ENTITIES_DATA = [];
     // HUD 心形字形：木箱 → 用方块电量格
