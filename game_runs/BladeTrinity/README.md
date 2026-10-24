@@ -264,3 +264,159 @@ bot 一直有防御分支（`play.ts` 的 `oppStartup||oppActive` 那一支）�
 ⚠️ **`crit×0` 通常不是 bug**：它是"防御成功后的 25% 掷骰"，一局只掷 1~2 次，多数局自然为 0。
 覆盖度断言现在会把 `defend<4` 和 `crit=0` 单独标出来 —— 以前 `defend×1` 也报"覆盖 OK"，
 把"bot 基本不防"这件事盖了很久。**别拿 playtest 的 defend/crit 次数判断防御手感，要人眼看。**
+
+---
+
+## 7. Joy-Con 2 controls（手柄接入）
+
+Left + right Joy-Con 2 together control one player, alongside the keyboard (both work at the
+same time). Bluetooth, packet decoding and stick calibration stay in the
+[Joycon](https://github.com/cnmzsjbz199328/Joycon) adapter; this game only consumes its
+WebSocket protocol and maps it to actions.
+左右两只 Joy-Con 2 合作操控一名玩家，键盘照常可用；蓝牙/解包/摇杆校准都在 Joycon adapter 里，本游戏只消费协议。
+
+### 7.1 Run it locally（本机运行）
+
+```bash
+# 1) the adapter — in a checkout of the Joycon repo at ce5abf5 (protocol v2)
+python -m venv .venv
+.venv\Scripts\pip install -r adapter/requirements.txt          # macOS/Linux: .venv/bin/pip
+.venv\Scripts\python -m adapter.src.service --source joycon2     # hold Sync on each Joy-Con until the LEDs run
+#    no hardware: --source synthetic --side both
+#                 --source replay --file adapter/tests/fixtures/hw_2026-10-24_input.jsonl
+
+# 2) the game — serve game_runs/ over http (file:// cannot load the assets)
+cd game_runs && python -m http.server 8000
+#    open http://127.0.0.1:8000/BladeTrinity/index.html
+```
+
+The page connects to `ws://127.0.0.1:8765` by itself when it is opened from `localhost` /
+`127.0.0.1`. URL switches: `?joycon` (connect, any host), `?joycon=ws://host:port` (another
+adapter), `?joycon=off` (never). Automation (`navigator.webdriver`) never connects unless the
+parameter is given, so verify/playtest see no failed-socket console errors.
+
+### 7.2 Default mapping（默认键位）
+
+| Action 动作 | Keyboard (unchanged) | Joy-Con 2 |
+|---|---|---|
+| Move / menu direction 移动 / 菜单方向 | A D ← → (menu also W S ↑ ↓) | left stick or D-pad |
+| Jump 跳 | W / ↑ (hold = jump again on landing) | **B** (same hold behaviour) |
+| Slash 斩 / hold after the slash = school arte 秘技 | J | **Y** |
+| Guard 防御 (hold) | S | **ZL** |
+| Charge 蓄力, release = 剑气 | hold L | hold **ZR** |
+| Blink 缩地 / with up = rise 升空 | SPACE / ↑+SPACE | **A** / up (stick or D-pad) + **A** |
+| Confirm 确认 (also closes the START card) | SPACE J ENTER | **A** or **＋** |
+| Restart after the gauntlet 重开 | click the ↻ | **＋** (↻ shows「＋ 重开」while a Joy-Con is online) |
+
+Adjustments to the requested default and why:
+- Stick/D-pad **up does not jump** on the Joy-Con (B jumps). On the keyboard W is both "up" and
+  "jump"; copying that would make every ↑+A rise start with a jump.
+- **Restart is ＋ only**, not A: A is blink, and mashing it at the KO would skip the knock-down.
+- Movement keeps the **fixed walking speed** (stick digitised: walk at |x| ≥ 0.5, stop below 0.3).
+  "Up" for the rise needs y ≥ 0.6 so a walking thumb drifting upward does not turn blinks into rises.
+- Menus take one step per flick: one axis at a time, triggers at 0.6, re-arms only after the stick
+  returns below 0.3 — never one step per packet.
+
+Status (bottom-left of the canvas, and on the START card) keeps "socket open" and "controller
+online" apart: `适配器未连接` → `适配器已连接 左 ○ 右 ○ 等待手柄…` → `左 ● 右 ●`.
+HUD key hints switch to Joy-Con buttons while one is online.
+
+### 7.3 How input works（输入层）
+
+- `game_runs/_engine/joycon.js` — shared protocol-v2 client: a classic-`<script>` port of the
+  upstream `shared/protocol/input-client.mjs` + `contracts.mjs` at
+  **`ce5abf5a4468ebce18dbe570cb899b799a882555`** (only the module wrapper changed; plus the
+  URL policy above and one connection per page). `tools/joycon-check.mjs --upstream=<checkout>`
+  replays a scripted session through both and requires identical events.
+- `game/systems/input.js` — the action layer. Every system reads `this._in.held/pressed/released`
+  instead of Phaser keys or `JustDown`.
+  - Edges advance **once per frame** at the top of `update()`; an action is held while *any*
+    source holds it, so releasing one source never cancels the other and pressing the second
+    source never fires the action twice.
+  - A Joy-Con tap that starts and ends between two game frames still counts (as a one-frame hold).
+  - **Interruptions are not releases.** Controller offline, socket closed, >1 s without frames,
+    page hidden, or window blur release held actions with reason `lost`; an in-progress
+    **charge or 抜刀 stance is cancelled without firing** (MP already spent is not refunded, as
+    when interrupted by a hit). Only a real release fires the 剑气 / strike.
+  - **No replay of old input.** After a reconnect, resumed frames, returning to the tab, or a scene
+    (re)start, any Joy-Con button or stick still held is ignored until released / re-centred
+    once (so a held ＋ that restarts the game does not also confirm the next screen).
+  - Scene restarts unsubscribe and resubscribe; the socket is kept (no reconnect churn).
+
+Small keyboard-side effects of the shared layer (intentional): a key pressed while the game
+is not reading it (during a charge, stance, hit-freeze or between rounds) no longer fires later;
+alt-tab during a keyboard charge cancels it instead of releasing it; SPACE/J/ENTER on the START
+card closes the card (previously they started the fight hidden behind it). Two fixes found on the
+way: the school cursor could reach a phantom 4th slot (Phaser 3.60 `Math.Wrap` includes `max`),
+and the START card no longer claims K guards (it never did).
+
+### 7.4 Local vs online（本机与线上）
+
+- **Local** (`http://localhost` or `127.0.0.1`): supported, auto-connects.
+- **Online HTTPS showreel**: not enabled by default — visitors without an adapter get no socket
+  attempts or permission prompts. To try it, open the game page **directly** with
+  `/BladeTrinity/index.html?joycon`; `play.html` does not forward the parameter into its iframe.
+  Headless Chromium 149 blocks `ws://127.0.0.1` from a public HTTPS page with
+  `net::ERR_BLOCKED_BY_LOCAL_NETWORK_ACCESS_CHECKS` and connects once the
+  *local network access* permission is granted — so desktop Chrome should show a permission prompt
+  (not yet seen in a headed browser; Firefox/Safari untested). Nothing here disables browser security.
+  This build is not deployed yet.
+
+### 7.5 Test results（测试记录，2026-10-24）
+
+Software only — synthetic, mocked and replayed input prove the software path, **not** the
+hardware. 以下均为软件验证，不是实机验收。
+
+| Check | Result |
+|---|---|
+| `npx tsx skills/game-verify/verify.ts BladeTrinity` | pass (L0/L1/L2) |
+| `node game_runs/BladeTrinity/tools/joycon-check.mjs --upstream=<Joycon@ce5abf5>` (A: client rules, URL policy, upstream parity; B: game page with a mocked adapter — menus, every action, merge, tap/hold, offline/socket-close/stale/hidden/blur during charge and stance, reconnect with held buttons, ＋ restart ×4) | 106/106 in 3 consecutive runs of the final build (~46 s each) |
+| same tool, part C, against the real adapter `--source synthetic --side both` | 6/6 — 872 frames/side in 25 s, presses = releases after close, 10 menu edges vs ~1 700 frames |
+| part C against `--source replay` (hardware capture, incl. the recorded Sync disconnect) | 6/6 — all 23 buttons, A released with reason `stale` 1.1 s before the adapter's `disconnected`, no stuck key |
+| `npx tsx skills/game-playtest/play.ts BladeTrinity` vs. unmodified HEAD, 20 alternated pairs | HEAD 13 win / 7 stuck, this build 11 win / 9 stuck; 0 losses and 0 runtime errors in both; skill coverage alike — no measurable change (p≈0.75; this bot is load-noisy) |
+
+Hardware (实机): **not run yet** — see 7.7.
+
+### 7.6 Known limitations（已知限制）
+
+- **Upstream adapter exits when a browser tab disconnects** (Joycon `ce5abf5`,
+  `adapter/src/websocket/server.py` `_broadcast`): it iterates `self._clients` across an `await`
+  while the closing client removes itself → `RuntimeError: Set changed size during iteration`.
+  Reproduced on the first disconnect 2/2 with the synthetic source. Reloading or closing the game
+  page can therefore kill the adapter (restart it, then hold Sync). One-line fix, checked on a
+  scratch copy (survived 30/30 disconnects): `for ws in list(self._clients):`. Not applied here —
+  it belongs to the Joycon repo.
+- The first frame after a reconnect is treated as carried-over input (held buttons in it are ignored
+  until released). Live Joy-Cons stream ~33 Hz, so that is ~30 ms; the trimmed replay fixture only
+  keeps packets where something changed, so there the first right-side frame after the reconnect
+  was the operator's next A press (1 s later) and it was ignored. Verify on hardware (7.7 step 9).
+- If frames simply stop mid-charge, the button counts as held until the client's ~1 s stale
+  timeout; a charge whose MP runs dry inside that window auto-releases exactly as a held charge
+  would. An adapter `disconnected` status or a closed socket cancels immediately.
+- Upstream hardware acceptance is macOS/CoreBluetooth; the Windows BLE path is unverified.
+- No analog walking speed, no single sideways Joy-Con, no 2-player — by design for this round.
+- A keyboard tap shorter than one frame can still be missed (unchanged); only Joy-Con taps are latched.
+
+### 7.7 Hardware session checklist（实机验收清单，一轮约 10 分钟）
+
+Adapter running with `--source joycon2`, both Joy-Cons paired, game open at
+`http://127.0.0.1:8000/BladeTrinity/index.html`. Avoid reloading the page (see 7.6). Note
+pass/fail per step.
+
+1. START card shows `左 ● 右 ●`. **＋** closes the card; the highlighted school does not change.
+2. Flick the left stick right/left/up/down and hold it: exactly one school / tier step per flick,
+   no repeat while held. Same with the D-pad. A half tilt does nothing.
+3. **A** starts the fight; the character does not blink at the start.
+4. Stick: walks at constant speed, stops on release. **B** jumps; holding B keeps jumping.
+5. **Y** tap = one slash per tap. Pick 剑神流, hold **Y** after a slash → stance; release → strike.
+6. **ZL** held = guard, released = guard drops. **ZR** held = charge aura, released = 剑气; a quick
+   ZR tap only gives the shock-wave.
+7. Stick left/right + **A** = blink that way; stick up (and D-pad up) + **A** = rise.
+8. While charging with **ZR**, short-press **Sync** on the right Joy-Con: the charge vanishes
+   **without** a 剑气, status shows `右 ○`. Hold Sync to reconnect while still holding ZR: nothing
+   happens until ZR is released and pressed again. Repeat on the left with **ZL** guard.
+9. Right after a reconnect, one press of **Y** or **A** responds on the first press.
+10. Charge with ZR, alt-tab away, come back: no 剑气 fired.
+11. Finish the gauntlet (win or lose): ↻ with「＋ 重开」appears without touching the mouse;
+    **＋** returns to the select screen and does not pick a school by itself.
+12. Throughout: keyboard keys still work alongside the Joy-Cons.

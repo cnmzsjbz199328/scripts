@@ -22,10 +22,8 @@ Object.assign(BladeTrinityScene.prototype, {
     if (mode === 'rise') {
       y1 = Math.max(120, y0 - BT.BLINK.riseH);      // 别冲出画面顶
     } else {
-      // 缩地方向：优先取当前按住的左右键，否则朝当前面向（向前）
-      const left = this.keys.A.isDown || this.cursors.left.isDown;
-      const right = this.keys.D.isDown || this.cursors.right.isDown;
-      const dir = left ? -1 : right ? 1 : (f.facingLeft ? -1 : 1);
+      // 缩地方向：优先取当前按住的左右（键盘 A/D·←/→，手柄摇杆/方向键），否则朝当前面向（向前）
+      const dir = this._in.moveX() || (f.facingLeft ? -1 : 1);
       x1 = this._clampX(x0 + dir * BT.BLINK.dist);
     }
 

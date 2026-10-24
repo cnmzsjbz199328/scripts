@@ -65,6 +65,7 @@ class BladeTrinityScene extends Phaser.Scene {
     // 所以 body 贴住下边界时脚就踩在台面上；blocked.down 也照常可用于跳跃判定。
     this.physics.world.setBounds(0, 0, BT.GAME_W, BT.FLOOR_Y);
 
+    // 键盘键对象仍挂在 this.keys / this.cursors 上（调试脚本会读），但游戏逻辑只读动作层 this._in
     this.cursors = this.input.keyboard.createCursorKeys();
     this.keys = this.input.keyboard.addKeys('W,A,S,D,J,K,L,SPACE,ENTER');
 
@@ -74,9 +75,12 @@ class BladeTrinityScene extends Phaser.Scene {
     if (tp && BT.TIERS.order.includes(tp)) this.selTier = BT.TIERS.order.indexOf(tp);
     this._buildSelect();
     if (this._refreshTier) this._refreshTier();
+    this._buildInput();           // 键盘 + Joy-Con 动作层与连接状态（input.js）
     this._buildRestartBtn();      // 结束后鼠标悬停才浮出的半透明 ↻（restart.js）
     if (this._initForegroundPhysics) this._initForegroundPhysics();
-    if (window.GameHUD) window.GameHUD.onStart(() => { });
+    // START 遮罩还在时，确认键只负责关掉遮罩（见 update 的 select 分支）
+    this._hudStarted = !window.GameHUD;
+    if (window.GameHUD) window.GameHUD.onStart(() => { this._hudStarted = true; });
     window.__scene = this;
 
     // ⚠️「剥夺剑界」必须挂 POST_UPDATE，不能放在 update() 里。本体副本要和真身【严格同帧】，
@@ -168,8 +172,8 @@ class BladeTrinityScene extends Phaser.Scene {
         // nextGoalX 填对手坐标。试过改成"自己的交战位置"（reach*0.8 处）让 bot
         // 停在射程边缘，六局全输 —— bot 站住不动后反而被 AI 压着打。
         nextGoalX: fighting ? e.sprite.x : sp.x, worldW: BT.GAME_W, cellX: BT.GAME_W,
-        // attack 保持"在射程内就报 true"：Phaser 的 JustDown 事件会留到下一次
-        // update 才被读取，密集按反而更容易卡到可行动的那一帧。
+        // attack 保持"在射程内就报 true"：按键要到下一次 update 才被动作层（input.js）
+        // 采样，密集按反而更容易卡到可行动的那一帧。
         // 试过改成只在 _canAct 时上报，bot 胜率反而从 3/5 掉到 2/6。
         // ⚠️ 剑界成形时 attack 强制报 false、moveX 掉头往外：这两个字段是【契约】，
         // 俯视 bot 和横版 bot 都直接照着按键。只加 oppRealm 让 bot 自己判断是不够的 ——
@@ -208,20 +212,21 @@ class BladeTrinityScene extends Phaser.Scene {
   }
 
   update(time, delta) {
+    // 输入边沿【每帧只在这里推进一次】，之后各系统读到的 pressed/released 都是同一份
+    this._in.update();
+    this._tickInputHud();
     this._tickRestartBtn();       // 各 phase 都要跑：它自己按 phase 决定显不显
+    const I = this._in;
     if (this.phase === 'select') {
-      if (Phaser.Input.Keyboard.JustDown(this.keys.A) ||
-          Phaser.Input.Keyboard.JustDown(this.cursors.left)) this._selectMove(-1);
-      if (Phaser.Input.Keyboard.JustDown(this.keys.D) ||
-          Phaser.Input.Keyboard.JustDown(this.cursors.right)) this._selectMove(1);
+      // START 遮罩还盖着：确认键（SPACE/J/ENTER，手柄 A/＋）先关遮罩，不顺手把流派也选了
+      const started = this._hudStarted;
+      if (!started && I.pressed('confirm') && window.__hudStart) window.__hudStart();
+      if (I.pressed('menuLeft')) this._selectMove(-1);
+      if (I.pressed('menuRight')) this._selectMove(1);
       // ↑/↓（或 W/S）调难度档：往上=更难，往下=更易
-      if (Phaser.Input.Keyboard.JustDown(this.cursors.up) ||
-          Phaser.Input.Keyboard.JustDown(this.keys.W)) this._tierMove(1);
-      if (Phaser.Input.Keyboard.JustDown(this.cursors.down) ||
-          Phaser.Input.Keyboard.JustDown(this.keys.S)) this._tierMove(-1);
-      if (Phaser.Input.Keyboard.JustDown(this.keys.SPACE) ||
-          Phaser.Input.Keyboard.JustDown(this.keys.J) ||
-          Phaser.Input.Keyboard.JustDown(this.keys.ENTER)) this._selectConfirm();
+      if (I.pressed('menuUp')) this._tierMove(1);
+      if (I.pressed('menuDown')) this._tierMove(-1);
+      if (started && I.pressed('confirm')) this._selectConfirm();
       return;
     }
     // ─── 抜刀的「画面静止」───
@@ -239,6 +244,8 @@ class BladeTrinityScene extends Phaser.Scene {
     }
     // over / interlude：战斗逻辑停摆，只让物理把倒地/站立姿态收干净
     if (this.phase === 'over' || this.phase === 'interlude') {
+      // 整场打完：手柄 ＋ 重开（键盘/鼠标照旧点 ↻，见 restart.js）。排在解冻之后，物理已恢复。
+      if (this.phase === 'over' && I.pressed('restart')) { this._restartGame(); return; }
       for (const f of this.fighters) if (f.iai) this._endIai(f);   // 架式的预示线别留在场上
       this._fighterPhysics();
       return;

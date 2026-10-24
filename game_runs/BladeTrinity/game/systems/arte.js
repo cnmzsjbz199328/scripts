@@ -57,7 +57,7 @@ Object.assign(BladeTrinityScene.prototype, {
   // 两边都只认这一个入口，各流派的差别在这里分岔，别在调用侧写 if (id === 'north')。
   //
   // ⚠️ 别改成"长按 J 直接触发秘技"（不挂在一记已出手的平A 上）。_controlPlayer 里平A
-  // 走的是 JustDown，按下那一刻刀就已经挥出去了；要做成独立起手就得把平A 推迟到松手
+  // 走的是按下沿（动作层 pressed），按下那一刻刀就已经挥出去了；要做成独立起手就得把平A 推迟到松手
   // 判定之后（170~200ms），那是拿全局手感换一个招（[[fighting-input-tap-vs-hold]]
   // 记着的同一类坑）。现在：点按 = 普通平A（手感一点没变），按住 = 那一刀转秘技。
   _startArte(f, time) {
@@ -147,8 +147,15 @@ Object.assign(BladeTrinityScene.prototype, {
     this._outlineHold(f, a.tellColor, a.tellR * (1 + 0.25 * f.iai.tier));
     this._drawIaiTell(f, a, time);
 
-    // 松手 = 抜刀。玩家看 J 键；AI 看 _startIai 掷定的 iaiRelease。上限一到强制出刀。
-    const released = f === this.p1 ? !this.keys.J.isDown : time >= (f.iaiRelease || 0);
+    // 手柄掉线 / 适配器断开 / 页面切后台 / 窗口失焦造成的"松开"不是抜刀：收刀回 idle，
+    // 不出这一刀（蓝照扣，同被打断；但不吃 breakStun —— 没人打断它）。见 input.js releaseReason。
+    if (f === this.p1 && !this._in.held('attack') && this._in.releaseReason('attack') === 'lost') {
+      this._endIai(f);
+      this._setState(f, 'idle');
+      return;
+    }
+    // 松手 = 抜刀。玩家看攻击键（J / 手柄 Y）；AI 看 _startIai 掷定的 iaiRelease。上限一到强制出刀。
+    const released = f === this.p1 ? !this._in.held('attack') : time >= (f.iaiRelease || 0);
     if (released || el >= a.maxMs) this._iaiStrike(f, time);
   },
 

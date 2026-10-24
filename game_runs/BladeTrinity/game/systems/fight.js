@@ -46,16 +46,19 @@ Object.assign(BladeTrinityScene.prototype, {
     this.aiNext = 0;
   },
 
+  // 键位提示跟着输入设备走：Joy-Con 在线就显示手柄键（input.js 在连接状态变化时重调本函数）
   _setFightObjective() {
+    const jc = !!(this._in && this._in.jcOnline());
+    const K = jc ? { atk: 'Y', def: 'ZL', ult: 'ZR', move: '摇杆' } : { atk: 'J', def: 'S', ult: 'L', move: 'AD' };
     const d = BT.SCHOOLS[this._p1Id].defense;
-    const dk = d === 'counter' ? 'S 返击' : d === 'parry' ? 'S 受流' : 'S 完防';
+    const dk = `${K.def} ` + (d === 'counter' ? '返击' : d === 'parry' ? '受流' : '完防');
     const n = this.oppQueue.length;
     const tier = (this.curTier && this.curTier.name) || '';
     // 流派秘技的操作提示只对【会这招的流派】显示，别把三派的键位堆给所有人看
     const arte = BT.ARTE && BT.ARTE[this._p1Id];
-    const ak = arte ? `　出刀后按住 J「${arte.name}」` : '';
+    const ak = arte ? `　出刀后按住 ${K.atk}「${arte.name}」` : '';
     window.GameHUD?.setObjective(
-      `擂台 ${this.round + 1}/${n}【${tier}】：${BT.SCHOOLS[this.p2.id].name}　│　J 斩　${dk}　长按 L 蓄剑气　AD 移动${ak}`);
+      `擂台 ${this.round + 1}/${n}【${tier}】：${BT.SCHOOLS[this.p2.id].name}　│　${K.atk} 斩　${dk}　长按 ${K.ult} 蓄剑气　${K.move} 移动${ak}`);
   },
 
   // 玩家胜一场、还有下一场：换上下一位对手，半回血，回满蓝，原地重开。

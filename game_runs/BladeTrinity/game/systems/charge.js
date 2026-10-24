@@ -15,7 +15,7 @@ Object.assign(BladeTrinityScene.prototype, {
   // 供 loop.js 的 _controlPlayer 在最前面调用：蓄力中/起手独占操作，返回 true。
   _handleCharge(f, time) {
     if (f.charging) { this._tickCharge(f, time); return true; }
-    if (Phaser.Input.Keyboard.JustDown(this.keys.L) && this._canAct(f) && f.mp > 4) {
+    if (this._in.pressed('charge') && this._canAct(f) && f.mp > 4) {
       this._startCharge(f, time);
       return true;
     }
@@ -52,9 +52,22 @@ Object.assign(BladeTrinityScene.prototype, {
     f.sprite.setVelocityX(0);
     this._drawAura(f, time);
     if (f.ultText) f.ultText.setPosition(f.sprite.x, f.sprite.y - 150);
-    // 松手条件按操控方分流：玩家看 L 键，AI 看 _startAICharge 定下的 aiRelease 时刻。
-    const released = f === this.p1 ? !this.keys.L.isDown : time >= f.aiRelease;
+    // 松手条件按操控方分流：玩家看蓄力键（L / 手柄 ZR），AI 看 _startAICharge 定下的 aiRelease 时刻。
+    // ⚠️ 玩家侧要分清"松手"和"断了"：手柄掉线 / 适配器断开 / 页面切后台 / 窗口失焦也会让
+    // 蓄力键变成松开，那不是玩家放招 —— 作废蓄力、不出剑气（input.js 的 releaseReason）。
+    if (f === this.p1 && !this._in.held('charge') && this._in.releaseReason('charge') === 'lost') {
+      this._cancelCharge(f);
+      return;
+    }
+    const released = f === this.p1 ? !this._in.held('charge') : time >= f.aiRelease;
     if (released || f.mp <= 0) this._releaseCharge(f, time);
+  },
+
+  // 非玩家意图的中断：收掉蓄力、回 idle，不放剑气。已扣的蓝不退（同"被打断"的规矩）。
+  _cancelCharge(f) {
+    this._endCharge(f);
+    f.state = 'idle'; f.stateUntil = 0;
+    f.sprite.play(`${f.id}_idle`, true);
   },
 
   _releaseCharge(f, time) {
