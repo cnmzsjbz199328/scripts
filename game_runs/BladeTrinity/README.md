@@ -277,6 +277,21 @@ WebSocket protocol and maps it to actions.
 
 ### 7.1 Run it locally（本机运行）
 
+**One step (Windows):** double-click `game_runs/BladeTrinity/tools/joycon-play.cmd`, then hold Sync
+on each Joy-Con until the LEDs run. 双击启动脚本，再长按两只手柄的 Sync。
+
+The script (`tools/joycon-play.ps1`, Windows PowerShell 5.1+) finds the Joycon checkout
+(`-JoyconDir`, else `%JOYCON_DIR%`, else a `Joycon` folder next to this repository), and on first
+run clones it at the pinned commit and creates its `.venv`. It then starts the adapter in its own
+window (or reuses one already on 127.0.0.1:8765), serves `game_runs/` on
+http://127.0.0.1:8000 (or reuses a server already serving the game), and opens the page.
+It never modifies the Joycon checkout; it only warns if the 7.6 adapter bug is still present.
+Options: `-Source synthetic` (no hardware), `-GamePort`, `-AdapterPort` (non-default ports are
+passed to the page as `?joycon=`), `-NoBrowser`. Close the adapter window and the minimized
+server window to stop.
+
+Manual steps, equivalent to the script:
+
 ```bash
 # 1) the adapter — in a checkout of the Joycon repo at ce5abf5 (protocol v2)
 python -m venv .venv
