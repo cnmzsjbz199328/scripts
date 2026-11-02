@@ -1,0 +1,21 @@
+{
+  "character": "North God",
+  "status": "candidate_reviewed_not_user_approved",
+  "source_image": "ref_north_wide_padded.png",
+  "prompt_file": "prompt_flow.txt",
+  "flow_project": "https://flow.google.com/project/b8c063ee-a5a5-4741-9b49-e4f462b2d80c",
+  "flow_edit": "https://flow.google.com/project/b8c063ee-a5a5-4741-9b49-e4f462b2d80c/edit/d1c56e01-ecde-4afb-9e05-86bef9cc6a55",
+  "output": "north_god_transformation_candidate.mp4",
+  "resolution": "1280x720",
+  "duration_seconds": 6.037333,
+  "sampled_seconds": [
+    0,
+    1.86,
+    3.3,
+    3.83,
+    5.63
+  ],
+  "review_screenshot": "north_review_feint.png",
+  "findings": "High-low dual-sword guard is clear; short feint visible around 3.8s. Both swords and the full character remain inside frame. Returns to original pose by 5.63s.",
+  "sha256": "80B3B5CE07DBEF56E20E01E8072E3DE39C092D94FBFEA65FD277299F6062F96A"
+}

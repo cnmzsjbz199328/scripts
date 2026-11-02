@@ -1,0 +1,36 @@
+{
+  "version": "v6",
+  "status": "candidate_pass_head_orientation_and_scale_review",
+  "reviewedOn": "2026-11-02",
+  "flowEditUrl": "https://flow.google.com/project/b8c063ee-a5a5-4741-9b49-e4f462b2d80c/edit/2b6534b8-8b06-4aa7-a928-ef910db1e2cb",
+  "visualInput": "ref_north_wide_padded.png (sole visual input and exact opening frame)",
+  "prompt": "prompt_flow_v6.txt",
+  "video": "north_god_transformation_candidate_v6.mp4",
+  "downloadedSource": "C:/Users/tj169/Downloads/North_God_costume_transformation_v6_2d26ba4f.mp4",
+  "archivePath": "north_god_transformation_candidate_v6.mp4",
+  "sha256": "6FBB898984784DD76D098FD9E28DFB0D1F015B4739015401DF5DDE2BE6065BC1",
+  "metadata": {
+    "container": "MP4",
+    "videoCodec": "H.264",
+    "audioCodec": "AAC",
+    "width": 1280,
+    "height": 720,
+    "frameRate": "24/1",
+    "videoFrames": 144,
+    "durationSeconds": 6.037333
+  },
+  "sampledSeconds": [0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5, 5.5],
+  "observations": [
+    "Source and archived copy have matching SHA-256 hashes.",
+    "The head keeps the opening reference direction through the costume change, sword action and finishing guard; no clear independent head turn or gaze shift is visible in the sampled frames.",
+    "The attack is carried by the arms and body; the original face and head angle remain recognizable.",
+    "The navy/charcoal coat and silver-white shoulder mantle remain clear. White hair, red trousers, both swords and attached sandals are retained.",
+    "The character remains centered near the reference scale; no uncontrolled mid-clip enlargement or frame-edge crop is apparent in the sampled strip.",
+    "No large slash arc is visible in the sampled frames."
+  ],
+  "contactSheets": [
+    "north_v6_review_strip_0-5.5s.png",
+    "north_v6_head_review_strip_0-5.5s.png"
+  ],
+  "summary": "Downloaded, archived and visually reviewed. Head-orientation and scale checks pass in the sampled frames. Keep v6 as the current North God candidate; not marked user-accepted."
+}

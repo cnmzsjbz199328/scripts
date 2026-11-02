@@ -1,0 +1,8 @@
+{
+  "character": "Water God",
+  "status": "rejected_visual_effect_spill",
+  "prompt_file": "prompt_flow_v5.txt",
+  "flow_project": "https://flow.google.com/project/b8c063ee-a5a5-4741-9b49-e4f462b2d80c",
+  "flow_edit": "https://flow.google.com/project/b8c063ee-a5a5-4741-9b49-e4f462b2d80c/edit/8abcc97a-a0f5-41fd-8825-9aa8e3c14532",
+  "findings": "The body action became much larger, but water ribbons and particles spread across most of the frame and approached the edges. Kept in Flow for reference; excluded from the local deliverable candidates."
+}

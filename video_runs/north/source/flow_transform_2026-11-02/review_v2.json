@@ -1,0 +1,23 @@
+{
+  "character": "North God",
+  "status": "candidate_reviewed_not_user_approved",
+  "source_image": "ref_north_wide_padded.png",
+  "prompt_file": "prompt_flow_v2.txt",
+  "flow_project": "https://flow.google.com/project/b8c063ee-a5a5-4741-9b49-e4f462b2d80c",
+  "flow_edit": "https://flow.google.com/project/b8c063ee-a5a5-4741-9b49-e4f462b2d80c/edit/c5eac8b3-8606-4c50-b254-ebc1bdfbb897",
+  "generation": {
+    "model": "Omni 1.1 Flash",
+    "aspect_ratio": "16:9",
+    "resolution": "1280x720",
+    "duration_seconds": 6.037333,
+    "frame_rate": "24/1",
+    "codec": "h264",
+    "file_size_bytes": 2521251
+  },
+  "output": "north_god_transformation_candidate_v2.mp4",
+  "sha256": "9697DCF2DD4ACD6EBD6C9DAD7802C9A67D55957CF18A015F7778171D5461B04A",
+  "input_frame_usage": "single reference image as opening frame; no ending image set",
+  "sampled_seconds": [0, 1.0, 2.0, 3.2, 5.6],
+  "review_screenshots": ["north_review_v2_hero.png", "north_review_v2_final.png"],
+  "findings": "The body and sword poses change clearly: a wide step and crouch lead into a two-part high/low cut, followed by a distinct wide final guard. Both swords and the full character remain in frame in sampled poses. The green background remains clean, with no broad visual-effect spill. The final pose remains visibly different from the opening."
+}

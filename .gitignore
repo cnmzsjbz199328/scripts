@@ -78,6 +78,21 @@ assets_fbx/
 # 注意：game_runs/BladeTrinity/ 下的 webp/png/json 是成品图集，必须入库
 #（Cloudflare CI 部署要读，见 CLAUDE.md 产物入库规则），不要在这里忽略
 references/BladeTrinity/
+# BladeTrinity 变身源片（Google Flow 生成的候选/验收 mp4）+ 由源片/参考图派生的审查图，
+# 同属原始素材，不入库；只入库文字溯源（提示词 txt、审查 json、归档说明）。
+# SHA-256 记在 plans/blade-trinity-transformation-integration-plan.md 与 transformation_candidates_*.md。
+video_runs/sword/source/**/*.mp4
+video_runs/sword/source/**/*.png
+video_runs/water/source/**/*.mp4
+video_runs/water/source/**/*.png
+video_runs/north/source/**/*.mp4
+video_runs/north/source/**/*.png
+# 变身素材工作区：源片抽帧 / 抠图中间帧 / 审查接触表全部可由 build.mjs 从源片重放，不入库；
+# 只入库构建脚本、元数据契约与审查报告（成品图集装进 game_runs/BladeTrinity/assets/sprites/transform/）
+video_runs/BladeTrinityTransform/**/*.png
+video_runs/BladeTrinityTransform/**/*.webp
+video_runs/BladeTrinityTransform/**/*.mp4
+video_runs/BladeTrinityTransform/*/work/
 
 # PokeMood 独立站构建产物 —— 由 deploy/build.mjs 从仓库内文件重新组装，不入库
 game_runs/PokeMood/dist/

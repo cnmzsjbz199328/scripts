@@ -1,0 +1,29 @@
+{
+  "version": "v7",
+  "status": "user_accepted",
+  "reviewedOn": "2026-11-02",
+  "flowEditUrl": "https://flow.google.com/project/b8c063ee-a5a5-4741-9b49-e4f462b2d80c/edit/c69c6eed-c0af-43bd-ab3d-355c8204c49e",
+  "visualInput": "ref_water_wide_padded.png (sole visual input and opening frame)",
+  "video": "water_god_transformation_candidate_v7.mp4",
+  "sha256": "F890E5DCCC3DB5552FA20E8366A7434A1D01684AE7256D65D3369282908A5578",
+  "sampledSeconds": [
+    0,
+    0.5,
+    1,
+    2,
+    2.5,
+    3,
+    4.5,
+    5.75
+  ],
+  "observations": [
+    "The outfit visibly changes from the original navy armor and coat into a layered ocean-blue/turquoise costume with silver edging by about 2 seconds.",
+    "The transformed costume remains through the final guard; the long blue hair and one sword remain recognizable.",
+    "Full body and sword remain inside frame; background remains green.",
+    "A broad but localized cyan-white crescent appears during the slash despite the prompt limiting effects; it does not spill to the frame edges."
+  ],
+  "summary": "User-approved Water God v7; archive the downloaded file as the accepted final asset.",
+  "userAcceptedOn": "2026-11-02",
+  "acceptedDownloadName": "Water_God_costume_transformation_v7_2673961c.mp4",
+  "acceptedArchive": "water_god_transformation_accepted_v7.mp4"
+}

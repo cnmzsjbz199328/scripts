@@ -1,0 +1,23 @@
+{
+  "character": "Water God",
+  "status": "candidate_reviewed_not_user_approved",
+  "source_image": "ref_water_wide_padded.png",
+  "prompt_file": "prompt_flow_v6.txt",
+  "flow_project": "https://flow.google.com/project/b8c063ee-a5a5-4741-9b49-e4f462b2d80c",
+  "flow_edit": "https://flow.google.com/project/b8c063ee-a5a5-4741-9b49-e4f462b2d80c/edit/a63fcd1f-1435-4ff1-8c17-8983700e29e1",
+  "generation": {
+    "model": "Omni 1.1 Flash",
+    "aspect_ratio": "16:9",
+    "resolution": "1280x720",
+    "duration_seconds": 6.037333,
+    "frame_rate": "24/1",
+    "codec": "h264",
+    "file_size_bytes": 2366911
+  },
+  "output": "water_god_transformation_candidate_v6.mp4",
+  "sha256": "5D6EB05DC3074879182DF6B877432EE7A1CE70DE61FD6895557C8D5E219D2170",
+  "input_frame_usage": "single reference image as opening frame; no ending image set",
+  "sampled_seconds": [0, 1.0, 2.0, 4.0, 5.6],
+  "review_screenshots": ["water_review_v6_slash.png", "water_review_v6_hero.png"],
+  "findings": "The low wind-up, full-body rising slash, and wide Water-God finishing stance read clearly and differ from the opening. Character and complete sword remain in frame in sampled poses; the green background stays clean. The requested turquoise painted blade marking was not generated. A short white slash arc appears close to the sword during the cut, without broad background spill. The final stance remains different from the opening."
+}
