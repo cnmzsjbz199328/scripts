@@ -87,8 +87,8 @@ video_runs/water/source/**/*.mp4
 video_runs/water/source/**/*.png
 video_runs/north/source/**/*.mp4
 video_runs/north/source/**/*.png
-# 变身素材工作区：源片抽帧 / 抠图中间帧 / 审查接触表全部可由 build.mjs 从源片重放，不入库；
-# 只入库构建脚本、元数据契约与审查报告（成品图集装进 game_runs/BladeTrinity/assets/sprites/transform/）
+# 变身素材工作区：源片抽帧 / 抠图中间帧 / 审查图全部可由 game_runs/BladeTrinity/tools/build-transform.mjs 从源片重放，不入库；
+# 只入库 manifest 与审查报告 report.json（成品图集装进 game_runs/BladeTrinity/assets/sprites/transform/）
 video_runs/BladeTrinityTransform/**/*.png
 video_runs/BladeTrinityTransform/**/*.webp
 video_runs/BladeTrinityTransform/**/*.mp4
