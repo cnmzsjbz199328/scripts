@@ -20,6 +20,8 @@ description: 自动试玩 + 录屏 + 白盒平衡指标（共享）。用 Playwr
 
 ```bash
 npx tsx skills/game-playtest/play.ts <GameName> [--seconds=90] [--tick=70] [--out=report.json]
+# BladeTrinity 专用：--tier=shang|sheng|wang|di|shen 起始难度档；--bt=0 关蓄力子弹时间、--bt=0.5 指定慢放倍率
+#（两者拼成同一个查询串 ?tier=…&bt=…，平衡 A/B 用）
 ```
 
 产物写入 `game_runs/<Game>/playtest/`:`playthrough.webm`、`final.png`,及 stdout 的指标 JSON。
@@ -62,6 +64,12 @@ window.__advanceCard = () => {...};  // 若有剧情卡/过场,给 bot 一个推
 ```
 
 无探针时 bot 退化为"一路向右",仅能做最浅的冒烟。探针越准,白盒结论越可信。
+
+可选字段 `timeScale`(数字,缺省按 1):游戏内时钟相对真实时间的倍率,`< 1` = 慢放中(BladeTrinity 蓄力变装的
+子弹时间)。bot 里凡是"按游戏时间计"的计时都要乘它——目前只有 BladeTrinity 的蓄力时长
+(`chargeTimeRemaining -= tickMs * (P.timeScale ?? 1)`),不乘的话慢放下只蓄到约 0.38 就松手。
+其余真实时间窗口(防御按住 240ms、缩地间隔 900ms 等)**不缩放**:慢放只出现在蓄力期间,影响可忽略。
+不报这个字段的游戏行为不变。
 
 ---
 

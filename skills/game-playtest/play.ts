@@ -88,9 +88,11 @@ interface Probe {
 
   const srv = await startServer();
   const isArena = gameName === 'ShadowForge';
-  // BladeTrinity 支持 --tier=shang|sheng|wang|di|shen 指定起始难度档（默认游戏内王级）
-  const q = isArena ? '?autoplay'
-    : (gameName === 'BladeTrinity' && flags.tier ? `?tier=${flags.tier}` : '');
+  // BladeTrinity 支持 --tier=shang|sheng|wang|di|shen 指定起始难度档（默认游戏内王级），
+  // --bt=0 关蓄力子弹时间、--bt=0.5 指定慢放倍率（平衡 A/B 用），两者拼成同一个查询串
+  const btq = gameName === 'BladeTrinity'
+    ? [flags.tier && `tier=${flags.tier}`, flags.bt !== undefined && `bt=${flags.bt}`].filter(Boolean).join('&') : '';
+  const q = isArena ? '?autoplay' : (btq ? `?${btq}` : '');
   const url = `http://127.0.0.1:${srv.port}/${gameName}/index.html` + q;
 
   const pageErrors: string[] = [];
@@ -263,8 +265,10 @@ interface Probe {
             await setKey('ArrowRight', dx > 15); await setKey('ArrowLeft', dx < -15);
             if (dist < P.myReach + 40) await tap('j', 70);
           } else if (chargeTimeRemaining > 0) {
-            // 正在蓄力剑气：站定按住 L，蓄够就松
-            chargeTimeRemaining -= tickMs;
+            // 正在蓄力剑气：站定按住 L，蓄够就松。
+            // 蓄力时长是【游戏时间】：子弹时间里游戏时钟按 P.timeScale 走，真实 tick 要乘上它，
+            // 否则慢放下只蓄到约 0.38 就松手（悄悄改了 bot 行为）。不报这个字段的游戏按 1。
+            chargeTimeRemaining -= tickMs * (P.timeScale ?? 1);
             await setKey('l', true); await relMove(); await setKey('s', false);
           } else if (defending) {
             await setKey('l', false); await relMove();
@@ -392,6 +396,10 @@ interface Probe {
       // 会心是防御成功后的 25% 掷骰，天然会有 0 的局；不当失败，但要说出来，
       // 免得"覆盖 OK"被读成"会心演出验过了"。
       if (!usage.crit) metrics.notes.push('会心 crit×0（防御成功后的概率演出，本局未触发）');
+      // 电脑侧蓄力（子弹时间的另一半触发源）：0 = 本局没跑到 AI 蓄力慢放
+      if (usage.aiCharge !== undefined) {
+        metrics.notes.push(usage.aiCharge ? `电脑蓄力 aiCharge×${usage.aiCharge}` : '⚠️ 电脑蓄力 aiCharge×0（AI 侧蓄力/慢放本局未触发）');
+      }
       // ⚠️ realmSelfHit 与上面那些【方向相反】：它是"bot 往剥夺剑界里白送了几次自伤"，
       // 越低越好，0 才是学会了。别看到数字大就当成"这一招演出验到了"——
       // 验剑界演出该看 aiArte（电脑放了几次），realmSelfHit 只衡量 bot 蠢不蠢。

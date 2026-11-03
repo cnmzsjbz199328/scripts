@@ -94,7 +94,7 @@ Object.assign(BladeTrinityScene.prototype, {
     // 沿用陈旧值会让 _aiCancelWindow 下一帧就判定"收招已结束"，_tickSwingQi 随即
     // _clearSwing，蓄力扣了蓝一道剑气都不出（见 routine.js _aiCancelWindow 注释）。
     f.atkCancelable = false;
-    if (this._usage && f === this.p1) this._usage.charge++;
+    if (this._usage) this._usage[f === this.p1 ? 'charge' : 'aiCharge']++;
     f.sprite.play(`${f.id}_attack`, true);
     // 有逐帧刀线标定 + 生成段 → 两阶段轨迹驱动（丝带蓄成 → 分段脱手飞行月牙，见 _tickSwingQi）。
     // 北神有两段=二段斩。没标定 → 旧法：from-40 弹一个静态月牙。

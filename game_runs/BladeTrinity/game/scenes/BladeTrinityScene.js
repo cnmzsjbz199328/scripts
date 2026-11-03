@@ -127,6 +127,7 @@ class BladeTrinityScene extends Phaser.Scene {
           won: false, lost: false, cardActive: false, started: false,
           nextGoalX: 0, worldW: BT.GAME_W, cellX: BT.GAME_W,
           moveX: 0, moveY: 0, attack: false, dangerNow: false, dangerAhead: false,
+          timeScale: 1,
         };
       }
       const a = this.p1, e = this.p2;
@@ -211,6 +212,9 @@ class BladeTrinityScene extends Phaser.Scene {
         // ── 我方能力现状 ──
         myDef: a.def.defense, canDefend, myReach: a.def.reach,
         tier: this.curTierId || null, tierName: (this.curTier && this.curTier.name) || null,
+        // 当前战斗时钟倍率（子弹时间，bullettime.js）：<1 = 慢放中。bot 的真实时间计时要乘它
+        // 才是游戏时间（playtest 的蓄力时长就是这么算的）。
+        timeScale: this._fightClock ? this._fightClock.scale : 1,
         // ── 技能覆盖度（整局累计触发次数）：playtest 断言 bot 用没用全 ──
         usage: this._usage ? Object.assign({}, this._usage) : null,
       };

@@ -11,8 +11,9 @@ Object.assign(BladeTrinityScene.prototype, {
     // 见 arte.js _payArte —— 没有它就只能靠人眼数，而这招踩过无头计时坑）
     // realmSelfHit / realmDeprive：界内出手被弹回自己 / 界内会心被剥夺（见 realm.js）。
     // 这两个【越低越好】，和上面那些"用没用满"的覆盖度计数方向相反，别混着断言。
+    // aiCharge = 电脑有效放出的蓄力剑气（同 charge 的口径：过了 minFrac 才算）。
     this._usage = { attack: 0, charge: 0, defend: 0, crit: 0, blink: 0, jump: 0, arte: 0, aiArte: 0,
-                    realmSelfHit: 0, realmDeprive: 0 };
+                    aiCharge: 0, realmSelfHit: 0, realmDeprive: 0 };
     this.oppQueue = BT.ROSTER.filter((id) => id !== p1Id);   // 另两家，按 ROSTER 序
     this._applyTier();
     this._showStage(0);          // 重开也要回到第 1 场的室内道场
