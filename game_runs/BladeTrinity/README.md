@@ -563,3 +563,105 @@ G 段逐派覆盖：短按（frac < minFrac → 按取消收、不出剑气、�
 
 人眼仍需看的（自动化证明不了）：变装在 420ms 内走完是否"读得出"（剑神只长犬耳，变化最小）；
 释放瞬间的服饰回落是否像"外壳褪去"而不是"闪了一下"；北神 v6 用户是否最终认可。
+→ 2026-11-03 用户嫌太快，改为蓄力期间子弹时间，见 §8.4。
+
+### 8.4 子弹时间（蓄力变装慢放，2026-11-03）
+
+用户意图：变装在战斗里太快（420ms 挤 18–20 格，每格约 22ms，比源片 24fps 还快一倍），要放慢便于观赏，
+像子弹时间那样；变身的时长不计入战斗时长，变身过程中对手不会、或来不及攻击。
+执行计划：[plans/blade-trinity-bullet-time-plan.md](../../plans/blade-trinity-bullet-time-plan.md)。
+
+锁定决策（用户 2026-11-03 确认）：
+1. **全场慢放，不做时停。** 所有对象一起变慢，含变身者自己的变装进度。战斗时间里蓄力仍是 420ms，规则与平衡不变；
+   起蓄前已在飞的剑气照样能打断蓄力（时停会让蓄力零风险，已否决）。
+2. **倍率 0.35**：满蓄 420ms 战斗时间在画面上约 1.2s，每格约 60ms。做成配置，用户凭眼再调。
+3. **玩家与 AI 变身都慢放**；双方同时在蓄时两人都收才恢复。轻点（不足 minFrac）也会进入慢放，松手当帧恢复。
+4. **松手当帧硬切回 1×**（慢放 → 出剑的速度反差就是打击感）；进入时约 90ms（真实时间）线性渐入。
+5. **只在变装真的在播时慢放**（`f.tf` 存在）；变装图集没载到、退回 guard 占位时不慢放。
+
+"对手来不及攻击"在规则上本来就成立：起蓄的起浪把近敌轰到场边并给 `waveStun 520ms` 硬直 + 无敌，长于满蓄 420ms。
+子弹时间只解决画面节奏。
+
+配置（`data.js`，紧挨 `BT.CHARGE`）：
+
+```js
+BT.BULLET_TIME = { enabled: true, scale: 0.35, rampInMs: 90 /* 真实毫秒 */ };
+```
+
+URL 覆盖（凭眼调参用，解析位置同 `?tier=`）：`?bt=0` 关闭；`?bt=0.5` 这类 (0,1] 的数当倍率；非法值（`abc`、`2`、`-1`、空）忽略。
+例：`/BladeTrinity/index.html?bt=0.5`、`?tier=di&bt=0.25`。调参定稿只改 `BT.BULLET_TIME.scale`。
+
+实现（`game/systems/bullettime.js`，在 `transformation.js` 之后、`charge.js` 之前加载）：
+- **可变速战斗时钟**：`create()` 第一行把 `this.time`（Clock 实例）的 `now` 换成 getter/setter。Phaser 每帧在
+  `Clock.update` 里写入真实时间，setter 按当前倍率把真实增量折算成游戏增量累加；getter 返回游戏时间。于是全部约 40 处
+  `this.time.now`、POST_UPDATE 钩子、`__probe`、delayedCall 回调读到的都是游戏时间，不用逐处改。`update(time, delta)`
+  第一行把形参换成游戏时间（`time = this.time.now`，`delta ×` 本帧倍率），排在一切 early return 之前。
+  Clock 实例跨 `scene.restart` 保留，状态挂在它身上，重装幂等、游戏时间单调不回拨。倍率恒 1 时游戏时钟与真实时钟逐帧相等。
+- **每帧推导、不埋开关**：挂 POST_UPDATE（shutdown 时摘除），`want = enabled && phase === 'fight' && 任一 fighter (charging && tf)`。
+  不在 `_startCharge/_endCharge` 里开关，所以释放 / 取消 / 受击 / 换场 / 重开 / KO 任何收蓄路径都卡不住慢放（与抜刀
+  `freezeUntil` 同一套路）。放 POST_UPDATE 而不是 update 开头：它没有按 phase 的 early return，而且看得到本帧的收蓄 ——
+  松手那一帧就切回 1×，下一帧的时钟 / 物理 / 动画 / 补间已全是原速。
+- **倍率同步五处**：战斗时钟；`tweens.timeScale`（描边一弹、招式名、服饰回落）；`time.timeScale`（delayedCall）；
+  Arcade 物理 `world._frameTime = s / fps`（步进频率不变、每步积分时间按比例缩短，画面平滑；`world.timeScale = 1/s`
+  会拉长步进间隔、0.35 时约 48ms 一步、飞行中一跳一跳，不用；`_frameTime` 是 3.60.0 内部字段，不是 number 时退回
+  `world.timeScale` 并警告一次，升级 Phaser 时复查）；**逐个 sprite 的 `anims.timeScale`**（对手受击/倒地、背景动态层）。
+- ⚠️ **与计划不同的一处**：计划写的是 `this.anims.globalTimeScale = s`。核对 `_engine/vendor/phaser-3.60.0.min.js`：
+  这个字段只出现在 AnimationManager 构造、`fromJSON`、`toJSON` 里，`AnimationState.update` 只乘 sprite 自己的 `timeScale`
+  —— 在 3.60.0 里设了不生效。所以改为慢放期间每帧给显示列表里所有带 `anims` 的对象设 `anims.timeScale`（期间新建的
+  sprite 下一帧跟上），`globalTimeScale` 始终不碰（T 段断言它恒为 1）。升级 Phaser 后它若开始生效，别两处都设，否则是 s² 倍。
+- 不变速：相机 shake/flash、GameAudio、DOM HUD、键盘/手柄输入层（都是真实时间）。
+- 复位：`create()` 与 `shutdown` 都把五处复位到 1。
+- `__probe()` 新增 `timeScale`（当前倍率，select 阶段报 1）；`usage` 新增 `aiCharge`（电脑有效放出的蓄力剑气数）。
+- **约定：玩法逻辑只能读 `this.time.now` 或 `update` 的 `time/delta`，不得读 `performance.now()` / `Date.now()` / `game.loop.*`**
+  —— 那些是真实时间，慢放期间会和战斗时钟错位。结束慢放也不许挂 delayedCall / tween onComplete（无头下 Clock 事件滞后约 6 倍）。
+
+已知并接受的副作用：
+- 玩家满蓄要真实按住约 1.2s，慢动作里更容易掐准松手时机。
+- AI 蓄力期间，没被起浪轰到的玩家有约 3 倍真实时间做决定，但移动速度按战斗时间不变，能走的距离一样。
+- 补间用的是 Phaser TweenManager 自己的墙钟（`Date.now()`）× 倍率；不影响玩法，但手动步进的检查脚本里补间按墙钟收尾。
+
+#### 验收（2026-11-03）
+
+```bash
+node game_runs/BladeTrinity/tools/transform-check.mjs              # P + G（?bt=0）+ T，报告 video_runs/BladeTrinityTransform/check/report.json
+node game_runs/BladeTrinity/tools/transform-check.mjs --parts=T    # 只跑子弹时间；--tsuite=sword,ai,life,misc 只跑部分套件
+npx tsx skills/game-playtest/play.ts BladeTrinity --bt=0           # playtest 关子弹时间（平衡 A/B 用）
+```
+
+transform-check **202/202**：P 28 / G 93（一律 `?bt=0` 原样跑，证明关掉慢放时行为与接入前一致）/ T 81。
+T 段全部手动步进（`game.step`，1/60s 一帧），真实时长 = 帧数 × 1/60s，与机器负载无关：
+
+| # | 用例 | 结果 |
+|---|---|---|
+| T1 | 三派玩家满蓄 | 69 帧 = **1150ms 真实时间**，同期游戏时间 420.7ms；渐入首帧 0.88 → 第 6 帧到 0.35 后保持；停在保持帧 |
+| T2 | 蓄力中各子系统 | 时钟 / 补间 / Clock 事件 / 物理步长 / 全部 sprite 动画 = 0.35，探针同报，`anims.globalTimeScale` 恒 1；实测匀速刚体每真实秒位移与循环动画换帧次数都 ≈ 原速 × 0.35 |
+| T3 | 松手 | 当帧五处全回 1、`_frameTime` = 1/60；frac=1、剑气数量与伤害按原公式；剑气每真实秒 520px（= `BT.QI.speed`，与 `?bt=0` 相同） |
+| T4 | 战斗时间不变 | 对手起浪硬直 / 无敌 = 520ms 游戏时间，按游戏时间 520ms（+≤1 慢放帧）后起身；满蓄扣蓝 = 100（±1 帧量，扣除同期回蓝后） |
+| T5 | 轻点 / 受击 / 飞来剑气 | 轻点：起蓄帧已渐入、松手当帧回 1；受击打断当帧回 1；起蓄前已在飞的剑气在慢放中照样命中并打断蓄力 |
+| T6 | AI 与双方同蓄 | AI 起蓄即慢放、到点松手当帧回 1、计入 `usage.aiCharge`；双方同蓄（harness 关掉起浪构造）一方先收仍保持，两方都收才回 1，两种先后各一遍 |
+| T7 | 换场 / 重开 | 慢放中对手 KO 进 interlude、被 KO 进 over、整场重开 → 当帧回 1；重开后首帧五处全 1、游戏时钟单调、判据每帧只跑一次、再蓄照常慢放 |
+| T8 | 变装图集 404 | guard 占位蓄力全程 1×、游戏时间 = 真实时间 |
+| T9 | 慢放后抜刀 | 游戏时钟已落后真实时钟数百毫秒时，抜刀冻结 120ms 按游戏时间准点解冻、物理恢复 |
+| T10 | URL | `?bt=0` 全程 1×、满蓄 450ms；`?bt=0.5` 满蓄 833ms；同比例剑气伤害两者相同；非法值回默认 |
+| T11 | 30 轮蓄放 | 显示对象 / 补间 / sprite 与场景监听器回到基线，判据每帧只跑一次 |
+
+验证门：
+- `npx tsx skills/game-verify/verify.ts BladeTrinity` —— 通过（L0/L1/L2）。
+- `npx tsx skills/game-playtest/play.ts BladeTrinity` —— 1 胜（34.9s）+ 1 局 act2 卡住；无 JS 报错，玩家蓄力与电脑蓄力（aiCharge×5 / ×11）都 > 0。
+  act2 卡住在改动前的基线上同样出现（同日同窗口基线 1 胜 1 卡），是这个 bot 的既有噪声。
+  另有两局在页面加载阶段超时（headless 浏览器层，未进游戏），不计入。
+
+平衡 A/B（playtest bot，同一时段关 / 开交替各 15 局；页面加载超时的局未进游戏，剔除）：
+
+| 组 | 有效局 | 胜 | 卡住（act2，20s 不掉血） | 胜局平均时长 | 页面加载失败 |
+|---|---|---|---|---|---|
+| 关（`--bt=0`） | 10 | **10** | 0 | 46.7s | 5 |
+| 开（0.35） | 9 | **5** | 4 | 52.3s | 6 |
+
+**与计划"预期无显著差异"不符**：开启后 bot 卡住明显变多（Fisher 精确检验 p≈0.03）。规则层面 T4 已证明战斗时间、
+扣蓝、硬直、剑气都按游戏时间不变，所以更可能是 bot 自身的真实时间耦合：卡住判据（约 20s 真实时间不掉血）和
+缩地 / 防御 / 出招节奏都按真实时间算，而每局约 10 次电脑蓄力 + 3 次玩家蓄力会多吃掉 8~10s 真实时间
+（胜局变长约 6~11s 与此吻合）。这是推断，未单独验证；判断实际手感以人工试玩为准。
+
+人眼验收（留给用户，自动化证明不了）：1.2s 合不合适、90ms 渐入是否突兀、松手硬切回原速有没有冲击感。
+调参：浏览器打开 `index.html?bt=0.5`（或 0.25 等）凭眼比，`?bt=0` 是关掉的对照；定稿后只改 `BT.BULLET_TIME.scale`。
