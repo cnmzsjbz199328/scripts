@@ -14,6 +14,11 @@
  *
  * ⚠️ 约定：玩法逻辑只能读 this.time.now 或 update 的 time/delta，【不得】读 performance.now()
  *    / Date.now() / game.loop.* —— 那些是真实时间，慢放期间会和战斗时钟错位。
+ *
+ * ── 子弹时间 ──
+ * 每帧（POST_UPDATE）从现状推导倍率：fight 中有人在蓄力且变装在播 → 渐入到 BT.BULLET_TIME.scale，
+ * 否则当帧回 1。倍率同步给 战斗时钟 / sprite 动画 / 补间 / Clock 事件 / Arcade 物理 五处。
+ * ⚠️ 结束慢放不许挂 delayedCall / tween onComplete（无头下 Clock 事件滞后约 6 倍），一律每帧推导。
  */
 Object.assign(BladeTrinityScene.prototype, {
 
@@ -70,16 +75,71 @@ Object.assign(BladeTrinityScene.prototype, {
   //   ① 它没有 update 那些按 phase 的 early return，KO 进 over / interlude 照样复位；
   //   ② 它看得到【本帧】的收蓄 —— 松手那一帧 update 里就把 charging 清了，这里当帧切回 1×，
   //      下一帧的时钟、物理、动画、补间已经全是原速。放在 update 开头会多慢一帧。
+  //
+  // 只在变装真的在播时慢放（f.tf 存在）：图集没载到、退回 guard 占位时不慢放。
+  // 玩家与 AI 都算；双方同时蓄力时任一方还在蓄就保持，两人都收了才回 1×。
+  // 进入：rampInMs（真实毫秒）内线性降到 cfg.scale，免得突兀；退出：当帧硬切回 1×，
+  // 慢放 → 出剑的速度反差本身就是打击感。
   _tickBulletTime(realDelta) {
     const cfg = this._btCfg;
-    this._btWant = !!(cfg && cfg.enabled) && this.phase === 'fight'
+    const want = !!(cfg && cfg.enabled) && this.phase === 'fight'
       && (this.fighters || []).some((f) => f.charging && f.tf);
-    // 第一步只引入时钟：倍率恒为 1，行为与之前一致
-    if (this._fightClock.scale !== 1) this._resetTimeScale();
+    let s = 1;
+    if (want) {
+      this._btRamp = Math.min(cfg.rampInMs, (this._btRamp || 0) + (realDelta || 0));
+      s = cfg.rampInMs > 0 ? 1 + (cfg.scale - 1) * (this._btRamp / cfg.rampInMs) : cfg.scale;
+    } else {
+      this._btRamp = 0;
+    }
+    this._setTimeScale(s);
+  },
+
+  // ?bt= 覆盖，解析位置同 ?tier=（create 里紧挨着调）：0 = 关；(0,1] = 倍率；其它值忽略。
+  _initBulletTime() {
+    const cfg = this._btCfg = Object.assign({ enabled: false, scale: 1, rampInMs: 0 }, BT.BULLET_TIME);
+    const raw = new URLSearchParams(location.search).get('bt');
+    if (raw !== null && raw.trim() !== '') {
+      const v = Number(raw);
+      if (v === 0) cfg.enabled = false;
+      else if (v > 0 && v <= 1) { cfg.enabled = true; cfg.scale = v; }
+    }
+    this._btRamp = 0;
+  },
+
+  // 倍率同步到各子系统。不变速的：相机 shake/flash、GameAudio、DOM HUD、键盘/手柄输入层（都是真实时间）。
+  _setTimeScale(s, force) {
+    const st = this._fightClock;
+    if (!st) return;
+    const changed = force || st.scale !== s;
+    st.scale = s;
+    // 动画：逐个 sprite 设 anims.timeScale（对手受击/倒地、背景动态层一起变慢）。
+    // ⚠️ 不用 this.anims.globalTimeScale：Phaser 3.60.0 里它是死字段（只在构造与 fromJSON/toJSON
+    //    里出现，AnimationState.update 只乘 sprite 自己的 timeScale），设了不生效。升级 Phaser 后
+    //    若它开始生效，别两处都设，否则是 s² 倍。
+    // 慢放期间每帧都扫：期间新建的 sprite（换场的新对手等）下一帧也跟上。
+    if (changed || s !== 1) {
+      for (const o of this.children.list) if (o.anims && o.anims.timeScale !== s) o.anims.timeScale = s;
+    }
+    if (!changed) return;
+    // 补间（描边一弹、招式名、服饰回落……）与 Clock 事件（delayedCall）
+    this.tweens.timeScale = s;
+    this.time.timeScale = s;
+    // 物理：步进频率不变、每步积分时间按比例缩短，画面平滑。
+    // world.timeScale = 1/s 是把步进间隔拉长（0.35 时约 48ms 一步），飞行中的人会一跳一跳，不用它。
+    // _frameTime 是 Phaser 3.60.0 的内部字段（版本钉死在 CDN 与 _engine/vendor），升级时复查。
+    const w = this.physics && this.physics.world;
+    if (w) {
+      if (typeof w._frameTime === 'number') {
+        if (s === 1) w.setFPS(w.fps); else w._frameTime = s / w.fps;
+      } else {
+        if (!this._btWarned) { this._btWarned = true; console.warn('[bullettime] world._frameTime 不可用，物理慢放退回 world.timeScale'); }
+        w.timeScale = 1 / s;
+      }
+    }
   },
 
   _resetTimeScale() {
-    const st = this._fightClock;
-    if (st) st.scale = 1;
+    this._btRamp = 0;
+    this._setTimeScale(1, true);
   },
 });

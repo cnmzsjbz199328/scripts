@@ -77,6 +77,8 @@ class BladeTrinityScene extends Phaser.Scene {
     // ?tier=shang|sheng|wang|di|shen —— playtest / 直链指定起始难度档（选人屏默认王级）
     const tp = new URLSearchParams(location.search).get('tier');
     if (tp && BT.TIERS.order.includes(tp)) this.selTier = BT.TIERS.order.indexOf(tp);
+    // ?bt=0 关子弹时间 / ?bt=0.5 指定慢放倍率（bullettime.js）
+    this._initBulletTime();
     this._buildSelect();
     if (this._refreshTier) this._refreshTier();
     this._buildInput();           // 键盘 + Joy-Con 动作层与连接状态（input.js）
