@@ -41,6 +41,8 @@ class BladeTrinityScene extends Phaser.Scene {
   }
 
   create() {
+    // 可变速战斗时钟（bullettime.js）：必须最先装，之后所有 this.time.now 都是游戏时间
+    this._installFightClock();
     this._buildStage();
 
     // ── 建动画：帧号 = row * 列数 + i（不足 21 列的行尾部是透明填充，不要越界取）──
@@ -214,6 +216,10 @@ class BladeTrinityScene extends Phaser.Scene {
   }
 
   update(time, delta) {
+    // 形参换成游戏时钟（bullettime.js）：Phaser 传进来的是真实时间。排在任何 early return 之前，
+    // 下游一律是游戏时间 —— freezeUntil 比较、_prevTime、回蓝、剑气飞行、前景物理。
+    time = this.time.now;
+    delta *= this._fightClock.frameScale;
     // 输入边沿【每帧只在这里推进一次】，之后各系统读到的 pressed/released 都是同一份
     this._in.update();
     this._tickInputHud();
