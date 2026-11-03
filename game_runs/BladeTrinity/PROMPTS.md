@@ -656,3 +656,25 @@ Subject: a close-to-camera foreground layer for an autumn outdoor sword arena, i
 生成"纯绿幕背景下一根枫树枝随风轻摆、循环"的视频 → `--anchor` 抽帧 → 作为
 独立的 depth 21 图层叠在 outdoor_fore 之上（树干仍用静态图，只有枝叶动）。
 先按静态验收观感，再决定是否值得为它多一条管线。
+
+---
+
+## 11. 蓄力变装源片（Google Flow，2026-11）
+
+三派"蓄力 = 变装"的绿幕源片提示词不抄在这里，真源是随源片归档的 txt（已入库；mp4 不入库）：
+
+| 派 | 实际使用的提示词 | 审查记录 |
+|---|---|---|
+| 剑神流（用户验收） | `video_runs/sword/source/flow_accepted_2026-11-02/prompt_flow_used.txt`（用户原话：`prompt_user_original.txt`） | `archive.json` |
+| 水神流（用户验收 v7） | `video_runs/water/source/flow_transform_2026-11-02/prompt_flow_v7.txt` | `review_v7.json` |
+| 北神流（候选 v6） | `video_runs/north/source/flow_transform_2026-11-02/prompt_flow_v6.txt` | `review_v6.json` |
+
+各版本的取舍与失败原因（v1–v7 / v1–v6）见 `video_runs/transformation_candidates_2026-11-02.md`。
+这批提示词与 §5 的动作提示词不同的几条实测经验：
+
+- 首帧用**横版补边参考**（`ref_*_wide_padded.png`，1280×720 构图、四周留纯绿安全区）—— 新片因此**没有**旧片的
+  黑色 pillarbox，旧的 `crop=712:716:284:2` 不能套。
+- 必须写死**尺度与位置锁**（头顶/脚底像素、身高占比、不许推近），否则中段会整体放大（北神 v4）。
+- 北神要单独写**头部与视线锁**，否则变装途中会自己转头（北神 v5）。
+- 变装要求"属于衣服本身、附着在身上"，否则会出现脱离身体的布片/鞋子（北神 v3）或满屏水效（水神 v5）。
+- 源片后段的挥剑只是生成要求的一部分，**不进运行时图集**；切哪几帧见 README §8.1。

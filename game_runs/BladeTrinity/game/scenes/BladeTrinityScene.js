@@ -11,6 +11,8 @@ class BladeTrinityScene extends Phaser.Scene {
       this.load.spritesheet(id, `assets/sprites/${id}.webp`,
         { frameWidth: BT.FRAME_W, frameHeight: BT.FRAME_H });
     }
+    // 蓄力变装帧（每派一行，assets/sprites/transform/）。缺图只让那一派退回 guard 占位。
+    BT.Transform.preload(this);
     // 背景三层。manifest 由 tools/process-bg.mjs 生成（缺哪张就不在表里），
     // 据此跳过缺图的层，而不是让 Phaser 去 404。
     // 一场一景：两套背景全预载（BG_SETS），不能只载 BT.BG 那一套 —— 第 2 场会开天窗
@@ -247,6 +249,8 @@ class BladeTrinityScene extends Phaser.Scene {
       // 整场打完：手柄 ＋ 重开（键盘/鼠标照旧点 ↻，见 restart.js）。排在解冻之后，物理已恢复。
       if (this.phase === 'over' && I.pressed('restart')) { this._restartGame(); return; }
       for (const f of this.fighters) if (f.iai) this._endIai(f);   // 架式的预示线别留在场上
+      // 蓄力中被定格（对手倒地 / 自己倒地）：收掉变装、描边与招式名，不出剑气
+      for (const f of this.fighters) if (f.charging) this._endCharge(f);
       this._fighterPhysics();
       return;
     }

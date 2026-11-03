@@ -84,10 +84,11 @@ Object.assign(BladeTrinityScene.prototype, {
   // 【外轮廓 = 这个人正蓄着某种力】，不再另起一圈套在身外的廉价光环。
   _outlineHold(f, tint, r) {
     const A = BT.GUARD_AURA, sp = f.sprite;
+    // 纹理一律读 sprite 当前那张（蓄力变装时是 tf_<派>，见 BT.Transform），不能写死 f.id
     if (!f.guardAura) {
       f.guardAura = [];
       for (let i = 0; i <= A.rays; i++) {          // 前 rays 份是描边，最后一份是辉光
-        f.guardAura.push(this.add.image(sp.x, sp.y, f.id, sp.frame.name)
+        f.guardAura.push(this.add.image(sp.x, sp.y, sp.texture.key, sp.frame.name)
           .setDepth(sp.depth - 1).setScale(BT.SCALE));
       }
       f.guardAura[A.rays].setBlendMode(Phaser.BlendModes.ADD);
@@ -95,10 +96,10 @@ Object.assign(BladeTrinityScene.prototype, {
     for (let i = 0; i < A.rays; i++) {
       const ang = (i / A.rays) * Math.PI * 2;
       f.guardAura[i].setPosition(sp.x + Math.cos(ang) * r, sp.y + Math.sin(ang) * r)
-        .setFrame(sp.frame.name).setFlipX(sp.flipX).setTint(tint).setAlpha(A.alpha);
+        .setTexture(sp.texture.key, sp.frame.name).setFlipX(sp.flipX).setTint(tint).setAlpha(A.alpha);
     }
     const g = f.guardAura[A.rays];                 // 辉光：更大更淡，给溢光
-    g.setPosition(sp.x, sp.y).setFrame(sp.frame.name).setFlipX(sp.flipX)
+    g.setPosition(sp.x, sp.y).setTexture(sp.texture.key, sp.frame.name).setFlipX(sp.flipX)
       .setScale(BT.SCALE * (1 + r * A.glowMul / 200)).setTint(tint).setAlpha(A.glowAlpha);
   },
 

@@ -202,6 +202,14 @@ const INSTRUMENT = () => {
   };
 };
 
+// CDN 上的 Phaser 改走本地 _engine/vendor 副本：无头 Chromium 拉 jsDelivr 偶发很慢，页面 load 后
+// 15 秒都进不了场景（与被测的输入层无关）。transform-check.mjs 同一处理。
+async function routePhaser(page) {
+  await page.route(/cdn\.jsdelivr\.net\/npm\/phaser@3\.60\.0\/dist\/phaser\.min\.js/,
+    (r) => r.fulfill({ path: path.join(GAME_RUNS, '_engine', 'vendor', 'phaser-3.60.0.min.js'), contentType: 'text/javascript' }));
+  return page;
+}
+
 async function launch() {
   let chromium;
   try { ({ chromium } = await import('playwright')); } catch {
@@ -214,7 +222,7 @@ async function partB(browser, base) {
   // ── B0: no ?joycon under webdriver → no socket, keyboard unaffected ──
   section = 'B·off';
   {
-    const page = await browser.newPage();
+    const page = await routePhaser(await browser.newPage());
     const errors = [];
     page.on('pageerror', (e) => errors.push(e.message));
     page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
@@ -239,7 +247,7 @@ async function partB(browser, base) {
   }
 
   // ── B1+: mocked adapter ──
-  const page = await browser.newPage();
+  const page = await routePhaser(await browser.newPage());
   const errors = [];
   page.on('pageerror', (e) => errors.push(e.message));
   page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
@@ -609,7 +617,7 @@ async function partB(browser, base) {
 
 async function partC(browser, base, url) {
   section = 'C·live';
-  const page = await browser.newPage();
+  const page = await routePhaser(await browser.newPage());
   const errors = [];
   page.on('pageerror', (e) => errors.push(e.message));
   page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });

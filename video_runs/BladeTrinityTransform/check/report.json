@@ -1,0 +1,612 @@
+{
+  "ranAt": "2026-11-02T11:10:36.917Z",
+  "passed": 121,
+  "total": 121,
+  "results": [
+    {
+      "section": "P",
+      "name": "sword 0–100% 每档格号 = clamp 映射（左右两人）",
+      "ok": true
+    },
+    {
+      "section": "P",
+      "name": "sword 格号随进度单调不减、终于保持帧",
+      "ok": true
+    },
+    {
+      "section": "P",
+      "name": "sword 左人朝右镜像 / 右人朝左原向",
+      "ok": true
+    },
+    {
+      "section": "P",
+      "name": "sword 覆盖全部变装格",
+      "ok": true
+    },
+    {
+      "section": "P",
+      "name": "sword 按住满蓄 → 保持帧且静止不循环",
+      "ok": true
+    },
+    {
+      "section": "P",
+      "name": "sword 释放 → 主图集原挥砍",
+      "ok": true
+    },
+    {
+      "section": "P",
+      "name": "sword 挥砍播完回 idle",
+      "ok": true
+    },
+    {
+      "section": "P",
+      "name": "sword 取消 → 回 idle、无变装态",
+      "ok": true
+    },
+    {
+      "section": "P",
+      "name": "water 0–100% 每档格号 = clamp 映射（左右两人）",
+      "ok": true
+    },
+    {
+      "section": "P",
+      "name": "water 格号随进度单调不减、终于保持帧",
+      "ok": true
+    },
+    {
+      "section": "P",
+      "name": "water 左人朝右镜像 / 右人朝左原向",
+      "ok": true
+    },
+    {
+      "section": "P",
+      "name": "water 覆盖全部变装格",
+      "ok": true
+    },
+    {
+      "section": "P",
+      "name": "water 按住满蓄 → 保持帧且静止不循环",
+      "ok": true
+    },
+    {
+      "section": "P",
+      "name": "water 释放 → 主图集原挥砍",
+      "ok": true
+    },
+    {
+      "section": "P",
+      "name": "water 挥砍播完回 idle",
+      "ok": true
+    },
+    {
+      "section": "P",
+      "name": "water 取消 → 回 idle、无变装态",
+      "ok": true
+    },
+    {
+      "section": "P",
+      "name": "north 0–100% 每档格号 = clamp 映射（左右两人）",
+      "ok": true
+    },
+    {
+      "section": "P",
+      "name": "north 格号随进度单调不减、终于保持帧",
+      "ok": true
+    },
+    {
+      "section": "P",
+      "name": "north 左人朝右镜像 / 右人朝左原向",
+      "ok": true
+    },
+    {
+      "section": "P",
+      "name": "north 覆盖全部变装格",
+      "ok": true
+    },
+    {
+      "section": "P",
+      "name": "north 按住满蓄 → 保持帧且静止不循环",
+      "ok": true
+    },
+    {
+      "section": "P",
+      "name": "north 释放 → 主图集原挥砍",
+      "ok": true
+    },
+    {
+      "section": "P",
+      "name": "north 挥砍播完回 idle",
+      "ok": true
+    },
+    {
+      "section": "P",
+      "name": "north 取消 → 回 idle、无变装态",
+      "ok": true
+    },
+    {
+      "section": "P",
+      "name": "30 轮释放/取消后显示对象数回到基线",
+      "ok": true
+    },
+    {
+      "section": "P",
+      "name": "30 轮后无残留补间",
+      "ok": true
+    },
+    {
+      "section": "P",
+      "name": "30 轮后 sprite 监听器不累积",
+      "ok": true
+    },
+    {
+      "section": "P",
+      "name": "预览页无报错 / 无 404",
+      "ok": true
+    },
+    {
+      "section": "G·sword",
+      "name": "短按：起蓄当帧即切到变装第 0 格",
+      "ok": true
+    },
+    {
+      "section": "G·sword",
+      "name": "短按：frac < minFrac、不出剑气、回 idle 主图集",
+      "ok": true
+    },
+    {
+      "section": "G·sword",
+      "name": "短按：按\"取消\"收（淡回落）",
+      "ok": true
+    },
+    {
+      "section": "G·sword",
+      "name": "短按：蓝照扣、招式计数不变",
+      "ok": true
+    },
+    {
+      "section": "G·sword",
+      "name": "逐帧格号 = clamp((t-chargeFrom)/fullMs) 映射",
+      "ok": true
+    },
+    {
+      "section": "G·sword",
+      "name": "逐帧格号单调不减",
+      "ok": true
+    },
+    {
+      "section": "G·sword",
+      "name": "半蓄：显示变装中段（非首格、非保持帧）",
+      "ok": true
+    },
+    {
+      "section": "G·sword",
+      "name": "半蓄：描边剪影跟随变装纹理与当前格",
+      "ok": true
+    },
+    {
+      "section": "G·sword",
+      "name": "半蓄释放：minFrac ≤ frac < 1、剑气 1 道、伤害按原公式",
+      "ok": true
+    },
+    {
+      "section": "G·sword",
+      "name": "半蓄释放：按\"释放\"收、切回主图集、招式计数 +1",
+      "ok": true
+    },
+    {
+      "section": "G·sword",
+      "name": "满蓄按住：停在保持帧且静止（1 秒内不动、不播动画）",
+      "ok": true
+    },
+    {
+      "section": "G·sword",
+      "name": "满蓄按住：不转身、不自动出招",
+      "ok": true
+    },
+    {
+      "section": "G·sword",
+      "name": "蓄力中碰撞体 / 脚底不动",
+      "ok": true
+    },
+    {
+      "section": "G·sword",
+      "name": "满蓄释放：frac=1、剑气数量与伤害按原公式",
+      "ok": true
+    },
+    {
+      "section": "G·sword",
+      "name": "蓝耗尽：键仍按住时自动放出（蓝=0、minFrac ≤ frac < 1）",
+      "ok": true
+    },
+    {
+      "section": "G·sword",
+      "name": "蓝耗尽：剑气按原公式、变装已收",
+      "ok": true
+    },
+    {
+      "section": "G·sword",
+      "name": "受击：按 interrupt 收、收蓄当刻是主图集受击姿势",
+      "ok": true
+    },
+    {
+      "section": "G·sword",
+      "name": "受击：不出剑气、描边/招式名已清",
+      "ok": true
+    },
+    {
+      "section": "G·sword",
+      "name": "失焦：按 cancel 收、不出剑气、回 idle 主图集",
+      "ok": true
+    },
+    {
+      "section": "G·sword",
+      "name": "暂停恢复：仍在蓄力、仍是保持帧",
+      "ok": true
+    },
+    {
+      "section": "G·sword",
+      "name": "换边：朝左时不翻转（flipX=false）且显示变装",
+      "ok": true
+    },
+    {
+      "section": "G·sword",
+      "name": "本流派全程无报错",
+      "ok": true
+    },
+    {
+      "section": "G·water",
+      "name": "短按：起蓄当帧即切到变装第 0 格",
+      "ok": true
+    },
+    {
+      "section": "G·water",
+      "name": "短按：frac < minFrac、不出剑气、回 idle 主图集",
+      "ok": true
+    },
+    {
+      "section": "G·water",
+      "name": "短按：按\"取消\"收（淡回落）",
+      "ok": true
+    },
+    {
+      "section": "G·water",
+      "name": "短按：蓝照扣、招式计数不变",
+      "ok": true
+    },
+    {
+      "section": "G·water",
+      "name": "逐帧格号 = clamp((t-chargeFrom)/fullMs) 映射",
+      "ok": true
+    },
+    {
+      "section": "G·water",
+      "name": "逐帧格号单调不减",
+      "ok": true
+    },
+    {
+      "section": "G·water",
+      "name": "半蓄：显示变装中段（非首格、非保持帧）",
+      "ok": true
+    },
+    {
+      "section": "G·water",
+      "name": "半蓄：描边剪影跟随变装纹理与当前格",
+      "ok": true
+    },
+    {
+      "section": "G·water",
+      "name": "半蓄释放：minFrac ≤ frac < 1、剑气 1 道、伤害按原公式",
+      "ok": true
+    },
+    {
+      "section": "G·water",
+      "name": "半蓄释放：按\"释放\"收、切回主图集、招式计数 +1",
+      "ok": true
+    },
+    {
+      "section": "G·water",
+      "name": "满蓄按住：停在保持帧且静止（1 秒内不动、不播动画）",
+      "ok": true
+    },
+    {
+      "section": "G·water",
+      "name": "满蓄按住：不转身、不自动出招",
+      "ok": true
+    },
+    {
+      "section": "G·water",
+      "name": "蓄力中碰撞体 / 脚底不动",
+      "ok": true
+    },
+    {
+      "section": "G·water",
+      "name": "满蓄释放：frac=1、剑气数量与伤害按原公式",
+      "ok": true
+    },
+    {
+      "section": "G·water",
+      "name": "蓝耗尽：键仍按住时自动放出（蓝=0、minFrac ≤ frac < 1）",
+      "ok": true
+    },
+    {
+      "section": "G·water",
+      "name": "蓝耗尽：剑气按原公式、变装已收",
+      "ok": true
+    },
+    {
+      "section": "G·water",
+      "name": "受击：按 interrupt 收、收蓄当刻是主图集受击姿势",
+      "ok": true
+    },
+    {
+      "section": "G·water",
+      "name": "受击：不出剑气、描边/招式名已清",
+      "ok": true
+    },
+    {
+      "section": "G·water",
+      "name": "失焦：按 cancel 收、不出剑气、回 idle 主图集",
+      "ok": true
+    },
+    {
+      "section": "G·water",
+      "name": "暂停恢复：仍在蓄力、仍是保持帧",
+      "ok": true
+    },
+    {
+      "section": "G·water",
+      "name": "换边：朝左时不翻转（flipX=false）且显示变装",
+      "ok": true
+    },
+    {
+      "section": "G·water",
+      "name": "本流派全程无报错",
+      "ok": true
+    },
+    {
+      "section": "G·north",
+      "name": "短按：起蓄当帧即切到变装第 0 格",
+      "ok": true
+    },
+    {
+      "section": "G·north",
+      "name": "短按：frac < minFrac、不出剑气、回 idle 主图集",
+      "ok": true
+    },
+    {
+      "section": "G·north",
+      "name": "短按：按\"取消\"收（淡回落）",
+      "ok": true
+    },
+    {
+      "section": "G·north",
+      "name": "短按：蓝照扣、招式计数不变",
+      "ok": true
+    },
+    {
+      "section": "G·north",
+      "name": "逐帧格号 = clamp((t-chargeFrom)/fullMs) 映射",
+      "ok": true
+    },
+    {
+      "section": "G·north",
+      "name": "逐帧格号单调不减",
+      "ok": true
+    },
+    {
+      "section": "G·north",
+      "name": "半蓄：显示变装中段（非首格、非保持帧）",
+      "ok": true
+    },
+    {
+      "section": "G·north",
+      "name": "半蓄：描边剪影跟随变装纹理与当前格",
+      "ok": true
+    },
+    {
+      "section": "G·north",
+      "name": "半蓄释放：minFrac ≤ frac < 1、剑气 2 道、伤害按原公式",
+      "ok": true
+    },
+    {
+      "section": "G·north",
+      "name": "半蓄释放：按\"释放\"收、切回主图集、招式计数 +1",
+      "ok": true
+    },
+    {
+      "section": "G·north",
+      "name": "满蓄按住：停在保持帧且静止（1 秒内不动、不播动画）",
+      "ok": true
+    },
+    {
+      "section": "G·north",
+      "name": "满蓄按住：不转身、不自动出招",
+      "ok": true
+    },
+    {
+      "section": "G·north",
+      "name": "蓄力中碰撞体 / 脚底不动",
+      "ok": true
+    },
+    {
+      "section": "G·north",
+      "name": "满蓄释放：frac=1、剑气数量与伤害按原公式",
+      "ok": true
+    },
+    {
+      "section": "G·north",
+      "name": "蓝耗尽：键仍按住时自动放出（蓝=0、minFrac ≤ frac < 1）",
+      "ok": true
+    },
+    {
+      "section": "G·north",
+      "name": "蓝耗尽：剑气按原公式、变装已收",
+      "ok": true
+    },
+    {
+      "section": "G·north",
+      "name": "受击：按 interrupt 收、收蓄当刻是主图集受击姿势",
+      "ok": true
+    },
+    {
+      "section": "G·north",
+      "name": "受击：不出剑气、描边/招式名已清",
+      "ok": true
+    },
+    {
+      "section": "G·north",
+      "name": "失焦：按 cancel 收、不出剑气、回 idle 主图集",
+      "ok": true
+    },
+    {
+      "section": "G·north",
+      "name": "暂停恢复：仍在蓄力、仍是保持帧",
+      "ok": true
+    },
+    {
+      "section": "G·north",
+      "name": "换边：朝左时不翻转（flipX=false）且显示变装",
+      "ok": true
+    },
+    {
+      "section": "G·north",
+      "name": "本流派全程无报错",
+      "ok": true
+    },
+    {
+      "section": "G·AI·sword",
+      "name": "AI 起蓄 → 变装帧按蓄力比例推进",
+      "ok": true
+    },
+    {
+      "section": "G·AI·sword",
+      "name": "AI 满蓄后停在保持帧",
+      "ok": true
+    },
+    {
+      "section": "G·AI·sword",
+      "name": "AI 到点自动松手、剑气按原公式、变装按 release 收",
+      "ok": true
+    },
+    {
+      "section": "G·AI·sword",
+      "name": "AI 本局无报错",
+      "ok": true
+    },
+    {
+      "section": "G·AI·water",
+      "name": "AI 起蓄 → 变装帧按蓄力比例推进",
+      "ok": true
+    },
+    {
+      "section": "G·AI·water",
+      "name": "AI 满蓄后停在保持帧",
+      "ok": true
+    },
+    {
+      "section": "G·AI·water",
+      "name": "AI 到点自动松手、剑气按原公式、变装按 release 收",
+      "ok": true
+    },
+    {
+      "section": "G·AI·water",
+      "name": "AI 本局无报错",
+      "ok": true
+    },
+    {
+      "section": "G·AI·north",
+      "name": "AI 起蓄 → 变装帧按蓄力比例推进",
+      "ok": true
+    },
+    {
+      "section": "G·AI·north",
+      "name": "AI 满蓄后停在保持帧",
+      "ok": true
+    },
+    {
+      "section": "G·AI·north",
+      "name": "AI 到点自动松手、剑气按原公式、变装按 release 收",
+      "ok": true
+    },
+    {
+      "section": "G·AI·north",
+      "name": "AI 本局无报错",
+      "ok": true
+    },
+    {
+      "section": "G·双方",
+      "name": "对手先蓄：p2 显示自己流派的变装、玩家仍是主图集",
+      "ok": true
+    },
+    {
+      "section": "G·双方",
+      "name": "玩家后蓄：起浪打断对手（原规则）→ p2 按 interrupt 收、回主图集",
+      "ok": true
+    },
+    {
+      "section": "G·双方",
+      "name": "结束后双方都回主图集、无残留变装态",
+      "ok": true
+    },
+    {
+      "section": "G·双方",
+      "name": "同帧双方起蓄：各显本派变装或按原规则被打进硬直",
+      "ok": true
+    },
+    {
+      "section": "G·双方",
+      "name": "同帧双方起蓄：收尾后无残留",
+      "ok": true
+    },
+    {
+      "section": "G·双方",
+      "name": "双方同蓄无报错",
+      "ok": true
+    },
+    {
+      "section": "G·换场",
+      "name": "对手倒地进 interlude：玩家变装收掉、回 idle、无描边/招式名",
+      "ok": true
+    },
+    {
+      "section": "G·换场",
+      "name": "下一场：双方主图集、无变装态",
+      "ok": true
+    },
+    {
+      "section": "G·换场",
+      "name": "换场后再蓄力仍正常",
+      "ok": true
+    },
+    {
+      "section": "G·换场",
+      "name": "重开后蓄力正常（新场景、新纹理引用）",
+      "ok": true
+    },
+    {
+      "section": "G·换场",
+      "name": "换场/重开无报错",
+      "ok": true
+    },
+    {
+      "section": "G·缺图",
+      "name": "缺图：begin 返回 false、退回 guard 占位",
+      "ok": true
+    },
+    {
+      "section": "G·缺图",
+      "name": "缺图：蓄力释放照常出剑气",
+      "ok": true
+    },
+    {
+      "section": "G·缺图",
+      "name": "缺图：除被拦资源外无报错",
+      "ok": true
+    },
+    {
+      "section": "G·窄屏",
+      "name": "窄视口无报错",
+      "ok": true
+    }
+  ]
+}

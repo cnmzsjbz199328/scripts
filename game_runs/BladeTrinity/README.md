@@ -16,19 +16,29 @@ references/BladeTrinity/          <-- 原始素材（gitignored，见 .gitignore
 └── clips/                        <-- 12 段 AI 绿幕源视频
 
 video_runs/{sword,water,north}/   <-- 抽帧工作区
-└── manifest.json                 <-- 入库：分段/帧数/scale 参数记录
+├── manifest.json                 <-- 入库：分段/帧数/scale 参数记录
+└── source/flow_*_2026-11-02/     <-- 变身源片：mp4/审查图不入库，提示词 txt + 审查 json 入库
+
+video_runs/BladeTrinityTransform/{sword,water,north}/   <-- 蓄力变装抠图工作区（见 §8）
+├── manifest.json + report.json   <-- 入库：抽帧号/窗口/尺度/逐格统计/图集哈希
+└── work/ animations/ review/     <-- 不入库：可由 build-transform.mjs 从源片重放
 
 game_runs/BladeTrinity/
 ├── PROMPTS.md                    <-- 提示词真源
 ├── README.md                     <-- 本文件
-├── tools/rebuild.sh              <-- 一键重建（唯一权威的复现方式）
+├── transform-preview.html        <-- 蓄力变装预览（拖进度 / 左右朝向 / 换背景 / 按住·释放·取消）
+├── tools/rebuild.sh              <-- 七动作图集一键重建（唯一权威的复现方式）
+├── tools/build-transform.mjs     <-- 蓄力变装图集重建（唯一权威的复现方式）
+├── tools/transform-check.mjs     <-- 蓄力变装针对性检查（预览 + 真实对局）
 └── assets/sprites/               <-- 入库：成品图集（Cloudflare CI 部署要读）
     ├── {sword,water,north}.webp
-    └── atlases.js                <-- 元数据（window.BT.ATLAS）
+    ├── atlases.js                <-- 元数据（window.BT.ATLAS）
+    ├── transform/{sword,water,north}.webp   <-- 蓄力变装帧（每派一行）
+    └── transformations.js        <-- 元数据（window.BT.TRANSFORM_ATLAS）
 ```
 
 > 入库规则：`game_runs/` 下的 webp/png **必须入库**（CLAUDE.md 铁律，Cloudflare CI 部署依赖），
-> 只有 `references/BladeTrinity/` 整个目录不入库。
+> `references/BladeTrinity/` 整个目录与 `video_runs/*/source/` 下的变身源片 mp4 不入库（原始素材）。
 >
 > 元数据是 **`atlases.js` 而非 sprite.json**，两个原因叠加：
 > `game_runs/**/*.json` 被全局 gitignore（只放行 `games.json`），
@@ -90,9 +100,10 @@ AI 不会严格按提示词的时间表走。实际做法是逐帧算抠图 bbox
 | 5 | down | 16 | once，倒地，末帧静止 |
 | 6 | jump | 21 | once，蹲踞蓄力→收腿腾空→落地缓冲 |
 
-**还缺两行**（机制已先行，暂借他行占位）：
-- **蓄力** —— 现借 `guard` 行（见 charge.js `_startCharge`），与防御姿势撞脸
+**还缺一行**（机制已先行，暂借他行占位）：
 - **快速移动** —— 移形换影目前是瞬移+残影，没有专属冲刺姿态
+
+蓄力不再借 `guard` 行：改用独立的变装图集（§8），guard 只在变装图集没载到时兜底。
 
 fps 按各段实际时长反算（7–13fps 不等），见各自 `sprite.json`。
 统一 scale：sword `0.2959` / water `0.2556` / north `0.2796`。
@@ -205,6 +216,7 @@ AI 的强度与观赏性都不来自单个动作，来自**动作之间的衔接
 ### 视觉约定（改特效前先读）
 
 - **外轮廓描边**是唯一的"我在蓄力/防御"语言：防御=呼吸描边（各派配色），蓄力=随蓄力变厚的描边。
+  蓄力的人物本身另有**变装**（§8）：服饰随蓄力比例逐格变化，描边贴着变装后的剪影画。
   实现是**八向偏移剪影**（`defense.js _outlineHold`），不是"放大一份压在身后"——后者在白衣
   角色 + 暖背景下肉眼不可见，已踩过。
 - **全身纯色闪烁只表示"吃了伤害"**（`combat.js _bodyFlash`，红色）。防御【成功】不要闪身体，
@@ -435,3 +447,119 @@ pass/fail per step.
 11. Finish the gauntlet (win or lose): ↻ with「＋ 重开」appears without touching the mouse;
     **＋** returns to the select screen and does not pick a school by itself.
 12. Throughout: keyboard keys still work alongside the Joy-Cons.
+
+---
+
+## 8. 蓄力变装（三派变身，2026-11）
+
+用户定：三派的蓄力剑气用【服饰/形象逐步变化】表达蓄力进度。素材沿用人物管线
+（源片抽帧 → 抠绿 → 透明图集 → Phaser 按蓄力状态选帧），MP4 只是制作源，运行时不放视频。
+执行计划见 [plans/blade-trinity-transformation-integration-plan.md](../../plans/blade-trinity-transformation-integration-plan.md)。
+
+### 8.1 素材
+
+| 派 | 源片（gitignored，SHA-256 见计划 §3） | 状态 | 变装内容 | 图集 |
+|---|---|---|---|---|
+| sword | `video_runs/sword/source/flow_accepted_2026-11-02/swordswoman_transformation_accepted.mp4` | 用户验收 | 红发间长出一对犬耳（服饰不变） | 18 格 + 保持帧，3648×208 |
+| water | `video_runs/water/source/flow_transform_2026-11-02/water_god_transformation_accepted_v7.mp4` | 用户验收 | 深蓝外袍 → 海蓝/青绿分层甲裙、银边浪纹、腰间短飘带 | 20 格 + 保持帧，4032×208 |
+| north | `video_runs/north/source/flow_transform_2026-11-02/north_god_transformation_candidate_v6.mp4` | **候选 v6，未经用户最终验收** | 彩条斗篷 → 午夜蓝/炭灰战袍 + 银白毛领 + 银扣 | 20 格 + 保持帧，4032×208 |
+
+三段源片均 1280×720、24fps、144 帧、6.0s。分段（源片原生帧号，由逐帧差分 + 接触表目检定出，
+不是照抄提示词时间）：
+
+| 派 | 原装保持 | 变装进行 | 变装完成·稳定 | 挥剑（不进图集） | 取帧（等距） | 保持帧 |
+|---|---|---|---|---|---|---|
+| sword | f0–7 | f8–30 | f31–70 | f71–104（f105 起收耳复原） | f8–30 取 18 | f32 |
+| water | f0–4 | f5–53 | f54–59 | f60–104（f105 起收势，保持变装） | f5–53 取 20 | f57 |
+| north | f0–7 | f8–42 | f43–61 | f62–104（f105 起收势，保持变装） | f10–42 取 20 | f45 |
+
+重建（唯一权威复现方式，约 1 分钟）：
+
+```bash
+node game_runs/BladeTrinity/tools/build-transform.mjs          # 三派；也可只给一派：... water
+```
+
+做法与理由（脚本内注释更全）：
+- **固定裁剪窗 + 固定缩放**，整段同一个窗（共享 `process.ts --crop` 模式）。不逐帧 trim、不用 anchor，
+  角色不会呼吸式忽大忽小，窗内真实位移保留。窗以首帧 alpha 质心为中心、首帧脚底 → 基线 202。
+- **尺度 = 主图集尺度 × 旧片首帧高 / 新片首帧高**。新旧源片首帧是同一张定妆参考图，宽比高比一致（≈1.23），
+  所以 sword 0.3654 / water 0.3149 / north 0.3445 让变装帧与各自现有 idle 同人物高度、同脚底。
+- 窗口超出画面的部分用本片底色补齐（水神窗口顶端高出画面 71px，北神 16px）；剑神源片朝右，整窗水平翻转回【朝左】规格。
+- 旧片 `crop=712:716:284:2` **不适用**：新片没有黑边 pillarbox，底色是 `rgb(13,246,24)` 一类近纯绿。
+- 抠图用共享管线默认参数（阈值 110、小连通域清理），装配时从无损帧做与 `rebuild.sh` 同规则的去绿溢色，
+  不读 assemble 的有损 webp 再压一遍。没有改共享抠图逻辑。
+
+审查产物（不入库，重跑即得）：`video_runs/BladeTrinityTransform/<派>/review/` 下
+`source_contact_sheet.png`（全段每 4 帧，标分段）、`cells_4bg.png`（逐格铺洋红/黑/白/暖色底）、
+`first_last_vs_idle.png`（现有 idle/guard 首帧 vs 变装首/中/保持帧，同格同尺度 + 基线线）。
+逐格 bbox、贴边检查、图集哈希在入库的 `report.json` 里。
+
+运行时资源清单（构建脚本输出，`report.json` 的 `atlas` 段同记）：
+
+| 文件 | 尺寸 | 字节 | SHA-256 |
+|---|---|---|---|
+| `assets/sprites/transform/sword.webp` | 3648×208（19 格） | 123 408 | `99E1DFFB2520B5EAC617F8481A129BDE55B691F58022208DA4C47A2B1AD8126A` |
+| `assets/sprites/transform/water.webp` | 4032×208（21 格） | 129 664 | `A17C658DA97C3503D4BC3F86A5E533EE8B5C3CF722E0289409D1E0628BDEB478` |
+| `assets/sprites/transform/north.webp` | 4032×208（21 格） | 125 260 | `28AED1FBDADB97982BC7166364D5E2A020C0726181130550A9E2849D74D7E522` |
+| `assets/sprites/transformations.js` | 注册表 | 约 3.8 KB | （文本，随换行符变，不记哈希） |
+
+合计约 370 KB；三张图都在 4096 纹理上限内，与七动作主图集分开加载。
+
+### 8.2 运行时
+
+- `assets/sprites/transformations.js` → `window.BT.TRANSFORM_ATLAS[派]`：纹理路径、单格尺寸、列数、
+  `chargeFrames`（格号序列）、`holdFrame`、基线、朝向、源帧号映射、源片状态。由构建脚本生成，勿手改。
+- `game/systems/transformation.js` → `BT.Transform.{preload, ready, begin, setProgress, end}`：
+  - 进度 `p = clamp((time - chargeFrom) / BT.CHARGE.fullMs, 0, 1)`（与 `_releaseCharge` 的 frac 同一公式，
+    fullMs 读配置不写死）；`p<1` 取 `chargeFrames[floor(p·n)]`，`p=1` 固定 `holdFrame`。只在格号变化时换帧。
+    不注册成自动播放动画 —— 满蓄后一直停在保持帧，不循环、不转头、不自己挥剑。
+  - **直接把 fighter 自己的 sprite 换成变装纹理的某一格**，不另建展示 sprite：位置/朝向/深度/可见性/销毁
+    天然跟随本体，没有双人重影；碰撞体、速度、HP、命中计算一概不碰。
+    代价：所有"复制当前帧"的特效（描边、残影、剑界副本与倒影、幻剑分身、缩地残影）改读
+    `sprite.texture.key`，不再写死 `f.id` —— 否则会拿变装格号去主图集取一格错帧。
+  - 资源没载到（404/解码失败）时 `begin` 返回 false，`_startCharge` 退回旧的 guard 占位，对局照常。
+- 接入点全在 `charge.js` 的既有生命周期：`_startCharge`（begin）→ `_tickCharge`（setProgress，先换帧再画描边）→
+  `_releaseCharge` / `_cancelCharge` / 受击打断 → `_endCharge(f, how)`（end）。场景 over/interlude 分支把仍在蓄力的
+  一方收干净（之前招式名会留在倒地的人头上）。
+- **服饰回落**：有效释放时本体立刻切回原装播原 attack 行（剑气时序与刀线标定 `BLADE_MARKS/QI_SEGS` 原样），
+  同时变装那一格的剪影刷成流派色压在身后外扩淡出（240ms）——读作"变装外壳化成气褪去"。取消（轻点不足 minFrac、
+  掉线、失焦）同样回落但更淡更短；受击打断不加（受击有自己的红闪）。源片后段的挥剑没进图集，没有新的刀线/剑气标定。
+- 数值与输入语义未动：fullMs 420、minFrac 0.22、边蓄边扣蓝、起浪轰飞、玩家松键/AI 到点松手、受击作废、
+  失焦/掉线取消都按原逻辑；没有新增血量门槛、次数限制、额外伤害或无敌。
+
+预览：`transform-preview.html`（本机 `cd game_runs && python -m http.server 8000` 后打开
+`/BladeTrinity/transform-preview.html`）。左右两人同一流派（左人朝右 = 镜像，右人朝左 = 素材原向），
+可切流派与背景（道场/雪山/黑/白/暖/洋红）、拖 0–100% 进度、按住（按 fullMs 走）、释放、取消、按源片原速走一遍。
+
+### 8.3 验收（2026-11-02）
+
+```bash
+node game_runs/BladeTrinity/tools/build-transform.mjs     # 素材：哈希校验 + 图集 + report.json + 审查图
+node game_runs/BladeTrinity/tools/transform-check.mjs     # 预览页 P + 真实对局 G，报告 video_runs/BladeTrinityTransform/check/report.json
+```
+
+四个阶段分开报告，不互相替代：
+
+| 阶段 | 结论 | 依据 |
+|---|---|---|
+| 源片齐备 | ✅ 三段 SHA-256 与计划 §3 一致（构建脚本不符即中止） | `report.json` 的 `source` |
+| 透明素材完成 | ✅ 剑/手脚不贴格边、脚底 201–202、段内高度剑神 126–133（耳朵长出+身体微沉）/ 水神 110–115 / 北神 125 恒定；每格残留偏绿像素 ≤7；北神朝向保持源片 | `report.json` 的 `cells`/`checks` + `review/` 四色底目检 |
+| 预览通过 | ✅ P 段 28/28：三派 × 左右朝向 0–100% 逐档格号 = 映射、单调、终于保持帧；满蓄保持静止不循环；按住/释放/取消；30 轮反复后显示对象、补间、监听器回到基线；无 404；四种背景 + 窄屏截图 | `transform-check.mjs` P 段 |
+| 真实触发整合通过 | ✅ G 段 93/93（玩家键盘路径 × 三派、AI 路径 × 三派、双方同蓄、换场/重开、缺图回退、窄屏）+ 两道验证门 | `transform-check.mjs` G 段 + 两道验证门 |
+
+G 段逐派覆盖：短按（frac < minFrac → 按取消收、不出剑气、蓝照扣）、半蓄（逐帧格号 = 映射、描边贴变装剪影、
+剑气数量与伤害 = 原公式）、满蓄继续按住 1 秒（停在保持帧、不播动画、不转身、不自动出招、碰撞体与脚底不动）、
+蓝耗尽自动放出、受击打断（收蓄当刻已是主图集受击姿势）、失焦取消、600ms 长帧、站右侧朝左。
+对局用例【手动步进】游戏循环（`game.step`，1/60s 一帧），时序与机器负载无关；截图在
+`video_runs/BladeTrinityTransform/check/`（不入库），报告 `check/report.json`（入库）。
+
+验证门（2026-11-02）：
+- `npx tsx skills/game-verify/verify.ts BladeTrinity` —— 通过（L0/L1/L2）。
+- `npx tsx skills/game-playtest/play.ts BladeTrinity` —— 与改动前的提交 `286af03` 同窗口交替各 5 局：
+  两边都有 2~3 局卡在页面加载（本机当时可用内存约 1.5 GB，headless 拉 CDN 超时，与改动无关）；跑起来的局里
+  基线 1 胜 1 卡、本版 1 胜 2 卡，**双方 0 输 0 死亡、0 条游戏 JS 报错**（本版一局有浏览器层 `ERR_INSUFFICIENT_RESOURCES`），
+  蓄力每局 2~5 次。样本太小判不出胜率差异（这个 bot 本就噪声大，见 §7.5 与上文诊断记录）；能证明的是没有新报错、没有卡死在蓄力上。
+- `node tools/joycon-check.mjs`（手柄掉线 / 切后台 / 失焦中的蓄力取消路径）—— __JOYCON__
+
+人眼仍需看的（自动化证明不了）：变装在 420ms 内走完是否"读得出"（剑神只长犬耳，变化最小）；
+释放瞬间的服饰回落是否像"外壳褪去"而不是"闪了一下"；北神 v6 用户是否最终认可。

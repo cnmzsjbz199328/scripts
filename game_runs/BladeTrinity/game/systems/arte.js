@@ -282,7 +282,7 @@ Object.assign(BladeTrinityScene.prototype, {
     sp.setPosition(baseX + realSlot * a.spread, sp.y);
 
     const clones = slots.map((s) => {
-      const g = this.add.image(baseX + s * a.spread, sp.y, f.id, sp.frame.name)
+      const g = this.add.image(baseX + s * a.spread, sp.y, sp.texture.key, sp.frame.name)
         .setScale(BT.SCALE).setFlipX(sp.flipX).setDepth(sp.depth).setAlpha(a.cloneAlpha);
       // 【破绽】分身去饱和，本体保持满色 —— 详见 _tickPhantom 顶部为什么不用描边。
       if (g.postFX) g.postFX.addColorMatrix().grayscale(a.tellGray);
@@ -316,7 +316,7 @@ Object.assign(BladeTrinityScene.prototype, {
     }
     for (const g of p.clones) {
       if (!g.active) continue;
-      g.setFrame(sp.frame.name).setFlipX(sp.flipX).setPosition(sp.x + g.dx, sp.y);
+      g.setTexture(sp.texture.key, sp.frame.name).setFlipX(sp.flipX).setPosition(sp.x + g.dx, sp.y);
     }
     // 【破绽】不在这里做 —— 分身在 _startPhantom 里就挂了去饱和的 ColorMatrix，
     // "彩色的那个是本体"整招期间恒成立，不用每帧维护。

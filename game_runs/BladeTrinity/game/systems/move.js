@@ -60,11 +60,11 @@ Object.assign(BladeTrinityScene.prototype, {
 
   // 沿瞬移路径插值几个渐隐分身——移形换影的"影"
   _blinkGhosts(f, x0, y0, x1, y1) {
-    const n = BT.BLINK.ghosts, frame = f.sprite.frame.name;
+    const n = BT.BLINK.ghosts, tex = f.sprite.texture.key, frame = f.sprite.frame.name;
     for (let k = 0; k < n; k++) {
       const t = n > 1 ? k / (n - 1) : 1;
       const img = this.add.image(Phaser.Math.Linear(x0, x1, t), Phaser.Math.Linear(y0, y1, t),
-        f.id, frame).setScale(BT.SCALE).setFlipX(f.sprite.flipX)
+        tex, frame).setScale(BT.SCALE).setFlipX(f.sprite.flipX)
         .setDepth(9).setAlpha(0.5 * (1 - t * 0.6)).setTint(0x8fc8ff);
       this.tweens.add({ targets: img, alpha: 0, duration: 280,
         onComplete: () => img.destroy() });

@@ -122,7 +122,7 @@ Object.assign(BladeTrinityScene.prototype, {
       facingLeft: faceLeft,
       guardFrom: 0, counterReady: 0, counterFired: false, counterGlowUntil: 0, flashEvt: null,
       riposteUntil: 0, guardAura: null,
-      chargeFrom: 0, charging: false, mistReady: 0, riseReady: 0,
+      chargeFrom: 0, charging: false, tf: null, mistReady: 0, riseReady: 0,   // tf：蓄力变装展示态（BT.Transform）
       aiRelease: 0, ultReady: 0,          // AI 奥义：松手时刻 / 下次可放时刻
       // AI 套路层（routine.js）：当前套路 / 下次可起套 / 撤步到期 / 惩罚窗口冷却
       rt: null, rtReady: 0, rtNext: 0, backstepUntil: 0, punishReady: 0,

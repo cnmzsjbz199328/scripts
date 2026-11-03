@@ -38,3 +38,21 @@ Google Flow project: [Sep 04, 06:13 PM](https://flow.google.com/project/b8c063ee
 ## Generation settings and source constraints
 
 Water v7 and North v3–v6 use Omni 1.1 Flash, 16:9, 720p, 6 seconds, 24 fps, one output each. Each uses only its own padded character reference as the exact opening frame; no end frame and no other image/video input were selected. Flow showed 10 credits per generation. Water v7 is user-accepted; North v6 is archived and passes the head-orientation and scale review; it remains a candidate pending user acceptance.
+## Integration into BladeTrinity (2026-11-02)
+
+The three clips below are now integrated as the charge (蓄力) presentation of `../game_runs/BladeTrinity/`:
+holding L / Joy-Con ZR swaps the fighter onto a transparent per-school transformation strip, frame chosen
+by charge progress. Details, segment frame numbers, scales and acceptance notes: `../game_runs/BladeTrinity/README.md` §8.
+
+| School | Source clip used | Runtime atlas | Build report |
+|---|---|---|---|
+| Sword | sword/source/flow_accepted_2026-11-02/swordswoman_transformation_accepted.mp4 | ../game_runs/BladeTrinity/assets/sprites/transform/sword.webp | BladeTrinityTransform/sword/report.json |
+| Water | water/source/flow_transform_2026-11-02/water_god_transformation_accepted_v7.mp4 | ../game_runs/BladeTrinity/assets/sprites/transform/water.webp | BladeTrinityTransform/water/report.json |
+| North | north/source/flow_transform_2026-11-02/north_god_transformation_candidate_v6.mp4 | ../game_runs/BladeTrinity/assets/sprites/transform/north.webp | BladeTrinityTransform/north/report.json |
+
+- Only the costume-change segment and one stable transformed frame per school are used; each clip's sword attack
+  segment is not in the atlas (release keeps the game's existing attack row and 剑气 timing).
+- North God v6 is integrated **as a candidate**. It has not been marked user-accepted; if a different take is accepted
+  later, update the source path/SHA-256 in `../game_runs/BladeTrinity/tools/build-transform.mjs` and rebuild.
+- Source mp4s and review PNGs in the `source/` folders are not version-controlled (raw material, see `.gitignore`);
+  prompts and review JSON are.

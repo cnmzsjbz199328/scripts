@@ -126,7 +126,7 @@ Object.assign(BladeTrinityScene.prototype, {
     const realmCam = this._realmCam();
 
     // 本体副本：realmCam 专画它，所以它【不吃去饱和】—— "只有本体是彩色的"就是这么来的
-    const dup = this.add.image(f.sprite.x, f.sprite.y, f.id, f.sprite.frame.name)
+    const dup = this.add.image(f.sprite.x, f.sprite.y, f.sprite.texture.key, f.sprite.frame.name)
       .setScale(BT.SCALE).setFlipX(f.sprite.flipX).setDepth(500);
     this.cameras.main.ignore(dup);               // 主相机不画它，否则会重影一层灰的
 
@@ -201,7 +201,7 @@ Object.assign(BladeTrinityScene.prototype, {
     if (rm.fx) { rm.fx.cx = cx; rm.fx.cy = cy; rm.fx.radius = rm.r; }
 
     // 本体副本跟帧（含朝向）——它就是那个"唯一还有颜色的人"
-    rm.dup.setPosition(cx, cy).setFrame(f.sprite.frame.name).setFlipX(f.sprite.flipX);
+    rm.dup.setPosition(cx, cy).setTexture(f.sprite.texture.key, f.sprite.frame.name).setFlipX(f.sprite.flipX);
 
     // 圆环：双线 + 呼吸，水面的感觉
     const g = rm.ring; g.clear();
@@ -268,7 +268,7 @@ Object.assign(BladeTrinityScene.prototype, {
     const R = BT.REALM, sp = attacker.sprite;
     const dir = attacker.facingLeft ? -1 : 1;
     const mx = this._clampX(sp.x - dir * R.mirrorGap);
-    const ghost = this.add.image(mx, sp.y, attacker.id, sp.frame.name)
+    const ghost = this.add.image(mx, sp.y, sp.texture.key, sp.frame.name)
       .setScale(BT.SCALE).setFlipX(!sp.flipX)      // 翻转 = 倒影，且朝着攻击者
       .setDepth(502).setAlpha(R.mirrorAlpha).setTint(R.color);
     const arc = this._arcAt(mx, sp.y - 30, dir, R.color);   // 刀光从倒影朝攻击者划过去

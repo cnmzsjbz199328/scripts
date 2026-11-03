@@ -38,7 +38,9 @@ Object.assign(BladeTrinityScene.prototype, {
     f.state = 'charge';           // 不在 _canAct 白名单 → 蓄力中不可被自身其它输入打断
     f.stateUntil = 0;
     f.sprite.setVelocityX(0);
-    f.sprite.play(`${f.id}_guard`, true);     // 无专用蓄力帧，借 guard 姿势占位
+    // 蓄力 = 变装：按蓄力比例逐格换上本派变装帧（transformation.js）。
+    // 变装图集没载到时退回旧的 guard 姿势占位，对局照常。
+    if (!BT.Transform.begin(this, f)) f.sprite.play(`${f.id}_guard`, true);
     this._chargeWave(f);                       // 起浪弹开近敌（无伤，只解贴身）
     this._showUltName(f);                       // 招式名一次性弹出（占位字体）
     window.GameAudio && GameAudio.play && GameAudio.play('charge');
@@ -46,10 +48,12 @@ Object.assign(BladeTrinityScene.prototype, {
 
   _tickCharge(f, time) {
     // 被打断：受击等把 state 从 'charge' 改走 → 蓄力作废，已扣的蓝不退（这就是代价）
-    if (f.state !== 'charge') { this._endCharge(f); return; }
+    if (f.state !== 'charge') { this._endCharge(f, 'interrupt'); return; }
     const dt = this._prevTime ? time - this._prevTime : 16;
     f.mp = Math.max(0, f.mp - BT.MP.drainRate * dt);
     f.sprite.setVelocityX(0);
+    // 变装进度 = 蓄力比例（与 _releaseCharge 的 frac 同一公式）；先换帧再画描边，描边才贴着新剪影
+    BT.Transform.setProgress(this, f, (time - f.chargeFrom) / BT.CHARGE.fullMs);
     this._drawAura(f, time);
     if (f.ultText) f.ultText.setPosition(f.sprite.x, f.sprite.y - 150);
     // 松手条件按操控方分流：玩家看蓄力键（L / 手柄 ZR），AI 看 _startAICharge 定下的 aiRelease 时刻。
@@ -65,14 +69,15 @@ Object.assign(BladeTrinityScene.prototype, {
 
   // 非玩家意图的中断：收掉蓄力、回 idle，不放剑气。已扣的蓝不退（同"被打断"的规矩）。
   _cancelCharge(f) {
-    this._endCharge(f);
+    this._endCharge(f, 'cancel');
     f.state = 'idle'; f.stateUntil = 0;
     f.sprite.play(`${f.id}_idle`, true);
   },
 
   _releaseCharge(f, time) {
     const frac = Phaser.Math.Clamp((time - f.chargeFrom) / BT.CHARGE.fullMs, 0, 1);
-    this._endCharge(f);
+    // 不足 minFrac 的轻点在表现上也按"取消"收（不出剑气，服饰回落更淡）
+    this._endCharge(f, frac < BT.CHARGE.minFrac ? 'cancel' : 'release');
     // 低于 minFrac：只起浪弹开过、不出剑气（当脱身用，蓝照扣）
     if (frac < BT.CHARGE.minFrac) {
       f.state = 'idle'; f.stateUntil = 0;
@@ -235,8 +240,10 @@ Object.assign(BladeTrinityScene.prototype, {
     sw.g.destroy(); sw.gGlow.destroy(); f.qiSwing = null;
   },
 
-  _endCharge(f) {
+  // how：'release' / 'cancel' / 'interrupt' / 缺省 = 不加回落特效（见 BT.Transform.end）
+  _endCharge(f, how) {
     f.charging = false;
+    BT.Transform.end(this, f, how || 'silent');   // 先收变装（仍停在变装帧上会切回 idle）
     this._clearOutlineHold(f);        // 蓄力描边收掉（防御描边会在需要时自己重建）
     if (f.ultText) { f.ultText.destroy(); f.ultText = null; }
   },
@@ -268,11 +275,12 @@ Object.assign(BladeTrinityScene.prototype, {
   // 老写法是"放大一份剪影压在身后"，在白衣角色 + 暖色道场背景下 ADD 上去看不见
   // （运行时属性全对，纯粹是肉眼分辨不出），一并换掉。见 defense.js _guardAura。
   _outlinePulse(f) {
-    const s = BT.SCHOOLS[f.id], frame = f.sprite.frame.name, N = 8;
+    // 纹理取 sprite 当前的那张：起蓄时它已经是变装图集了（BT.Transform），不是 f.id
+    const s = BT.SCHOOLS[f.id], tex = f.sprite.texture.key, frame = f.sprite.frame.name, N = 8;
     const ring = (tint, r0, r1, alpha, dur, blend) => {
       const parts = [];
       for (let i = 0; i < N; i++) {
-        const img = this.add.image(f.sprite.x, f.sprite.y, f.id, frame)
+        const img = this.add.image(f.sprite.x, f.sprite.y, tex, frame)
           .setScale(BT.SCALE).setFlipX(f.sprite.flipX)
           .setDepth(f.sprite.depth - 1).setTint(tint).setAlpha(alpha);
         if (blend) img.setBlendMode(blend);
