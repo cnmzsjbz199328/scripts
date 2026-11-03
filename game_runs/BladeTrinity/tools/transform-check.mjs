@@ -12,7 +12,7 @@
  *    按住/释放/取消、30 轮反复后显示对象 / 补间 / 监听器不累积、无 404、四种背景截图。
  * G  真实对局 index.html（玩家走 window keydown/keyup 真按键路径；AI 走 _startAICharge 真路径）：
  *    短按 / 半蓄 / 满蓄 / 满蓄继续按住 / 蓝耗尽自动放 / 受击打断 / 失焦取消 / 长帧（暂停恢复）/
- *    换边朝向 / AI 蓄力 / 双方同时蓄力 / 描边跟随变装纹理 / 剑气数量与伤害按原公式 / 脚底与碰撞体不动；
+ *    换边朝向 / AI 蓄力 / 双方同时蓄力 / 蓄力中无描边（含防御中直接起蓄）/ 剑气数量与伤害按原公式 / 脚底与碰撞体不动；
  *    换场定格 / 重开 / 缺图（路由拦掉 transform/*.webp）退回 guard 占位 / 窄视口。
  *    手柄掉线与切后台的取消路径另由 tools/joycon-check.mjs（B 段）覆盖。
  *    G 段一律带 ?bt=0（关子弹时间）原样跑 —— 证明关掉慢放时行为与接入前一致。
@@ -223,10 +223,13 @@ const SETUP = (opt) => {
   s._ko = function (loser) { if (window.__noKo && loser === this.p2) { loser.hp = loser.maxHp; return; } return ko.call(this, loser); };
 
   // 键盘：页面里派发真实的 window keydown/keyup（与真人按键同一路径：Phaser 键盘 → 动作层 this._in）
-  window.__key = (type) => {
-    const e = new KeyboardEvent(type, { key: 'l', code: 'KeyL', bubbles: true, cancelable: true });
-    Object.defineProperty(e, 'keyCode', { get: () => 76 });
-    Object.defineProperty(e, 'which', { get: () => 76 });
+  // 缺省是蓄力键 L；'S' = 防御键（防御中起蓄的用例要用）
+  const KEY_CODES = { L: 76, S: 83 };
+  window.__key = (type, k = 'L') => {
+    const code = KEY_CODES[k];
+    const e = new KeyboardEvent(type, { key: k.toLowerCase(), code: `Key${k}`, bubbles: true, cancelable: true });
+    Object.defineProperty(e, 'keyCode', { get: () => code });
+    Object.defineProperty(e, 'which', { get: () => code });
     window.dispatchEvent(e);
   };
   // 手动步进：停掉 rAF 主循环，用 game.step(t, 1/60s) 逐帧推进 —— 游戏时间完全确定，与机器快慢无关；
@@ -346,7 +349,7 @@ async function playerSuite(browser, base, id) {
   check('短按：蓝照扣、招式计数不变', tap.mpAfter < tap.mpStart && tap.usage === 0, [tap.mpStart, tap.mpAfter, tap.usage]);
   await ev(() => window.__reset());
 
-  // ② 半蓄 → 释放：逐帧格号 = 映射、同帧描边跟随；释放剑气按原公式
+  // ② 半蓄 → 释放：逐帧格号 = 映射、蓄力中无描边；释放剑气按原公式
   const half = await ev((fullMs) => {
     const s = window.__scene, T = window.__T, q0 = T.qi.length, p0 = T.prog.length, u0 = s._usage.charge;
     window.__key('keydown');
@@ -367,11 +370,37 @@ async function playerSuite(browser, base, id) {
   check('逐帧格号单调不减', halfDone.prog.every((r, i, a) => i === 0 || r.idx >= a[i - 1].idx));
   check('半蓄：显示变装中段（非首格、非保持帧）', half.p1.tex === `tf_${id}` && +half.p1.frame === want(half.el / C.fullMs)
     && +half.p1.frame > 0 && +half.p1.frame < A.holdFrame, { el: half.el, frame: half.p1.frame });
-  check('半蓄：描边剪影跟随变装纹理与当前格', half.p1.aura && half.p1.aura.every(([k, fr]) => k === `tf_${id}` && fr === half.p1.frame), half.p1.aura);
+  check('半蓄：蓄力中无描边', half.p1.aura === null, half.p1.aura);
   check(`半蓄释放：minFrac ≤ frac < 1、剑气 ${nQi} 道、伤害按原公式`, halfDone.rel.frac >= C.minFrac && halfDone.rel.frac < 1
     && halfDone.qi.length === nQi && qiOk(halfDone.qi) && halfDone.qi.every((q) => q.legacy || Math.abs(q.frac - halfDone.rel.frac) < 1e-9), halfDone);
   check('半蓄释放：按"释放"收、切回主图集、招式计数 +1', halfDone.end.how === 'release' && halfDone.p1.tex === id && halfDone.p1.tf === null && halfDone.usage === 1,
     { end: halfDone.end, p1: halfDone.p1, usage: halfDone.usage });
+  await ev(() => window.__reset());
+
+  // ②b 防御中起蓄（_canAct 白名单含 guard）：按住 S 出防御描边 → 按 L 起蓄，防御描边当帧收掉、蓄力中一直没有；
+  //    松开 L（S 仍按住）→ 放出剑气、收招后回 guard，防御描边照常重建在主图集当前帧上
+  const g2c = await ev((fullMs) => {
+    const s = window.__scene, T = window.__T, e0 = T.ends.length;
+    window.__key('keydown', 'S');
+    window.__until(() => s.p1.state === 'guard' && !!s.p1.guardAura, 30);
+    const guard = window.__F(s.p1);
+    window.__key('keydown'); window.__step(1);
+    const start = window.__F(s.p1);
+    window.__until(() => s.p1.charging && window.__el(s.p1) >= fullMs * 0.5, 120);
+    const mid = window.__F(s.p1);
+    window.__key('keyup');
+    window.__until(() => !s.p1.charging && s.p1.state === 'guard' && !!s.p1.guardAura, 180);
+    const after = window.__F(s.p1), end = T.ends[e0];
+    window.__key('keyup', 'S'); window.__step(2);
+    return { guard, start, mid, end, after, back: window.__F(s.p1) };
+  }, C.fullMs);
+  check('防御中起蓄：起蓄前防御描边在（主图集）', g2c.guard.state === 'guard' && g2c.guard.aura && g2c.guard.aura.every(([k]) => k === id), g2c.guard);
+  check('防御中起蓄：起蓄当帧与半蓄时都无描边', g2c.start.charging && g2c.start.aura === null && g2c.mid.charging && g2c.mid.aura === null,
+    { start: g2c.start, mid: g2c.mid });
+  check('防御中起蓄：松开 L（S 仍按住）后按"释放"收、防御描边重建并贴主图集当前帧', g2c.end && g2c.end.how === 'release'
+    && g2c.after.state === 'guard' && g2c.after.aura && g2c.after.aura.every(([k, fr]) => k === id && fr === g2c.after.frame),
+    { end: g2c.end, after: g2c.after });
+  check('防御中起蓄：松开 S 后防御描边收掉', g2c.back.state !== 'guard' && g2c.back.aura === null, g2c.back);
   await ev(() => window.__reset());
 
   // ③ 满蓄继续按住（蓝上限临时放大，避开"蓝耗尽自动放出"——那条单独测）→ 保持帧静止、不转身、不自动出招

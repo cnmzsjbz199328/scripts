@@ -62,12 +62,12 @@ Object.assign(BladeTrinityScene.prototype, {
     // 所以额外认一个到期时间，让描边从起防一路亮到反手斩收招。
     if (f.state === 'down') this._clearOutlineHold(f);     // 倒地要看清人，描边一律收掉
     else if (f.state === 'guard' || (f.counterGlowUntil && time < f.counterGlowUntil)) this._guardAura(f, time);
-    // 蓄力中的描边由 _tickCharge 维护、居合架式的由 _tickIai 维护（都是同一套
-    // _outlineHold）。这里不能顺手清掉，否则每帧一建一清会闪成频闪 —— 而这两处是
-    // 【每帧重画】的，实际后果是描边【整个不出现】：抜刀的架式描边就是这么丢的
-    //（截图目检 f.guardAura === null，逻辑全对但画面上没有）。
-    // 幻剑不在此列：它的破绽是分身身上的 ColorMatrix，不走描边（见 arte.js）。
-    else if (!f.charging && !f.iai) this._clearOutlineHold(f);
+    // 居合架式的描边由 _tickIai 维护（同一套 _outlineHold）。这里不能顺手清掉，否则每帧
+    // 一建一清会闪成频闪 —— 而它是【每帧重画】的，实际后果是描边【整个不出现】：抜刀的
+    // 架式描边就是这么丢的（截图目检 f.guardAura === null，逻辑全对但画面上没有）。
+    // 蓄力不在此列：蓄力中不挂描边（进度由变装帧表达，用户 2026-11-03 定），照常清。
+    // 幻剑也不在此列：它的破绽是分身身上的 ColorMatrix，不走描边（见 arte.js）。
+    else if (!f.iai) this._clearOutlineHold(f);
   },
 
   // ─────────── 外轮廓描边（防御中持续）───────────
@@ -80,7 +80,7 @@ Object.assign(BladeTrinityScene.prototype, {
   // 而且 ADD + 淡色在白衣角色 + 暖背景上肉眼不可见（见 BT.GUARD_AURA 注释）。
   //
   //
-  // 底层实现由防御（呼吸半径）与蓄力（半径随蓄力增长）共用，所以画面语言统一：
+  // 底层实现由防御（呼吸半径）与居合架式（半径随档位增长）共用，所以画面语言统一：
   // 【外轮廓 = 这个人正蓄着某种力】，不再另起一圈套在身外的廉价光环。
   _outlineHold(f, tint, r) {
     const A = BT.GUARD_AURA, sp = f.sprite;

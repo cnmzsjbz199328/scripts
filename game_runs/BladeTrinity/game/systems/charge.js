@@ -38,6 +38,10 @@ Object.assign(BladeTrinityScene.prototype, {
     f.state = 'charge';           // 不在 _canAct 白名单 → 蓄力中不可被自身其它输入打断
     f.stateUntil = 0;
     f.sprite.setVelocityX(0);
+    // 蓄力中不挂持续描边（进度由变装帧表达，用户 2026-11-03 定）。_canAct 允许从 guard 直接起蓄：
+    // 起蓄当刻就收掉防御描边，不指望 _tickDefense 兜底 —— 漏清的话它会冻在起蓄前的位置与帧上，
+    // 不跟随人、不跟随变装帧。
+    this._clearOutlineHold(f);
     // 蓄力 = 变装：按蓄力比例逐格换上本派变装帧（transformation.js）。
     // 变装图集没载到时退回旧的 guard 姿势占位，对局照常。
     if (!BT.Transform.begin(this, f)) f.sprite.play(`${f.id}_guard`, true);
@@ -52,9 +56,8 @@ Object.assign(BladeTrinityScene.prototype, {
     const dt = this._prevTime ? time - this._prevTime : 16;
     f.mp = Math.max(0, f.mp - BT.MP.drainRate * dt);
     f.sprite.setVelocityX(0);
-    // 变装进度 = 蓄力比例（与 _releaseCharge 的 frac 同一公式）；先换帧再画描边，描边才贴着新剪影
+    // 变装进度 = 蓄力比例（与 _releaseCharge 的 frac 同一公式）。蓄力进度只由变装帧表达，不画描边
     BT.Transform.setProgress(this, f, (time - f.chargeFrom) / BT.CHARGE.fullMs);
-    this._drawAura(f, time);
     if (f.ultText) f.ultText.setPosition(f.sprite.x, f.sprite.y - 150);
     // 松手条件按操控方分流：玩家看蓄力键（L / 手柄 ZR），AI 看 _startAICharge 定下的 aiRelease 时刻。
     // ⚠️ 玩家侧要分清"松手"和"断了"：手柄掉线 / 适配器断开 / 页面切后台 / 窗口失焦也会让
@@ -244,7 +247,7 @@ Object.assign(BladeTrinityScene.prototype, {
   _endCharge(f, how) {
     f.charging = false;
     BT.Transform.end(this, f, how || 'silent');   // 先收变装（仍停在变装帧上会切回 idle）
-    this._clearOutlineHold(f);        // 蓄力描边收掉（防御描边会在需要时自己重建）
+    this._clearOutlineHold(f);        // 兜底收掉残留描边（防御描边会在需要时自己重建）
     if (f.ultText) { f.ultText.destroy(); f.ultText = null; }
   },
 
@@ -311,18 +314,6 @@ Object.assign(BladeTrinityScene.prototype, {
       fontStyle: 'bold italic', stroke: '#120a06', strokeThickness: 6,
     }).setOrigin(0.5).setDepth(72).setScale(0.4);
     this.tweens.add({ targets: f.ultText, scale: 1, duration: 170, ease: 'Back.easeOut' });
-  },
-
-  // 蓄力中的视觉：【外轮廓随蓄力越描越厚】，不再画一圈光环。
-  // 光环是"角色外面套了个圈"，描边是"力从人身上涨出来"——后者才是这套动作的语言，
-  // 而且和防御描边共用一套实现（_outlineHold），画面读法统一（用户定）。
-  _drawAura(f, time) {
-    const frac = Phaser.Math.Clamp((time - f.chargeFrom) / BT.CHARGE.fullMs, 0, 1);
-    const A = BT.GUARD_AURA, s = BT.SCHOOLS[f.id];
-    const pulse = 0.5 + 0.5 * Math.sin(time / 70);
-    // 半径由蓄力比例主导、叠一层轻微呼吸；满蓄比防御描边更厚，读得出"攒满了"
-    const r = A.rMin + (A.chargeRMax - A.rMin) * frac + 1.5 * pulse;
-    this._outlineHold(f, s.barColor, r);
   },
 
   // ─────────── 剑气 ───────────
