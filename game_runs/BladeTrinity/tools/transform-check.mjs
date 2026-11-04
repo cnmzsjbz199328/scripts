@@ -17,7 +17,7 @@
  *    手柄掉线与切后台的取消路径另由 tools/joycon-check.mjs（B 段）覆盖。
  *    G 段一律带 ?bt=0（关子弹时间）原样跑 —— 证明关掉慢放时行为与接入前一致。
  * T  子弹时间（蓄力期间全场慢放，bullettime.js），默认开启：三派满蓄真实时长 / 游戏时间、五处倍率、
- *    松手当帧回 1×、剑气与扣蓝与 waveStun 按游戏时间不变、物理与动画真的变慢、轻点 / 受击 / 飞来剑气打断、
+ *    松手当帧回 1×、扣蓝与 waveStun 按游戏时间不变、飞行中剑气不慢放、物理与动画真的变慢、轻点 / 受击 / 飞来剑气打断、
  *    AI 蓄力与双方同蓄、KO / interlude / over / 重开复位、缺图不慢放、抜刀冻结在时钟偏差下按时解冻、
  *    ?bt=0 / ?bt=0.5 / 非法值、30 轮蓄放无累积。
  *
@@ -336,13 +336,16 @@ async function playerSuite(browser, base, id) {
   const tap = await ev(() => {
     const s = window.__scene, T = window.__T, q0 = T.qi.length, u0 = s._usage.charge;
     window.__key('keydown'); window.__step(1);
-    const at = { charging: s.p1.charging, tex: s.p1.sprite.texture.key, idx: s.p1.tf && s.p1.tf.idx };
+    const at = { charging: s.p1.charging, tex: s.p1.sprite.texture.key, idx: s.p1.tf && s.p1.tf.idx,
+      // 复制变装帧的特效（持续描边 / 描边一弹）。只查 guardAura 查不到描边一弹，它是独立的 image
+      copies: s.children.list.filter((o) => o !== s.p1.sprite && o.texture && o.texture.key === `tf_${s.p1.id}`).length };
     window.__key('keyup'); window.__step(1);
     const rel = T.release.at(-1), end = T.ends.at(-1), mpStart = T.starts.at(-1).mp, mpAfter = s.p1.mp;
     window.__step(30);
     return { at, rel, end, qiNew: T.qi.length - q0, usage: s._usage.charge - u0, mpStart, mpAfter, p1: window.__F(s.p1) };
   });
   check('短按：起蓄当帧即切到变装第 0 格', tap.at.charging && tap.at.tex === `tf_${id}` && tap.at.idx === A.chargeFrames[0], tap.at);
+  check('起蓄当帧：没有任何变装帧副本（无描边一弹）', tap.at.copies === 0, tap.at);
   check('短按：frac < minFrac、不出剑气、回 idle 主图集', tap.rel && tap.rel.frac < C.minFrac && tap.qiNew === 0
     && tap.p1.tex === id && tap.p1.tf === null && tap.p1.state === 'idle', tap);
   check('短按：按"取消"收（淡回落）', tap.end && tap.end.how === 'cancel', tap.end);
@@ -807,6 +810,30 @@ async function btSchoolSuite(browser, base, id) {
   await ev(() => window.__reset());
   check('T5 飞来剑气：慢放中照样命中并打断蓄力（慢放不给免疫），当帧回 1', near(t5b.before, C.scale)
     && t5b.end && t5b.end.how === 'interrupt' && t5b.hp1 < t5b.hp0 && allAt(t5b.ts, 1), t5b);
+
+  // T5c：慢放中剑气不跟着变慢（用户 2026-11-04 定）：速度、寿命、射程都与原速相同
+  const t5c = await ev(() => {
+    const s = window.__scene;
+    s._clearQi();
+    s.p1.sprite.setPosition(200, s.p1.sprite.y); s.p2.sprite.setPosition(100, s.p2.sprite.y);
+    window.__step(10);
+    s.p1.maxMp = 1e5; s.p1.mp = 1e5; s.p1.invuln = Infinity;
+    s._fireQi(s.p1, 1, 1);                        // 朝没人的一侧飞，只量飞行本身
+    const q = s.qiList[s.qiList.length - 1], x0 = q.x;
+    window.__key('keydown');
+    let n = 0, xA = null, xB = null, slow = null;
+    while (n++ < 240 && s.qiList.includes(q)) {
+      window.__step(1);
+      if (n === 12) xA = q.x;                     // 渐入结束后才开始量
+      if (n === 42) { xB = q.x; slow = s._fightClock.scale; }
+    }
+    const out = { n, slow, v: (xB - xA) / (30 / 60), range: q.x - x0, life: BT.QI.life };
+    window.__key('keyup'); window.__step(60);
+    return out;
+  });
+  await ev(() => window.__reset());
+  check(`T5 慢放中（${C.scale}）剑气每真实秒位移 = BT.QI.speed`, near(t5c.slow, C.scale) && Math.abs(t5c.v - C.qiSpeed) / C.qiSpeed < 0.01, t5c);
+  check('T5 慢放中剑气寿命与射程不变', Math.abs(t5c.n * C.dt - t5c.life) <= 2 * C.dt && Math.abs(t5c.range - C.qiSpeed * t5c.life / 1000) / (C.qiSpeed * t5c.life / 1000) < 0.02, t5c);
 
   if (id === 'sword') {
     // T9：前面几轮慢放后游戏时钟已落后真实时钟 —— 抜刀「画面静止」仍按游戏时间准点解冻、物理恢复

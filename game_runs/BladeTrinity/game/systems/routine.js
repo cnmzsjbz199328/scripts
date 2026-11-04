@@ -355,7 +355,7 @@ Object.assign(BladeTrinityScene.prototype, {
     return false;
   },
 
-  // 预告帧：外轮廓炸一层描边（复用蓄力起手的 _outlinePulse）+ 一声闷响。
+  // 预告帧：外轮廓炸一层描边（charge.js _outlinePulse）+ 一声闷响。
   // 这是玩家唯一能提前知道"他要动了"的信息源，别省。
   _rtTell(f) {
     f.sprite.setVelocityX(0);
@@ -458,7 +458,7 @@ Object.assign(BladeTrinityScene.prototype, {
       return true;
     }
     sp.setVelocityX(0);
-    this._startAICharge(f, time);      // 起蓄自带轰飞 + 描边一弹，预告帧由它给
+    this._startAICharge(f, time);      // 起蓄自带轰飞 + 变装，预告由它给
     this._aiEnd(f);
     return true;
   },

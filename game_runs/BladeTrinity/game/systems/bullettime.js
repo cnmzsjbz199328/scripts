@@ -3,6 +3,7 @@
  * 用户定（2026-11-03，plans/blade-trinity-bullet-time-plan.md）：变装在 420ms 里走完看不清 →
  * 蓄力期间【全场慢放】（不是时停）。战斗时间里蓄力仍是 420ms，规则与平衡一概不变，
  * 只是画面被拉长；松手当帧硬切回 1×。
+ * 例外：飞行中的剑气不慢放（用户 2026-11-04 定），update 给 _tickQi 传的是真实 delta。
  *
  * ── 战斗时钟 ──
  * 游戏逻辑里约 40 处直接读 this.time.now（combat/charge/defense/crit/arte/…），POST_UPDATE
@@ -106,7 +107,8 @@ Object.assign(BladeTrinityScene.prototype, {
     this._btRamp = 0;
   },
 
-  // 倍率同步到各子系统。不变速的：相机 shake/flash、GameAudio、DOM HUD、键盘/手柄输入层（都是真实时间）。
+  // 倍率同步到各子系统。不变速的：相机 shake/flash、GameAudio、DOM HUD、键盘/手柄输入层（都是真实时间），
+  // 以及飞行中的剑气（BladeTrinityScene.update）。
   _setTimeScale(s, force) {
     const st = this._fightClock;
     if (!st) return;
@@ -121,7 +123,7 @@ Object.assign(BladeTrinityScene.prototype, {
       for (const o of this.children.list) if (o.anims && o.anims.timeScale !== s) o.anims.timeScale = s;
     }
     if (!changed) return;
-    // 补间（描边一弹、招式名、服饰回落……）与 Clock 事件（delayedCall）
+    // 补间（招式名、服饰回落……）与 Clock 事件（delayedCall）
     this.tweens.timeScale = s;
     this.time.timeScale = s;
     // 物理：步进频率不变、每步积分时间按比例缩短，画面平滑。

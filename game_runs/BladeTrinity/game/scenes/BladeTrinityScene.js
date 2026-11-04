@@ -223,7 +223,9 @@ class BladeTrinityScene extends Phaser.Scene {
 
   update(time, delta) {
     // 形参换成游戏时钟（bullettime.js）：Phaser 传进来的是真实时间。排在任何 early return 之前，
-    // 下游一律是游戏时间 —— freezeUntil 比较、_prevTime、回蓝、剑气飞行、前景物理。
+    // 下游一律是游戏时间 —— freezeUntil 比较、_prevTime、回蓝、前景物理。
+    // 唯一例外是剑气飞行，它要真实 delta，见下面调 _tickQi 处。
+    const realDelta = delta;
     time = this.time.now;
     delta *= this._fightClock.frameScale;
     // 输入边沿【每帧只在这里推进一次】，之后各系统读到的 pressed/released 都是同一份
@@ -281,7 +283,9 @@ class BladeTrinityScene extends Phaser.Scene {
     for (const f of this.fighters) this._tickDefense(f, time);
     for (const f of this.fighters) this._resolveMelee(f);
     for (const f of this.fighters) this._tickSwingQi(f, time);   // 轨迹驱动：剑气贴刀相位→脱手
-    this._tickQi(time, delta);          // 剑气飞行 + 命中/反弹/穿过结算
+    // 剑气（含飞刀）飞行不吃子弹时间（用户 2026-11-04 定）：别人一蓄力，已在飞的气不许跟着变慢。
+    // 速度与寿命都按真实时间，射程不变；命中结算里的无敌/冷却仍读游戏时钟。
+    this._tickQi(time, realDelta);      // 剑气飞行 + 命中/反弹/穿过结算
     for (const f of this.fighters) {
       if (!['attack', 'hurt', 'stun'].includes(f.state) || time <= f.stateUntil) continue;
       // 起身反击：AI 的受击硬直一结束就立刻可以决策，不等随机间隔。

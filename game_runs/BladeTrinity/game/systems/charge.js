@@ -251,11 +251,11 @@ Object.assign(BladeTrinityScene.prototype, {
     if (f.ultText) { f.ultText.destroy(); f.ultText = null; }
   },
 
-  // 蓄力起手一弹：①人物外轮廓炸开描边（动漫式蓄力起势）②把对手【轰到擂台最远端】，
-  // 给剑气腾出满场飞行空间。轰飞无伤，但必须把对手打进 hurt 硬直+无敌——否则下一帧
+  // 蓄力起手一弹：把对手【轰到擂台最远端】，给剑气腾出满场飞行空间。
+  // 轰飞无伤，但必须把对手打进 hurt 硬直+无敌——否则下一帧
   // _controlAI 会立刻用自己的移动速度覆盖掉这记击退（无阻力 → 一帧推 ≈4px，等于没推）。
+  // 起手不炸描边（用户 2026-11-04 定）：蓄力由变装表达，配方见 README「备用特效」。
   _chargeWave(f) {
-    this._outlinePulse(f);                              // 描边一弹（视觉）
     this.cameras.main.shake(120, 0.006);
     const opp = this._opp(f);
     if (!opp || opp.state === 'down') return;
@@ -273,12 +273,13 @@ Object.assign(BladeTrinityScene.prototype, {
   },
 
   // 动漫式「描边一弹」：起手瞬间，人物外轮廓向外炸开——白热描边 + 一层流派色余韵。
+  // 现在只有 AI 套路的预告帧在用（routine.js _rtTell）；用法与坑见 README「备用特效」。
   //
   // ⚠️ 与防御描边同法：【八向偏移】的剪影副本，半径从 r0 tween 到 r1。
   // 老写法是"放大一份剪影压在身后"，在白衣角色 + 暖色道场背景下 ADD 上去看不见
   // （运行时属性全对，纯粹是肉眼分辨不出），一并换掉。见 defense.js _guardAura。
   _outlinePulse(f) {
-    // 纹理取 sprite 当前的那张：起蓄时它已经是变装图集了（BT.Transform），不是 f.id
+    // 纹理取 sprite 当前的那张，不写死 f.id：变装时它是变装图集（BT.Transform）
     const s = BT.SCHOOLS[f.id], tex = f.sprite.texture.key, frame = f.sprite.frame.name, N = 8;
     const ring = (tint, r0, r1, alpha, dur, blend) => {
       const parts = [];
@@ -518,7 +519,7 @@ Object.assign(BladeTrinityScene.prototype, {
     // 北神返し：整道剑气挡下、零伤，并反手甩飞刀回去（飞刀走 knifeCd 冷却）。
     // ⚠️ 这里曾经要求【无敌窗口正好覆盖弹丸到达的那一刻】，而 parry/brace 接剑气都
     // 不看时机 —— 三派里只有北神要对弹丸计时，实际上几乎接不住：AI 起蓄的预告
-    // （描边炸弹+震屏+招式名）出现在弹丸到达前约 1.5~1.7 秒（蓄 240~420ms + 飞
+    // （变装+震屏+招式名）出现在弹丸到达前约 1.5~1.7 秒（蓄 240~420ms + 飞
     // ~650px÷520px/s），照着预告按防御是确定性的空放+硬直+冷却，刚好锁死在弹丸真正
     // 到达的时刻。现在按住即成立，和另外两派一致。
     if (guardingFront && target.def.defense === 'counter') {

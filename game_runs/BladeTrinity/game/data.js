@@ -716,8 +716,8 @@ BT.MP = {
 BT.CHARGE = {
   fullMs: 100 / (100 / 420),   // = ultCost/drainRate = 420ms，与 MP.drainRate 咬合
   minFrac: 0.22,               // 出剑气的最低蓄力比例
-  // ── 起手·描边一弹（轰飞开场，见 charge.js _chargeWave）──
-  // 蓄力起手瞬间：人物外轮廓炸开一层描边（动漫式），同时把对手轰到擂台最远端，
+  // ── 起手·轰飞开场（见 charge.js _chargeWave）──
+  // 蓄力起手瞬间把对手轰到擂台最远端，
   // 给剑气腾出满场飞行空间。关键：轰飞必须把对手打进 hurt 硬直（waveStun 期间
   // AI 不夺回控制，setVelocity 才留得住——否则下一帧 _controlAI 就把速度清了）。
   // wavePush×waveStun 要 ≥ 一个擂台宽(960)，飞到头由世界边界收住，宁大勿小。
@@ -728,6 +728,7 @@ BT.CHARGE = {
 
 // ─────────── 子弹时间（蓄力变装慢放，用户定 2026-11-03）───────────
 // 只拉长画面，不改战斗：所有计时走游戏时钟（bullettime.js），慢放期间游戏时钟按 scale 走。
+// 例外：飞行中的剑气按真实时间飞，不慢放（用户 2026-11-04 定，见 BladeTrinityScene.update）。
 // 满蓄 fullMs(420) / scale ≈ 1.2s 画面；松手当帧回 1×。
 // URL 覆盖（解析见 bullettime.js _initBulletTime）：?bt=0 关闭；?bt=0.5 这类 (0,1] 的数当 scale，凭眼调参用。
 BT.BULLET_TIME = {
