@@ -458,7 +458,8 @@ Object.assign(BladeTrinityScene.prototype, {
       return true;
     }
     sp.setVelocityX(0);
-    this._startAICharge(f, time);      // 起蓄自带变装，预告由它给；轰飞要到松手才结算
+    // 起蓄自带变装，预告由它给；轰飞要到松手才结算。拉开期间玩家起了蓄就不跟蓄（同 _aiUltPlan）。
+    if (!opp.charging) this._startAICharge(f, time);
     this._aiEnd(f);
     return true;
   },

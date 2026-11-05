@@ -308,6 +308,8 @@ Object.assign(BladeTrinityScene.prototype, {
   // 帝 5 / 神 2，神级 mul.ult=1.4 完全没被读到，表现就是"越强越不放剑气"。
   // 解法是让会拉开的档位（routines 含 zoneOut）把它当成"先创造距离"的信号，而不是放弃。
   _aiUltPlan(f, time, dist, ultMul, canZone) {
+    // 玩家蓄力时不跟蓄：轰飞挪到松手后，AI 跟着变身、先松手就会把玩家的蓄力打断，观感很乱。
+    if (this._opp(f).charging) return null;
     if (time < (f.ultReady || 0)) return null;
     // ⚠️ 起蓄要【留出格挡的蓝】。剑神流 brace 是"蓝够才完全免伤，蓝空退化成 0.45 减伤"，
     // 而奥义一发就扣掉 ultCost=100 —— AI 把蓝全花在剑气上，就会出现用户实测的
