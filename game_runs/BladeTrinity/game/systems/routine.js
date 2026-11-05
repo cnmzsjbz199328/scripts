@@ -458,7 +458,7 @@ Object.assign(BladeTrinityScene.prototype, {
       return true;
     }
     sp.setVelocityX(0);
-    this._startAICharge(f, time);      // 起蓄自带轰飞 + 变装，预告由它给
+    this._startAICharge(f, time);      // 起蓄自带变装，预告由它给；轰飞要到松手才结算
     this._aiEnd(f);
     return true;
   },

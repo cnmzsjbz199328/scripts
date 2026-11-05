@@ -165,7 +165,7 @@ Object.assign(BladeTrinityScene.prototype, {
     bar(BT.GAME_W - 40 - W, y, W, H, this.p2.hp / this.p2.maxHp, BT.SCHOOLS[this.p2.id].barColor, true);
     // 蓝条：血条正下方一条细蓝槽，刻度分成 ultCost 段，一眼看出还剩几发奥义。
     // 【双方都画】——AI 已接入奥义（BT.AI.ultChance），右侧蓝槽是玩家的预警：
-    // 对面攒满一格就可能起蓄（起蓄会把你轰飞），这条信息不给等于让玩家猜。
+    // 对面攒满一格就可能起蓄（松手会把你轰飞），这条信息不给等于让玩家猜。
     // 剑神流还拿蓝当完全防御的燃料，自己这条空了就意味着"挡不动了"，更不能省。
     const my = y + H + 4, mh = 8, seg = BT.MP.ultCost / BT.MP.max;
     const tick = (x0) => {

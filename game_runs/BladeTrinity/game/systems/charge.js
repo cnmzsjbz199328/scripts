@@ -1,10 +1,11 @@
 /* BladeTrinity — 蓄力奥义 + 剑气弹幕。
  *
- * 玩法闭环：按住 L 蓄力（边蓄边扣蓝、起浪弹开近敌、头顶弹出招式名）→ 松手放出
+ * 玩法闭环：按住 L 蓄力（边蓄边扣蓝、头顶弹出招式名，对手不受影响）→ 松手轰飞对手并放出
  * 【等比】剑气月牙 → 剑气脱离角色飞行、越飞越大越淡 → 命中/被防/被反弹。
  *
- * 风险不在"蓄力被打断"（起浪把近敌推开了），而在"这一发打空 = 蓝白花"：剑气有
- * 飞行时间，对手能闪能防能反弹。三防御各有不同结果，见 _qiVsTarget。
+ * 风险有两头。松手前：轰飞要到松手才结算，贴身蓄力可能被走过来的对手打断（已扣的蓝不退）。
+ * 松手后："这一发打空 = 蓝白花"：剑气有飞行时间，对手能闪能防能反弹。三防御各有不同结果，
+ * 见 _qiVsTarget。
  *
  * ⚠️ 特效目前是占位（竖椭圆气团 + 系统字大字）。月牙「前厚后稀疏」与艺术体子集
  * 是后一轮的事——本文件只负责机制正确、数值可调。
@@ -45,7 +46,6 @@ Object.assign(BladeTrinityScene.prototype, {
     // 蓄力 = 变装：按蓄力比例逐格换上本派变装帧（transformation.js）。
     // 变装图集没载到时退回旧的 guard 姿势占位，对局照常。
     if (!BT.Transform.begin(this, f)) f.sprite.play(`${f.id}_guard`, true);
-    this._chargeWave(f);                       // 起浪弹开近敌（无伤，只解贴身）
     this._showUltName(f);                       // 招式名一次性弹出（占位字体）
     window.GameAudio && GameAudio.play && GameAudio.play('charge');
   },
@@ -81,7 +81,10 @@ Object.assign(BladeTrinityScene.prototype, {
     const frac = Phaser.Math.Clamp((time - f.chargeFrom) / BT.CHARGE.fullMs, 0, 1);
     // 不足 minFrac 的轻点在表现上也按"取消"收（不出剑气，服饰回落更淡）
     this._endCharge(f, frac < BT.CHARGE.minFrac ? 'cancel' : 'release');
-    // 低于 minFrac：只起浪弹开过、不出剑气（当脱身用，蓝照扣）
+    // 轰飞在松手结算（用户 2026-11-05 定）：变身期间对手不受影响，这里倍率已切回原速。
+    // 轻点也算松手，保留脱身用途。受击打断、掉线取消不走这里，不轰飞。
+    this._chargeWave(f);
+    // 低于 minFrac：只轰飞、不出剑气（当脱身用，蓝照扣）
     if (frac < BT.CHARGE.minFrac) {
       f.state = 'idle'; f.stateUntil = 0;
       f.sprite.play(`${f.id}_idle`, true);
@@ -166,7 +169,7 @@ Object.assign(BladeTrinityScene.prototype, {
     // 出生点在【刀尖前端】。但刀尖能伸到 170px 开外，贴脸放时会直接生成在对手【身后】，
     // 剑气朝前飞走、一次判定都不过 —— 北神反手斩就是这个场景（挡下时对方就在面前），
     // 实测必定打空。所以把前伸量压到"对手身前一点"，让首帧扫掠区间就能罩住他。
-    // 蓄力奥义一般不撞这条（起手 _chargeWave 先把人轰远了），但同样受保护。
+    // 蓄力奥义一般不撞这条（松手时 _chargeWave 先把人轰远了）；对手贴墙轰不走时会撞上，同样受保护。
     let fwd = xMax * BT.SCALE;
     const opp = this._opp(f);
     if (opp && opp.state !== 'down') {
@@ -251,10 +254,10 @@ Object.assign(BladeTrinityScene.prototype, {
     if (f.ultText) { f.ultText.destroy(); f.ultText = null; }
   },
 
-  // 蓄力起手一弹：把对手【轰到擂台最远端】，给剑气腾出满场飞行空间。
+  // 蓄力松手一弹（_releaseCharge 调，轻点也算）：把对手【轰到擂台最远端】，给剑气腾出满场飞行空间。
   // 轰飞无伤，但必须把对手打进 hurt 硬直+无敌——否则下一帧
   // _controlAI 会立刻用自己的移动速度覆盖掉这记击退（无阻力 → 一帧推 ≈4px，等于没推）。
-  // 起手不炸描边（用户 2026-11-04 定）：蓄力由变装表达，配方见 README「备用特效」。
+  // 不炸描边（用户 2026-11-04 定）：蓄力由变装表达，配方见 README「备用特效」。
   _chargeWave(f) {
     this.cameras.main.shake(120, 0.006);
     const opp = this._opp(f);
@@ -268,7 +271,9 @@ Object.assign(BladeTrinityScene.prototype, {
     const pinned = this._knockback(opp, dir * c.wavePush, -c.waveLift);
     if (pinned) this.cameras.main.shake(180, 0.012);
     this._setState(opp, 'hurt', c.waveStun);            // 进硬直：AI 这段不夺控制，速度得以保留
-    opp.invuln = this.time.now + c.waveStun;            // 轰飞途中无敌，别被别的判定截断
+    // 轰飞途中无敌，别被别的判定截断。⚠️ 短于硬直：自己这一挥的剑气随后就出手，无敌盖过去
+    // 对手贴墙时这道气就白放了（见 BT.CHARGE.waveInvuln）。
+    opp.invuln = this.time.now + c.waveInvuln;
     this._ghost(opp);                                   // 起飞留一记残影
   },
 
@@ -519,7 +524,7 @@ Object.assign(BladeTrinityScene.prototype, {
     // 北神返し：整道剑气挡下、零伤，并反手甩飞刀回去（飞刀走 knifeCd 冷却）。
     // ⚠️ 这里曾经要求【无敌窗口正好覆盖弹丸到达的那一刻】，而 parry/brace 接剑气都
     // 不看时机 —— 三派里只有北神要对弹丸计时，实际上几乎接不住：AI 起蓄的预告
-    // （变装+震屏+招式名）出现在弹丸到达前约 1.5~1.7 秒（蓄 240~420ms + 飞
+    // （变装+招式名）出现在弹丸到达前约 1.5~1.7 秒（蓄 240~420ms + 飞
     // ~650px÷520px/s），照着预告按防御是确定性的空放+硬直+冷却，刚好锁死在弹丸真正
     // 到达的时刻。现在按住即成立，和另外两派一致。
     if (guardingFront && target.def.defense === 'counter') {
