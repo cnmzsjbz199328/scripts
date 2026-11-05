@@ -5,7 +5,8 @@
  *   node game_runs/BladeTrinity/tools/transform-check.mjs              # P + G + T
  *   node game_runs/BladeTrinity/tools/transform-check.mjs --parts=G    # 只跑对局
  *   node game_runs/BladeTrinity/tools/transform-check.mjs --parts=T    # 只跑子弹时间
- *   node game_runs/BladeTrinity/tools/transform-check.mjs --parts=T --tsuite=ai,life   # T 段只跑部分套件
+ *   node game_runs/BladeTrinity/tools/transform-check.mjs --parts=T --tsuite=wave,sword,ai   # T 段只跑部分套件
+ *   node game_runs/BladeTrinity/tools/transform-check.mjs --parts=G --gsuite=sword,both      # G 段只跑部分套件
  *   （只跑部分时报告按段名合并：这次跑过的段替换，其余段沿用上次结果）
  *
  * P  预览页 transform-preview.html：三派 × 左右朝向的进度→格号映射、单调、满蓄保持不动、
@@ -20,6 +21,8 @@
  *    松手当帧回 1×、扣蓝与 waveStun 按游戏时间不变、飞行中剑气不慢放、物理与动画真的变慢、轻点 / 受击 / 飞来剑气打断、
  *    AI 蓄力与双方同蓄、KO / interlude / over / 重开复位、缺图不慢放、抜刀冻结在时钟偏差下按时解冻、
  *    ?bt=0 / ?bt=0.5 / 非法值、30 轮蓄放无累积。
+ *    --tsuite=wave：松手轰飞（用户 2026-11-05 定）：满蓄全程对手不受影响、松手当帧结算、轻点轰飞、作废路径不轰飞、
+ *    蓝耗尽自动放轰飞、墙角回归（气不被轰飞无敌吃掉）、玩家蓄力时 AI 不起蓄。
  *
  * ⚠️ 对局用例【手动步进】：停掉 rAF 主循环，用 game.step(t, 1/60s) 逐帧推进，按键在帧之间派发。
  *    墙钟驱动在无头里不可靠 —— node↔页面一次往返约 300ms、机器忙时单帧 100ms+，"短按/半蓄"会被测成
@@ -188,8 +191,12 @@ const SETUP = (opt) => {
   const s = window.__scene;
   window.__hudStart && window.__hudStart();
   s._startGauntlet(opt.id);
-  const T = window.__T = { prog: [], qi: [], release: [], begins: 0, ends: [], starts: [] };
+  const T = window.__T = { prog: [], qi: [], release: [], begins: 0, ends: [], starts: [], waves: 0, ghosts: 0 };
   const who = (f) => (f === s.p1 ? 'p1' : 'p2');
+  // 轰飞计数挂在实例上。T6 的 harness 会 delete s._chargeWave 把它摘掉，T6 不看这个计数
+  const wv = s._chargeWave, gh = s._ghost;
+  s._chargeWave = function (f) { T.waves++; return wv.call(this, f); };
+  s._ghost = function (f) { T.ghosts++; return gh.call(this, f); };
   const sp = BT.Transform.setProgress, en = BT.Transform.end, bg = BT.Transform.begin;
   BT.Transform.setProgress = function (scene, f, p) {
     sp.call(this, scene, f, p);
@@ -332,20 +339,26 @@ async function playerSuite(browser, base, id) {
   const qiOk = (qs) => qs.every((q) => q.legacy || q.dmg === q.want);
   const ev = (fn, arg) => page.evaluate(fn, arg);
 
-  // ① 短按：按下 → 1 帧后松开（已蓄 1 帧 ≈ 17ms ≪ minFrac×fullMs）→ 只起浪，不出剑气，回 idle
+  // ① 短按：按下 → 1 帧后松开（已蓄 1 帧 ≈ 17ms ≪ minFrac×fullMs）→ 只轰飞，不出剑气，回 idle
   const tap = await ev(() => {
-    const s = window.__scene, T = window.__T, q0 = T.qi.length, u0 = s._usage.charge;
+    const s = window.__scene, T = window.__T, q0 = T.qi.length, u0 = s._usage.charge, w0 = T.waves;
+    const opp = () => ({ x: s.p2.sprite.x, y: s.p2.sprite.y, state: s.p2.state, invuln: s.p2.invuln });
+    const opp0 = opp();
     window.__key('keydown'); window.__step(1);
     const at = { charging: s.p1.charging, tex: s.p1.sprite.texture.key, idx: s.p1.tf && s.p1.tf.idx,
       // 复制变装帧的特效（持续描边 / 描边一弹）。只查 guardAura 查不到描边一弹，它是独立的 image
-      copies: s.children.list.filter((o) => o !== s.p1.sprite && o.texture && o.texture.key === `tf_${s.p1.id}`).length };
+      copies: s.children.list.filter((o) => o !== s.p1.sprite && o.texture && o.texture.key === `tf_${s.p1.id}`).length,
+      waves: T.waves - w0, opp: opp() };
     window.__key('keyup'); window.__step(1);
-    const rel = T.release.at(-1), end = T.ends.at(-1), mpStart = T.starts.at(-1).mp, mpAfter = s.p1.mp;
+    const rel = T.release.at(-1), end = T.ends.at(-1), mpStart = T.starts.at(-1).mp, mpAfter = s.p1.mp, wavesRel = T.waves - w0, oppRel = opp();
     window.__step(30);
-    return { at, rel, end, qiNew: T.qi.length - q0, usage: s._usage.charge - u0, mpStart, mpAfter, p1: window.__F(s.p1) };
+    return { at, opp0, rel, end, wavesRel, oppRel, qiNew: T.qi.length - q0, usage: s._usage.charge - u0, mpStart, mpAfter, p1: window.__F(s.p1) };
   });
   check('短按：起蓄当帧即切到变装第 0 格', tap.at.charging && tap.at.tex === `tf_${id}` && tap.at.idx === A.chargeFrames[0], tap.at);
   check('起蓄当帧：没有任何变装帧副本（无描边一弹）', tap.at.copies === 0, tap.at);
+  check('起蓄当帧：对手不受影响（没轰飞、位置/状态/无敌都不变）', tap.at.waves === 0 && near(tap.at.opp.x, tap.opp0.x, 0.5) && near(tap.at.opp.y, tap.opp0.y, 0.5)
+    && tap.at.opp.state === tap.opp0.state && tap.at.opp.invuln === tap.opp0.invuln, { opp0: tap.opp0, at: tap.at });
+  check('短按：松手当帧轰飞一次（对手进 hurt）', tap.wavesRel === 1 && tap.oppRel.state === 'hurt', { waves: tap.wavesRel, opp: tap.oppRel });
   check('短按：frac < minFrac、不出剑气、回 idle 主图集', tap.rel && tap.rel.frac < C.minFrac && tap.qiNew === 0
     && tap.p1.tex === id && tap.p1.tf === null && tap.p1.state === 'idle', tap);
   check('短按：按"取消"收（淡回落）', tap.end && tap.end.how === 'cancel', tap.end);
@@ -550,48 +563,69 @@ async function aiSuite(browser, base) {
 }
 
 async function bothSuite(browser, base) {
-  // ⑩ 双方同时蓄力：后起蓄的一方起浪把先蓄的一方打进硬直（原规则）—— 各自收干净、不串纹理
+  // ⑩ 双方同时蓄力（轰飞在松手结算，用户 2026-11-05 定）：一方蓄力时另一方能起蓄、都显示本派变装；
+  //    先松手的一方把对方打进 hurt，对方按 interrupt 收蓄，两种先后各一遍；收尾后各自干净、不串纹理
   section = 'G·双方';
   const { page, errors } = await gamePage(browser, base, { query: BT_OFF });
   await page.evaluate(SETUP, { id: 'water', aiOff: true });
   // AI 决策关掉，只保留 loop.js 里"蓄力中就 tick 蓄力"那一支，p2 的蓄力才会推进/收尾
-  const a = await page.evaluate(() => {
+  // 蓝上限放大：两边都要能一直按住，蓝耗尽自动放会抢掉"谁先松手"
+  await page.evaluate(() => {
     const s = window.__scene;
     s._controlAI = function (time) { if (this.p2.charging) this._tickCharge(this.p2, time); };
-    s._startAICharge(s.p2, s.time.now); s.p2.aiRelease = s.time.now + 4000;
-    window.__step(9);
-    return { p1: window.__F(s.p1), p2: window.__F(s.p2) };
+    window.__settle = () => {
+      s._clearQi();
+      window.__until(() => ['idle', 'walk'].includes(s.p1.state) && ['idle', 'walk'].includes(s.p2.state), 200);
+      s.p1.maxMp = s.p2.maxMp = 1e5; s.p1.mp = s.p2.mp = 1e5;
+    };
   });
-  const b = await page.evaluate(() => {
-    const s = window.__scene;
-    window.__until(() => ['idle', 'walk'].includes(s.p1.state), 120);      // 对手起浪的 520ms 硬直过去
-    window.__key('keydown');
-    window.__until(() => s.p1.charging, 30);
-    window.__step(12);
-    return { p1: window.__F(s.p1), p2: window.__F(s.p2), ends: window.__T.ends.slice() };
-  });
-  await shot(page, 'game_both_p1charging.png');
-  const c = await page.evaluate(() => {
-    const s = window.__scene;
-    window.__key('keyup'); window.__step(120);
-    return { p1: window.__F(s.p1), p2: window.__F(s.p2) };
-  });
-  check('对手先蓄：p2 显示自己流派的变装、玩家仍是主图集', a.p2.tex === `tf_${a.p2.id}` && a.p1.tex === a.p1.id, [a.p1.tex, a.p2.tex]);
-  check('玩家后蓄：起浪打断对手（原规则）→ p2 按 interrupt 收、回主图集', b.p1.tex === `tf_${b.p1.id}` && b.p2.tf === null && b.p2.tex === b.p2.id
-    && b.ends.some((e) => e.who === 'p2' && e.how === 'interrupt'), b);
-  check('结束后双方都回主图集、无残留变装态', c.p1.tf === null && c.p2.tf === null && c.p1.tex === c.p1.id && c.p2.tex === c.p2.id && !c.p2.charging, c);
-  // 同一帧里双方都进 _startCharge：各显各的；后起者的起浪按原规则把先起者打进硬直
+  for (const first of ['p1', 'p2']) {
+    const loser = first === 'p1' ? 'p2' : 'p1';
+    const a = await page.evaluate(() => {
+      const s = window.__scene, T = window.__T, F = window.__F;
+      window.__settle();
+      const e0 = T.ends.length, w0 = T.waves;
+      s._startAICharge(s.p2, s.time.now); s.p2.aiRelease = Infinity;
+      window.__step(9);
+      const one = { p1: F(s.p1), p2: F(s.p2) };
+      window.__key('keydown');
+      window.__until(() => s.p1.charging, 30);
+      window.__step(12);
+      return { e0, w0, one, two: { p1: F(s.p1), p2: F(s.p2) }, waves: T.waves - w0 };
+    });
+    if (first === 'p1') await shot(page, 'game_both_p1charging.png');
+    check(`${first} 先收：对手先蓄时 p2 显示自己流派的变装、玩家仍是主图集`, a.one.p2.tex === `tf_${a.one.p2.id}` && a.one.p1.tex === a.one.p1.id, [a.one.p1.tex, a.one.p2.tex]);
+    check(`${first} 先收：一方蓄力时另一方能起蓄，双方都显示本派变装、都没轰飞`, a.two.p1.charging && a.two.p2.charging && a.two.p1.tex === `tf_${a.two.p1.id}`
+      && a.two.p2.tex === `tf_${a.two.p2.id}` && a.waves === 0, a);
+    const b = await page.evaluate(([first, e0, w0]) => {
+      const s = window.__scene, T = window.__T, F = window.__F;
+      if (first === 'p1') window.__key('keyup'); else s.p2.aiRelease = s.time.now;
+      window.__step(2);       // p1 先于 p2 处理：p2 先松手时，p1 下一帧才看到自己进了 hurt
+      const r = { p1: F(s.p1), p2: F(s.p2), ends: T.ends.slice(e0), waves: T.waves - w0 };
+      window.__key('keyup');
+      window.__step(120);
+      return { ...r, after: { p1: F(s.p1), p2: F(s.p2) } };
+    }, [first, a.e0, a.w0]);
+    check(`${first} 先松手：轰飞一次，${loser} 进 hurt、按 interrupt 收、回主图集`, b.waves === 1 && b[loser].state === 'hurt' && b[loser].tf === null && !b[loser].charging
+      && b[loser].tex === b[loser].id && b.ends.some((e) => e.who === loser && e.how === 'interrupt'), b);
+    check(`${first} 先松手：自己按 release 收`, b.ends.some((e) => e.who === first && e.how === 'release'), b.ends);
+    check(`${first} 先松手：结束后双方都回主图集、无残留变装态`, b.after.p1.tf === null && b.after.p2.tf === null && b.after.p1.tex === b.after.p1.id
+      && b.after.p2.tex === b.after.p2.id && !b.after.p1.charging && !b.after.p2.charging, b.after);
+  }
+  // 同一帧里双方都进 _startCharge：各显各的，谁也不打断谁，直到有人松手
   const same = await page.evaluate(() => {
-    const s = window.__scene;
-    window.__until(() => ['idle', 'walk'].includes(s.p1.state) && ['idle', 'walk'].includes(s.p2.state), 200);
-    s.p1.mp = s.p1.maxMp; s.p2.mp = s.p2.maxMp;
-    const t = s.time.now;
-    s._startCharge(s.p1, t); s._startAICharge(s.p2, t); s.p2.aiRelease = t + 600;
-    const now = { p1: s.p1.sprite.texture.key, p2: s.p2.sprite.texture.key, p1s: s.p1.state, p2s: s.p2.state };
+    const s = window.__scene, T = window.__T, F = window.__F;
+    window.__settle();
+    const t = s.time.now, w0 = T.waves;
+    window.__key('keydown');
+    s._startCharge(s.p1, t); s._startAICharge(s.p2, t); s.p2.aiRelease = t + 200;
+    const now = { p1: s.p1.sprite.texture.key, p2: s.p2.sprite.texture.key, p1s: s.p1.state, p2s: s.p2.state, waves: T.waves - w0 };
     window.__step(150);
-    return { now, after: { p1: window.__F(s.p1), p2: window.__F(s.p2) } };
+    window.__key('keyup'); window.__step(30);
+    return { now, after: { p1: F(s.p1), p2: F(s.p2) } };
   });
-  check('同帧双方起蓄：各显本派变装或按原规则被打进硬直', same.now.p2 === `tf_${a.p2.id}` && (same.now.p1 === `tf_${a.p1.id}` || same.now.p1s === 'hurt'), same.now);
+  check('同帧双方起蓄：各显本派变装、都在蓄、都没轰飞', same.now.p1 === `tf_${same.after.p1.id}` && same.now.p2 === `tf_${same.after.p2.id}`
+    && same.now.p1s === 'charge' && same.now.p2s === 'charge' && same.now.waves === 0, same.now);
   check('同帧双方起蓄：收尾后无残留', same.after.p1.tf === null && same.after.p2.tf === null && same.after.p1.tex === same.after.p1.id && same.after.p2.tex === same.after.p2.id, same.after);
   check('双方同蓄无报错', errors.length === 0, errors);
   await page.close();
@@ -683,7 +717,7 @@ const near = (a, b, eps = 1e-9) => typeof a === 'number' && Math.abs(a - b) <= e
 const allAt = (t, x) => !!t && near(t.scale, x) && near(t.tweens, x) && near(t.clock, x) && near(t.frame, x)
   && t.anims.length > 0 && t.anims.every((v) => near(v, x)) && t.gts === 1 && (t.probe == null || near(t.probe, x));
 const btConsts = (page) => page.evaluate(() => ({
-  fullMs: BT.CHARGE.fullMs, minFrac: BT.CHARGE.minFrac, waveStun: BT.CHARGE.waveStun, drainRate: BT.MP.drainRate,
+  fullMs: BT.CHARGE.fullMs, minFrac: BT.CHARGE.minFrac, waveStun: BT.CHARGE.waveStun, waveInvuln: BT.CHARGE.waveInvuln, drainRate: BT.MP.drainRate,
   qiSpeed: BT.QI.speed, regen: BT.MP.regen, scale: BT.BULLET_TIME.scale, rampInMs: BT.BULLET_TIME.rampInMs, dt: window.__man.dt,
   freezeMs: BT.ARTE.sword.freezeMs,
 }));
@@ -737,29 +771,30 @@ async function btSchoolSuite(browser, base, id) {
   check(`T4 满蓄扣蓝 = 100（±1 帧量 ${frameMp.toFixed(2)}；已扣除同期回蓝）`, Math.abs(drain - C.fullMs * C.drainRate) <= frameMp,
     { drain, net, regenBack, elRel: a.elRel });
 
-  // T4（下）：对手 waveStun 按游戏时间；慢放 / 原速下物理与动画的实测速度比
+  // T4（下）：松手轰飞的硬直 / 无敌按游戏时间、从松手算；慢放 / 原速下物理与动画的实测速度比
   const b = await ev((C) => {
     const s = window.__scene, MEASURE = window.__measure;
     s.p1.sprite.setPosition(268, s.p1.sprite.y); s.p2.sprite.setPosition(BT.GAME_W - 268, s.p2.sprite.y);
     window.__step(10);
     s.p1.maxMp = 1e5; s.p1.mp = 1e5;
-    window.__key('keydown'); window.__step(1);
-    const from = s.p1.chargeFrom, inv = s.p2.invuln - from, stun = s.p2.stateUntil - from, p2st = s.p2.state;
-    let hurtEnd = null, n = 0;
-    while (n++ < 400 && (hurtEnd === null || window.__el(s.p1) < C.fullMs)) {
-      window.__step(1);
-      if (hurtEnd === null && s.p2.state !== 'hurt') hurtEnd = window.__el(s.p1);
-    }
+    window.__key('keydown');
+    window.__until(() => s.p1.charging && window.__el(s.p1) >= C.fullMs, 400);
     const slow = MEASURE(120);
     const stillCharging = s.p1.charging;
     window.__key('keyup'); window.__step(1);
+    const rel = s.time.now, inv = s.p2.invuln - rel, stun = s.p2.stateUntil - rel, p2st = s.p2.state;
+    let hurtEnd = null, n = 0;
+    while (n++ < 120 && hurtEnd === null) {
+      window.__step(1);
+      if (s.p2.state !== 'hurt') hurtEnd = s.time.now - rel;
+    }
     const normal = MEASURE(120);
     window.__step(60);
     return { inv, stun, p2st, hurtEnd, slow, normal, stillCharging };
   }, C);
   await ev(() => window.__reset());
-  check(`T4 起浪 waveStun：对手硬直/无敌 = ${C.waveStun}ms 游戏时间`, b.p2st === 'hurt' && b.inv === C.waveStun && b.stun === C.waveStun, b);
-  check(`T4 对手按游戏时间 ${C.waveStun}ms（+≤1 慢放帧）后起身`, b.hurtEnd !== null && b.hurtEnd > C.waveStun && b.hurtEnd <= C.waveStun + slowFrame + 1e-6, b.hurtEnd);
+  check(`T4 松手轰飞：对手硬直 ${C.waveStun}ms / 无敌 ${C.waveInvuln}ms 游戏时间，都从松手算`, b.p2st === 'hurt' && near(b.inv, C.waveInvuln, 1e-6) && near(b.stun, C.waveStun, 1e-6), b);
+  check(`T4 对手按游戏时间 ${C.waveStun}ms（+≤1 原速帧）后起身`, b.hurtEnd !== null && b.hurtEnd > C.waveStun && b.hurtEnd <= C.waveStun + C.dt + 1e-6, b.hurtEnd);
   check('T2 物理真的变慢：匀速刚体每真实秒位移 = 原速 × scale（±5%）', b.stillCharging && near(b.slow.scaleMax, C.scale)
     && near(b.normal.scaleMin, 1) && Math.abs(b.slow.dx / b.normal.dx - C.scale) <= C.scale * 0.05, { slow: b.slow, normal: b.normal });
   check('T2 动画真的变慢：循环动画换帧次数 ≈ 原速 × scale', b.normal.changes >= 20
@@ -927,8 +962,8 @@ async function btAiSuite(browser, base) {
   check('T6 AI 起蓄即进慢放、满蓄时五处 = scale', ai.first < 1 && allAt(ai.mid, C.scale), ai);
   check('T6 AI 到点松手：当帧回 1、frac=1、计入 usage.aiCharge', ai.rel && ai.rel.frac === 1 && allAt(ai.after, 1) && ai.usage.aiCharge === 1, ai);
 
-  // 双方同蓄：原规则下后起蓄的一方起浪会把先蓄的一方打进硬直（见 G·双方），自然对局里凑不出"两人同时在蓄"。
-  // 这里在 harness 里临时关掉起浪，只为验证慢放判据本身（任一方在蓄就保持）。
+  // 双方同蓄：先松手的一方轰飞会把另一方打进硬直（见 G·双方），自然对局里凑不出"一方收了、另一方还在蓄"。
+  // 这里在 harness 里临时关掉轰飞，只为验证慢放判据本身（任一方在蓄就保持）。
   const both = await page.evaluate(() => {
     const s = window.__scene, out = {};
     s._chargeWave = function () {};
@@ -1109,6 +1144,194 @@ async function btMiscSuite(browser, base) {
   await half.page.close();
 }
 
+// 松手轰飞（用户 2026-11-05 定，plans/blade-trinity-release-wave-plan.md 4.1）。默认开慢放、手动步进、AI 关。
+// W8（双方同蓄）在 G·双方。
+async function btWaveSuite(browser, base, id) {
+  section = `T·轰飞·${id}`;
+  const { page, errors } = await gamePage(browser, base);
+  await page.evaluate(SETUP, { id, aiOff: true });
+  const C = await btConsts(page);
+  const ev = (fn, arg) => page.evaluate(fn, arg);
+  // 摆位：清场、等双方能动、回满蓝。对手 x 不能超出世界边界（BT.GAME_W - BT.EDGE_X = 910.6）
+  await ev(() => {
+    const s = window.__scene, free = (f) => !f.charging && ['idle', 'walk'].includes(f.state);
+    window.__place = (x1, x2) => {
+      s._clearQi();
+      window.__until(() => free(s.p1) && free(s.p2), 300);
+      s.p1.sprite.setPosition(x1, s.p1.sprite.y); s.p2.sprite.setPosition(x2, s.p2.sprite.y);
+      window.__step(20);
+      s.p1.maxMp = 1e5; s.p1.mp = 1e5; s.p1.invuln = 0; s.p2.invuln = 0;
+    };
+  });
+
+  // W1 + W2：满蓄全程对手不受影响；松手当帧结算。场中，相距 400px
+  const w = await ev((C) => {
+    const s = window.__scene, T = window.__T, o = s.p2, cam = s.cameras.main;
+    window.__place(200, 600);
+    const w0 = T.waves, g0 = T.ghosts, x0 = o.sprite.x, y0 = o.sprite.y, inv0 = o.invuln, hp0 = o.hp;
+    const shake0 = cam.shakeEffect.isRunning;
+    window.__key('keydown');
+    const bad = []; let n = 0;
+    do {
+      window.__step(1); n++;
+      const now = { n, x: o.sprite.x, y: o.sprite.y, down: o.sprite.body.blocked.down, st: o.state, inv: o.invuln, hp: o.hp, shake: cam.shakeEffect.isRunning };
+      if (Math.abs(now.x - x0) > 0.5 || Math.abs(now.y - y0) > 0.5 || !now.down || now.st === 'hurt' || now.inv !== inv0 || now.hp !== hp0 || now.shake) bad.push(now);
+    } while (!(s.p1.charging && window.__el(s.p1) >= C.fullMs) && n < 400);
+    const during = { n, bad: bad.slice(0, 5), badN: bad.length, waves: T.waves - w0, ghosts: T.ghosts - g0, shake0, charging: s.p1.charging, scale: s._fightClock.scale };
+    window.__key('keyup'); window.__step(1);
+    const now = s.time.now;
+    const rel = { waves: T.waves - w0, ghosts: T.ghosts - g0, st: o.state, stun: o.stateUntil - now, inv: o.invuln - now, vx: o.sprite.body.velocity.x,
+      shake: cam.shakeEffect.isRunning, ts: window.__ts() };
+    window.__step(1);
+    const nextScale = s._fightClock.frameScale;
+    // 滞空：帧数 × 1/60s = 真实时长
+    let air = 0;
+    for (let k = 0; k < 120; k++) {
+      if (!o.sprite.body.blocked.down) air++; else if (air > 0) break;
+      window.__step(1);
+    }
+    window.__step(90);
+    return { during, rel, nextScale, airMs: air * window.__man.dt };
+  }, C);
+  check(`W1 满蓄全程（${w.during.n} 帧）：对手 x/y 不变、着地、不进 hurt、无敌与 HP 不变，相机不震`, w.during.n > 60 && w.during.charging && near(w.during.scale, C.scale)
+    && !w.during.shake0 && w.during.badN === 0, w.during);
+  check('W1 满蓄全程：没轰飞、没残影', w.during.waves === 0 && w.during.ghosts === 0, w.during);
+  check(`W2 松手当帧：轰飞 1 次（震屏 + 残影），对手 hurt，硬直 ${C.waveStun}ms、无敌 ${C.waveInvuln}ms`, w.rel.waves === 1 && w.rel.ghosts === 1 && w.rel.shake && w.rel.vx > 0
+    && w.rel.st === 'hurt' && near(w.rel.stun, C.waveStun, 1e-6) && near(w.rel.inv, C.waveInvuln, 1e-6), w.rel);
+  check('W2 倍率：松手当帧五处回 1，下一帧按 1 结算', allAt(w.rel.ts, 1) && w.nextScale === 1, { ts: w.rel.ts, nextScale: w.nextScale });
+  check(`W2 场中滞空 ≤ 500ms 真实时间（${Math.round(w.airMs)}ms）`, w.airMs > 0 && w.airMs <= 500, w.airMs);
+
+  // W3：轻点
+  const w3 = await ev(() => {
+    const s = window.__scene, T = window.__T;
+    window.__place(200, 600);
+    const w0 = T.waves, q0 = T.qi.length, u0 = s._usage.charge;
+    window.__key('keydown'); window.__step(1);
+    const pressed = T.waves - w0;
+    window.__key('keyup'); window.__step(1);
+    const out = { pressed, waves: T.waves - w0, opp: s.p2.state, p1: s.p1.state, how: T.ends.at(-1).how };
+    window.__step(30);
+    return { ...out, p1Later: s.p1.state, qi: T.qi.length - q0, usage: s._usage.charge - u0 };
+  });
+  check('W3 轻点：松手轰飞 1 次（按下当帧 0 次）、不出剑气、玩家回 idle', w3.pressed === 0 && w3.waves === 1 && w3.opp === 'hurt' && w3.p1 === 'idle' && w3.p1Later === 'idle'
+    && w3.how === 'cancel' && w3.qi === 0 && w3.usage === 0, w3);
+
+  // W4（上）：受击打断、失焦取消不轰飞
+  const w4 = await ev((C) => {
+    const s = window.__scene, T = window.__T;
+    window.__place(200, 600);
+    let w0 = T.waves;
+    window.__key('keydown');
+    window.__until(() => s.p1.charging && window.__el(s.p1) >= C.fullMs * 0.4, 200);
+    s.p1.invuln = 0; s._hit(s.p2, s.p1, 3, s.p1.facingLeft ? 1 : -1);
+    window.__step(2);
+    const hit = { how: T.ends.at(-1).how, charging: s.p1.charging };
+    window.__key('keyup'); window.__step(40);
+    hit.waves = T.waves - w0;
+    window.__place(200, 600);
+    w0 = T.waves;
+    window.__key('keydown');
+    window.__until(() => s.p1.charging && window.__el(s.p1) >= C.fullMs * 0.6, 200);
+    window.dispatchEvent(new Event('blur'));
+    window.__step(3);
+    const blur = { how: T.ends.at(-1).how, charging: s.p1.charging, opp: s.p2.state };
+    window.__key('keyup'); window.dispatchEvent(new Event('focus')); window.__step(40);
+    blur.waves = T.waves - w0;
+    return { hit, blur };
+  }, C);
+  check('W4 受击打断：按 interrupt 收、不轰飞', w4.hit.how === 'interrupt' && !w4.hit.charging && w4.hit.waves === 0, w4.hit);
+  check('W4 失焦取消：按 cancel 收、不轰飞', w4.blur.how === 'cancel' && !w4.blur.charging && w4.blur.waves === 0 && w4.blur.opp !== 'hurt', w4.blur);
+
+  // W5：蓝耗尽自动放
+  const w5 = await ev(() => {
+    const s = window.__scene, T = window.__T;
+    window.__place(200, 600);
+    s.p1.maxMp = BT.MP.max; s.p1.mp = 60;
+    const w0 = T.waves, r0 = T.release.length;
+    window.__key('keydown'); window.__step(1);
+    const early = T.waves - w0;
+    window.__until(() => T.release.length > r0, 400);
+    const out = { early, rel: T.release[r0], waves: T.waves - w0, opp: s.p2.state };
+    window.__step(60); window.__key('keyup'); window.__step(2);
+    return out;
+  });
+  check('W5 蓝耗尽自动放：键仍按住、轰飞 1 次', w5.early === 0 && w5.rel && w5.rel.held === true && w5.rel.mp === 0 && w5.waves === 1 && w5.opp === 'hurt', w5);
+
+  // W6：墙角回归。无敌若盖住出气时刻，对手贴墙时这道气就被吃掉、蓝白扣（见 BT.CHARGE.waveInvuln）
+  for (const gap of [125, 265]) {
+    const r = await ev(([gap, C]) => {
+      const s = window.__scene, T = window.__T, o = s.p2, wall = BT.GAME_W - BT.EDGE_X;
+      window.__place(wall - gap, wall);
+      const hp0 = o.hp, max0 = o.maxHp, q0 = T.qi.length, x0 = o.sprite.x;
+      o.maxHp = 1e4; o.hp = 1e4;            // 只量伤害，别让 _ko 的回血盖掉（用完还原）
+      window.__key('keydown');
+      window.__until(() => s.p1.charging && window.__el(s.p1) >= C.fullMs, 400);
+      window.__key('keyup'); window.__step(1);
+      const t0 = s.time.now, rel = { st: o.state, x: o.sprite.x, vy: o.sprite.body.velocity.y };
+      let hitAt = null;
+      for (let k = 0; k < 300; k++) {
+        window.__step(1);
+        if (hitAt === null && o.hp < 1e4) hitAt = s.time.now - t0;
+        if (T.qi.length > q0 && !(s.qiList || []).length && !s.p1.qiSwing) break;
+      }
+      const out = { gap, x0, rel, dealt: 1e4 - o.hp, hitAt, qi: T.qi.length - q0 };
+      o.maxHp = max0; o.hp = hp0;
+      return out;
+    }, [gap, C]);
+    check(`W6 墙角回归：对手贴墙、相距 ${gap}px 满蓄，HP 下降（实伤 ${r.dealt}）`, r.dealt > 0 && r.qi >= 1, r);
+  }
+
+  // W7：玩家蓄力时 AI 不起蓄。Math.random 固定 0 让掷骰必中，用完立刻还原
+  const w7 = await ev(() => {
+    const s = window.__scene, T = window.__T, f = s.p2;
+    window.__place(200, 600);
+    const plan = () => {
+      const rnd = Math.random;
+      Math.random = () => 0;
+      try { f.ultReady = 0; f.mp = f.maxMp; return s._aiUltPlan(f, s.time.now, 500, 1, false); }
+      finally { Math.random = rnd; }
+    };
+    const zone = () => {
+      const n0 = T.starts.length, rt = { step: 1 };
+      f.rt = rt;
+      const ret = s._rt_zoneOut(f, s.time.now, rt);
+      const out = { ret, charged: T.starts.length - n0, charging: f.charging, rtCleared: f.rt === null };
+      if (f.charging) s._cancelCharge(f);
+      return out;
+    };
+    const idle = { plan: plan(), zone: zone() };
+    window.__key('keydown');
+    window.__until(() => s.p1.charging, 30);
+    const during = { p1: s.p1.charging, plan: plan(), zone: zone() };
+    window.__key('keyup'); window.__step(60);
+    return { idle, during };
+  });
+  check('W7 玩家未蓄：_aiUltPlan 返回 now、_rt_zoneOut 起蓄', w7.idle.plan === 'now' && w7.idle.zone.charged === 1 && w7.idle.zone.rtCleared, w7.idle);
+  check('W7 玩家蓄力中：_aiUltPlan 返回 null、_rt_zoneOut 不起蓄但照常收尾', w7.during.p1 && w7.during.plan === null && w7.during.zone.charged === 0
+    && !w7.during.zone.charging && w7.during.zone.rtCleared && w7.during.zone.ret === true, w7.during);
+
+  // W4（下）：蓄力中对手 KO 进 interlude 不轰飞。放最后：这一条会把对局推进到下一场
+  const ko = await ev((C) => {
+    const s = window.__scene, T = window.__T;
+    window.__place(200, 600);
+    const w0 = T.waves;
+    window.__key('keydown');
+    window.__until(() => s.p1.charging && window.__el(s.p1) >= C.fullMs * 0.5, 200);
+    window.__noKo = false; s.p2.invuln = 0; s.p2.hp = 1; s._hit(s.p1, s.p2, 50, 1);
+    window.__step(1);
+    const r = { phase: s.phase, charging: s.p1.charging, waves: T.waves - w0 };
+    window.__key('keyup');
+    window.__until(() => s.phase === 'fight' && s.round === 1, 600);
+    window.__step(5);
+    return { ...r, next: { phase: s.phase, round: s.round }, wavesLater: T.waves - w0 };
+  }, C);
+  check('W4 蓄力中对手 KO 进 interlude：收蓄、不轰飞（含下一场开打后）', ko.phase === 'interlude' && !ko.charging && ko.waves === 0
+    && ko.next.phase === 'fight' && ko.wavesLater === 0, ko);
+
+  check('T·轰飞 本流派全程无报错', errors.length === 0, errors);
+  await page.close();
+}
+
 (async () => {
   fs.mkdirSync(OUT, { recursive: true });
   const parts = String(flags.parts || 'P,G,T').toUpperCase().split(',');
@@ -1118,18 +1341,21 @@ async function btMiscSuite(browser, base) {
   try {
     if (parts.includes('P')) await partP(browser, base);
     if (parts.includes('G')) {
-      for (const id of SCHOOLS) await playerSuite(browser, base, id);
-      await aiSuite(browser, base);
-      await bothSuite(browser, base);
-      await lifecycleSuite(browser, base);
+      // --gsuite=sword,water,north,ai,both,life 只跑 G 段的部分套件（写法同 --tsuite）
+      const only = flags.gsuite ? String(flags.gsuite).split(',') : null, want = (k) => !only || only.includes(k);
+      for (const id of SCHOOLS) if (want(id)) await playerSuite(browser, base, id);
+      if (want('ai')) await aiSuite(browser, base);
+      if (want('both')) await bothSuite(browser, base);
+      if (want('life')) await lifecycleSuite(browser, base);
     }
     if (parts.includes('T')) {
-      // --tsuite=sword,ai,life,misc 只跑 T 段的部分套件（调试用；报告按段名合并，见下）
+      // --tsuite=sword,water,north,ai,life,misc,wave 只跑 T 段的部分套件（调试用；报告按段名合并，见下）
       const only = flags.tsuite ? String(flags.tsuite).split(',') : null, want = (k) => !only || only.includes(k);
       for (const id of SCHOOLS) if (want(id)) await btSchoolSuite(browser, base, id);
       if (want('ai')) await btAiSuite(browser, base);
       if (want('life')) await btLifecycleSuite(browser, base);
       if (want('misc')) await btMiscSuite(browser, base);
+      if (want('wave')) for (const id of SCHOOLS) await btWaveSuite(browser, base, id);
     }
   } finally {
     await browser.close();
@@ -1137,10 +1363,10 @@ async function btMiscSuite(browser, base) {
   }
   const failed = results.filter((r) => !r.ok);
   console.log(`\n${results.length - failed.length}/${results.length} checks passed` + (failed.length ? `; FAILED: ${failed.map((f) => f.section + ' · ' + f.name).join(' | ')}` : ''));
-  // 只跑了部分（--parts / --tsuite）：沿用报告里其余段的上次结果，只替换这次跑过的段
+  // 只跑了部分（--parts / --tsuite / --gsuite）：沿用报告里其余段的上次结果，只替换这次跑过的段
   const file = path.join(OUT, 'report.json');
   let merged = results;
-  if ((parts.length < 3 || flags.tsuite) && fs.existsSync(file)) {
+  if ((parts.length < 3 || flags.tsuite || flags.gsuite) && fs.existsSync(file)) {
     const prev = JSON.parse(fs.readFileSync(file, 'utf8')), ran = new Set(results.map((r) => r.section));
     merged = (prev.results || []).filter((r) => !ran.has(r.section)).concat(results);
   }
