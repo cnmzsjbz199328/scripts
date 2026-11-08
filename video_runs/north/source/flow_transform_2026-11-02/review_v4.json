@@ -1,0 +1,26 @@
+{
+  "version": "v4",
+  "status": "superseded_scale_growth",
+  "reviewedOn": "2026-11-02",
+  "flowEditUrl": "https://flow.google.com/project/b8c063ee-a5a5-4741-9b49-e4f462b2d80c/edit/acac71f8-afe7-4233-a9ce-e516ef8e55d7",
+  "visualInput": "ref_north_wide_padded.png (sole visual input and opening frame)",
+  "video": "north_god_transformation_candidate_v4.mp4",
+  "sha256": "D3FD11C06100FDE9D3C6EDD3D9C0F57CF3624A5C7B76F0135B50149C60F6B3B6",
+  "sampledSeconds": [
+    0,
+    0.5,
+    1,
+    2,
+    2.5,
+    3,
+    4.5,
+    5.75
+  ],
+  "observations": [
+    "The bright striped tunic changes into a fitted navy/charcoal coat with a silver-white fur shoulder mantle and silver trim by about 2 seconds.",
+    "White hairstyle, face, two original swords, red trousers, and original sandals are retained; the sandals stay attached during the transformation.",
+    "The transformed coat remains through the final guard; the full figure and both blades stay in frame.",
+    "A short localized slash arc appears during the cut; it does not reach the frame edges."
+  ],
+  "summary": "Costume change and retained footwear pass, but the character visibly increases in size through the middle of the clip. Superseded by v5 for scale stability; retained as a backup."
+}

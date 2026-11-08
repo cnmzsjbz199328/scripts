@@ -11,8 +11,9 @@ Object.assign(BladeTrinityScene.prototype, {
     // 见 arte.js _payArte —— 没有它就只能靠人眼数，而这招踩过无头计时坑）
     // realmSelfHit / realmDeprive：界内出手被弹回自己 / 界内会心被剥夺（见 realm.js）。
     // 这两个【越低越好】，和上面那些"用没用满"的覆盖度计数方向相反，别混着断言。
+    // aiCharge = 电脑有效放出的蓄力剑气（同 charge 的口径：过了 minFrac 才算）。
     this._usage = { attack: 0, charge: 0, defend: 0, crit: 0, blink: 0, jump: 0, arte: 0, aiArte: 0,
-                    realmSelfHit: 0, realmDeprive: 0 };
+                    aiCharge: 0, realmSelfHit: 0, realmDeprive: 0 };
     this.oppQueue = BT.ROSTER.filter((id) => id !== p1Id);   // 另两家，按 ROSTER 序
     this._applyTier();
     this._showStage(0);          // 重开也要回到第 1 场的室内道场
@@ -46,16 +47,19 @@ Object.assign(BladeTrinityScene.prototype, {
     this.aiNext = 0;
   },
 
+  // 键位提示跟着输入设备走：Joy-Con 在线就显示手柄键（input.js 在连接状态变化时重调本函数）
   _setFightObjective() {
+    const jc = !!(this._in && this._in.jcOnline());
+    const K = jc ? { atk: 'Y', def: 'ZL', ult: 'ZR', move: '摇杆' } : { atk: 'J', def: 'S', ult: 'L', move: 'AD' };
     const d = BT.SCHOOLS[this._p1Id].defense;
-    const dk = d === 'counter' ? 'S 返击' : d === 'parry' ? 'S 受流' : 'S 完防';
+    const dk = `${K.def} ` + (d === 'counter' ? '返击' : d === 'parry' ? '受流' : '完防');
     const n = this.oppQueue.length;
     const tier = (this.curTier && this.curTier.name) || '';
     // 流派秘技的操作提示只对【会这招的流派】显示，别把三派的键位堆给所有人看
     const arte = BT.ARTE && BT.ARTE[this._p1Id];
-    const ak = arte ? `　出刀后按住 J「${arte.name}」` : '';
+    const ak = arte ? `　出刀后按住 ${K.atk}「${arte.name}」` : '';
     window.GameHUD?.setObjective(
-      `擂台 ${this.round + 1}/${n}【${tier}】：${BT.SCHOOLS[this.p2.id].name}　│　J 斩　${dk}　长按 L 蓄剑气　AD 移动${ak}`);
+      `擂台 ${this.round + 1}/${n}【${tier}】：${BT.SCHOOLS[this.p2.id].name}　│　${K.atk} 斩　${dk}　长按 ${K.ult} 蓄剑气　${K.move} 移动${ak}`);
   },
 
   // 玩家胜一场、还有下一场：换上下一位对手，半回血，回满蓝，原地重开。
@@ -119,7 +123,7 @@ Object.assign(BladeTrinityScene.prototype, {
       facingLeft: faceLeft,
       guardFrom: 0, counterReady: 0, counterFired: false, counterGlowUntil: 0, flashEvt: null,
       riposteUntil: 0, guardAura: null,
-      chargeFrom: 0, charging: false, mistReady: 0, riseReady: 0,
+      chargeFrom: 0, charging: false, tf: null, mistReady: 0, riseReady: 0,   // tf：蓄力变装展示态（BT.Transform）
       aiRelease: 0, ultReady: 0,          // AI 奥义：松手时刻 / 下次可放时刻
       // AI 套路层（routine.js）：当前套路 / 下次可起套 / 撤步到期 / 惩罚窗口冷却
       rt: null, rtReady: 0, rtNext: 0, backstepUntil: 0, punishReady: 0,
@@ -161,7 +165,7 @@ Object.assign(BladeTrinityScene.prototype, {
     bar(BT.GAME_W - 40 - W, y, W, H, this.p2.hp / this.p2.maxHp, BT.SCHOOLS[this.p2.id].barColor, true);
     // 蓝条：血条正下方一条细蓝槽，刻度分成 ultCost 段，一眼看出还剩几发奥义。
     // 【双方都画】——AI 已接入奥义（BT.AI.ultChance），右侧蓝槽是玩家的预警：
-    // 对面攒满一格就可能起蓄（起蓄会把你轰飞），这条信息不给等于让玩家猜。
+    // 对面攒满一格就可能起蓄（松手会把你轰飞），这条信息不给等于让玩家猜。
     // 剑神流还拿蓝当完全防御的燃料，自己这条空了就意味着"挡不动了"，更不能省。
     const my = y + H + 4, mh = 8, seg = BT.MP.ultCost / BT.MP.max;
     const tick = (x0) => {

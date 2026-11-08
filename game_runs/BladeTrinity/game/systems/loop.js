@@ -16,22 +16,22 @@ Object.assign(BladeTrinityScene.prototype, {
     }
   },
 
+  // 输入一律读动作层 this._in（input.js）：键盘与 Joy-Con 在那里合并，边沿每帧只推进一次。
   _controlPlayer(time) {
-    const f = this.p1, sp = f.sprite, onGround = sp.body.blocked.down;
+    const f = this.p1, sp = f.sprite, onGround = sp.body.blocked.down, I = this._in;
     if (this._handleCharge(f, time)) return;   // 蓄力中/起手：独占操作，原地锁死
     if (this._handleIai(f, time)) return;      // 居合架式中：只等松手，别的一概不接
-    // 移形换影：SPACE 瞬移，按住上 = 升空，否则 = 缩地（无敌+残影+冷却，不耗蓝）
-    if (Phaser.Input.Keyboard.JustDown(this.keys.SPACE)) {
-      const up = this.keys.W.isDown || this.cursors.up.isDown;
-      this._doBlink(f, up ? 'rise' : 'ground', time);
+    // 移形换影：SPACE（手柄 A）瞬移，按住上 = 升空，否则 = 缩地（无敌+残影+冷却，不耗蓝）
+    if (I.pressed('blink')) {
+      this._doBlink(f, I.held('up') ? 'rise' : 'ground', time);
       return;
     }
-    if (Phaser.Input.Keyboard.JustDown(this.keys.J)) { f.jHeldFrom = time; return this._attack(f); }
+    if (I.pressed('attack')) { f.jHeldFrom = time; return this._attack(f); }
     // 流派秘技（三派同一个输入形状）：点按 J = 普通平A（上一行，手感不变），
     // 【按住不放】= 挥到一半那一刀转成本流派的秘技（北神化影三体 / 水神起剑界 / …）。
-    // 挂在已经出手的那一刀上，而不是独立起手 —— 平A 走 JustDown，做成独立起手就得把
+    // 挂在已经出手的那一刀上，而不是独立起手 —— 平A 走按下沿，做成独立起手就得把
     // 平A 推迟到松手判定之后，拿全局手感换一个招。详见 arte.js _startArte 的注释。
-    if (this.keys.J.isDown && f.state === 'attack' && f.jHeldFrom && this._arteCfg(f) &&
+    if (I.held('attack') && f.state === 'attack' && f.jHeldFrom && this._arteCfg(f) &&
         time - f.jHeldFrom >= this._arteCfg(f).holdMs && this._canArte(f, time)) {
       this._startArte(f, time);
     }
@@ -41,7 +41,7 @@ Object.assign(BladeTrinityScene.prototype, {
     // 那是它挡不住东西的根因：玩家有 ~55% 的帧处在 hurt/attack/stun 里读不进按键，
     // 点按落在死区就整个丢掉，实测挡下率只有 15~18%，加缓冲也救不回来
     // （详见 BT.DEFENSE.counter 的注释）。现在输入侧无分叉，差异全在结算里。
-    if (this.keys.S.isDown && onGround && this._canAct(f)) {
+    if (I.held('guard') && onGround && this._canAct(f)) {
       this._startDefense(f, time);
       return;
     }
@@ -52,11 +52,10 @@ Object.assign(BladeTrinityScene.prototype, {
     // （长按态不设 stateUntil），这道闸留着兜底：AI 侧 _aiGuard 会给 guard 加保持时长，
     // 而它走的是 _controlAI 不是这里。谁将来再引入定时 guard，姿态也不会被掐掉。
     if (f.state === 'guard' && f.stateUntil && time < f.stateUntil) return;
-    const left = this.keys.A.isDown || this.cursors.left.isDown;
-    const right = this.keys.D.isDown || this.cursors.right.isDown;
-    const vx = left ? -f.def.speed : right ? f.def.speed : 0;
+    // 固定速度（摇杆在动作层数字化成 -1/0/1，不做模拟速度 —— 不动平衡）
+    const vx = I.moveX() * f.def.speed;
     sp.setVelocityX(vx);
-    if ((this.keys.W.isDown || this.cursors.up.isDown) && onGround) {
+    if (I.held('jump') && onGround) {
       sp.setVelocityY(-BT.JUMP_VY);
       if (this._usage && f === this.p1 && f.state !== 'jump') this._usage.jump++;
     }
@@ -309,6 +308,8 @@ Object.assign(BladeTrinityScene.prototype, {
   // 帝 5 / 神 2，神级 mul.ult=1.4 完全没被读到，表现就是"越强越不放剑气"。
   // 解法是让会拉开的档位（routines 含 zoneOut）把它当成"先创造距离"的信号，而不是放弃。
   _aiUltPlan(f, time, dist, ultMul, canZone) {
+    // 玩家蓄力时不跟蓄：轰飞挪到松手后，AI 跟着变身、先松手就会把玩家的蓄力打断，观感很乱。
+    if (this._opp(f).charging) return null;
     if (time < (f.ultReady || 0)) return null;
     // ⚠️ 起蓄要【留出格挡的蓝】。剑神流 brace 是"蓝够才完全免伤，蓝空退化成 0.45 减伤"，
     // 而奥义一发就扣掉 ultCost=100 —— AI 把蓝全花在剑气上，就会出现用户实测的

@@ -1,0 +1,381 @@
+{
+  "id": "north",
+  "status": "candidate_v6（未经用户最终验收）",
+  "look": "彩条斗篷换成午夜蓝/炭灰战袍 + 银白毛领 + 银扣，红裤与凉鞋保留",
+  "source": {
+    "file": "video_runs/north/source/flow_transform_2026-11-02/north_god_transformation_candidate_v6.mp4",
+    "sha256": "6FBB898984784DD76D098FD9E28DFB0D1F015B4739015401DF5DDE2BE6065BC1",
+    "width": 1280,
+    "height": 720,
+    "fps": 24,
+    "frames": 144,
+    "duration": 6
+  },
+  "segments": {
+    "original": [
+      0,
+      7
+    ],
+    "change": [
+      8,
+      42
+    ],
+    "hold": [
+      43,
+      61
+    ],
+    "release": [
+      62,
+      104
+    ],
+    "finish": [
+      105,
+      143
+    ]
+  },
+  "window": {
+    "width": 557,
+    "height": 604,
+    "left": 384,
+    "top": -16,
+    "pad": {
+      "left": 0,
+      "top": 16,
+      "right": 0,
+      "bottom": 0
+    },
+    "bg": [
+      9,
+      245,
+      19
+    ],
+    "mirror": false
+  },
+  "firstFrame": {
+    "bbox": {
+      "x0": 522,
+      "x1": 757,
+      "y0": 208,
+      "y1": 569
+    },
+    "centroidX": 662
+  },
+  "scale": 0.3445,
+  "effectiveScale": 0.3444,
+  "picks": {
+    "charge": [
+      10,
+      12,
+      13,
+      15,
+      17,
+      18,
+      20,
+      22,
+      23,
+      25,
+      27,
+      29,
+      30,
+      32,
+      34,
+      35,
+      37,
+      39,
+      40,
+      42
+    ],
+    "hold": 45
+  },
+  "atlas": {
+    "file": "game_runs/BladeTrinity/assets/sprites/transform/north.webp",
+    "bytes": 125260,
+    "sha256": "28AED1FBDADB97982BC7166364D5E2A020C0726181130550A9E2849D74D7E522",
+    "width": 4032,
+    "height": 208
+  },
+  "cells": [
+    {
+      "cell": 0,
+      "src": 10,
+      "x0": 48,
+      "x1": 127,
+      "y0": 77,
+      "y1": 201,
+      "w": 80,
+      "h": 125,
+      "area": 4024,
+      "touchesEdge": false
+    },
+    {
+      "cell": 1,
+      "src": 12,
+      "x0": 48,
+      "x1": 127,
+      "y0": 77,
+      "y1": 201,
+      "w": 80,
+      "h": 125,
+      "area": 4010,
+      "touchesEdge": false
+    },
+    {
+      "cell": 2,
+      "src": 13,
+      "x0": 48,
+      "x1": 127,
+      "y0": 77,
+      "y1": 201,
+      "w": 80,
+      "h": 125,
+      "area": 4004,
+      "touchesEdge": false
+    },
+    {
+      "cell": 3,
+      "src": 15,
+      "x0": 48,
+      "x1": 127,
+      "y0": 77,
+      "y1": 201,
+      "w": 80,
+      "h": 125,
+      "area": 3979,
+      "touchesEdge": false
+    },
+    {
+      "cell": 4,
+      "src": 17,
+      "x0": 48,
+      "x1": 127,
+      "y0": 77,
+      "y1": 201,
+      "w": 80,
+      "h": 125,
+      "area": 3965,
+      "touchesEdge": false
+    },
+    {
+      "cell": 5,
+      "src": 18,
+      "x0": 49,
+      "x1": 127,
+      "y0": 77,
+      "y1": 201,
+      "w": 79,
+      "h": 125,
+      "area": 3969,
+      "touchesEdge": false
+    },
+    {
+      "cell": 6,
+      "src": 20,
+      "x0": 49,
+      "x1": 127,
+      "y0": 77,
+      "y1": 201,
+      "w": 79,
+      "h": 125,
+      "area": 3973,
+      "touchesEdge": false
+    },
+    {
+      "cell": 7,
+      "src": 22,
+      "x0": 49,
+      "x1": 127,
+      "y0": 77,
+      "y1": 201,
+      "w": 79,
+      "h": 125,
+      "area": 4009,
+      "touchesEdge": false
+    },
+    {
+      "cell": 8,
+      "src": 23,
+      "x0": 49,
+      "x1": 127,
+      "y0": 77,
+      "y1": 201,
+      "w": 79,
+      "h": 125,
+      "area": 4039,
+      "touchesEdge": false
+    },
+    {
+      "cell": 9,
+      "src": 25,
+      "x0": 49,
+      "x1": 127,
+      "y0": 77,
+      "y1": 201,
+      "w": 79,
+      "h": 125,
+      "area": 4106,
+      "touchesEdge": false
+    },
+    {
+      "cell": 10,
+      "src": 27,
+      "x0": 49,
+      "x1": 127,
+      "y0": 77,
+      "y1": 201,
+      "w": 79,
+      "h": 125,
+      "area": 4217,
+      "touchesEdge": false
+    },
+    {
+      "cell": 11,
+      "src": 29,
+      "x0": 49,
+      "x1": 127,
+      "y0": 77,
+      "y1": 201,
+      "w": 79,
+      "h": 125,
+      "area": 4343,
+      "touchesEdge": false
+    },
+    {
+      "cell": 12,
+      "src": 30,
+      "x0": 49,
+      "x1": 127,
+      "y0": 77,
+      "y1": 201,
+      "w": 79,
+      "h": 125,
+      "area": 4445,
+      "touchesEdge": false
+    },
+    {
+      "cell": 13,
+      "src": 32,
+      "x0": 49,
+      "x1": 127,
+      "y0": 77,
+      "y1": 201,
+      "w": 79,
+      "h": 125,
+      "area": 4541,
+      "touchesEdge": false
+    },
+    {
+      "cell": 14,
+      "src": 34,
+      "x0": 49,
+      "x1": 127,
+      "y0": 77,
+      "y1": 201,
+      "w": 79,
+      "h": 125,
+      "area": 4625,
+      "touchesEdge": false
+    },
+    {
+      "cell": 15,
+      "src": 35,
+      "x0": 49,
+      "x1": 127,
+      "y0": 77,
+      "y1": 201,
+      "w": 79,
+      "h": 125,
+      "area": 4648,
+      "touchesEdge": false
+    },
+    {
+      "cell": 16,
+      "src": 37,
+      "x0": 49,
+      "x1": 127,
+      "y0": 77,
+      "y1": 201,
+      "w": 79,
+      "h": 125,
+      "area": 4678,
+      "touchesEdge": false
+    },
+    {
+      "cell": 17,
+      "src": 39,
+      "x0": 48,
+      "x1": 127,
+      "y0": 77,
+      "y1": 201,
+      "w": 80,
+      "h": 125,
+      "area": 4700,
+      "touchesEdge": false
+    },
+    {
+      "cell": 18,
+      "src": 40,
+      "x0": 48,
+      "x1": 127,
+      "y0": 77,
+      "y1": 201,
+      "w": 80,
+      "h": 125,
+      "area": 4713,
+      "touchesEdge": false
+    },
+    {
+      "cell": 19,
+      "src": 42,
+      "x0": 48,
+      "x1": 127,
+      "y0": 77,
+      "y1": 201,
+      "w": 80,
+      "h": 125,
+      "area": 4715,
+      "touchesEdge": false
+    },
+    {
+      "cell": 20,
+      "src": 45,
+      "x0": 48,
+      "x1": 127,
+      "y0": 77,
+      "y1": 201,
+      "w": 80,
+      "h": 125,
+      "area": 4702,
+      "touchesEdge": false
+    }
+  ],
+  "mainAtlasCells": [
+    {
+      "anim": "idle",
+      "x0": 35,
+      "x1": 127,
+      "y0": 75,
+      "y1": 201,
+      "w": 93,
+      "h": 127,
+      "area": 3333
+    },
+    {
+      "anim": "guard",
+      "x0": 41,
+      "x1": 128,
+      "y0": 75,
+      "y1": 201,
+      "w": 88,
+      "h": 127,
+      "area": 4183
+    }
+  ],
+  "checks": {
+    "anyCellTouchesEdge": false,
+    "footMaxY": 201,
+    "heightRange": [
+      125,
+      125
+    ]
+  }
+}

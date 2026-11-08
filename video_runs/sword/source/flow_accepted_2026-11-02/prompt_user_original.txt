@@ -1,0 +1,196 @@
+Create a 6-second image-to-video animation for a 2D side-view fighting game.
+
+REFERENCE INPUTS:
+Use ref_sword_pad.png as the exact character design reference and starting
+pose. Use sword_attack.mp4 only as a reference for the existing overhead
+downward sword cut, body mechanics and visual style.
+
+If start-frame and end-frame controls are available, use the same padded
+reference image for both.
+
+Do not use a previously generated frame with cropped feet or a cropped
+weapon as the starting image.
+
+CHARACTER IDENTITY:
+Preserve the red-haired female swordswoman exactly as shown:
+same face, long red hair, checkered headband, white martial arts outfit,
+bare feet, wooden bokken, body proportions, colors and painterly anime style.
+
+The ONLY intentional anatomical change is one pair of small canine ears
+gradually emerging from her hair and later disappearing.
+The canine fur matches her existing red hair.
+Preserve the headband and original human facial structure.
+No tail, muzzle, claws, fur-covered body, muscle growth or costume changes.
+
+The ears are anatomical, not costume accessories.
+They suggest an alert, fierce hunting dog rather than a cute pet.
+In side profile, the far canine ear may be partly hidden by the near ear.
+Do not turn the head toward the camera to display both ears.
+
+FRAMING AND SAFETY MARGINS — CRITICAL:
+Adapt the reference to the output aspect ratio by extending the solid green
+background. Never crop the reference or enlarge the character to fill
+the frame.
+
+The character's head-to-foot height should occupy approximately 55–60%
+of the image height.
+Keep the soles at approximately 80% of the image height measured from
+the top, leaving approximately 20% empty green space below the feet.
+
+All visible parts, including the raised sword tip, canine ears, flowing
+hair, hands and both feet, must remain inside the central 80% of the frame
+throughout the entire animation.
+Leave at least 10% empty green clearance from every image edge.
+
+Fit the entire motion envelope, including the highest raised sword
+position and lowest cutting position, inside this safe area.
+If more room is needed, make the entire character smaller before animation.
+Never change character scale or camera framing during the clip.
+
+The entire wooden sword and both feet must remain fully visible in every
+frame. No cropping, no edge contact and no automatic reframing.
+
+CAMERA AND ORIENTATION:
+Static locked orthographic side view.
+The character faces screen LEFT throughout the entire clip.
+Maintain the reference's left-facing side profile.
+The face, chest and pelvis must never turn toward the viewer.
+No front view, no three-quarter turn, no rotation into screen depth.
+
+All sword movement occurs within the vertical plane parallel to the screen.
+Both feet remain on the same fixed horizontal baseline.
+No forward travel, dash, jump or sliding across the frame.
+
+ACTION — ONE COMPLETE SEQUENCE:
+
+0.0–0.5 seconds — NORMAL START:
+Hold the exact normal battle stance from the starting reference.
+No canine ears are visible.
+Keep the eyes open and focused to the LEFT.
+
+0.5–2.0 seconds — SUBTLE CHARGING TRANSFORMATION:
+Tighten the two-handed grip on the wooden bokken.
+Bend the knees slightly and settle the weight while retaining the existing
+high overhead sword stance.
+Use only small posture adjustments.
+Do not deeply crouch, hunch onto all fours or introduce a large wind-up.
+
+One pair of small canine ears gradually grows out of the hair.
+Show intermediate stages: small emerging tips, partially formed ears,
+then complete small canine ears.
+Do not make the ears appear in a single sudden pop.
+As they develop, the ears angle slightly backward.
+Keep the face, body size, clothing and weapon unchanged.
+
+2.0–3.0 seconds — CHARGED HOLD:
+Maintain the completed canine-ear form and overhead ready stance.
+Both hands remain high near or above the head.
+The sword tip is above and slightly behind the head.
+Use only subtle breathing and very small natural hair and ear movement.
+Keep both hands firmly attached to the same sword grip.
+No additional transformation develops.
+
+3.0–3.2 seconds — COMPRESSED ANTICIPATION:
+Briefly tighten the overhead stance.
+Sink the knees a little further and load the rear leg.
+Keep the hands high and draw the elbows slightly back.
+The canine ears press backward slightly.
+Keep the eyes open with a fierce, concentrated expression.
+Hold this compressed pose for a short, clearly readable beat.
+
+The small movement restriction applies to charging and transformation.
+It must NOT weaken or shorten the following sword cut.
+
+3.2–3.65 seconds — EXPLOSIVE OVERHEAD DOWNWARD CUT:
+Perform ONE forceful, committed downward sword cut toward screen LEFT.
+
+Suddenly drive through the legs and transfer weight onto the front foot.
+The hips initiate the force, followed immediately by the torso, shoulders,
+elbows and both hands.
+The whole body drives the sword; this is not an arms-only swing.
+
+Use clear acceleration:
+start from the held overhead position, accelerate rapidly through the
+cutting arc, then decelerate firmly into the finishing pose.
+Do not move at a slow constant speed.
+Do not gently lower the sword.
+
+The hands descend from above the head, passing in front of the face
+and chest, and finish in front of the waist.
+The sword tip follows a steep downward arc toward the lower LEFT.
+Finish with the sword tip pointing down-left and lower than the hands.
+
+The cut must read as an overhead downward chop.
+It must NOT become a horizontal waist-level sweep, sideways slash,
+spinning attack or thrust.
+
+Maintain the left-facing side profile.
+Do not rotate the chest toward the camera to perform the attack.
+Keep the feet within their original footprint, allowing only a small,
+natural heel lift during weight transfer.
+
+The canine ears remain fully present throughout the cut.
+Animate only the physical character and wooden sword.
+Do not draw sword energy or a projectile.
+
+3.65–4.0 seconds — STRONG FINISHING HOLD:
+The front knee bends firmly to receive the weight.
+The rear leg braces and the torso inclines forward moderately.
+Stop both hands decisively in front of the waist.
+Keep a slight natural bend in the elbows.
+The sword points down-left, with its tip lower than the hands.
+
+Hair and loose sleeves follow the physical motion:
+they lag behind the initial acceleration, then continue forward briefly
+as the body stops and settle naturally.
+No exaggerated stretching or enlarged hair volume.
+
+Hold the completed cutting pose visibly before recovering.
+Create a clear impression of weight, control and a completed strike.
+Do not immediately bounce the sword back up.
+
+4.0–5.5 seconds — RECOVERY AND REVERSE TRANSFORMATION:
+Recover naturally from the finishing pose.
+Shift the weight back into the original balanced stance and raise the
+wooden sword back to its exact starting position.
+
+During recovery, the canine ears gradually shorten and disappear back
+into the hair.
+Show the anatomical reversal clearly.
+Do not hide the change behind effects, a head turn or a camera movement.
+Do not reverse-play the attack.
+
+Restore the original hair silhouette and normal human appearance.
+Keep the same face, clothing, weapon and body proportions.
+
+5.5–6.0 seconds — EXACT NORMAL END:
+Hold the original normal battle stance with no canine ears.
+Match the starting frame's pose, sword angle, hand positions, foot
+positions, character scale and screen position as closely as possible.
+The final pose must connect seamlessly to the normal idle animation.
+No extra attack, flourish or movement after returning to the start pose.
+
+ANIMATION QUALITY:
+The force comes from compressed anticipation, sudden acceleration,
+coordinated whole-body movement and a firm finishing hold.
+Use crisp, readable frames with clean edges and zero motion blur.
+Keep the physical wooden sword consistent in length, shape and rigidity.
+Both hands must maintain a believable continuous grip.
+
+BACKGROUND AND EFFECTS:
+Pure flat opaque green background, hex #00FF00.
+Every pixel outside the character and her wooden sword must be solid green.
+Flat even lighting.
+No ground, floor, platform, cast shadow, scenery, text or watermark.
+
+Only animate the character, her anatomical canine ears, her existing
+hair and clothing, and her physical wooden sword.
+
+Absolutely no sword beam, white crescent, glowing blade, slash trail,
+afterimage, aura, particles, smoke, dust, sparks or magic circle.
+The game program will generate all projectiles and visual effects later.
+
+OUTPUT:
+One continuous 6-second clip, 24 fps.
+Square framing matching the padded reference image.
+One character, one transformation cycle, one downward cut.

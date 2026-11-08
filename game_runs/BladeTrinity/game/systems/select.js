@@ -8,7 +8,8 @@ Object.assign(BladeTrinityScene.prototype, {
     this.selTitle = this.add.text(BT.GAME_W / 2, 52, '选择你的流派 —— 挑翻另两家，登顶擂台', {
       fontFamily: 'Segoe UI, monospace', fontSize: '26px', color: '#f7ecd8', fontStyle: 'bold',
     }).setOrigin(0.5);
-    const tip = this.add.text(BT.GAME_W / 2, BT.GAME_H - 22, 'A / D 选流派　·　↑ / ↓ 选难度　·　SPACE / J 确认', {
+    // 文案随输入设备切换（Joy-Con 在线时换成手柄键，见 input.js _selectTipText）
+    const tip = this.selTip = this.add.text(BT.GAME_W / 2, BT.GAME_H - 22, this._selectTipText(), {
       fontFamily: 'Segoe UI, monospace', fontSize: '16px', color: '#c9b79a',
     }).setOrigin(0.5);
     this.selGroup.add([this.selTitle, tip]);
@@ -92,7 +93,10 @@ Object.assign(BladeTrinityScene.prototype, {
 
   _selectMove(d) {
     if (this.phase !== 'select') return;
-    this.selCursor[0] = Phaser.Math.Wrap(this.selCursor[0] + d, 0, BT.ROSTER.length);
+    // ⚠️ 不用 Phaser.Math.Wrap：3.60 的实现对 [min, max] 内的值直接原样返回（max 含在内），
+    // Wrap(3, 0, 3) === 3 —— 从最后一家再按右会落到不存在的第 4 格（选框移出画面，确认时回落成剑神流）。
+    const n = BT.ROSTER.length;
+    this.selCursor[0] = (this.selCursor[0] + d + n) % n;
     this._refreshSelect();
   },
 

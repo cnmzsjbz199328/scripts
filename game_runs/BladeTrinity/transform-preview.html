@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>三剑流 · 蓄力变装预览</title>
+  <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #0b0f19; color: #e8e2d6; font-family: 'Segoe UI', 'Microsoft YaHei', monospace;
+      display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 12px; }
+    h1 { font-size: 17px; font-weight: 600; letter-spacing: 0.06em; }
+    #stage { border: 2px solid #c9714a; border-radius: 6px; overflow: hidden; width: min(960px, 100%); }
+    #stage canvas { display: block; width: 100% !important; height: auto !important; }
+    .bar { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; justify-content: center; max-width: 960px; }
+    .bar span.lbl { color: #9aa3b5; font-size: 13px; margin-right: 2px; }
+    button { background: #1e293b; color: #e8e2d6; border: 1px solid #334155; border-radius: 4px;
+      padding: 5px 10px; font: inherit; font-size: 13px; cursor: pointer; }
+    button.on { background: #c9714a; border-color: #c9714a; color: #120a06; }
+    input[type=range] { width: min(520px, 70vw); }
+    #status { font-size: 12px; color: #9aa3b5; min-height: 1.4em; text-align: center; max-width: 960px; }
+    p.note { font-size: 12px; color: #7c8597; max-width: 960px; text-align: center; line-height: 1.5; }
+  </style>
+</head>
+<body>
+  <h1>蓄力变装预览 · 左右两人同一流派（左人朝右 = 镜像，右人朝左 = 素材原向）</h1>
+  <div id="stage"></div>
+  <div class="bar" id="schools"><span class="lbl">流派</span></div>
+  <div class="bar" id="bgs"><span class="lbl">背景</span></div>
+  <div class="bar">
+    <span class="lbl">蓄力 <b id="pct">0%</b></span>
+    <input id="prog" type="range" min="0" max="100" step="1" value="0">
+  </div>
+  <div class="bar">
+    <button id="hold">按住蓄力（按 BT.CHARGE.fullMs 走）</button>
+    <button id="release">松手释放</button>
+    <button id="cancel">取消（掉线/失焦）</button>
+    <button id="srcplay">按源片原速走一遍（不循环）</button>
+  </div>
+  <div id="status"></div>
+  <p class="note">与对局同一套 BT.Transform（game/systems/transformation.js）。进度只由拖动条 / 蓄力时长决定，满蓄停在保持帧；
+    松手：≥ minFrac 播原挥砍 + 服饰回落，&lt; minFrac 按取消收。对局里另有描边与剑气，见 index.html。</p>
+
+  <script src="game/config.js"></script>
+  <script src="assets/bg/manifest.js"></script>
+  <script src="assets/sprites/atlases.js"></script>
+  <script src="assets/sprites/transformations.js"></script>
+  <script src="game/data.js"></script>
+  <script src="game/systems/transformation.js"></script>
+  <script>
+  (function () {
+    const FOOT_Y = BT.FLOOR_Y - (BT.FRAME_H - 6 - BT.FRAME_H / 2) * BT.SCALE;   // 脚底基线 202 → 台面
+    const BGS = { dojo: '道场', outdoor: '雪山', black: '黑', white: '白', warm: '暖', magenta: '洋红' };
+    const FLAT = { black: 0x000000, white: 0xffffff, warm: 0xc9905a, magenta: 0xff00ff };
+    const st = { id: BT.ROSTER[0], bg: 'dojo', mode: 'idle', p: 0, holdFrom: 0, srcFrom: 0, errors: [] };
+    let scene = null;
+
+    class TransformPreview extends Phaser.Scene {
+      constructor() { super('TransformPreview'); }
+      preload() {
+        this.load.on('loaderror', (f) => st.errors.push(f.src));
+        for (const id of BT.ROSTER) {
+          this.load.spritesheet(id, `assets/sprites/${id}.webp`, { frameWidth: BT.FRAME_W, frameHeight: BT.FRAME_H });
+        }
+        BT.Transform.preload(this);
+        const have = window.BLADE_BG || [];
+        for (const layers of Object.values(BT.BG_SETS)) for (const l of layers) {
+          if (!l.animFrames && have.includes(`${l.key}.webp`)) this.load.image(l.key, `assets/bg/${l.key}.webp`);
+          if (l.animFrames && have.includes(`${l.key}_a0.webp`)) this.load.image(`${l.key}_a0`, `assets/bg/${l.key}_a0.webp`);
+        }
+      }
+      create() {
+        scene = this;
+        for (const id of BT.ROSTER) {
+          const a = BT.ATLAS[id], cols = a.dimensions.width / BT.FRAME_W;
+          for (const act of ['idle', 'attack']) {
+            const r = a.animations[act], key = `${id}_${act}`;
+            const fps = act === 'attack' ? BT.ATTACK[id].fps : (BT.ANIM[act] || { fps: 12 }).fps;
+            this.anims.create({ key, frameRate: fps, repeat: act === 'idle' ? -1 : 0,
+              frames: Array.from({ length: Math.min(BT.CLIP[key] || r.frameCount, r.frameCount) },
+                (_, i) => ({ key: id, frame: r.row * cols + i })) });
+          }
+        }
+        this.flat = this.add.rectangle(BT.GAME_W / 2, BT.GAME_H / 2, BT.GAME_W, BT.GAME_H, 0).setDepth(-200);
+        this.bgLayers = {};
+        for (const [name, layers] of Object.entries(BT.BG_SETS)) {
+          this.bgLayers[name] = layers.map((l) => {
+            const k = l.animFrames ? `${l.key}_a0` : l.key;
+            if (!this.textures.exists(k)) return null;
+            return this.add.image(BT.GAME_W / 2, 0, k).setOrigin(0.5, 0)
+              .setScale(l.scaleX || l.scale, l.scale).setDepth(l.depth);
+          }).filter(Boolean);
+        }
+        this.floor = this.add.graphics().setDepth(30);
+        // 左人朝右（flipX = 镜像），右人朝左（素材原向）—— 两个方向一次看全
+        this.fighters = [
+          { side: 'L', x: 300, flip: true }, { side: 'R', x: 660, flip: false },
+        ].map((o) => ({ ...o, id: null, sprite: this.add.sprite(o.x, FOOT_Y, BT.ROSTER[0]).setScale(BT.SCALE).setDepth(10), tf: null }));
+        // 挥砍播完回 idle：每个 sprite 只挂这一个监听（不按次 once，被取消打断的那次不会残留）
+        this.fighters.forEach((f) => f.sprite.on(Phaser.Animations.Events.ANIMATION_COMPLETE, (anim) => {
+          if (!f.tf && /_attack$/.test(anim.key)) f.sprite.play(`${f.id}_idle`, true);
+        }));
+        setSchool(st.id); setBg(st.bg);
+      }
+      update(time) {
+        if (st.mode === 'hold') setP((time - st.holdFrom) / BT.CHARGE.fullMs, true);
+        if (st.mode === 'src') {
+          const a = BT.Transform.atlas(st.id), n = a.chargeFrames.length;
+          const k = Math.floor((time - st.srcFrom) / 1000 * a.previewFps);
+          if (k >= n) { setP(1, true); st.mode = 'held'; } else setP(k / n, true);
+        }
+        this.floor.clear().lineStyle(1, 0x00ffff, 0.6).lineBetween(0, BT.FLOOR_Y, BT.GAME_W, BT.FLOOR_Y);
+        status();
+      }
+    }
+
+    function eachF(fn) { if (scene) scene.fighters.forEach(fn); }
+    function begin() {
+      let ok = true;
+      eachF((f) => { if (!f.tf) ok = BT.Transform.begin(scene, f) && ok; f.sprite.setFlipX(f.flip); });
+      return ok;
+    }
+    function setP(p, fromLoop) {
+      st.p = Phaser.Math.Clamp(p, 0, 1);
+      if (!fromLoop) st.mode = st.p >= 1 ? 'held' : 'drag';
+      eachF((f) => { if (!f.tf) BT.Transform.begin(scene, f); BT.Transform.setProgress(scene, f, st.p); });
+      document.getElementById('prog').value = Math.round(st.p * 100);
+      document.getElementById('pct').textContent = Math.round(st.p * 100) + '%';
+    }
+    // 收蓄：与对局一致 —— ≥ minFrac 出原挥砍（播完回 idle），否则按取消
+    function finish(how) {
+      const rel = how === 'release' && st.p >= BT.CHARGE.minFrac;
+      const endHow = rel ? 'release' : (how === 'silent' ? 'silent' : 'cancel');
+      eachF((f) => {
+        BT.Transform.end(scene, f, endHow);
+        if (rel) f.sprite.play(`${f.id}_attack`, true);
+        f.sprite.setFlipX(f.flip);
+      });
+      st.mode = 'idle'; st.p = 0;
+      document.getElementById('prog').value = 0; document.getElementById('pct').textContent = '0%';
+    }
+    function setSchool(id) {
+      if (!scene) { st.id = id; return; }
+      eachF((f) => { BT.Transform.end(scene, f, 'silent'); f.id = id; f.sprite.play(`${id}_idle`, true).setFlipX(f.flip); });
+      st.id = id; st.mode = 'idle'; st.p = 0;
+      document.querySelectorAll('#schools button').forEach((b) => b.classList.toggle('on', b.dataset.id === id));
+      document.getElementById('prog').value = 0; document.getElementById('pct').textContent = '0%';
+    }
+    function setBg(name) {
+      st.bg = name;
+      if (scene) {
+        for (const [k, layers] of Object.entries(scene.bgLayers)) layers.forEach((im) => im.setVisible(k === name));
+        scene.flat.setFillStyle(FLAT[name] !== undefined ? FLAT[name] : 0x1a1430);
+      }
+      document.querySelectorAll('#bgs button').forEach((b) => b.classList.toggle('on', b.dataset.bg === name));
+    }
+    function status() {
+      const f = scene.fighters[1], a = BT.Transform.atlas(st.id);
+      const idx = f.tf ? f.tf.idx : null;
+      const src = idx == null ? '' : (idx === a.holdFrame ? `保持帧 · 源 f${a.srcHoldFrame}` : `格 ${idx} · 源 f${a.srcFrames[idx]}`);
+      document.getElementById('status').textContent =
+        `${BT.SCHOOLS[st.id].name}　${st.mode}　p=${st.p.toFixed(2)}　${src}　纹理=${f.sprite.texture.key}` +
+        `　显示对象=${scene.children.length}　补间=${scene.tweens.getTweens().length}` +
+        (st.errors.length ? `　⚠ 加载失败 ${st.errors.join(', ')}` : '');
+    }
+
+    for (const id of BT.ROSTER) {
+      const b = document.createElement('button'); b.dataset.id = id; b.textContent = BT.SCHOOLS[id].name;
+      b.onclick = () => setSchool(id); document.getElementById('schools').appendChild(b);
+    }
+    for (const [k, n] of Object.entries(BGS)) {
+      const b = document.createElement('button'); b.dataset.bg = k; b.textContent = n;
+      b.onclick = () => setBg(k); document.getElementById('bgs').appendChild(b);
+    }
+    document.getElementById('prog').oninput = (e) => setP(e.target.value / 100);
+    document.getElementById('hold').onclick = () => { finish('silent'); begin(); st.mode = 'hold'; st.holdFrom = scene.time.now; };
+    document.getElementById('srcplay').onclick = () => { finish('silent'); begin(); st.mode = 'src'; st.srcFrom = scene.time.now; };
+    document.getElementById('release').onclick = () => finish('release');
+    document.getElementById('cancel').onclick = () => finish('cancel');
+
+    // 自动化钩子（tools/transform-check.mjs 用）
+    window.__tfPreview = {
+      ready: () => !!scene, state: () => ({ ...st, children: scene.children.length, tweens: scene.tweens.getTweens().length,
+        listeners: scene.fighters.map((f) => f.sprite.eventNames().reduce((n, e) => n + f.sprite.listenerCount(e), 0)),
+        fighters: scene.fighters.map((f) => ({ side: f.side, tex: f.sprite.texture.key, frame: f.sprite.frame.name, flipX: f.sprite.flipX,
+          anim: f.sprite.anims.currentAnim && f.sprite.anims.currentAnim.key, playing: f.sprite.anims.isPlaying, tf: f.tf && { ...f.tf } })) }),
+      setSchool, setBg, setP, release: () => finish('release'), cancel: () => finish('cancel'),
+      hold: () => document.getElementById('hold').click(), srcPlay: () => document.getElementById('srcplay').click(),
+    };
+
+    new Phaser.Game({ type: Phaser.AUTO, width: BT.GAME_W, height: BT.GAME_H, parent: 'stage',
+      backgroundColor: '#1a1430', audio: { noAudio: true }, scene: TransformPreview });
+  })();
+  </script>
+</body>
+</html>

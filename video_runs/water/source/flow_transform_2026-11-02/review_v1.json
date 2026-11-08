@@ -1,0 +1,21 @@
+{
+  "character": "Water God",
+  "status": "candidate_reviewed_needs_water_motif_revision",
+  "source_image": "ref_water_wide_padded.png",
+  "prompt_file": "prompt_flow.txt",
+  "flow_project": "https://flow.google.com/project/b8c063ee-a5a5-4741-9b49-e4f462b2d80c",
+  "flow_edit": "https://flow.google.com/project/b8c063ee-a5a5-4741-9b49-e4f462b2d80c/edit/461facc7-fa50-4555-ac1a-f40245085849",
+  "output": "water_god_transformation_candidate_v1.mp4",
+  "resolution": "1280x720",
+  "duration_seconds": 6.037333,
+  "sampled_seconds": [
+    0,
+    1.49,
+    3.3,
+    4.34,
+    5.63
+  ],
+  "review_screenshot": "water_review_parry.png",
+  "findings": "Low guard and compact parry are visible; character, feet and sword stay in frame and return to starting pose. Blue-white water motif is not clearly visible; candidate kept as fallback.",
+  "sha256": "E8AF5F620A3C8E8BD67E1D833231CE88EC38523099D078BF5E7476225580AB20"
+}

@@ -1,0 +1,27 @@
+{
+  "name": "BladeTrinityTransform/sword",
+  "created_at": "2026-11-02T09:57:39.837Z",
+  "animations": {
+    "charge": {
+      "frameSize": {
+        "width": 192,
+        "height": 208
+      },
+      "frameCount": 19,
+      "fps": 24,
+      "loop": false,
+      "status": "completed",
+      "crop": [
+        0,
+        0,
+        525,
+        569
+      ],
+      "updated_at": "2026-11-02T09:57:44.248Z"
+    }
+  },
+  "frameSize": {
+    "width": 192,
+    "height": 208
+  }
+}

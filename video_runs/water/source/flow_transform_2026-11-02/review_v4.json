@@ -1,0 +1,44 @@
+{
+  "character": "Water God",
+  "status": "candidate_reviewed_not_user_approved",
+  "source_image": "ref_water_wide_padded.png",
+  "prompt_file": "prompt_flow_v4.txt",
+  "flow_project": "https://flow.google.com/project/b8c063ee-a5a5-4741-9b49-e4f462b2d80c",
+  "flow_edit": "https://flow.google.com/project/b8c063ee-a5a5-4741-9b49-e4f462b2d80c/edit/e45a9736-87e5-45eb-999a-1193fcbd2bad",
+  "generation": {
+    "model": "Omni 1.1 Flash",
+    "aspect_ratio": "16:9",
+    "resolution": "1280x720",
+    "duration_seconds": 6.037333,
+    "frame_rate": "24/1",
+    "codec": "h264",
+    "file_size_bytes": 2155922
+  },
+  "output": "water_god_transformation_candidate_v4.mp4",
+  "sha256": "6697C73021DA643B9A6474BA2CC0A1A9E53B8B1ABDC1A5112BB17AC399F00043",
+  "sampled_seconds": [0, 1.0, 3.0, 4.0, 5.6],
+  "review_screenshots": [
+    "water_review_v4_guard.png",
+    "water_review_v4_parry.png",
+    "water_review_v4_return.png"
+  ],
+  "findings": "Low guard and compact raised-sword parry are visible. Character and entire sword remain inside the frame; no large rays or starburst spill onto the green background. The turquoise blade mark is visible but renders as a bright cyan curved accent with a small flourish near the tip, rather than a strictly flat non-emissive decal. The pose returns to the original stance by about 5.6 seconds. Suitable as the safest current Water God motion candidate, with this minor effect-style deviation disclosed.",
+  "attempt_history": [
+    {
+      "version": "v1",
+      "result": "Safe framing and movement; water motif was not visible."
+    },
+    {
+      "version": "v2",
+      "result": "Rejected: large cross/starburst rays spilled across the frame."
+    },
+    {
+      "version": "v3",
+      "result": "Safe framing and movement; water motif was not visible."
+    },
+    {
+      "version": "v4",
+      "result": "Current candidate: visible cyan blade mark, with slight brightness/flourish deviation."
+    }
+  ]
+}

@@ -46,6 +46,18 @@
       "source": "source/turn_ccw_generated_raw.png",
       "mirroredFromFrame": 4,
       "updated_at": "2026-09-10T00:00:00.000Z"
+    },
+    "cornerTurnCW": {
+      "frameSize": {
+        "width": 216,
+        "height": 232
+      },
+      "frameCount": 5,
+      "fps": 16,
+      "loop": false,
+      "status": "completed",
+      "source": "generated from cornerTurnCCW with reversed timing and contact-preserving local transforms",
+      "updated_at": "2026-09-10T00:00:00.000Z"
     }
   },
   "frameSize": {

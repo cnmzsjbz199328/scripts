@@ -1,0 +1,24 @@
+{
+  "version": "v5",
+  "status": "superseded_head_turn",
+  "reviewedOn": "2026-11-02",
+  "flowEditUrl": "https://flow.google.com/project/b8c063ee-a5a5-4741-9b49-e4f462b2d80c/edit/817fbbf8-246f-4d48-bfeb-edbae8cb275a",
+  "visualInput": "ref_north_wide_padded.png (sole visual input and opening frame)",
+  "prompt": "prompt_flow_v5.txt",
+  "video": "Flow-hosted asset; local 720p download did not appear in Downloads",
+  "sampledSeconds": [
+    0,
+    1.5,
+    2.5,
+    3.5,
+    4.8
+  ],
+  "observations": [
+    "The opening frame is about 50% of the video-frame height. At approximately 1.5 seconds the figure remains about the same height; during the bent sword action at 2.5–3.5 seconds it becomes slightly shorter, not larger; the finishing guard is close to the opening scale.",
+    "The character stays centered and the camera framing remains fixed. No uncontrolled mid-clip enlargement is visible; the earlier v4 scale problem appears corrected.",
+    "The striped tunic changes into a clearly distinct dark navy/charcoal coat with silver-white shoulder mantle, silver edging, and chest fasteners.",
+    "White hair and face, red trousers, both swords, and attached sandals are retained; the full figure and swords remain inside the frame.",
+    "A small localized translucent slash arc appears during the sword action despite the no-trail instruction; it stays well inside the frame."
+  ],
+  "summary": "Scale-review pass, but the user identified unwanted head turning. Superseded by v6 with explicit head and gaze lock; retained as a backup."
+}

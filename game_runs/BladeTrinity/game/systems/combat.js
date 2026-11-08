@@ -51,7 +51,7 @@ Object.assign(BladeTrinityScene.prototype, {
 
   // ─────────── 特效 ───────────
   _ghost(f) {
-    const g = this.add.image(f.sprite.x, f.sprite.y, f.id, f.sprite.frame.name)
+    const g = this.add.image(f.sprite.x, f.sprite.y, f.sprite.texture.key, f.sprite.frame.name)
       .setScale(BT.SCALE).setFlipX(f.sprite.flipX).setDepth(9)
       .setAlpha(0.34).setTint(0x8fa8d0);
     this.tweens.add({ targets: g, alpha: 0, duration: 230, onComplete: () => g.destroy() });

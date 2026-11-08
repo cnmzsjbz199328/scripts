@@ -1,0 +1,23 @@
+{
+  "project": "BladeTrinity",
+  "character": "sword",
+  "assetType": "fighting animation with canine-ear transformation",
+  "status": "user_accepted",
+  "archivedOn": "2026-11-02",
+  "sourceDownloadName": "Swordswoman_animation_fighting_g…_16356fe9.mp4",
+  "video": "swordswoman_transformation_accepted.mp4",
+  "sourceImage": "ref_sword_wide_padded.png",
+  "originalPrompt": "prompt_user_original.txt",
+  "flowPrompt": "prompt_flow_used.txt",
+  "settings": {
+    "durationSeconds": 6,
+    "framesPerSecond": 24,
+    "resolution": "720p",
+    "aspectRatio": "16:9",
+    "model": "Omni 1.1 Flash",
+    "firstAndLastFrame": "ref_sword_wide_padded.png"
+  },
+  "sourceSha256": "E2D12D32D2F0AE58A2E49D11A7D722952222A5E9B7C4A86C9C452A26F42E9178",
+  "archivedSha256": "E2D12D32D2F0AE58A2E49D11A7D722952222A5E9B7C4A86C9C452A26F42E9178",
+  "imageSha256": "7232BA026446923B5AE9F2B30BE2B520A2B1756C216222F4D89736BC38CB9611"
+}

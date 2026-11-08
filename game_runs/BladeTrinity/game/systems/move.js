@@ -22,10 +22,8 @@ Object.assign(BladeTrinityScene.prototype, {
     if (mode === 'rise') {
       y1 = Math.max(120, y0 - BT.BLINK.riseH);      // 别冲出画面顶
     } else {
-      // 缩地方向：优先取当前按住的左右键，否则朝当前面向（向前）
-      const left = this.keys.A.isDown || this.cursors.left.isDown;
-      const right = this.keys.D.isDown || this.cursors.right.isDown;
-      const dir = left ? -1 : right ? 1 : (f.facingLeft ? -1 : 1);
+      // 缩地方向：优先取当前按住的左右（键盘 A/D·←/→，手柄摇杆/方向键），否则朝当前面向（向前）
+      const dir = this._in.moveX() || (f.facingLeft ? -1 : 1);
       x1 = this._clampX(x0 + dir * BT.BLINK.dist);
     }
 
@@ -62,11 +60,11 @@ Object.assign(BladeTrinityScene.prototype, {
 
   // 沿瞬移路径插值几个渐隐分身——移形换影的"影"
   _blinkGhosts(f, x0, y0, x1, y1) {
-    const n = BT.BLINK.ghosts, frame = f.sprite.frame.name;
+    const n = BT.BLINK.ghosts, tex = f.sprite.texture.key, frame = f.sprite.frame.name;
     for (let k = 0; k < n; k++) {
       const t = n > 1 ? k / (n - 1) : 1;
       const img = this.add.image(Phaser.Math.Linear(x0, x1, t), Phaser.Math.Linear(y0, y1, t),
-        f.id, frame).setScale(BT.SCALE).setFlipX(f.sprite.flipX)
+        tex, frame).setScale(BT.SCALE).setFlipX(f.sprite.flipX)
         .setDepth(9).setAlpha(0.5 * (1 - t * 0.6)).setTint(0x8fc8ff);
       this.tweens.add({ targets: img, alpha: 0, duration: 280,
         onComplete: () => img.destroy() });

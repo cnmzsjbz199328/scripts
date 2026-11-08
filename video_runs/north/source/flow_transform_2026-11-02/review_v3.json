@@ -1,0 +1,26 @@
+{
+  "version": "v3",
+  "status": "candidate-with-artifact",
+  "reviewedOn": "2026-11-02",
+  "flowEditUrl": "https://flow.google.com/project/b8c063ee-a5a5-4741-9b49-e4f462b2d80c/edit/472d3edd-8192-490f-aa59-ac996afa1092",
+  "visualInput": "ref_north_wide_padded.png (sole visual input and opening frame)",
+  "video": "north_god_transformation_candidate_v3.mp4",
+  "sha256": "D2B79262297D74586BCA2EDAB394ACC18E02FF21184193E6DE93C49D4A973102",
+  "sampledSeconds": [
+    0,
+    0.5,
+    1,
+    2,
+    2.5,
+    3,
+    4.5,
+    5.75
+  ],
+  "observations": [
+    "The striped poncho clearly changes to a dark navy coat with silver-white shoulder trim by about 2 seconds and stays changed through the final guard.",
+    "White hair, recognizable face, and two swords are preserved; full body and swords remain inside frame.",
+    "At about 1 second, small detached shoe-like shapes appear below the feet during the footwear change; this is why v4 keeps the original sandals unchanged.",
+    "A large localized white slash arc appears during the attack."
+  ],
+  "summary": "Costume change is successful, but the transient footwear artifact makes this a backup candidate pending v4 review."
+}

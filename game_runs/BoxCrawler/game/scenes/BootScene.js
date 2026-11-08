@@ -17,7 +17,7 @@ class BootScene extends Phaser.Scene {
     const G = window.BC.Game;
     G.auto = !!navigator.webdriver;
 
-    // 三个动画（图集 14 列，帧号 = row*14 + col）
+    // 四个动作（图集 14 列，帧号 = row*14 + col）
     const A = this.anims;
     const S = window.BC.Config.SPRITE;
     const cornerStart = S.CORNER_TURN_START + S.CORNER_TURN_SKIP;
@@ -25,6 +25,7 @@ class BootScene extends Phaser.Scene {
       A.create({ key: 'crawl',       frames: A.generateFrameNumbers('crawler', { start: S.CRAWL_START, end: S.CRAWL_START + 7 }), frameRate: 10, repeat: -1 });
       A.create({ key: 'turnAround',  frames: A.generateFrameNumbers('crawler', { start: 0,  end: 13 }), frameRate: 14, repeat: 0 });
       A.create({ key: 'cornerTurnCCW', frames: A.generateFrameNumbers('crawler', { start: cornerStart, end: cornerStart + S.CORNER_TURN_COUNT - 1 }), frameRate: 16, repeat: 0 });
+      A.create({ key: 'cornerTurnCW', frames: A.generateFrameNumbers('crawler', { start: S.CORNER_TURN_CW_START, end: S.CORNER_TURN_CW_START + S.CORNER_TURN_COUNT - 1 }), frameRate: 16, repeat: 0 });
     }
 
     // 箱体底纹

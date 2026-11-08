@@ -1,0 +1,27 @@
+{
+  "name": "BladeTrinityTransform/north",
+  "created_at": "2026-11-02T09:58:11.485Z",
+  "animations": {
+    "charge": {
+      "frameSize": {
+        "width": 192,
+        "height": 208
+      },
+      "frameCount": 21,
+      "fps": 24,
+      "loop": false,
+      "status": "completed",
+      "crop": [
+        0,
+        0,
+        557,
+        604
+      ],
+      "updated_at": "2026-11-02T09:58:15.874Z"
+    }
+  },
+  "frameSize": {
+    "width": 192,
+    "height": 208
+  }
+}

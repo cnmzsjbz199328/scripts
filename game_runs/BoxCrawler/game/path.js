@@ -63,16 +63,19 @@ window.BC = window.BC || {};
     return { x: Math.sin(angle), y: -Math.cos(angle) };
   }
 
-  // 内部顶点的转角（度）：[{ s, deg, idx }]
+  // 内部顶点的有符号转角（度）：[{ s, deg, absDeg, sign, idx }]
+  // The path is authored in screen coordinates (y grows downward), while
+  // the gameplay convention calls the floor -> right-wall turn CCW. Negate
+  // the screen-space cross product to keep that convention stable.
   function corners(pts) {
     const vs = vertexS(pts), out = [];
     for (let i = 1; i < pts.length - 1; i++) {
       const p0 = pts[i - 1], p1 = pts[i], p2 = pts[i + 1];
-      const a1 = Math.atan2(p1[1] - p0[1], p1[0] - p0[0]);
-      const a2 = Math.atan2(p2[1] - p1[1], p2[0] - p1[0]);
-      let d = Math.abs(a2 - a1);
-      if (d > Math.PI) d = 2 * Math.PI - d;
-      out.push({ s: vs[i], deg: d * 180 / Math.PI, idx: i });
+      const dx1 = p1[0] - p0[0], dy1 = p1[1] - p0[1];
+      const dx2 = p2[0] - p1[0], dy2 = p2[1] - p1[1];
+      const turn = Math.atan2(-(dx1 * dy2 - dy1 * dx2), dx1 * dx2 + dy1 * dy2);
+      const deg = turn * 180 / Math.PI;
+      out.push({ s: vs[i], deg, absDeg: Math.abs(deg), sign: Math.sign(deg), idx: i });
     }
     return out;
   }

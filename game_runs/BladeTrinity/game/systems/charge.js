@@ -1,10 +1,11 @@
 /* BladeTrinity — 蓄力奥义 + 剑气弹幕。
  *
- * 玩法闭环：按住 L 蓄力（边蓄边扣蓝、起浪弹开近敌、头顶弹出招式名）→ 松手放出
+ * 玩法闭环：按住 L 蓄力（边蓄边扣蓝、头顶弹出招式名，对手不受影响）→ 松手轰飞对手并放出
  * 【等比】剑气月牙 → 剑气脱离角色飞行、越飞越大越淡 → 命中/被防/被反弹。
  *
- * 风险不在"蓄力被打断"（起浪把近敌推开了），而在"这一发打空 = 蓝白花"：剑气有
- * 飞行时间，对手能闪能防能反弹。三防御各有不同结果，见 _qiVsTarget。
+ * 风险有两头。松手前：轰飞要到松手才结算，贴身蓄力可能被走过来的对手打断（已扣的蓝不退）。
+ * 松手后："这一发打空 = 蓝白花"：剑气有飞行时间，对手能闪能防能反弹。三防御各有不同结果，
+ * 见 _qiVsTarget。
  *
  * ⚠️ 特效目前是占位（竖椭圆气团 + 系统字大字）。月牙「前厚后稀疏」与艺术体子集
  * 是后一轮的事——本文件只负责机制正确、数值可调。
@@ -15,7 +16,7 @@ Object.assign(BladeTrinityScene.prototype, {
   // 供 loop.js 的 _controlPlayer 在最前面调用：蓄力中/起手独占操作，返回 true。
   _handleCharge(f, time) {
     if (f.charging) { this._tickCharge(f, time); return true; }
-    if (Phaser.Input.Keyboard.JustDown(this.keys.L) && this._canAct(f) && f.mp > 4) {
+    if (this._in.pressed('charge') && this._canAct(f) && f.mp > 4) {
       this._startCharge(f, time);
       return true;
     }
@@ -38,29 +39,52 @@ Object.assign(BladeTrinityScene.prototype, {
     f.state = 'charge';           // 不在 _canAct 白名单 → 蓄力中不可被自身其它输入打断
     f.stateUntil = 0;
     f.sprite.setVelocityX(0);
-    f.sprite.play(`${f.id}_guard`, true);     // 无专用蓄力帧，借 guard 姿势占位
-    this._chargeWave(f);                       // 起浪弹开近敌（无伤，只解贴身）
+    // 蓄力中不挂持续描边（进度由变装帧表达，用户 2026-11-03 定）。_canAct 允许从 guard 直接起蓄：
+    // 起蓄当刻就收掉防御描边，不指望 _tickDefense 兜底 —— 漏清的话它会冻在起蓄前的位置与帧上，
+    // 不跟随人、不跟随变装帧。
+    this._clearOutlineHold(f);
+    // 蓄力 = 变装：按蓄力比例逐格换上本派变装帧（transformation.js）。
+    // 变装图集没载到时退回旧的 guard 姿势占位，对局照常。
+    if (!BT.Transform.begin(this, f)) f.sprite.play(`${f.id}_guard`, true);
     this._showUltName(f);                       // 招式名一次性弹出（占位字体）
     window.GameAudio && GameAudio.play && GameAudio.play('charge');
   },
 
   _tickCharge(f, time) {
     // 被打断：受击等把 state 从 'charge' 改走 → 蓄力作废，已扣的蓝不退（这就是代价）
-    if (f.state !== 'charge') { this._endCharge(f); return; }
+    if (f.state !== 'charge') { this._endCharge(f, 'interrupt'); return; }
     const dt = this._prevTime ? time - this._prevTime : 16;
     f.mp = Math.max(0, f.mp - BT.MP.drainRate * dt);
     f.sprite.setVelocityX(0);
-    this._drawAura(f, time);
+    // 变装进度 = 蓄力比例（与 _releaseCharge 的 frac 同一公式）。蓄力进度只由变装帧表达，不画描边
+    BT.Transform.setProgress(this, f, (time - f.chargeFrom) / BT.CHARGE.fullMs);
     if (f.ultText) f.ultText.setPosition(f.sprite.x, f.sprite.y - 150);
-    // 松手条件按操控方分流：玩家看 L 键，AI 看 _startAICharge 定下的 aiRelease 时刻。
-    const released = f === this.p1 ? !this.keys.L.isDown : time >= f.aiRelease;
+    // 松手条件按操控方分流：玩家看蓄力键（L / 手柄 ZR），AI 看 _startAICharge 定下的 aiRelease 时刻。
+    // ⚠️ 玩家侧要分清"松手"和"断了"：手柄掉线 / 适配器断开 / 页面切后台 / 窗口失焦也会让
+    // 蓄力键变成松开，那不是玩家放招 —— 作废蓄力、不出剑气（input.js 的 releaseReason）。
+    if (f === this.p1 && !this._in.held('charge') && this._in.releaseReason('charge') === 'lost') {
+      this._cancelCharge(f);
+      return;
+    }
+    const released = f === this.p1 ? !this._in.held('charge') : time >= f.aiRelease;
     if (released || f.mp <= 0) this._releaseCharge(f, time);
+  },
+
+  // 非玩家意图的中断：收掉蓄力、回 idle，不放剑气。已扣的蓝不退（同"被打断"的规矩）。
+  _cancelCharge(f) {
+    this._endCharge(f, 'cancel');
+    f.state = 'idle'; f.stateUntil = 0;
+    f.sprite.play(`${f.id}_idle`, true);
   },
 
   _releaseCharge(f, time) {
     const frac = Phaser.Math.Clamp((time - f.chargeFrom) / BT.CHARGE.fullMs, 0, 1);
-    this._endCharge(f);
-    // 低于 minFrac：只起浪弹开过、不出剑气（当脱身用，蓝照扣）
+    // 不足 minFrac 的轻点在表现上也按"取消"收（不出剑气，服饰回落更淡）
+    this._endCharge(f, frac < BT.CHARGE.minFrac ? 'cancel' : 'release');
+    // 轰飞在松手结算（用户 2026-11-05 定）：变身期间对手不受影响，这里倍率已切回原速。
+    // 轻点也算松手，保留脱身用途。受击打断、掉线取消不走这里，不轰飞。
+    this._chargeWave(f);
+    // 低于 minFrac：只轰飞、不出剑气（当脱身用，蓝照扣）
     if (frac < BT.CHARGE.minFrac) {
       f.state = 'idle'; f.stateUntil = 0;
       f.sprite.play(`${f.id}_idle`, true);
@@ -76,7 +100,7 @@ Object.assign(BladeTrinityScene.prototype, {
     // 沿用陈旧值会让 _aiCancelWindow 下一帧就判定"收招已结束"，_tickSwingQi 随即
     // _clearSwing，蓄力扣了蓝一道剑气都不出（见 routine.js _aiCancelWindow 注释）。
     f.atkCancelable = false;
-    if (this._usage && f === this.p1) this._usage.charge++;
+    if (this._usage) this._usage[f === this.p1 ? 'charge' : 'aiCharge']++;
     f.sprite.play(`${f.id}_attack`, true);
     // 有逐帧刀线标定 + 生成段 → 两阶段轨迹驱动（丝带蓄成 → 分段脱手飞行月牙，见 _tickSwingQi）。
     // 北神有两段=二段斩。没标定 → 旧法：from-40 弹一个静态月牙。
@@ -145,7 +169,7 @@ Object.assign(BladeTrinityScene.prototype, {
     // 出生点在【刀尖前端】。但刀尖能伸到 170px 开外，贴脸放时会直接生成在对手【身后】，
     // 剑气朝前飞走、一次判定都不过 —— 北神反手斩就是这个场景（挡下时对方就在面前），
     // 实测必定打空。所以把前伸量压到"对手身前一点"，让首帧扫掠区间就能罩住他。
-    // 蓄力奥义一般不撞这条（起手 _chargeWave 先把人轰远了），但同样受保护。
+    // 蓄力奥义一般不撞这条（松手时 _chargeWave 先把人轰远了）；对手贴墙轰不走时会撞上，同样受保护。
     let fwd = xMax * BT.SCALE;
     const opp = this._opp(f);
     if (opp && opp.state !== 'down') {
@@ -222,17 +246,19 @@ Object.assign(BladeTrinityScene.prototype, {
     sw.g.destroy(); sw.gGlow.destroy(); f.qiSwing = null;
   },
 
-  _endCharge(f) {
+  // how：'release' / 'cancel' / 'interrupt' / 缺省 = 不加回落特效（见 BT.Transform.end）
+  _endCharge(f, how) {
     f.charging = false;
-    this._clearOutlineHold(f);        // 蓄力描边收掉（防御描边会在需要时自己重建）
+    BT.Transform.end(this, f, how || 'silent');   // 先收变装（仍停在变装帧上会切回 idle）
+    this._clearOutlineHold(f);        // 兜底收掉残留描边（防御描边会在需要时自己重建）
     if (f.ultText) { f.ultText.destroy(); f.ultText = null; }
   },
 
-  // 蓄力起手一弹：①人物外轮廓炸开描边（动漫式蓄力起势）②把对手【轰到擂台最远端】，
-  // 给剑气腾出满场飞行空间。轰飞无伤，但必须把对手打进 hurt 硬直+无敌——否则下一帧
+  // 蓄力松手一弹（_releaseCharge 调，轻点也算）：把对手【轰到擂台最远端】，给剑气腾出满场飞行空间。
+  // 轰飞无伤，但必须把对手打进 hurt 硬直+无敌——否则下一帧
   // _controlAI 会立刻用自己的移动速度覆盖掉这记击退（无阻力 → 一帧推 ≈4px，等于没推）。
+  // 不炸描边（用户 2026-11-04 定）：蓄力由变装表达，配方见 README「备用特效」。
   _chargeWave(f) {
-    this._outlinePulse(f);                              // 描边一弹（视觉）
     this.cameras.main.shake(120, 0.006);
     const opp = this._opp(f);
     if (!opp || opp.state === 'down') return;
@@ -245,21 +271,25 @@ Object.assign(BladeTrinityScene.prototype, {
     const pinned = this._knockback(opp, dir * c.wavePush, -c.waveLift);
     if (pinned) this.cameras.main.shake(180, 0.012);
     this._setState(opp, 'hurt', c.waveStun);            // 进硬直：AI 这段不夺控制，速度得以保留
-    opp.invuln = this.time.now + c.waveStun;            // 轰飞途中无敌，别被别的判定截断
+    // 轰飞途中无敌，别被别的判定截断。⚠️ 短于硬直：自己这一挥的剑气随后就出手，无敌盖过去
+    // 对手贴墙时这道气就白放了（见 BT.CHARGE.waveInvuln）。
+    opp.invuln = this.time.now + c.waveInvuln;
     this._ghost(opp);                                   // 起飞留一记残影
   },
 
   // 动漫式「描边一弹」：起手瞬间，人物外轮廓向外炸开——白热描边 + 一层流派色余韵。
+  // 现在只有 AI 套路的预告帧在用（routine.js _rtTell）；用法与坑见 README「备用特效」。
   //
   // ⚠️ 与防御描边同法：【八向偏移】的剪影副本，半径从 r0 tween 到 r1。
   // 老写法是"放大一份剪影压在身后"，在白衣角色 + 暖色道场背景下 ADD 上去看不见
   // （运行时属性全对，纯粹是肉眼分辨不出），一并换掉。见 defense.js _guardAura。
   _outlinePulse(f) {
-    const s = BT.SCHOOLS[f.id], frame = f.sprite.frame.name, N = 8;
+    // 纹理取 sprite 当前的那张，不写死 f.id：变装时它是变装图集（BT.Transform）
+    const s = BT.SCHOOLS[f.id], tex = f.sprite.texture.key, frame = f.sprite.frame.name, N = 8;
     const ring = (tint, r0, r1, alpha, dur, blend) => {
       const parts = [];
       for (let i = 0; i < N; i++) {
-        const img = this.add.image(f.sprite.x, f.sprite.y, f.id, frame)
+        const img = this.add.image(f.sprite.x, f.sprite.y, tex, frame)
           .setScale(BT.SCALE).setFlipX(f.sprite.flipX)
           .setDepth(f.sprite.depth - 1).setTint(tint).setAlpha(alpha);
         if (blend) img.setBlendMode(blend);
@@ -290,18 +320,6 @@ Object.assign(BladeTrinityScene.prototype, {
       fontStyle: 'bold italic', stroke: '#120a06', strokeThickness: 6,
     }).setOrigin(0.5).setDepth(72).setScale(0.4);
     this.tweens.add({ targets: f.ultText, scale: 1, duration: 170, ease: 'Back.easeOut' });
-  },
-
-  // 蓄力中的视觉：【外轮廓随蓄力越描越厚】，不再画一圈光环。
-  // 光环是"角色外面套了个圈"，描边是"力从人身上涨出来"——后者才是这套动作的语言，
-  // 而且和防御描边共用一套实现（_outlineHold），画面读法统一（用户定）。
-  _drawAura(f, time) {
-    const frac = Phaser.Math.Clamp((time - f.chargeFrom) / BT.CHARGE.fullMs, 0, 1);
-    const A = BT.GUARD_AURA, s = BT.SCHOOLS[f.id];
-    const pulse = 0.5 + 0.5 * Math.sin(time / 70);
-    // 半径由蓄力比例主导、叠一层轻微呼吸；满蓄比防御描边更厚，读得出"攒满了"
-    const r = A.rMin + (A.chargeRMax - A.rMin) * frac + 1.5 * pulse;
-    this._outlineHold(f, s.barColor, r);
   },
 
   // ─────────── 剑气 ───────────
@@ -506,7 +524,7 @@ Object.assign(BladeTrinityScene.prototype, {
     // 北神返し：整道剑气挡下、零伤，并反手甩飞刀回去（飞刀走 knifeCd 冷却）。
     // ⚠️ 这里曾经要求【无敌窗口正好覆盖弹丸到达的那一刻】，而 parry/brace 接剑气都
     // 不看时机 —— 三派里只有北神要对弹丸计时，实际上几乎接不住：AI 起蓄的预告
-    // （描边炸弹+震屏+招式名）出现在弹丸到达前约 1.5~1.7 秒（蓄 240~420ms + 飞
+    // （变装+招式名）出现在弹丸到达前约 1.5~1.7 秒（蓄 240~420ms + 飞
     // ~650px÷520px/s），照着预告按防御是确定性的空放+硬直+冷却，刚好锁死在弹丸真正
     // 到达的时刻。现在按住即成立，和另外两派一致。
     if (guardingFront && target.def.defense === 'counter') {

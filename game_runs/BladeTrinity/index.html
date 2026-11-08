@@ -144,7 +144,10 @@
         <p class="story-setting">暮色压上山巅的斗技台。三条剑术的路径在此交汇</p>
         <button id="start-btn" class="game-btn" onclick="window.__hudStart()">▶ START GAME</button>
         <p class="controls-hint">
-          Controls: A/D 移动 · W 跳 · J 斩 · S 或 K 防御 · 长按 L 蓄力剑气 · SPACE 缩地（↑+SPACE 升空）<br>流派秘技 —— <b>出刀后按住 J 不放</b>：剑神「一の太刀·抜刀」蓄势横贯、不可防御（架式期间挨打即废） · 水神「剥夺剑界」六秒界内，对手出手即自伤 · 北神「幻剑」化影三体，只有本体伤人</p>
+          Controls: A/D 移动 · W 跳 · J 斩 · S 防御 · 长按 L 蓄力剑气 · SPACE 缩地（↑+SPACE 升空）<br>流派秘技 —— <b>出刀后按住 J 不放</b>：剑神「一の太刀·抜刀」蓄势横贯、不可防御（架式期间挨打即废） · 水神「剥夺剑界」六秒界内，对手出手即自伤 · 北神「幻剑」化影三体，只有本体伤人</p>
+        <p class="controls-hint">
+          Joy-Con 2（本机运行 Joycon adapter）：左摇杆/方向键 移动 · B 跳 · Y 斩（出刀后按住 Y = 秘技） · ZL 防御 · 长按 ZR 蓄力剑气 · A 缩地（↑+A 升空） · A / ＋ 确认 · ＋ 重开<br>
+          <span id="joycon-status"></span></p>
       </div>
     </div>
 
@@ -152,17 +155,23 @@
 
   <!-- 共享引擎层（格斗自绘血条，不用 ♥ HUD；仅用 onStart/setObjective） -->
   <script src="../_engine/hud.js"></script>
+  <!-- Joy-Con 2 协议 v2 客户端（共享层；只在本机或 ?joycon 时连 ws://127.0.0.1:8765） -->
+  <script src="../_engine/joycon.js"></script>
   <!-- 数据：config(命名空间) → atlases(图集元数据) → data(数值/帧数据) -->
   <script src="game/config.js"></script>
   <script src="assets/bg/manifest.js"></script>
   <script src="assets/sprites/atlases.js"></script>
+  <script src="assets/sprites/transformations.js"></script>
   <script src="game/data.js"></script>
   <!-- 场景核心 + 系统模块（MIGRATION.md §4B 原型分割） -->
   <script src="game/scenes/BladeTrinityScene.js"></script>
+  <script src="game/systems/input.js"></script>
   <script src="game/systems/select.js"></script>
   <script src="game/systems/fight.js"></script>
   <script src="game/systems/combat.js"></script>
   <script src="game/systems/defense.js"></script>
+  <script src="game/systems/transformation.js"></script>
+  <script src="game/systems/bullettime.js"></script>
   <script src="game/systems/charge.js"></script>
   <script src="game/systems/crit.js"></script>
   <script src="game/systems/realm.js"></script>

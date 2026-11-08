@@ -48,11 +48,11 @@ class LevelScene extends Phaser.Scene {
     this.player = { x: 0, y: 0, vx: 0, vy: 0 };
     window.__gameState = { player: this.player };
 
-    this.cstate = { s: 0, dir: 1, mode: 'crawl', turnLockT: 0, moving: false, cornerIdx: -1 };
-    this._cornerTurnActive = false;
-    this._cornerTurnSnap = false;
-    this._cornerTurnS = 0;
-    this._cornerTurnAnchorS = 0;
+    this.cstate = {
+      s: 0, dir: 1, mode: 'crawl', turnLockT: 0,
+      cornerT: 0, cornerS: 0, cornerSign: 0, moving: false, cornerIdx: -1,
+    };
+    this._cornerTurnBaseAngle = 0;
 
     this._setupInput();
     // The first playable scene is the corner test level; skip the story card
@@ -81,7 +81,7 @@ class LevelScene extends Phaser.Scene {
 
     this.pathPts = L.path;
     this.pathLen = P.length(L.path);
-    this.corners = P.corners(L.path).filter(c => c.deg >= C.CORNER_MIN_DEG);
+    this.corners = P.corners(L.path).filter(c => c.absDeg >= C.CORNER_MIN_DEG);
     this.sExit = (L.sExit != null) ? L.sExit : this.pathLen;
     this.exitPos = P.sample(L.path, this.sExit);
 
@@ -97,10 +97,9 @@ class LevelScene extends Phaser.Scene {
     this.cstate.turnLockT = 0;
     this.cstate.moving = false;
     this.cstate.cornerIdx = -1;
-    this._cornerTurnActive = false;
-    this._cornerTurnSnap = false;
-    this._cornerTurnS = this.cstate.s;
-    this._cornerTurnAnchorS = this.cstate.s;
+    this.cstate.cornerT = 0;
+    this.cstate.cornerS = this.cstate.s;
+    this.cstate.cornerSign = 0;
 
     this.sprite.setFlipX(false);
     this.sprite.play('crawl');
@@ -121,67 +120,60 @@ class LevelScene extends Phaser.Scene {
   // ── 精灵位姿同步（顺带更新契约用的 player.x/y）──
   // snap=true 立刻对齐角度（装载/重生）；否则朝目标角快速转（过拐角不瞬转）
   _syncSprite(snap) {
-    // The corner-turn frames contain their own body translation. Keep the
-    // track anchor at the vertex while they play; advancing the polyline at
-    // the same time makes the character appear to step forward, retract,
-    // then snap into the outgoing wall.
-    // Keep gameplay/hazard coordinates on the logical path point, while the
-    // corner pose itself is rendered slightly back along the incoming rail.
-    // At the lower-right corner this is the small leftward move needed for
-    // the hands to brace the wall without the silhouette crossing it.
+    // Keep gameplay/hazard coordinates on the logical path point. During a
+    // corner action the visual anchor retracts along the incoming rail only;
+    // this is deliberately separate from the one-dimensional logical state.
     const logicalP = window.BC.Path.sample(this.pathPts, this.cstate.s);
-    const visualS = this._cornerTurnActive ? this._cornerTurnAnchorS : this.cstate.s;
+    const isCornerTurn = this.cstate.mode === 'cornerTurn';
+    const visualS = isCornerTurn
+      ? this._clampS(this.cstate.cornerS - this.cstate.dir * window.BC.Config.CORNER_TURN_RETRACT_S)
+      : this.cstate.s;
     const visualP = window.BC.Path.sample(this.pathPts, visualS);
     this.sprite.x = visualP.x;
     this.sprite.y = visualP.y;
     if (snap) this.sprite.rotation = logicalP.angle;
-    else if (this._cornerTurnActive) {
-      // cornerTurnCCW already contains the visual horizontal -> vertical
-      // body transition. Do not rotate those frames a second time with the
-      // polyline; hold the incoming wall angle until the hand-off is done.
-    } else if (this._cornerTurnSnap) {
-      this.sprite.rotation = logicalP.angle;
-      this._cornerTurnSnap = false;
-    } else this.sprite.rotation = Phaser.Math.Angle.RotateTo(this.sprite.rotation, logicalP.angle, 14 * this._dt);
+    else if (isCornerTurn) this.sprite.rotation = this._cornerTurnBaseAngle;
+    else this.sprite.rotation = Phaser.Math.Angle.RotateTo(this.sprite.rotation, logicalP.angle, 14 * this._dt);
     this.player.x = logicalP.x;
     this.player.y = logicalP.y;
     this._segIdx = logicalP.seg;
   }
 
+  _clampS(s) { return Phaser.Math.Clamp(s, 0, this.pathLen); }
+
+  _getCornerBaseAngle() {
+    const eps = 0.5;
+    const incomingS = this._clampS(this.cstate.cornerS - this.cstate.dir * eps);
+    const tangent = window.BC.Path.sample(this.pathPts, incomingS).angle;
+    const actualIncoming = this.cstate.dir > 0 ? tangent : Phaser.Math.Angle.Normalize(tangent + Math.PI);
+    // CCW artwork is normalized right -> up; CW artwork is normalized
+    // down -> left. Rotate either normalized action onto the incoming rail.
+    return this.cstate.cornerSign > 0 ? actualIncoming : actualIncoming - Math.PI / 2;
+  }
+
   _updateAnim(res) {
     const sp = this.sprite, st = this.cstate;
     let cur = sp.anims.currentAnim && sp.anims.currentAnim.key;
-    if (res.event === 'corner') {
-      this._cornerTurnS = this.corners[this.cstate.cornerIdx]?.s ?? this.cstate.s;
-      this.cstate.s = this._cornerTurnS;
-      this._cornerTurnAnchorS = Math.max(0, this._cornerTurnS - window.BC.Config.CORNER_TURN_RETRACT_S);
-      this._cornerTurnActive = true;
-    }
-    if (st.mode === 'turn') {
-      this._cornerTurnActive = false;
-      if (cur !== 'turnAround') sp.play('turnAround');
-    } else if (this._cornerTurnActive) {
-      if (cur !== 'cornerTurnCCW') sp.play('cornerTurnCCW', true);
-      else if (!sp.anims.isPlaying) {
-        this._cornerTurnActive = false;
-        // The first crawl pose has a different local body anchor. Start it a
-        // short distance along the outgoing segment so its visual contact
-        // point meets the final corner pose instead of appearing to retreat.
-        this.cstate.s = Math.min(this.pathLen, this._cornerTurnS + window.BC.Config.CORNER_HANDOFF_S);
-        this._cornerTurnSnap = true;
-        // The next crawl frame uses the outgoing wall angle. Its visual
-        // anchor is aligned below when the hand-off is rendered.
-        sp.play('crawl', true);
-      }
-      // Keep the final corner pose visible until this hand-off frame. The
-      // normal crawl animation starts only once the outgoing wall advances.
+    if (res.event === 'corner') this._cornerTurnBaseAngle = this._getCornerBaseAngle();
+    if (st.mode === 'turnAround') {
+      if (cur !== 'turnAround') sp.play('turnAround', true);
+      sp.setFlipX(st.dir < 0);
+    } else if (st.mode === 'cornerTurn') {
+      const key = st.cornerSign > 0 ? 'cornerTurnCCW' : 'cornerTurnCW';
+      if (cur !== key) sp.play(key, true);
+      // Both corner strips are authored in their own normalized orientation;
+      // applying the regular crawl flip here would mirror the wall contact.
+      sp.setFlipX(false);
+    } else if (res.event === 'cornerHandoff') {
+      sp.play('crawl', true);
+      sp.setFlipX(st.dir < 0);
     } else if (st.moving) {
       if (cur !== 'crawl') sp.play('crawl');
       else if (!sp.anims.isPlaying) sp.anims.resume();
     } else {
       if (sp.anims.isPlaying && cur === 'crawl') sp.anims.pause();
     }
-    if (st.mode !== 'turn') sp.setFlipX(st.dir < 0);
+    if (st.mode === 'crawl' && res.event !== 'cornerHandoff') sp.setFlipX(st.dir < 0);
   }
 
   // ── 自动试玩：就近取 cell → 只在尖刺整段穿越时间内都缩回时才起步 → 冲舱口
@@ -249,10 +241,10 @@ class LevelScene extends Phaser.Scene {
     this.cstate.turnLockT = 0;
     this.cstate.moving = false;
     this.cstate.cornerIdx = -1;
-    this._cornerTurnActive = false;
-    this._cornerTurnSnap = false;
-    this._cornerTurnS = this.cstate.s;
-    this._cornerTurnAnchorS = this.cstate.s;
+    this.cstate.cornerT = 0;
+    this.cstate.cornerS = this.cstate.s;
+    this.cstate.cornerSign = 0;
+    this._cornerTurnBaseAngle = 0;
     this.trail = [];
     this.sprite.setFlipX(false);
     this._syncSprite(true);
@@ -361,33 +353,18 @@ class LevelScene extends Phaser.Scene {
         input = (goR ? 1 : 0) - (goL ? 1 : 0);
       }
 
-      // A corner animation is a short forward-only movement lock. If the
-      // player reverses during it, cancel the pending forward hand-off before
-      // it can apply CORNER_HANDOFF_S and start the normal turn lock instead.
-      // Otherwise the reverse input is ignored for a few frames and the next
-      // crawl pose appears to fall off the rail, then jump back to the vertex.
-      if (this._cornerTurnActive && input !== 0 && input !== this.cstate.dir) {
-        this._cornerTurnActive = false;
-        this._cornerTurnSnap = false;
-        this.cstate.cornerIdx = -1;
-        this.cstate.mode = 'turn';
-        this.cstate.turnLockT = C.TURN_LOCK_MS / 1000;
-        this.cstate.dir = input;
-        this.cstate.moving = false;
-      }
-
-      const res = this._cornerTurnActive
-        ? { state: this.cstate, event: null, slow: true, moving: false }
-        : window.BC.Crawler.advance(this.cstate, input, dt, {
+      const res = window.BC.Crawler.advance(this.cstate, input, dt, {
           speed: C.CRAWL_SPEED * (this._auto ? C.AUTO_SPEED_MULT : 1),
           pathLen: this.pathLen,
           corners: this.corners,
           cornerWindow: C.CORNER_WINDOW,
           cornerSlow: C.CORNER_SLOW,
           turnLockMs: C.TURN_LOCK_MS,
+          cornerTurnMs: C.CORNER_TURN_MS,
+          cornerHandoffS: C.CORNER_HANDOFF_S,
         });
 
-      if (res.event === 'turn') window.GameAudio && window.GameAudio.play('ui');
+      if (res.event === 'turnAround') window.GameAudio && window.GameAudio.play('ui');
       else if (res.event === 'corner') { window.GameAudio && window.GameAudio.play('tick'); this._shake(0.05, 0.0016); }
 
       this._updateAnim(res);
@@ -442,7 +419,7 @@ class LevelScene extends Phaser.Scene {
       nextGoalX: goalX,
       progress: frac,
       segment: this._segIdx || 0,
-      locked: this.cstate.mode === 'turn' || !!this._autoHold || this._invulnT > 0 || this._clearing,
+      locked: this.cstate.mode !== 'crawl' || !!this._autoHold || this._invulnT > 0 || this._clearing,
       dangerNow: !!dNow, dangerAhead: !!dAhead,
       hp: this.hp, maxHp: C.MAX_HP,
       score: this.score, goalScore: C.TOTAL_LEVELS,
@@ -451,7 +428,16 @@ class LevelScene extends Phaser.Scene {
       won: this.gameOver && this.score >= C.TOTAL_LEVELS,
       lost: this.gameOver && this.score < C.TOTAL_LEVELS,
       cardActive: this.cardActive, started: this.gameStarted,
-      mode: 'crawl',
+      mode: this.cstate.mode,
+      logicalS: this.cstate.s,
+      visualS: this.cstate.mode === 'cornerTurn'
+        ? this._clampS(this.cstate.cornerS - this.cstate.dir * C.CORNER_TURN_RETRACT_S)
+        : this.cstate.s,
+      dir: this.cstate.dir,
+      cornerSign: this.cstate.mode === 'cornerTurn' ? this.cstate.cornerSign : 0,
+      animationKey: this.sprite.anims.currentAnim && this.sprite.anims.currentAnim.key,
+      spriteX: this.sprite.x, spriteY: this.sprite.y,
+      playerX: this.player.x, playerY: this.player.y,
     };
   }
 }
