@@ -412,7 +412,10 @@ Object.assign(BladeTrinityScene.prototype, {
     blade(q.x, q.y, q.spin, a, 1);
   },
 
-  _tickQi(time, delta) {
+  // flightOnly：KO 后（over / interlude）调用。已脱手的剑气照常飞完、淡出、出界或到寿命后消失，
+  // 但不结算命中。否则死者留下的剑气打中胜者，会对胜者再触发一次 _ko：阶段被改成 over 并判负，
+  // 而切下一场的延时回调随后又把阶段改回 fight，玩家却仍处于倒地状态。
+  _tickQi(time, delta, flightOnly) {
     if (!this.qiList || !this.qiList.length) return;
     const dts = delta / 1000;
     for (let i = this.qiList.length - 1; i >= 0; i--) {
@@ -441,7 +444,7 @@ Object.assign(BladeTrinityScene.prototype, {
       if (q.history.length > 10) q.history.pop();
 
       const target = q.owner === this.p1 ? this.p2 : this.p1;
-      const verdict = this._qiVsTarget(q, target);
+      const verdict = flightOnly ? null : this._qiVsTarget(q, target);
       if (verdict === 'despawn') { this._despawnQi(q, i); continue; }
 
       this._drawQi(q, lifeF, dts);

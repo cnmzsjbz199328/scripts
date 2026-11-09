@@ -283,4 +283,25 @@ Object.assign(BladeTrinityScene.prototype, {
     this.phase = 'interlude';
     this.time.delayedCall(BT.ROUND_HOLD, () => this._nextRound());
   },
+
+  // KO 后（over / interlude）每帧对【双方】调用，接管战斗控制循环停摆后的收尾。
+  // ① 横向速度：Arcade 无阻力，速度只靠控制循环每帧覆盖；循环一停，最后写入的 vx
+  //    （走路 / 撤步 / 出招前冲）会一直保持到撞墙。刻意每帧收而不是在 _ko 里清一次：
+  //    前冲是 delayedCall（_attack），可能在 KO 之后才写入速度。
+  // ② 姿态：战斗阶段的「到时回 idle」不在这两个阶段执行，走路动画会一直循环。
+  // 腾空时不动，让抛物线自然落地；落地后下一帧再收。
+  _settleAfterKo(f, time) {
+    const sp = f.sprite;
+    if (!sp.body.blocked.down) return;
+    sp.setVelocityX(0);
+    if (f.state === 'down' || f.state === 'idle') return;
+    // 出招 / 受击 / 硬直：演完再回站立（与战斗阶段的到期规则一致）
+    const timed = f.state === 'attack' || f.state === 'hurt' || f.state === 'stun';
+    if (timed && time <= f.stateUntil) return;
+    // 其余一律回站立：walk / jump / guard，以及被 _endCharge、_endIai 收掉后
+    // 仍残留在 f.state 上的 'charge'、'iai'（这两个收尾函数不改 f.state）
+    this._clearOutlineHold(f);   // 这两个阶段不跑 _tickDefense，防御描边没人收
+    f.airborne = false;
+    this._setState(f, 'idle');
+  },
 });
