@@ -18,7 +18,7 @@
 
 尚未生成。出图原图保存在 `assets/**/raw/`，处理后的素材进入对应 assets 目录。
 
-P1A：`painted-skin.json` / `build-story.mjs` 完成；生成 READ、LINT、USAGE 与 storyData.js。严格结构自检零错误，8 结局、728 路线可达，剧本文字 8148 字，选择 7–10 次/路线。素材覆盖按计划延后到 P3。
+P1A：`painted-skin.json` / `build-story.mjs` 完成；生成 READ、LINT、USAGE 与 storyData.js。严格结构自检零错误，8 结局、728 路线可达，剧本文字 8148 字，选择 7–10 次/路线。截图复核发现补写的 60 段文字曾受命令行代码页影响变成问号，已通过 UTF-8 文件修复并重新生成剧本输出；再次扫描无整段问号文本。素材覆盖按计划延后到 P3。
 
 ## 阻塞与续跑
 
