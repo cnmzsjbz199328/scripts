@@ -28,6 +28,7 @@ object_runs/*/
 # Generated game project runs — track .html and .js source, ignore binaries
 game_runs/**/*.json
 !game_runs/games.json
+!game_runs/PaintedSkin/story/*.json
 
 # Track game assets so Cloudflare Pages CI can deploy them
 !game_runs/**/*.png
