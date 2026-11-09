@@ -100,3 +100,39 @@ CG 统一按计划 B.5 的 `[INK]` 事件插图模板生成，16:9；任何人�
 | `cover` | `style_day`, `rs_nv` | 悬挂绢轴上的女子未完成像保留左眼下朱砂痣，半边脸仍为空白绢；桌有彩笔、砚、一烛与薄雾。无题字、签名或印章，通过。 |
 
 背景中 `road_dawn`、`market`、`temple`、`shen_inner`、`courtyard_night` 因侧边构图干扰重出后入选；其他背景/CG 采用本轮被选中的首版。原始 PNG 全部留在忽略目录 `assets/**/raw/`；游戏只引用处理后的 1280×720 WebP。
+
+## P3b：人物立绘（27）
+
+基础图按计划 B.7 的 `[CHAR]` 模板生成：输入对应 `art/refs/rs_<角色>.webp`，严格复用身份、脸型、发型、服装、配色和标志物；全身正面或不超过 15° 的轻微侧转，头顶至鞋底完整，9:16；纯色绿幕 `#00FF00`，鬼相用品红 `#FF00FF`，无渐变、地面、投影或其他物件；明确不镜像并保持右衽。所有图无文字、书法、印章、水印和边框。表中“改动”就是拼入模板的姿态/表情句；变体按 B.7 的 edit 模板，只改对应状态，其他保持基础图一致。
+
+| 输出 ID / 原图名 | 输入身份锚 | 姿态 / 变体句 | 背景 | 自检与重出 |
+|---|---|---|---|---|
+| `wang:calm` / `wang_calm` | `rs_wang`（G3 已完成） | standing at ease, hands lightly clasped, gentle smile | 纯绿 | G3 融合样张复用，身份与玉佩通过。 |
+| `wang:weak` / `wang_weak` | `rs_wang` | white inner robe, outer robe draped over shoulders, half-loose hair, pale, hand pressed over heart | 纯绿 | 新基础图通过。 |
+| `wang:smitten` / `wang_smitten` | `wang_calm` | cheeks flushed, eyes lingering, faint smile, one hand half raised | 纯绿 | 变体通过。 |
+| `wang:worry` / `wang_worry` | `wang_calm` | knitted brows, eyes averted, one hand at collar | 纯绿 | 变体通过。 |
+| `wang:fear` / `wang_fear` | `wang_calm` | eyes wide, slight backward lean, both hands raised before chest | 纯绿 | 变体通过，手指自然。 |
+| `wang:resolve` / `wang_resolve` | `wang_calm` | jaw set, steady eyes, one small closed fist at side | 纯绿 | 变体通过。 |
+| `wang:grief` / `wang_grief` | `wang_calm` | reddened eyes, tears held back, lowered gaze, shoulders slumped | 纯绿 | 变体通过；表现悲恸，不作身体伤害。 |
+| `chen:calm` / `chen_calm` | `rs_chen` | upright, hands folded, composed, guarded eyes | 纯绿 | 新基础图通过，赭红袄、靛裙、婚髻、银簪连续。 |
+| `chen:cold` / `chen_cold` | `chen_calm` | chin slightly raised, narrowed cold eyes, lips pressed thin | 纯绿 | 变体通过，保持克制。 |
+| `chen:worry` / `chen_worry` | `chen_calm` | knitted brows, eyes glancing aside, one hand at collar | 纯绿 | 变体通过。 |
+| `chen:fear` / `chen_fear` | `chen_calm` | wide eyes, one hand covering mouth | 纯绿 | 变体通过。 |
+| `chen:remorse` / `chen_remorse` | `chen_calm` | head bowed, tears, shoulders drawn inward, both hands clutching sleeves | 纯绿 | 变体通过；无殉情方式或自伤表现。 |
+| `chen:resolve` / `chen_resolve` | `chen_calm` | jaw set, steady determined eyes, one hand on chest | 纯绿 | 变体通过。 |
+| `nv:pitiful` / `nv_pitiful` | `rs_nv` | head lowered, sorrowful, holding a small cloth bundle close | 纯绿 | 新基础图通过，莲粉月白衣、银簪和左眼下朱砂痣可辨。 |
+| `nv:smile` / `nv_smile` | `nv_pitiful` | remove bundle, hands folded at waist, head lifted slightly, gentle restrained smile | 纯绿 | 变体通过，布包已移除。 |
+| `nv:dressed` / `nv_dressed` | `rs_nv` + `nv_pitiful`（辅助身份） | elaborate hair ornaments, light makeup, rouge lips, front-facing torso, slight head turn and radiant smile | 纯绿 | 首版仍有布包且转身较大，弃用并重出 1 次；采用版无布包、身体正面、朱砂痣清楚。 |
+| `nv:love` / `nv_love` | `nv_dressed` | soft blush, tender downcast eyes, faint affectionate smile, hand touching hairpin | 纯绿 | 变体通过，盛装发饰与身份连续。 |
+| `gui:rage` / `gui_rage` | `rs_gui` + `rs_nv` | pale jade-green skin, dark hollow eyes, wild hair, faded lotus-pink clothes, raging grief, teeth glimpsed, hands raised with tense claw-like fingers | 纯品红 | 首版肤色偏灰且有布包，弃用并重出 1 次；采用版无布包、青绿肤色明显、朱砂痣保留，无伤口。 |
+| `gui:sorrow` / `gui_sorrow` | `gui_rage` | lower hands, tilt head, close mouth, dark diluted-ink tears from hollow eyes | 纯品红 | 变体通过；泪为墨痕，没有血或伤。 |
+| `gui:calm` / `gui_calm` | `gui_rage` | close eyes, fold hands calmly, relax brows, faint closed-mouth smile | 纯品红 | 变体通过，保持同脸同痣；飞发边缘有淡紫色光丝。 |
+| `dao:stern` / `dao_stern` | `rs_dao` | standing with white whisk, piercing scrutinizing gaze | 纯绿 | 新基础图通过：莲冠、木簪、拂尘、桃木剑、葫芦齐全。 |
+| `dao:calm` / `dao_calm` | `dao_stern` | slight bow, softened sorrowful compassionate gaze | 纯绿 | 变体通过。 |
+| `dao:angry` / `dao_angry` | `dao_stern` | intense glare, drawn brows, beard bristling slightly, hand gripping whisk handle | 纯绿 | 变体通过。 |
+| `dao:act` / `dao_act` | `rs_dao` | controlled dynamic stance, peachwood sword raised, one completely blank paper talisman in other hand, protective focus | 纯绿 | 新基础图通过；纸符无字。剑举起造成横向包围盒较宽，已在 `f_seal`、`l_fire2` 合成中确认未遮脸或主要心光。 |
+| `shen:haughty` / `shen_haughty` | `rs_shen` | upright with rosary, cold proud look | 纯绿 | 新基础图通过：年长憔悴面容、深紫锦衣、金簪和念珠一致。 |
+| `shen:terror` / `shen_terror` | `shen_haughty` | pale face, wide eyes, clutch rosary to chest | 纯绿 | 变体通过。 |
+| `shen:remorse` / `shen_remorse` | `shen_haughty` | bow low, tears, hands pressed together in remorse | 纯绿 | 变体通过；无自伤或殉情方式。 |
+
+共 27 张原始 9:16 PNG：24 张绿底、3 张鬼相品红底；由 `tools/process-art.mjs --only=lihui` 全部成功抠图，去除绿/品红溢色并归一化至 640×1100、脚底 y=1080。最终原图保留在忽略目录 `assets/lihui/raw/`，WebP 供运行时读取。全量人物拼图由 `tools/make-lihui-review.mjs` 生成；六个计划关键场景及 `f_seal`、`l_fire2` 由 `tools/make-key-scenes-review.mjs` 以 1280×720 合成后缩放审阅，拼图只在忽略的 `playtest/review/`。

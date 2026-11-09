@@ -29,6 +29,32 @@ window.HuaPi.ART = {
     "window_peek": "assets/cg/window_peek.webp"
   },
   "lihui": {
-    "wang:calm": "assets/lihui/wang_calm.webp"
+    "chen:calm": "assets/lihui/chen_calm.webp",
+    "chen:cold": "assets/lihui/chen_cold.webp",
+    "chen:fear": "assets/lihui/chen_fear.webp",
+    "chen:remorse": "assets/lihui/chen_remorse.webp",
+    "chen:resolve": "assets/lihui/chen_resolve.webp",
+    "chen:worry": "assets/lihui/chen_worry.webp",
+    "dao:act": "assets/lihui/dao_act.webp",
+    "dao:angry": "assets/lihui/dao_angry.webp",
+    "dao:calm": "assets/lihui/dao_calm.webp",
+    "dao:stern": "assets/lihui/dao_stern.webp",
+    "gui:calm": "assets/lihui/gui_calm.webp",
+    "gui:rage": "assets/lihui/gui_rage.webp",
+    "gui:sorrow": "assets/lihui/gui_sorrow.webp",
+    "nv:dressed": "assets/lihui/nv_dressed.webp",
+    "nv:love": "assets/lihui/nv_love.webp",
+    "nv:pitiful": "assets/lihui/nv_pitiful.webp",
+    "nv:smile": "assets/lihui/nv_smile.webp",
+    "shen:haughty": "assets/lihui/shen_haughty.webp",
+    "shen:remorse": "assets/lihui/shen_remorse.webp",
+    "shen:terror": "assets/lihui/shen_terror.webp",
+    "wang:calm": "assets/lihui/wang_calm.webp",
+    "wang:fear": "assets/lihui/wang_fear.webp",
+    "wang:grief": "assets/lihui/wang_grief.webp",
+    "wang:resolve": "assets/lihui/wang_resolve.webp",
+    "wang:smitten": "assets/lihui/wang_smitten.webp",
+    "wang:weak": "assets/lihui/wang_weak.webp",
+    "wang:worry": "assets/lihui/wang_worry.webp"
   }
 };
