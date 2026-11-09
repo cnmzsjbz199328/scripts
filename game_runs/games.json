@@ -446,5 +446,19 @@
     "previewVideo": "BoxCrawler/preview.mp4",
     "path": "BoxCrawler/index.html",
     "createdAt": "2026-09-09T00:00:00.000Z"
+  },
+  {
+    "id": "PaintedSkin",
+    "title": "画皮",
+    "tagline": "人人都有一张皮。",
+    "gameType": "branching-narrative",
+    "genre": "ADVENTURE",
+    "accent": "#c96f7a",
+    "previewBg": "#0d0b0c",
+    "icon": "🖌️",
+    "thumbnail": "PaintedSkin/assets/cg/cover.webp",
+    "previewVideo": "PaintedSkin/preview.mp4",
+    "path": "PaintedSkin/index.html",
+    "createdAt": "2026-11-09T10:46:58.000Z"
   }
 ]
