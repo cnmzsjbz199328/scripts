@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <meta name="theme-color" content="#0d0b0c">
+  <title>画皮 · PaintedSkin</title>
+  <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
+  <style>
+    * { box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; }
+    body {
+      display: grid;
+      place-items: center;
+      color: #f3e7d5;
+      background: #0d0b0c;
+      font-family: "Noto Serif SC", "Songti SC", "STSong", serif;
+    }
+    #game-wrapper {
+      position: relative;
+      width: 100vw;
+      height: 100vh;
+      flex: 0 0 auto;
+      overflow: hidden;
+      background: #0d0b0c;
+      box-shadow: 0 20px 80px #000a;
+    }
+    #game-container, #game-container canvas { width: 100%; height: 100%; display: block; }
+    #start-screen {
+      position: absolute;
+      inset: 0;
+      z-index: 20;
+      display: grid;
+      place-items: center;
+      background: radial-gradient(ellipse at 50% 38%, #2a2021 0%, #171314 55%, #0d0b0c 100%);
+      text-align: center;
+    }
+    .start-card { width: min(720px, 90%); padding: 54px 44px 42px; border-block: 1px solid #c5aa8a77; }
+    h1 { margin: 0 0 10px; font-size: 56px; font-weight: 400; letter-spacing: .32em; text-indent: .32em; }
+    .subtitle { margin: 0 0 28px; color: #c96f7a; font: 14px/1.6 Georgia, serif; letter-spacing: .24em; }
+    .premise { max-width: 580px; margin: 0 auto 34px; color: #cbbba8; font-size: 18px; line-height: 1.9; }
+    #start-btn {
+      min-width: 220px; padding: 13px 26px; border: 1px solid #c6a889; border-radius: 2px;
+      color: #f1e1cc; background: #4a3332; font: 19px serif; letter-spacing: .12em; cursor: pointer;
+      transition: background .18s, transform .18s;
+    }
+    #start-btn:hover { background: #684345; transform: translateY(-2px); }
+    .hint { margin-top: 24px; color: #8f8378; font-size: 14px; }
+    @media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition-duration: .01ms !important; } }
+  </style>
+</head>
+<body>
+  <div id="game-wrapper">
+    <div id="game-container" aria-label="画皮互动叙事"></div>
+    <div id="start-screen">
+      <div class="start-card">
+        <h1>画皮</h1>
+        <p class="subtitle">PAINTED SKIN · 人人都有一张皮</p>
+        <p class="premise">晨雾里，你遇见一个抱襆独行的女子。<br>她说自己叫阿绢，却把另一个名字藏在画皮之下。</p>
+        <button id="start-btn" type="button" onclick="window.__hudStart()">入　画</button>
+        <p class="hint">故事会自动向前。点击、空格或回车可加快阅读；真正的抉择由你决定。</p>
+      </div>
+    </div>
+  </div>
+  <script src="../_engine/hud.js"></script>
+  <script src="../_engine/story.js"></script>
+  <script src="game/config.js"></script>
+  <script src="game/storyData.js"></script>
+  <script src="assets/manifest.js"></script>
+  <script src="game/systems/stage.js"></script>
+  <script src="game/systems/panel.js"></script>
+  <script src="game/systems/fx.js"></script>
+  <script src="game/systems/view.js"></script>
+  <script src="game/scenes/BootScene.js"></script>
+  <script src="game/scenes/StoryScene.js"></script>
+  <script src="game/main.js"></script>
+</body>
+</html>
