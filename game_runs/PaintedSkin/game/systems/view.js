@@ -60,7 +60,9 @@ window.HuaPi.ViewSystem = class ViewSystem {
 
   setCG(id) {
     this.clearObjects(this.cgObjects);
+    const hadCG = Boolean(this.currentCG);
     this.currentCG = id || null;
+    if (this.lastStage && hadCG !== Boolean(this.currentCG)) this.applyStage();
     if (!id) return;
     const textureKey = `cg:${id}`;
     if (this.art.cg?.[id] && this.scene.textures.exists(textureKey)) {
@@ -81,8 +83,22 @@ window.HuaPi.ViewSystem = class ViewSystem {
   }
 
   setPov(id) { this.currentPov = id; this.panel.setPov(id); }
-  setStage(stage, speaker, pov) { this.stage.apply(stage, speaker, pov); }
-  setSpeaker(speaker, pov) { this.stage.setSpeaker(speaker, pov); }
+  setStage(stage, speaker, pov) {
+    this.lastStage = { stage: { ...stage }, speaker, pov };
+    this.applyStage();
+  }
+
+  // CG 是构图完整的事件插画（多数已画入当事人），立绘叠上去会遮主体、人物重复出现。
+  // 惯例：CG 期间不站立绘，说话人只靠名牌；剧本里的 stage 照常记入状态，CG 撤下后恢复。
+  applyStage() {
+    const { stage, speaker, pov } = this.lastStage;
+    this.stage.apply(this.currentCG ? {} : stage, speaker, pov);
+  }
+
+  setSpeaker(speaker, pov) {
+    if (this.lastStage) Object.assign(this.lastStage, { speaker, pov });
+    this.stage.setSpeaker(speaker, pov);
+  }
   typeLine(segment, onTyped) { this.panel.typeLine(segment, onTyped); }
   completeTyping() { this.panel.completeTyping(); }
   cancelTyping() { this.panel.cancelTyping(); }

@@ -23,7 +23,8 @@ for (let i = 0; i < ids.length; i++) {
   const wash = Buffer.from(`<svg width="1280" height="720"><rect width="100%" height="100%" fill="${scene.tint || '#ffffff'}" fill-opacity=".08"/></svg>`);
   parts.push({ input: wash, left: 0, top: 0 });
   if (node.cg) parts.push({ input: path.join(root, 'assets', 'cg', `${node.cg}.webp`), left: 0, top: 0 });
-  for (const slot of ['L', 'C', 'R']) {
+  // 与运行时一致：CG 期间不站立绘。
+  for (const slot of node.cg ? [] : ['L', 'C', 'R']) {
     const value = stage[slot];
     if (!value) continue;
     const [actor, state] = value.split(':');
