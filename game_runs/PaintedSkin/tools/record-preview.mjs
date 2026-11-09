@@ -65,6 +65,7 @@ async function main() {
     });
     await page.waitForFunction(() => window.__probe?.().nodeId === 'a1_dress', null, { timeout: 15000 });
     await page.waitForTimeout(1800);
+    // 预览是十秒展示片：保留梳妆开场，再直接切到窥窗节点以留足 CG 和选项展示时间。
     await page.evaluate(() => window.HuaPi.Game.runtime.jump('h_peek', { vars: { xin: 42, dao: 2 } }));
     await page.waitForFunction(() => {
       const state = window.__probe?.();
