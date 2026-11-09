@@ -41,6 +41,8 @@ node game_runs/PaintedSkin/tools/record-preview.mjs
 
 `walk-endings.mjs` 从 `story/LINT.md` 读取八条最短路线，检查结局、C5 心值选项条件和 60 秒无输入自动播放，并把本地截图及报告写入忽略目录 `playtest/walk/`。共享的 `skills/game-playtest/play.ts` 面向移动与战斗游戏，不适用于本作的叙事流程，因此由此工具替代。
 
+`tools/script-review.html` 是剧本校对台：逐条改写台词、旁白、选项和结局文字，或写意见，导出 Markdown/JSON 交回修改。它直接读取 `game/storyData.js`，因此重新构建后刷新即可看到最新文本；草稿只存在本浏览器。可以直接双击打开，也可以通过上面的本地服务器访问；两种方式的草稿互不共享。
+
 `record-preview.mjs` 用 Playwright 录制、再用 FFmpeg 转码 10 秒预览到 `preview.mp4`。
 
 ## 目录

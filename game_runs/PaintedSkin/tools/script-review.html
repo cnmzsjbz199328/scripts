@@ -1,0 +1,896 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>画皮剧本校对台</title>
+<style>
+  :root {
+    --bg: #f3eee5; --panel: #fbf8f2; --panel2: #f5f0e6; --ink: #2b2523; --muted: #776b60; --faint: #a3978a;
+    --line: #e2d8c9; --line2: #cdbfad; --accent: #a3403c; --accent-ink: #fff;
+    --dirty: #fbf0dc; --dirty-line: #d29b4a; --note-line: #6f86ad;
+    --ins: #d5ead0; --ins-ink: #22542a; --del: #f6d8d3; --del-ink: #8a2a24; --warn: #b0670f; --over: #c0392b;
+    --spk-none: #9a8e81; --spk-wang: #3f5f8a; --spk-chen: #a06b25; --spk-nv: #b0485e;
+    --spk-gui: #6c5a8c; --spk-dao: #4b7a5f; --spk-shen: #7d4b38;
+    --serif: "Noto Serif SC", "Source Han Serif SC", "Songti SC", "STSong", "SimSun", serif;
+    --sans: system-ui, "Microsoft YaHei", "PingFang SC", sans-serif;
+    --mono: ui-monospace, "Cascadia Mono", Consolas, monospace;
+    --top-h: 108px;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #151213; --panel: #1e1a1a; --panel2: #242020; --ink: #ebe1d3; --muted: #a29586; --faint: #6f655b;
+      --line: #342d2b; --line2: #4a403c; --accent: #d4746c; --accent-ink: #1a1213;
+      --dirty: #2c2417; --dirty-line: #b0843f; --note-line: #7f97c0;
+      --ins: #22391f; --ins-ink: #a9d8a0; --del: #43201e; --del-ink: #f0aaa0; --warn: #e0a050; --over: #ff7b6b;
+      --spk-none: #82776c; --spk-wang: #8fb0dc; --spk-chen: #d6a865; --spk-nv: #e48aa0;
+      --spk-gui: #b3a2d8; --spk-dao: #8cc2a3; --spk-shen: #c99580;
+      color-scheme: dark;
+    }
+  }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  html { scroll-padding-top: calc(var(--top-h) + 12px); }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.5 var(--sans); }
+  a { color: inherit; }
+  button, select, input, textarea { font: inherit; color: inherit; }
+  button {
+    cursor: pointer; border: 1px solid var(--line2); background: var(--panel); border-radius: 6px;
+    padding: 5px 12px; transition: background .15s, border-color .15s;
+  }
+  button:hover { border-color: var(--muted); }
+  button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+  button.primary:hover { filter: brightness(1.06); }
+  button.danger { background: var(--over); border-color: var(--over); color: #fff; }
+  button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-visible, a:focus-visible {
+    outline: 2px solid var(--note-line); outline-offset: 1px;
+  }
+
+  /* ---------- top bar ---------- */
+  .top { position: sticky; top: 0; z-index: 20; background: var(--bg); border-bottom: 1px solid var(--line); }
+  .top-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; max-width: 1240px; margin: 0 auto; padding: 10px 20px; }
+  .top-row + .top-row { padding-top: 0; }
+  .brand { display: flex; align-items: baseline; gap: 10px; margin-right: auto; }
+  .brand h1 { margin: 0; font: 600 19px/1.2 var(--serif); letter-spacing: .08em; }
+  .brand .sub { color: var(--muted); font-size: 12px; }
+  .stats { color: var(--muted); font-size: 13px; }
+  .stats b { color: var(--ink); font-weight: 600; }
+  .saved { color: var(--faint); font-size: 12px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip {
+    border-radius: 999px; padding: 3px 11px; font-size: 13px; background: transparent; color: var(--muted);
+  }
+  .chip[aria-pressed="true"] { background: var(--panel); color: var(--ink); border-color: var(--muted); }
+  .chip .n { color: var(--faint); margin-left: 4px; font-size: 12px; }
+  .toggle { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: 13px; cursor: pointer; user-select: none; }
+  .search { flex: 1 1 200px; max-width: 320px; margin-left: auto; padding: 5px 10px; border: 1px solid var(--line2); border-radius: 6px; background: var(--panel); }
+
+  /* ---------- layout ---------- */
+  .layout { display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 28px; max-width: 1240px; margin: 0 auto; padding: 0 20px 120px; }
+  nav#toc { position: sticky; top: var(--top-h); align-self: start; max-height: calc(100vh - var(--top-h)); overflow: auto; padding: 18px 4px 40px 0; font-size: 13px; }
+  .toc-group { margin: 14px 0 4px; color: var(--muted); font-size: 12px; letter-spacing: .06em; }
+  .toc-group:first-child { margin-top: 0; }
+  nav#toc a { display: flex; align-items: baseline; gap: 6px; padding: 3px 8px; border-radius: 5px; text-decoration: none; color: var(--muted); }
+  nav#toc a:hover { background: var(--panel2); color: var(--ink); }
+  nav#toc a.active { background: var(--panel); color: var(--ink); box-shadow: inset 2px 0 0 var(--accent); }
+  nav#toc a.dim { opacity: .4; }
+  nav#toc .tid { font-family: var(--mono); font-size: 12px; }
+  nav#toc .tlabel { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  nav#toc .badge { min-width: 18px; padding: 0 5px; border-radius: 9px; background: var(--dirty-line); color: #fff; font-size: 11px; line-height: 18px; text-align: center; }
+  main { min-width: 0; padding-top: 18px; }
+  @media (max-width: 860px) {
+    .layout { grid-template-columns: 1fr; padding: 0 16px 120px; }
+    nav#toc { display: none; }
+    .top-row { padding-left: 16px; padding-right: 16px; }
+    .search { max-width: none; margin-left: 0; }
+  }
+
+  /* ---------- intro / banners ---------- */
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px 18px; margin-bottom: 16px; }
+  .help { color: var(--muted); font-size: 13px; }
+  .help summary { cursor: pointer; color: var(--ink); font-weight: 600; }
+  .help ul { margin: 8px 0 0; padding-left: 18px; }
+  .help li { margin: 3px 0; }
+  .help kbd { font-family: var(--mono); font-size: 12px; padding: 0 4px; border: 1px solid var(--line2); border-radius: 3px; }
+  .banner { border-color: var(--dirty-line); background: var(--dirty); display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; }
+  .banner p { margin: 0; flex: 1 1 280px; }
+  .global label { display: block; font-weight: 600; margin-bottom: 6px; }
+  .global textarea { width: 100%; min-height: 64px; }
+
+  /* ---------- nodes ---------- */
+  .group-title { margin: 34px 0 12px; font: 600 15px/1.3 var(--serif); letter-spacing: .1em; color: var(--muted); display: flex; align-items: baseline; gap: 10px; }
+  .group-title::after { content: ""; flex: 1; border-bottom: 1px solid var(--line2); }
+  .group-title small { font: 12px var(--sans); letter-spacing: 0; color: var(--faint); }
+  .node { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; margin-bottom: 14px; overflow: hidden; }
+  .node-h { padding: 12px 18px 10px; border-bottom: 1px solid var(--line); background: var(--panel2); }
+  .node-title { display: flex; flex-wrap: wrap; align-items: baseline; gap: 10px; }
+  .nid { font-family: var(--mono); font-size: 13px; color: var(--muted); }
+  .ncard { font: 600 16px var(--serif); letter-spacing: .06em; }
+  .nend { font-size: 12px; padding: 1px 8px; border-radius: 4px; background: var(--accent); color: var(--accent-ink); }
+  .ctx { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 4px; color: var(--muted); font-size: 12px; }
+  .know { margin-top: 6px; font-size: 12px; color: var(--muted); }
+  .know summary { cursor: pointer; }
+  .know dl { display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; margin: 6px 0 0; }
+  .know dt { color: var(--ink); }
+  .know dd { margin: 0; }
+  .node-f { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 8px 18px; border-top: 1px solid var(--line); color: var(--muted); font-size: 12px; }
+  .node-f .exit { margin-right: auto; }
+  .node-f a, .to a { font-family: var(--mono); }
+  .nnote-wrap { padding: 0 18px 14px; }
+  .nnote { width: 100%; min-height: 56px; }
+  .node.has-nnote .nnote-btn { color: var(--note-line); border-color: var(--note-line); }
+
+  /* ---------- rows ---------- */
+  .row { display: grid; grid-template-columns: 34px minmax(0, 1fr); border-left: 3px solid var(--spk-color, var(--line)); }
+  .row + .row { border-top: 1px solid var(--line); }
+  .row.k-narr { --spk-color: var(--line2); }
+  .row.k-choice { --spk-color: var(--warn); }
+  .row.k-meta { --spk-color: var(--faint); }
+  .row[data-spk="wang"] { --spk-color: var(--spk-wang); }
+  .row[data-spk="chen"] { --spk-color: var(--spk-chen); }
+  .row[data-spk="nv"] { --spk-color: var(--spk-nv); }
+  .row[data-spk="gui"] { --spk-color: var(--spk-gui); }
+  .row[data-spk="dao"] { --spk-color: var(--spk-dao); }
+  .row[data-spk="shen"] { --spk-color: var(--spk-shen); }
+  .row.dirty { background: var(--dirty); }
+  .gut { padding: 9px 0 0; text-align: center; color: var(--faint); font: 12px var(--mono); }
+  .row.dirty .gut { color: var(--dirty-line); font-weight: 700; }
+  .cell { padding: 6px 18px 8px 4px; min-width: 0; }
+  .meta { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; min-height: 24px; font-size: 12px; color: var(--muted); }
+  .meta .grow { flex: 1; }
+  .spk {
+    border: 1px solid transparent; background: transparent; border-radius: 5px; padding: 1px 4px; font-size: 13px;
+    color: var(--spk-color); font-weight: 600; cursor: pointer;
+  }
+  .row.k-narr .spk { color: var(--muted); font-weight: 400; }
+  .spk:hover { border-color: var(--line2); }
+  .tag { font-size: 12px; color: var(--ink); font-weight: 600; }
+  .cond { padding: 0 6px; border-radius: 4px; border: 1px solid var(--line2); }
+  .path { font: 11px var(--mono); color: var(--faint); }
+  .stale { color: var(--warn); font-weight: 600; }
+  .cnt { font: 12px var(--mono); color: var(--faint); min-width: 54px; text-align: right; }
+  .cnt.warn { color: var(--warn); font-weight: 600; }
+  .cnt.over { color: var(--over); font-weight: 700; }
+  .mini { padding: 1px 8px; font-size: 12px; border-radius: 5px; background: transparent; color: var(--muted); }
+  .row.noted .note-btn { color: var(--note-line); border-color: var(--note-line); }
+  textarea {
+    display: block; width: 100%; resize: vertical; border: 1px solid var(--line); border-radius: 6px;
+    background: var(--bg); padding: 6px 10px; field-sizing: content;
+  }
+  textarea:hover { border-color: var(--line2); }
+  .ed { margin-top: 0; padding: 3px 10px; font: 16px/1.7 var(--serif); resize: none; background: transparent; border-color: transparent; }
+  .ed:hover, .ed:focus { background: var(--bg); border-color: var(--line2); }
+  .row.k-line .ed { color: var(--ink); }
+  .row.k-narr .ed { color: color-mix(in srgb, var(--ink) 82%, var(--muted)); }
+  .row.dirty .ed { background: var(--bg); border-color: var(--dirty-line); }
+  .row.deleted .ed { border-style: dashed; }
+  .diff { margin: 6px 0 0; padding: 6px 10px; border-radius: 6px; background: var(--panel2); font: 14px/1.7 var(--serif); color: var(--muted); }
+  .diff .lbl { font: 12px var(--sans); color: var(--faint); margin-right: 6px; }
+  .diff del { background: var(--del); color: var(--del-ink); text-decoration: line-through; text-decoration-thickness: 1px; }
+  .diff ins { background: var(--ins); color: var(--ins-ink); text-decoration: none; }
+  .diff .nl { color: var(--ins-ink); font-family: var(--sans); }
+  .nt { margin-top: 6px; font-size: 13px; border-left: 3px solid var(--note-line); background: var(--bg); min-height: 44px; }
+  .empty { padding: 40px 0; text-align: center; color: var(--muted); }
+  .fatal { padding: 40px; color: var(--over); font-size: 15px; }
+
+  /* ---------- export dialog ---------- */
+  dialog { width: min(860px, calc(100vw - 32px)); max-height: calc(100vh - 48px); padding: 0; border: 1px solid var(--line2); border-radius: 12px; background: var(--panel); color: var(--ink); }
+  dialog::backdrop { background: rgb(0 0 0 / .45); }
+  .dlg { display: flex; flex-direction: column; gap: 10px; padding: 16px 18px; max-height: calc(100vh - 50px); }
+  .dlg header { display: flex; align-items: center; justify-content: space-between; }
+  .dlg h3 { margin: 0; font: 600 17px var(--serif); }
+  .dlg p { margin: 0; color: var(--muted); font-size: 13px; }
+  #out { flex: 1; min-height: 320px; max-height: 60vh; font: 13px/1.6 var(--mono); field-sizing: fixed; resize: none; }
+  .dlg footer { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+  #copy-msg { color: var(--muted); font-size: 13px; }
+</style>
+</head>
+<body>
+<header class="top" id="top">
+  <div class="top-row">
+    <div class="brand"><h1>画皮 · 剧本校对台</h1><span class="sub" id="sub"></span></div>
+    <span class="stats" id="stats">尚未修改</span>
+    <span class="saved" id="saved"></span>
+    <button type="button" id="btn-clear">清空草稿</button>
+    <button type="button" class="primary" id="btn-export">导出给 Claude</button>
+  </div>
+  <div class="top-row">
+    <div class="chips" id="chips" role="group" aria-label="按类型筛选"></div>
+    <label class="toggle"><input type="checkbox" id="only-dirty"> 只看已改 / 有意见</label>
+    <input type="search" class="search" id="q" placeholder="搜索原文、改写、意见、节点 id…" aria-label="搜索">
+  </div>
+</header>
+
+<div class="layout">
+  <nav id="toc" aria-label="节点目录"></nav>
+  <main id="main">
+    <details class="card help" id="help">
+      <summary>怎么用</summary>
+      <ul>
+        <li>每条台词、旁白、选项都有一个改写框，<b>原文已填好，直接改字</b>就是定稿替换；下方会显示与原文的对照。</li>
+        <li>拿不准怎么改，就点 <b>＋ 意见</b> 写方向（语气、删改理由、想要的效果），由 Claude 改写。改写框和意见可以同时用。</li>
+        <li><b>清空</b>改写框 = 删除此条；在改写框里<b>换行</b> = 拆成多段（新的一段要换人说，就写成「陈氏：……」）。</li>
+        <li>左侧色条和下拉框是说话人；把下拉框改成「旁白」或某个角色，就能把台词和旁白互换。</li>
+        <li>字数：台词和旁白建议 ≤ 60、硬上限 80；选项上限 18。超出会标黄或标红。</li>
+        <li>草稿自动存在这个浏览器里。改完点右上角 <b>导出给 Claude</b>，复制后贴回对话。等 Claude 改完、重新构建，刷新这一页就能看到新文本，然后清空草稿开始下一轮。</li>
+      </ul>
+    </details>
+    <div class="card banner" id="banner" hidden></div>
+    <section class="card global">
+      <label for="global-note">总体意见</label>
+      <textarea id="global-note" placeholder="对整部剧本的感受：文风、节奏、人物口吻、哪条线读着最别扭……"></textarea>
+    </section>
+    <div id="nodes"></div>
+    <p class="empty" id="empty" hidden>没有符合筛选条件的条目。</p>
+  </main>
+</div>
+
+<dialog id="dlg" aria-labelledby="dlg-title">
+  <form method="dialog" class="dlg">
+    <header><h3 id="dlg-title">导出给 Claude</h3><button value="close" aria-label="关闭">关闭</button></header>
+    <p>把下面的内容复制后贴回对话。也可以下载文件，再把文件路径告诉 Claude。路径从 0 开始数，和 build-story 报错的写法一样。</p>
+    <textarea id="out" readonly spellcheck="false"></textarea>
+    <footer>
+      <button type="button" class="primary" id="copy-md">复制</button>
+      <button type="button" id="dl-md">下载 .md</button>
+      <button type="button" id="dl-json">下载 .json</button>
+      <span id="copy-msg" role="status"></span>
+    </footer>
+  </form>
+</dialog>
+
+<script src="../game/storyData.js"></script>
+<script>
+(() => {
+  'use strict';
+  const STORY = window.HuaPi && window.HuaPi.STORY;
+  const $ = (sel, root = document) => root.querySelector(sel);
+  if (!STORY) {
+    $('#main').innerHTML = '<p class="fatal">没读到 ../game/storyData.js。请先运行 <code>node game_runs/PaintedSkin/tools/build-story.mjs</code>。</p>';
+    return;
+  }
+
+  const KEY = 'huapi.scriptReview.v1';
+  const cast = STORY.cast || {};
+  const nodes = STORY.nodes || {};
+  const len = (s) => Array.from(s || '').length;
+  const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const spkName = (id) => (id ? (cast[id] ? cast[id].name : id) : '旁白');
+
+  // ---------- groups & context ----------
+  const GROUPS = [
+    { key: 'a1', label: '第一幕 · 共通', test: (id) => id.startsWith('a1_') },
+    { key: 'h', label: '坦白线', hint: '对陈氏坦白', test: (id) => id.startsWith('h_') },
+    { key: 'f', label: '隐瞒线', hint: '怕她误会而隐瞒', test: (id) => id.startsWith('f_') },
+    { key: 'l', label: '独占线', hint: '隐瞒，只想独占', test: (id) => id.startsWith('l_') },
+    { key: 'e', label: '结局', test: (id) => /^e\d+$/.test(id) },
+    { key: 'x', label: '其他', test: () => true },
+  ];
+  const groupOf = {};
+  for (const id of Object.keys(nodes)) groupOf[id] = GROUPS.find((g) => g.test(id)).key;
+
+  // 视角沿剧情图传递：节点没写 pov 就继承上一节点
+  const povs = {};
+  {
+    const queue = [[STORY.startNodeId, 'wang']];
+    const seen = new Set();
+    while (queue.length) {
+      const [id, inherited] = queue.shift();
+      const node = nodes[id];
+      if (!node) continue;
+      const pov = node.pov || inherited;
+      if (seen.has(id + '|' + pov)) continue;
+      seen.add(id + '|' + pov);
+      (povs[id] = povs[id] || new Set()).add(pov);
+      const nexts = [node.next, ...(node.choices || []).map((c) => c.next), ...(node.routes || []).map((r) => r.next)];
+      for (const n of nexts) if (n) queue.push([n, pov]);
+    }
+  }
+  const povLabel = (id) => [...(povs[id] || [])].map(spkName).join(' / ');
+  const knowledge = {};
+  for (const k of (STORY.meta && STORY.meta.review && STORY.meta.review.knowledge) || []) knowledge[k.node] = k;
+
+  const condLabel = (exp) => {
+    const s = String(exp || '').trim();
+    if (s === 'default') return '否则';
+    return s.replace(/^!hasFlag\s+'([^']+)'$/, '无 $1').replace(/^hasFlag\s+'([^']+)'$/, '有 $1')
+      .replace('>=', '≥').replace('<=', '≤');
+  };
+  const link = (id) => `<a href="#n-${esc(id)}">${esc(id)}</a>`;
+
+  // ---------- items ----------
+  const KINDS = [
+    { key: 'line', label: '对白' },
+    { key: 'narr', label: '旁白' },
+    { key: 'choice', label: '选项' },
+    { key: 'meta', label: '幕名 · 结局' },
+  ];
+  const items = [];
+  const byPath = new Map();
+  const itemsByNode = {};
+  const add = (item) => { items.push(item); byPath.set(item.path, item); (itemsByNode[item.node] = itemsByNode[item.node] || []).push(item); };
+  for (const [id, node] of Object.entries(nodes)) {
+    itemsByNode[id] = [];
+    if (node.card) add({ path: `${id}.card`, node: id, kind: 'meta', label: '幕名', text: node.card });
+    (node.segments || []).forEach((seg, i) => add({
+      path: `${id}.segments[${i}]`, node: id, kind: seg.speaker ? 'line' : 'narr', segment: true,
+      index: i, speaker: seg.speaker || '', text: seg.text || '', soft: 60, hard: 80,
+    }));
+    (node.choices || []).forEach((c, i) => add({
+      path: `${id}.choices[${i}]`, node: id, kind: 'choice', index: i, label: `选项 ${i + 1}`,
+      text: c.text || '', hard: 18, next: c.next, cond: c.if,
+    }));
+    if (node.ending) {
+      if (node.ending.title) add({ path: `${id}.ending.title`, node: id, kind: 'meta', label: '结局名', text: node.ending.title });
+      if (node.ending.closing) add({ path: `${id}.ending.closing`, node: id, kind: 'meta', label: '结局收束语', text: node.ending.closing });
+      if (node.ending.commentary) add({ path: `${id}.ending.commentary`, node: id, kind: 'meta', label: '异史氏曰', text: node.ending.commentary });
+    }
+  }
+
+  // ---------- state ----------
+  let state = { items: {}, nodes: {}, global: '' };
+  try {
+    const raw = localStorage.getItem(KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      state = { items: parsed.items || {}, nodes: parsed.nodes || {}, global: parsed.global || '' };
+    }
+  } catch (e) { /* 无痕模式等：从空草稿开始 */ }
+
+  const isEdited = (item, d) => !!d && d.e !== undefined && d.e !== item.text;
+  const spkChanged = (item, d) => !!d && item.segment && d.s !== undefined && d.s !== item.speaker;
+  const hasNote = (d) => !!d && !!(d.n && d.n.trim());
+  const touched = (item, d) => isEdited(item, d) || spkChanged(item, d) || hasNote(d);
+  const isStale = (item, d) => !!d && d.o !== item.text;
+  const current = (item, d) => (d && d.e !== undefined ? d.e : item.text);
+  const pieces = (text) => text.split('\n').map((s) => s.trim()).filter(Boolean);
+
+  // 剧本更新后对账：已被采纳的改写直接丢弃，其余标为「原文已更新」
+  const orphans = [];
+  for (const [path, d] of Object.entries(state.items)) {
+    const item = byPath.get(path);
+    if (!item) { orphans.push(path); continue; }
+    if (d.o === item.text) continue;
+    const editApplied = d.e === undefined || d.e === item.text;
+    const spkApplied = d.s === undefined || d.s === item.speaker;
+    if (editApplied && spkApplied && (d.e !== undefined || d.s !== undefined)) delete state.items[path];
+  }
+
+  function ensure(item) {
+    if (!state.items[item.path]) state.items[item.path] = { o: item.text };
+    return state.items[item.path];
+  }
+  function prune(item) {
+    const d = state.items[item.path];
+    if (!d) return;
+    if (d.e !== undefined && d.e === item.text) delete d.e;
+    if (d.s !== undefined && d.s === item.speaker) delete d.s;
+    if (d.n !== undefined && !d.n.trim()) delete d.n;
+    if (d.e === undefined && d.s === undefined && d.n === undefined) delete state.items[item.path];
+  }
+
+  let saveTimer = 0;
+  const savedEl = $('#saved');
+  function save() {
+    clearTimeout(saveTimer);
+    try {
+      localStorage.setItem(KEY, JSON.stringify(state));
+      savedEl.textContent = '已自动保存';
+    } catch (e) {
+      savedEl.textContent = '无法存到本地，请及时导出';
+    }
+  }
+  function scheduleSave() {
+    savedEl.textContent = '保存中…';
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(save, 300);
+  }
+  window.addEventListener('beforeunload', save);
+
+  // ---------- render ----------
+  const speakerIds = Object.keys(cast);
+  const speakerOptions = () => ['<option value="">旁白</option>']
+    .concat(speakerIds.map((id) => {
+      const alias = (cast[id].rename || []).map((r) => r.name);
+      return `<option value="${esc(id)}">${esc(cast[id].name)}${alias.length ? '（' + esc(alias.join('/')) + '）' : ''}</option>`;
+    })).join('');
+  const SPK_OPTS = speakerOptions();
+
+  function renderRow(item) {
+    let meta = '';
+    if (item.segment) meta += `<select class="spk" aria-label="说话人">${SPK_OPTS}</select>`;
+    else if (item.kind === 'choice') {
+      meta += `<span class="tag">${esc(item.label)}</span>`;
+      if (item.cond) meta += `<span class="cond" title="${esc(item.cond)}">需 ${esc(condLabel(item.cond))}</span>`;
+      meta += `<span class="to">→ ${link(item.next)}</span>`;
+    } else meta += `<span class="tag">${esc(item.label)}</span>`;
+    meta += '<span class="stale" hidden>原文已更新</span><span class="grow"></span>'
+      + `<span class="path">${esc(item.path)}</span>`
+      + '<button type="button" class="mini revert" hidden>还原</button>'
+      + '<button type="button" class="mini note-btn">＋ 意见</button>'
+      + '<span class="cnt"></span>';
+    const gut = item.segment ? item.index + 1 : item.kind === 'choice' ? '选' : '·';
+    return `<div class="row k-${item.kind}" data-path="${esc(item.path)}">
+      <div class="gut" title="${esc(item.path)}">${gut}</div>
+      <div class="cell">
+        <div class="meta">${meta}</div>
+        <textarea class="ed" rows="1" spellcheck="false" aria-label="${esc(item.path)} 改写"></textarea>
+        <div class="diff" hidden></div>
+        <textarea class="nt" rows="2" hidden placeholder="意见：想要什么语气、哪里别扭、为什么删……（可以不写改法，交给 Claude）" aria-label="${esc(item.path)} 意见"></textarea>
+      </div>
+    </div>`;
+  }
+
+  function renderExit(node) {
+    if (node.isEnding && node.ending) return `终局 · ${esc(node.ending.id)} ${esc(node.ending.title)}（${esc(node.ending.type)}）`;
+    if (node.next) return `自动 → ${link(node.next)}`;
+    if (node.routes) return '分流：' + node.routes.map((r) => `${esc(condLabel(r.if))} → ${link(r.next)}`).join('；');
+    if (node.choices) return '玩家选择（见上方选项）';
+    return '';
+  }
+
+  function renderNode(id) {
+    const node = nodes[id];
+    const ctx = [];
+    const pv = povLabel(id);
+    if (pv) ctx.push(`视角：${pv}`);
+    if (node.scene) ctx.push(`场景：${(STORY.scenes[node.scene] || {}).name || node.scene}`);
+    if (node.cg) ctx.push(`CG：${((STORY.cgs || {})[node.cg] || {}).name || node.cg}`);
+    const k = knowledge[id];
+    const know = k ? `<details class="know"><summary>人物此刻所知</summary><dl>${['wang', 'chen', 'nv'].filter((c) => k[c])
+      .map((c) => `<dt>${esc(spkName(c))}</dt><dd>${esc(k[c])}</dd>`).join('')}</dl></details>` : '';
+    return `<section class="node" id="n-${esc(id)}" data-node="${esc(id)}">
+      <header class="node-h">
+        <div class="node-title"><span class="nid">${esc(id)}</span>${node.card ? `<span class="ncard">${esc(node.card)}</span>` : ''}${node.ending ? `<span class="nend">结局 ${esc(node.ending.id)} · ${esc(node.ending.title)}</span>` : ''}</div>
+        <div class="ctx">${ctx.map((c) => `<span>${esc(c)}</span>`).join('')}</div>${know}
+      </header>
+      <div class="rows">${itemsByNode[id].map(renderRow).join('')}</div>
+      <footer class="node-f"><span class="exit">${renderExit(node)}</span><button type="button" class="mini nnote-btn">＋ 本节意见</button></footer>
+      <div class="nnote-wrap" hidden><textarea class="nnote" rows="2" placeholder="对这一节整体的意见：节奏、信息量、谁该说什么、缺了哪一拍……"></textarea></div>
+    </section>`;
+  }
+
+  const groupedIds = GROUPS.map((g) => ({ ...g, ids: Object.keys(nodes).filter((id) => groupOf[id] === g.key) })).filter((g) => g.ids.length);
+  $('#nodes').innerHTML = groupedIds.map((g) => `<h2 class="group-title" data-group="${g.key}">${esc(g.label)}${g.hint ? `<small>${esc(g.hint)}</small>` : ''}</h2>`
+    + g.ids.map(renderNode).join('')).join('');
+
+  const tocLabel = (id) => {
+    const node = nodes[id];
+    if (node.ending) return node.ending.title;
+    if (node.card) return node.card;
+    if (node.scene) return (STORY.scenes[node.scene] || {}).name || '';
+    return node.routes ? '分流' : '';
+  };
+  $('#toc').innerHTML = groupedIds.map((g) => `<div class="toc-group">${esc(g.label)}</div>`
+    + g.ids.map((id) => `<a href="#n-${esc(id)}" data-node="${esc(id)}"><span class="tid">${esc(id)}</span><span class="tlabel">${esc(tocLabel(id))}</span><span class="badge" hidden></span></a>`).join('')).join('');
+
+  const rowEl = new Map();
+  for (const row of document.querySelectorAll('.row')) rowEl.set(row.dataset.path, row);
+  const secEl = {};
+  for (const sec of document.querySelectorAll('.node')) secEl[sec.dataset.node] = sec;
+  const tocEl = {};
+  for (const a of document.querySelectorAll('#toc a')) tocEl[a.dataset.node] = a;
+
+  // ---------- autosize fallback ----------
+  const nativeSize = window.CSS && CSS.supports && CSS.supports('field-sizing', 'content');
+  function autosize(ta) {
+    if (nativeSize || ta.hidden) return;
+    ta.style.height = 'auto';
+    ta.style.height = (ta.scrollHeight + 2) + 'px';
+  }
+
+  // ---------- diff ----------
+  function diff(a, b) {
+    const A = Array.from(a); const B = Array.from(b);
+    const n = A.length; const m = B.length;
+    const dp = Array.from({ length: n + 1 }, () => new Uint16Array(m + 1));
+    for (let i = n - 1; i >= 0; i--) for (let j = m - 1; j >= 0; j--) {
+      dp[i][j] = A[i] === B[j] ? dp[i + 1][j + 1] + 1 : Math.max(dp[i + 1][j], dp[i][j + 1]);
+    }
+    const out = [];
+    const push = (t, s) => { const last = out[out.length - 1]; if (last && last.t === t) last.s += s; else out.push({ t, s }); };
+    let i = 0; let j = 0;
+    while (i < n && j < m) {
+      if (A[i] === B[j]) { push('=', A[i]); i++; j++; }
+      else if (dp[i + 1][j] >= dp[i][j + 1]) push('-', A[i++]);
+      else push('+', B[j++]);
+    }
+    while (i < n) push('-', A[i++]);
+    while (j < m) push('+', B[j++]);
+    return out;
+  }
+  const diffHtml = (a, b) => diff(a, b).map(({ t, s }) => {
+    const h = esc(s).replace(/\n/g, '<span class="nl">↵</span><br>');
+    return t === '=' ? h : t === '-' ? `<del>${h}</del>` : `<ins>${h}</ins>`;
+  }).join('');
+
+  // ---------- row state ----------
+  function hydrateRow(item) {
+    const row = rowEl.get(item.path);
+    const d = state.items[item.path];
+    const ed = $('.ed', row);
+    ed.value = current(item, d);
+    const spk = $('.spk', row);
+    if (spk) spk.value = d && d.s !== undefined ? d.s : item.speaker;
+    const nt = $('.nt', row);
+    nt.value = (d && d.n) || '';
+    nt.hidden = !hasNote(d);
+    updateRow(item);
+  }
+
+  function updateRow(item) {
+    const row = rowEl.get(item.path);
+    const d = state.items[item.path];
+    const edited = isEdited(item, d);
+    const spkCh = spkChanged(item, d);
+    const text = current(item, d);
+    const deleted = edited && !text.trim();
+    row.classList.toggle('dirty', edited || spkCh);
+    row.classList.toggle('deleted', deleted);
+    row.classList.toggle('noted', hasNote(d));
+    if (item.segment) {
+      const eff = spkCh ? d.s : item.speaker;
+      row.dataset.spk = eff;
+      row.classList.toggle('k-line', !!eff);
+      row.classList.toggle('k-narr', !eff);
+    }
+    $('.stale', row).hidden = !isStale(item, d);
+    $('.stale', row).title = isStale(item, d) ? `草稿基于旧原文：${d.o}` : '';
+    $('.revert', row).hidden = !(edited || spkCh);
+    $('.note-btn', row).textContent = hasNote(d) ? '意见 ✎' : '＋ 意见';
+
+    const cnt = $('.cnt', row);
+    const ps = pieces(text);
+    const lens = ps.map(len);
+    cnt.textContent = deleted ? '删除' : (lens.length > 1 ? lens.join('+') : String(lens[0] || 0)) + (item.soft ? `/${item.soft}` : item.hard ? `/${item.hard}` : '');
+    const over = item.hard && lens.some((l) => l > item.hard);
+    const warn = item.soft && lens.some((l) => l > item.soft);
+    cnt.classList.toggle('over', !!over);
+    cnt.classList.toggle('warn', !over && !!warn);
+    cnt.title = item.soft ? `建议 ≤ ${item.soft}，硬上限 ${item.hard}` : item.hard ? `上限 ${item.hard}` : '';
+
+    const df = $('.diff', row);
+    if (edited) {
+      df.hidden = false;
+      df.innerHTML = `<span class="lbl">${deleted ? '将删除' : ps.length > 1 ? `拆为 ${ps.length} 段` : '对照'}</span>${diffHtml(item.text, text)}`;
+    } else if (spkCh) {
+      df.hidden = false;
+      df.innerHTML = `<span class="lbl">说话人</span>${esc(spkName(item.speaker))} → ${esc(spkName(d.s))}`;
+    } else df.hidden = true;
+  }
+
+  function updateNode(id) {
+    let n = 0;
+    for (const item of itemsByNode[id]) if (touched(item, state.items[item.path])) n++;
+    const nn = (state.nodes[id] || '').trim();
+    if (nn) n++;
+    secEl[id].classList.toggle('has-nnote', !!nn);
+    $('.nnote-btn', secEl[id]).textContent = nn ? '本节意见 ✎' : '＋ 本节意见';
+    const badge = $('.badge', tocEl[id]);
+    badge.hidden = !n;
+    badge.textContent = n;
+  }
+
+  function counts() {
+    const c = { edit: 0, del: 0, spk: 0, note: 0, nnote: 0 };
+    for (const item of items) {
+      const d = state.items[item.path];
+      if (!d) continue;
+      if (isEdited(item, d)) current(item, d).trim() ? c.edit++ : c.del++;
+      if (spkChanged(item, d)) c.spk++;
+      if (hasNote(d)) c.note++;
+    }
+    c.nnote = Object.values(state.nodes).filter((v) => v && v.trim()).length;
+    return c;
+  }
+  function updateStats() {
+    const c = counts();
+    const parts = [['改写', c.edit], ['删除', c.del], ['换说话人', c.spk], ['意见', c.note], ['本节意见', c.nnote]]
+      .filter(([, v]) => v).map(([k, v]) => `${k} <b>${v}</b>`);
+    if (state.global.trim()) parts.push('总体意见 <b>✓</b>');
+    $('#stats').innerHTML = parts.length ? parts.join(' · ') : '尚未修改';
+  }
+
+  function updateBanner() {
+    const stale = items.filter((item) => isStale(item, state.items[item.path]));
+    const live = orphans.filter((p) => state.items[p]);
+    const el = $('#banner');
+    if (!stale.length && !live.length) { el.hidden = true; return; }
+    const msg = [];
+    if (stale.length) msg.push(`${stale.length} 条草稿的原文已被更新（剧本改过了），这些草稿是基于旧原文写的，行内标了「原文已更新」。`);
+    if (live.length) msg.push(`${live.length} 条草稿对应的位置已不存在（段落增删过），导出时会单独列出。`);
+    el.innerHTML = `<p>${msg.join('')}</p><button type="button" id="drop-stale">丢弃这些过期草稿</button>`;
+    el.hidden = false;
+    $('#drop-stale').onclick = () => {
+      for (const item of stale) { delete state.items[item.path]; hydrateRow(item); updateNode(item.node); }
+      for (const p of live) delete state.items[p];
+      save(); updateStats(); updateBanner(); applyFilter();
+    };
+  }
+
+  for (const item of items) hydrateRow(item);
+  for (const id of Object.keys(nodes)) {
+    const nn = state.nodes[id] || '';
+    const ta = $('.nnote', secEl[id]);
+    ta.value = nn;
+    ta.parentElement.hidden = !nn.trim();
+    updateNode(id);
+  }
+  $('#global-note').value = state.global;
+  updateStats();
+  updateBanner();
+  if (!nativeSize) requestAnimationFrame(() => document.querySelectorAll('textarea').forEach(autosize));
+
+  const total = items.length;
+  $('#sub').textContent = `v${(STORY.meta && STORY.meta.version) || '?'} · ${Object.keys(nodes).length} 节 · ${total} 条`;
+  try { if (!localStorage.getItem(KEY + '.seenHelp')) { $('#help').open = true; localStorage.setItem(KEY + '.seenHelp', '1'); } } catch (e) { $('#help').open = true; }
+
+  // ---------- editing events ----------
+  const main = $('#main');
+  const itemOf = (el) => { const row = el.closest('.row'); return row ? byPath.get(row.dataset.path) : null; };
+
+  main.addEventListener('input', (ev) => {
+    const t = ev.target;
+    if (t.id === 'global-note') { state.global = t.value; updateStats(); scheduleSave(); autosize(t); return; }
+    if (t.classList.contains('nnote')) {
+      const id = t.closest('.node').dataset.node;
+      if (t.value.trim()) state.nodes[id] = t.value; else delete state.nodes[id];
+      updateNode(id); updateStats(); scheduleSave(); autosize(t); return;
+    }
+    const item = itemOf(t);
+    if (!item) return;
+    const d = ensure(item);
+    if (t.classList.contains('ed')) d.e = t.value;
+    else if (t.classList.contains('nt')) d.n = t.value;
+    else return;
+    prune(item); updateRow(item); updateNode(item.node); updateStats(); scheduleSave(); autosize(t);
+  });
+
+  main.addEventListener('change', (ev) => {
+    const t = ev.target;
+    if (!t.classList.contains('spk')) return;
+    const item = itemOf(t);
+    ensure(item).s = t.value;
+    prune(item); updateRow(item); updateNode(item.node); updateStats(); scheduleSave();
+  });
+
+  main.addEventListener('click', (ev) => {
+    const t = ev.target.closest('button');
+    if (!t) return;
+    if (t.classList.contains('nnote-btn')) {
+      const wrap = $('.nnote-wrap', t.closest('.node'));
+      wrap.hidden = false;
+      const ta = $('textarea', wrap); autosize(ta); ta.focus();
+      return;
+    }
+    const item = itemOf(t);
+    if (!item) return;
+    const row = rowEl.get(item.path);
+    if (t.classList.contains('note-btn')) {
+      const nt = $('.nt', row);
+      nt.hidden = false; autosize(nt); nt.focus();
+    } else if (t.classList.contains('revert')) {
+      const d = state.items[item.path];
+      if (d) { delete d.e; delete d.s; prune(item); }
+      const nt = $('.nt', row); const open = !nt.hidden;
+      hydrateRow(item);
+      if (open) nt.hidden = false;
+      autosize($('.ed', row));
+      updateNode(item.node); updateStats(); updateBanner(); scheduleSave();
+    }
+  });
+
+  // ---------- filtering ----------
+  const filter = { kinds: new Set(KINDS.map((k) => k.key)), onlyDirty: false, q: '' };
+  const kindCount = {};
+  for (const item of items) kindCount[item.kind] = (kindCount[item.kind] || 0) + 1;
+  $('#chips').innerHTML = KINDS.map((k) => `<button type="button" class="chip" data-kind="${k.key}" aria-pressed="true">${esc(k.label)}<span class="n">${kindCount[k.key] || 0}</span></button>`).join('');
+  $('#chips').addEventListener('click', (ev) => {
+    const b = ev.target.closest('.chip');
+    if (!b) return;
+    const k = b.dataset.kind;
+    if (filter.kinds.has(k)) filter.kinds.delete(k); else filter.kinds.add(k);
+    b.setAttribute('aria-pressed', String(filter.kinds.has(k)));
+    applyFilter();
+  });
+  $('#only-dirty').addEventListener('change', (ev) => { filter.onlyDirty = ev.target.checked; applyFilter(); });
+  let qTimer = 0;
+  $('#q').addEventListener('input', (ev) => { clearTimeout(qTimer); qTimer = setTimeout(() => { filter.q = ev.target.value.trim().toLowerCase(); applyFilter(); }, 120); });
+
+  function matches(item, d, q) {
+    const hay = [item.path, item.text, d && d.e, d && d.n, spkName(item.speaker), item.label].filter(Boolean).join('\n').toLowerCase();
+    return hay.includes(q);
+  }
+
+  function applyFilter() {
+    const q = filter.q;
+    const active = filter.onlyDirty || !!q || filter.kinds.size < KINDS.length;
+    let anyVisible = false;
+    for (const id of Object.keys(nodes)) {
+      let vis = 0;
+      for (const item of itemsByNode[id]) {
+        const d = state.items[item.path];
+        let show = filter.kinds.has(item.kind);
+        if (show && filter.onlyDirty) show = touched(item, d);
+        if (show && q) show = matches(item, d, q);
+        rowEl.get(item.path).hidden = !show;
+        if (show) vis++;
+      }
+      const nn = (state.nodes[id] || '').trim();
+      const noteShow = !!nn && (!q || nn.toLowerCase().includes(q) || id.includes(q));
+      const hide = active && vis === 0 && !noteShow;
+      secEl[id].hidden = hide;
+      tocEl[id].classList.toggle('dim', hide);
+      if (!hide) anyVisible = true;
+    }
+    for (const h of document.querySelectorAll('.group-title')) {
+      const g = groupedIds.find((x) => x.key === h.dataset.group);
+      h.hidden = g.ids.every((id) => secEl[id].hidden);
+    }
+    $('#empty').hidden = anyVisible;
+  }
+
+  // ---------- toc active + header height ----------
+  const top = $('#top');
+  const setTopH = () => document.documentElement.style.setProperty('--top-h', top.offsetHeight + 'px');
+  setTopH();
+  if (window.ResizeObserver) new ResizeObserver(setTopH).observe(top);
+  const nav = $('#toc');
+  let activeId = '';
+  const io = new IntersectionObserver((entries) => {
+    for (const e of entries) {
+      if (!e.isIntersecting) continue;
+      const id = e.target.dataset.node;
+      if (id === activeId) continue;
+      if (tocEl[activeId]) tocEl[activeId].classList.remove('active');
+      activeId = id;
+      const a = tocEl[id];
+      a.classList.add('active');
+      if (a.offsetTop < nav.scrollTop + 20 || a.offsetTop > nav.scrollTop + nav.clientHeight - 40) nav.scrollTop = a.offsetTop - nav.clientHeight / 3;
+    }
+  }, { rootMargin: '-120px 0px -70% 0px' });
+  Object.values(secEl).forEach((s) => io.observe(s));
+
+  // ---------- clear ----------
+  const clearBtn = $('#btn-clear');
+  let clearArmed = 0;
+  clearBtn.addEventListener('click', () => {
+    if (!clearArmed) {
+      clearBtn.textContent = '再点一次确认清空';
+      clearBtn.classList.add('danger');
+      clearArmed = setTimeout(() => { clearArmed = 0; clearBtn.textContent = '清空草稿'; clearBtn.classList.remove('danger'); }, 3000);
+      return;
+    }
+    clearTimeout(clearArmed); clearArmed = 0;
+    clearBtn.textContent = '清空草稿'; clearBtn.classList.remove('danger');
+    state = { items: {}, nodes: {}, global: '' };
+    orphans.length = 0;
+    for (const item of items) hydrateRow(item);
+    for (const id of Object.keys(nodes)) {
+      const ta = $('.nnote', secEl[id]); ta.value = ''; ta.parentElement.hidden = true; updateNode(id);
+    }
+    $('#global-note').value = '';
+    save(); updateStats(); updateBanner(); applyFilter();
+  });
+
+  // ---------- export ----------
+  const pad = (n) => String(n).padStart(2, '0');
+  const stamp = (d, sep) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}${sep}${pad(d.getHours())}${sep === ' ' ? ':' : ''}${pad(d.getMinutes())}`;
+  const who = (item, d) => {
+    if (item.segment) return spkName(spkChanged(item, d) ? d.s : item.speaker);
+    return item.label;
+  };
+  const indent = (text, prefix) => text.split('\n').join('\n' + prefix);
+
+  function buildMarkdown() {
+    const now = new Date();
+    const c = counts();
+    const L = [];
+    L.push('# 《画皮》剧本校对反馈', '');
+    L.push(`- 导出：${stamp(now, ' ')}`);
+    L.push(`- 源：game_runs/PaintedSkin/story/painted-skin.json v${(STORY.meta && STORY.meta.version) || '?'}`);
+    L.push(`- 统计：改写 ${c.edit} · 删除 ${c.del} · 换说话人 ${c.spk} · 意见 ${c.note} · 本节意见 ${c.nnote}`);
+    L.push('- 约定：「改」= 定稿，直接替换；「意见」= 方向，需要改写；「改」里有多行 = 拆成多段；路径从 0 起，与 build-story 一致。', '');
+    if (state.global.trim()) L.push('## 总体意见', '', state.global.trim(), '');
+    for (const g of groupedIds) {
+      for (const id of g.ids) {
+        const list = itemsByNode[id].filter((item) => touched(item, state.items[item.path]));
+        const nn = (state.nodes[id] || '').trim();
+        if (!list.length && !nn) continue;
+        const node = nodes[id];
+        const title = [id, node.card, node.ending && `结局 ${node.ending.id} ${node.ending.title}`].filter(Boolean).join(' · ');
+        L.push(`## ${title}（${g.label} · 视角 ${povLabel(id) || '?'}）`, '');
+        if (nn) L.push('> 本节意见：' + indent(nn, '> '), '');
+        for (const item of list) {
+          const d = state.items[item.path];
+          L.push(`- \`${item.path}\` ${who(item, d)}`);
+          L.push(`  - 原：${item.text}`);
+          if (isStale(item, d)) L.push(`  - 注意：这条草稿基于旧原文「${d.o}」`);
+          if (spkChanged(item, d)) L.push(`  - 说话人：${spkName(item.speaker)} → ${spkName(d.s)}`);
+          if (isEdited(item, d)) {
+            const ps = pieces(current(item, d));
+            if (!ps.length) L.push('  - 改：（删除此条）');
+            else if (ps.length === 1) L.push(`  - 改：${ps[0]}`);
+            else { L.push(`  - 改（拆为 ${ps.length} 段）：`); ps.forEach((p, i) => L.push(`    ${i + 1}. ${p}`)); }
+          }
+          if (hasNote(d)) L.push(`  - 意见：${indent(d.n.trim(), '    ')}`);
+        }
+        L.push('');
+      }
+    }
+    const live = orphans.filter((p) => state.items[p]);
+    if (live.length) {
+      L.push('## 位置已不存在的旧草稿', '');
+      for (const p of live) {
+        const d = state.items[p];
+        L.push(`- \`${p}\`（旧原文：${d.o}）`);
+        if (d.e !== undefined) L.push(`  - 改：${d.e.trim() ? indent(d.e, '    ') : '（删除此条）'}`);
+        if (d.n) L.push(`  - 意见：${indent(d.n.trim(), '    ')}`);
+      }
+      L.push('');
+    }
+    return L.join('\n');
+  }
+
+  function buildJson() {
+    const out = {
+      source: 'game_runs/PaintedSkin/story/painted-skin.json',
+      version: (STORY.meta && STORY.meta.version) || null,
+      exportedAt: new Date().toISOString(),
+      global: state.global.trim() || undefined,
+      nodeNotes: Object.fromEntries(Object.entries(state.nodes).filter(([, v]) => v && v.trim())),
+      items: [],
+    };
+    for (const item of items) {
+      const d = state.items[item.path];
+      if (!touched(item, d)) continue;
+      const rec = { path: item.path, kind: item.kind, speaker: item.speaker || undefined, original: item.text };
+      if (isStale(item, d)) rec.draftBase = d.o;
+      if (spkChanged(item, d)) rec.newSpeaker = d.s || null;
+      if (isEdited(item, d)) {
+        const ps = pieces(current(item, d));
+        if (!ps.length) rec.delete = true; else rec.edit = ps;
+      }
+      if (hasNote(d)) rec.note = d.n.trim();
+      out.items.push(rec);
+    }
+    for (const p of orphans) if (state.items[p]) out.items.push({ path: p, orphan: true, ...state.items[p] });
+    return JSON.stringify(out, null, 2);
+  }
+
+  function download(text, name, type) {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([text], { type }));
+    a.download = name;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+  }
+
+  const dlg = $('#dlg');
+  const out = $('#out');
+  const msg = $('#copy-msg');
+  $('#btn-export').addEventListener('click', () => {
+    save();
+    out.value = buildMarkdown();
+    msg.textContent = '';
+    dlg.showModal();
+    out.scrollTop = 0;
+  });
+  $('#copy-md').addEventListener('click', async () => {
+    let ok = false;
+    try { await navigator.clipboard.writeText(out.value); ok = true; } catch (e) {
+      out.select();
+      try { ok = document.execCommand('copy'); } catch (e2) { ok = false; }
+    }
+    msg.textContent = ok ? '已复制，贴回对话即可。' : '复制失败，请手动全选（Ctrl+A）后复制。';
+  });
+  $('#dl-md').addEventListener('click', () => download(out.value, `painted-skin-review-${stamp(new Date(), '-')}.md`, 'text/markdown;charset=utf-8'));
+  $('#dl-json').addEventListener('click', () => download(buildJson(), `painted-skin-review-${stamp(new Date(), '-')}.json`, 'application/json;charset=utf-8'));
+
+  applyFilter();
+  if (location.hash) { const t = document.getElementById(location.hash.slice(1)); if (t) t.scrollIntoView(); }
+})();
+</script>
+</body>
+</html>
