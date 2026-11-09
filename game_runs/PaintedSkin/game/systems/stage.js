@@ -75,7 +75,8 @@ window.HuaPi.StageSystem = class StageSystem {
     const speaking = speaker ? speaker === item.actor : item.actor === pov;
     item.tinted = !speaking;
     if (item.image) item.image.setTint(item.tinted ? 0x8a8a8a : this.tint);
-    item.group.setAlpha(item.tinted ? 0.82 : 1);
+    // 非说话人只压暗+微缩，不降透明度：本作里半透明是鬼相的视觉语言，活人不能被看穿。
+    item.group.setAlpha(1);
     item.group.setScale(item.tinted ? 0.98 : 1);
   }
 
@@ -85,7 +86,7 @@ window.HuaPi.StageSystem = class StageSystem {
     const duration = 250;
     item.group.setAlpha(0);
     this.tweens[slot] = this.scene.tweens.add({
-      targets: item.group, alpha: item.tinted ? 0.82 : 1,
+      targets: item.group, alpha: 1,
       x: this.positions[slot], duration, ease: 'Sine.Out',
       onComplete: () => { this.tweens[slot] = null; },
     });
