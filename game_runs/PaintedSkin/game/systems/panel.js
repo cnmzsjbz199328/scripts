@@ -4,7 +4,6 @@ window.HuaPi.PanelSystem = class PanelSystem {
     this.scene = scene;
     this.runtime = runtime;
     this.story = story;
-    this.history = [];
     this.currentRecord = null;
     this.typingEvent = null;
     this.choiceLayer = null;
@@ -29,10 +28,6 @@ window.HuaPi.PanelSystem = class PanelSystem {
       fontFamily: 'serif', fontSize: '26px', color: '#241d1c', lineSpacing: 10,
       wordWrap: { width: 1120, useAdvancedWrap: false },
     }).setDepth(53);
-    this.historyTexts = [0, 1].map((i) => this.scene.add.text(80, 470 + i * 30, '', {
-      fontFamily: 'serif', fontSize: '18px', color: '#fbefdc', alpha: i === 0 ? 0.55 : 0.3,
-      wordWrap: { width: 1120 },
-    }).setDepth(48));
     this.haze = this.scene.add.graphics().setDepth(70);
     this.hazeAlpha = 0;
     this.pov = 'wang';
@@ -69,14 +64,9 @@ window.HuaPi.PanelSystem = class PanelSystem {
 
   typeLine(segment, onTyped = () => {}) {
     this.cancelTyping();
-    if (this.currentRecord) {
-      this.history.unshift(this.currentRecord);
-      this.history = this.history.slice(0, 2);
-      this.renderHistory();
-    }
     const text = String(segment.text || '');
     const who = segment.speaker || null;
-    this.currentRecord = { text, name: this.resolveName(who) };
+    this.currentRecord = { text };
     this.setSpeaker(who);
     this.lineText.setText('');
     const chars = Array.from(text);
@@ -109,31 +99,17 @@ window.HuaPi.PanelSystem = class PanelSystem {
   }
 
   echoChoice(text, pov) {
-    if (this.currentRecord) {
-      this.history.unshift(this.currentRecord);
-      this.history = this.history.slice(0, 2);
-      this.renderHistory();
-    }
     this.pov = pov || this.pov;
     this.setSpeaker(pov);
-    this.currentRecord = { text, name: this.resolveName(pov) };
+    this.currentRecord = { text };
     this.lineText.setText(this.wrap(text));
-  }
-
-  renderHistory() {
-    this.historyTexts.forEach((text, i) => {
-      const item = this.history[i];
-      text.setText(item ? `${item.name}：${this.wrap(item.text, 54)}` : '');
-    });
   }
 
   clearEcho() {
     this.clearChoices();
-    this.history = [];
     this.currentRecord = null;
     this.lineText.setText('');
     this.setSpeaker(null);
-    this.renderHistory();
   }
 
   setHeart(amount) {
