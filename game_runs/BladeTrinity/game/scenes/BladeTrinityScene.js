@@ -265,6 +265,12 @@ class BladeTrinityScene extends Phaser.Scene {
       for (const f of this.fighters) if (f.iai) this._endIai(f);   // 架式的预示线别留在场上
       // 蓄力中被定格（对手倒地 / 自己倒地）：收掉变装、描边与招式名，不出剑气
       for (const f of this.fighters) if (f.charging) this._endCharge(f);
+      // 蓄力挥砍途中被 KO：刀上未脱手的光带直接收掉（与「蓄力被定格不出剑气」一致）
+      for (const f of this.fighters) if (f.qiSwing) this._clearSwing(f);
+      // 已脱手的剑气飞完、淡出，但不结算命中。用真实时间 delta，与战斗阶段一致（剑气不吃子弹时间）
+      this._tickQi(time, realDelta, true);
+      // 收住横向速度，回站立
+      for (const f of this.fighters) this._settleAfterKo(f, time);
       this._fighterPhysics();
       return;
     }
