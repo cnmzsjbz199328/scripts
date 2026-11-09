@@ -1,6 +1,6 @@
 # 剧本校验报告
 
-生成时间：2026-11-09T06:42:54.109Z
+生成时间：2026-11-09T10:41:43.152Z
 
 - 模式：strict
 - 节点：48
@@ -10,7 +10,7 @@
 - 全图剧本文字：8148 字符
 - 最长路线：11.8 分钟
 - 错误：0
-- 警告：1
+- 警告：0
 
 ## 结局可达性与路线统计
 
@@ -27,7 +27,54 @@
 
 ## 素材覆盖
 
-尚未生成 manifest.js；P1A / G1 阶段按计划将缺图视为警告。P5 的 `--strict` 将校验所有被引用素材。
+覆盖：44/44（100.0%）
+
+| 类型 | ID | 状态 |
+|---|---|---|
+| bg | home_hall | ✅ |
+| bg | road_dawn | ✅ |
+| bg | study_in | ✅ |
+| bg | study_night | ✅ |
+| bg | home_night | ✅ |
+| bg | market | ✅ |
+| bg | bedroom_night | ✅ |
+| bg | temple | ✅ |
+| bg | shen_inner | ✅ |
+| bg | shen_well | ✅ |
+| bg | grave_dawn | ✅ |
+| bg | courtyard_night | ✅ |
+| cg | window_peek | ✅ |
+| cg | well_bones | ✅ |
+| cg | portrait | ✅ |
+| cg | burning | ✅ |
+| cg | shield_shadow | ✅ |
+| cg | aftermath | ✅ |
+| cg | heart_wang | ✅ |
+| cg | study_fire | ✅ |
+| lihui | wang:calm | ✅ |
+| lihui | chen:calm | ✅ |
+| lihui | nv:pitiful | ✅ |
+| lihui | nv:smile | ✅ |
+| lihui | nv:dressed | ✅ |
+| lihui | nv:love | ✅ |
+| lihui | wang:worry | ✅ |
+| lihui | chen:cold | ✅ |
+| lihui | dao:stern | ✅ |
+| lihui | chen:worry | ✅ |
+| lihui | wang:fear | ✅ |
+| lihui | chen:fear | ✅ |
+| lihui | gui:sorrow | ✅ |
+| lihui | wang:resolve | ✅ |
+| lihui | chen:resolve | ✅ |
+| lihui | shen:haughty | ✅ |
+| lihui | shen:terror | ✅ |
+| lihui | gui:rage | ✅ |
+| lihui | chen:remorse | ✅ |
+| lihui | dao:angry | ✅ |
+| lihui | dao:calm | ✅ |
+| lihui | dao:act | ✅ |
+| lihui | wang:weak | ✅ |
+| lihui | wang:grief | ✅ |
 
 ## 自检与错误
 
@@ -35,5 +82,5 @@
 
 ## 警告
 
-- ⚠️ asset manifest not generated yet; asset coverage deferred until P3.
+- 无
 

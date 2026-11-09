@@ -55,5 +55,5 @@
 - `wang:weak`
 - `wang:worry`
 
-覆盖合计：待 manifest.js 生成后核验
+覆盖合计：44/44
 
