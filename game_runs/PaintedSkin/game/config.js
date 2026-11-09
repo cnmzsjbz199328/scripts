@@ -6,5 +6,7 @@ window.HuaPi.Config = {
   ACCENT: '#c96f7a',
   PACE: { typeCps: 30, charMs: 150, tailMs: 900, minMs: 1800, cardMs: 2500, choiceDelay: 0 },
   REDUCED_MOTION: Boolean(window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches),
-  STAGE_X: { L: 320, C: 640, R: 960 },
+  // 立绘槽位中心 x。两侧外推贴边，把画面中段让给背景：常规角色上半身宽约 ±180，
+  // L=200 时左缘留约 30px；R 侧最宽的鬼/道士（±240，挥剑态右袖 +263）会被屏幕边裁掉少许袖/发梢，可接受。
+  STAGE_X: { L: 200, C: 640, R: 1080 },
 };

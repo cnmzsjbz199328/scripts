@@ -1,12 +1,16 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import vm from 'node:vm';
 import sharp from 'sharp';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const story = JSON.parse(await fs.readFile(path.join(root, 'story', 'painted-skin.json'), 'utf8'));
 const ids = ['a1_dress', 'a1_home', 'f_portrait', 'f_flee', 'f_last', 'h_well', 'f_seal', 'l_fire2'];
-const slots = { L: 320, C: 640, R: 960 };
+// 槽位唯一真源是运行时 game/config.js，不在这里另抄一份。
+const sandbox = { window: {} };
+vm.runInNewContext(await fs.readFile(path.join(root, 'game', 'config.js'), 'utf8'), sandbox);
+const slots = sandbox.window.HuaPi.Config.STAGE_X;
 const cellW = 640, imageH = 360, headH = 28, cellH = imageH + headH, gap = 8, cols = 3;
 const rows = Math.ceil(ids.length / cols), layers = [];
 
@@ -24,8 +28,10 @@ for (let i = 0; i < ids.length; i++) {
     if (!value) continue;
     const [actor, state] = value.split(':');
     const sprite = path.join(root, 'assets', 'lihui', `${actor}_${state}.webp`);
-    const image = await sharp(sprite).extract({ left: 0, top: 0, width: 640, height: 720 }).png().toBuffer();
-    parts.push({ input: image, left: slots[slot] - 320, top: 0 });
+    // 侧槽立绘可越出画布，按运行时一样裁到 0..1280 可见段。
+    const x0 = slots[slot] - 320, cropL = Math.max(0, -x0), width = Math.min(640, 1280 - x0) - cropL;
+    const image = await sharp(sprite).extract({ left: cropL, top: 0, width, height: 720 }).png().toBuffer();
+    parts.push({ input: image, left: x0 + cropL, top: 0 });
   }
   const panel = Buffer.from('<svg width="1280" height="720"><rect x="0" y="530" width="1280" height="190" fill="#171314" opacity=".30"/><rect x="36" y="540" width="1208" height="170" rx="8" fill="#f0e6d3" opacity=".90" stroke="#7c6254" stroke-width="2"/><rect x="58" y="518" width="200" height="38" rx="5" fill="#453735"/></svg>');
   parts.push({ input: panel, left: 0, top: 0 });
