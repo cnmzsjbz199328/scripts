@@ -5,6 +5,7 @@ window.HuaPi.PanelSystem = class PanelSystem {
     this.runtime = runtime;
     this.story = story;
     this.currentRecord = null;
+    this.lastFace = {};
     this.typingEvent = null;
     this.choiceLayer = null;
     this.choiceItems = [];
@@ -28,6 +29,14 @@ window.HuaPi.PanelSystem = class PanelSystem {
       fontFamily: 'serif', fontSize: '26px', color: '#241d1c', lineSpacing: 10,
       wordWrap: { width: 1120, useAdvancedWrap: false },
     }).setDepth(53);
+    const A = window.HuaPi.Config.AVATAR;
+    this.avatarFrame = this.scene.add.graphics().setDepth(51).setVisible(false);
+    this.avatarFrame.fillStyle(0xe2d4bc, 1).fillRoundedRect(A.x - 4, A.y - 4, A.size + 8, A.size + 8, 6);
+    this.avatarFrame.lineStyle(2, 0x7c6254, 0.9).strokeRoundedRect(A.x - 4, A.y - 4, A.size + 8, A.size + 8, 6);
+    this.avatarImage = null;
+    this.avatarInitial = this.scene.add.text(A.x + A.size / 2, A.y + A.size / 2, '', {
+      fontFamily: 'serif', fontSize: '54px', color: '#7c6254',
+    }).setOrigin(0.5).setDepth(52).setVisible(false);
     this.haze = this.scene.add.graphics().setDepth(70);
     this.hazeAlpha = 0;
     this.pov = 'wang';
@@ -42,7 +51,7 @@ window.HuaPi.PanelSystem = class PanelSystem {
     return name;
   }
 
-  wrap(text, width = 42) {
+  wrap(text, width = this.lineWrap || 42) {
     const chars = Array.from(String(text ?? ''));
     const lines = [];
     for (let i = 0; i < chars.length; i += width) lines.push(chars.slice(i, i + width).join(''));
@@ -56,18 +65,61 @@ window.HuaPi.PanelSystem = class PanelSystem {
     if (!isWang) this.haze.clear();
   }
 
-  setSpeaker(actor) {
+  // 对白模式（有说话人）：名牌 + 框内头像 + 「」；旁白模式：三者都不显示，正文顶格。
+  setSpeaker(actor, face = null) {
+    const A = window.HuaPi.Config.AVATAR;
     this.nameText.setText(this.resolveName(actor));
     this.namePlate.setVisible(Boolean(actor));
     this.nameText.setVisible(Boolean(actor));
+    this.showAvatar(actor, face);
+    this.lineText.setX(actor ? A.textX : 80);
+    this.lineWrap = actor ? A.wrap : 42;
+  }
+
+  // 表情：段落显式 face → 说话人当前在台上的状态 → 该角色上次的表情 → 立绘清单里的第一个状态。
+  // 读 runtime 的 stage 数据而非可见立绘，CG 期间立绘隐藏时头像仍能取到表情。
+  resolveFace(actor, face) {
+    const onStage = Object.values(this.runtime?.state?.stage || {}).find((value) => value?.startsWith(`${actor}:`));
+    const state = face || onStage?.split(':')[1] || this.lastFace[actor]
+      || Object.keys(window.HuaPi.ART?.lihui || {}).find((key) => key.startsWith(`${actor}:`))?.split(':')[1] || null;
+    if (state) this.lastFace[actor] = state;
+    return state;
+  }
+
+  showAvatar(actor, face) {
+    this.avatarImage?.destroy();
+    this.avatarImage = null;
+    this.avatarFrame.setVisible(Boolean(actor));
+    this.avatarInitial.setVisible(false);
+    if (!actor) return;
+    const { AVATAR: A, AVATAR_CROP: CROP } = window.HuaPi.Config;
+    const art = window.HuaPi.ART || {};
+    const textures = this.scene.textures;
+    const state = this.resolveFace(actor, face);
+    const qKey = [`${actor}:${state}`, actor].find((key) => art.avatar?.[key] && textures.exists(`avatar:${key}`));
+    if (qKey) {
+      this.avatarImage = this.scene.add.image(A.x, A.y, `avatar:${qKey}`).setOrigin(0).setDisplaySize(A.size, A.size);
+    } else if (state && CROP[actor] && textures.exists(`lihui:${actor}:${state}`)) {
+      const [cx, cy, side] = CROP[actor];
+      const scale = A.size / side;
+      this.avatarImage = this.scene.add.image(A.x - cx * scale, A.y - cy * scale, `lihui:${actor}:${state}`)
+        .setOrigin(0).setScale(scale).setCrop(cx, cy, side, side);
+    }
+    if (this.avatarImage) this.avatarImage.setDepth(52);
+    else this.avatarInitial.setText(Array.from(this.resolveName(actor))[0] || '').setVisible(true);
+  }
+
+  format(text) {
+    const body = String(text ?? '');
+    return this.lineWrap === 42 || body.startsWith('「') ? body : `「${body}」`;
   }
 
   typeLine(segment, onTyped = () => {}) {
     this.cancelTyping();
-    const text = String(segment.text || '');
     const who = segment.speaker || null;
+    this.setSpeaker(who, segment.face || null);
+    const text = this.format(segment.text);
     this.currentRecord = { text };
-    this.setSpeaker(who);
     this.lineText.setText('');
     const chars = Array.from(text);
     let index = 0;
@@ -100,7 +152,8 @@ window.HuaPi.PanelSystem = class PanelSystem {
 
   echoChoice(text, pov) {
     this.pov = pov || this.pov;
-    this.setSpeaker(pov);
+    // 选项是视角人物的决定而非台词，按旁白样式回显（无头像、无「」）。
+    this.setSpeaker(null);
     this.currentRecord = { text };
     this.lineText.setText(this.wrap(text));
   }

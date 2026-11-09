@@ -56,5 +56,6 @@ window.HuaPi.ART = {
     "wang:smitten": "assets/lihui/wang_smitten.webp",
     "wang:weak": "assets/lihui/wang_weak.webp",
     "wang:worry": "assets/lihui/wang_worry.webp"
-  }
+  },
+  "avatar": {}
 };

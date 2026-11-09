@@ -1251,6 +1251,7 @@ window.HuaPi.STORY = {
         },
         {
           "speaker": "wang",
+          "face": "weak",
           "text": "你还是像我们初见时那样美……以后，一定要好好活下去。"
         },
         {
@@ -1403,6 +1404,7 @@ window.HuaPi.STORY = {
         },
         {
           "speaker": "dao",
+          "face": "stern",
           "text": "手上沾了血的魂，什么也给不了别人。"
         },
         {

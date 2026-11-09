@@ -21,7 +21,10 @@ const dirs = {
   bg: { raw: 'assets/bg/raw', out: 'assets/bg', ext: 'png' },
   cg: { raw: 'assets/cg/raw', out: 'assets/cg', ext: 'png' },
   lihui: { raw: 'assets/lihui/raw', out: 'assets/lihui', ext: 'png' },
+  avatar: { raw: 'assets/avatar/raw', out: 'assets/avatar', ext: 'png' },
 };
+const KINDS = Object.keys(dirs);
+const AVATAR_SIZE = 256;
 
 const exists = async (file) => fs.access(file).then(() => true, () => false);
 const median = (numbers) => {
@@ -191,14 +194,43 @@ async function processPortrait(name) {
   return true;
 }
 
+// 对话头像：<actor>_<state>.png 或 <actor>.png，纯色底抠图后按包围盒等比放进 256×256，
+// 水平居中、底边贴齐（胸像下缘被框底裁断是正常的）。
+async function processAvatar(name) {
+  const src = path.join(root, dirs.avatar.raw, `${name}.png`);
+  if (!(await exists(src))) return false;
+  const [actor, state] = name.split('_');
+  if (!CAST[actor]) throw new Error(`Unknown cast character for avatar ${name}`);
+  if (state && !CAST[actor].states?.[state]) throw new Error(`Unknown state for avatar ${name}`);
+  const { data: original, info } = await sharp(src).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+  const data = Buffer.from(original);
+  const keyed = keyPixels(data, info.width, info.height, info.channels, threshold, soft);
+  if (keyed.matte / (info.width * info.height) < 0.10) throw new Error(`${name}: border matte too small; wrong background or key threshold`);
+  removeSmallComponents(data, info.width, info.height, info.channels);
+  const box = bounds(data, info.width, info.height, info.channels);
+  if (box.visible / (info.width * info.height) < 0.05) throw new Error(`${name}: nearly empty after keying; refusing output`);
+  const fit = Math.min((AVATAR_SIZE - 16) / box.width, (AVATAR_SIZE - 8) / box.height);
+  const w = Math.round(box.width * fit), h = Math.round(box.height * fit);
+  const crop = await sharp(data, { raw: { width: info.width, height: info.height, channels: info.channels } })
+    .extract({ left: box.minX, top: box.minY, width: box.width, height: box.height })
+    .resize(w, h, { fit: 'fill', kernel: 'lanczos3' }).png().toBuffer();
+  const outPath = path.join(root, dirs.avatar.out, `${name}.webp`);
+  await fs.mkdir(path.dirname(outPath), { recursive: true });
+  await sharp({ create: { width: AVATAR_SIZE, height: AVATAR_SIZE, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } } })
+    .composite([{ input: crop, left: Math.round((AVATAR_SIZE - w) / 2), top: AVATAR_SIZE - h }])
+    .webp({ quality: 88, alphaQuality: 100 }).toFile(outPath);
+  console.log(`avatar/${name}: ${info.width}x${info.height} -> ${w}x${h}; bg=${keyed.screenKind}`);
+  return true;
+}
+
 async function writeManifest() {
-  const manifest = { bg: {}, cg: {}, lihui: {} };
-  for (const kind of ['bg', 'cg', 'lihui']) {
+  const manifest = Object.fromEntries(KINDS.map((kind) => [kind, {}]));
+  for (const kind of KINDS) {
     const dir = path.join(root, dirs[kind].out);
     if (!(await exists(dir))) continue;
     for (const file of (await fs.readdir(dir)).filter((f) => f.endsWith('.webp')).sort()) {
       const id = path.basename(file, '.webp');
-      manifest[kind][kind === 'lihui' ? id.replace('_', ':') : id] = `${dirs[kind].out}/${file}`;
+      manifest[kind][kind === 'lihui' || kind === 'avatar' ? id.replace('_', ':') : id] = `${dirs[kind].out}/${file}`;
     }
   }
   const text = `window.HuaPi = window.HuaPi || {};\nwindow.HuaPi.ART = ${JSON.stringify(manifest, null, 2)};\n`;
@@ -236,7 +268,7 @@ async function preview(value) {
 }
 
 async function main() {
-  const selectedKinds = only === 'all' ? ['bg', 'cg', 'lihui'] : only.split(',');
+  const selectedKinds = only === 'all' ? KINDS : only.split(',');
   for (const kind of selectedKinds) {
     if (!dirs[kind]) throw new Error(`Unsupported --only kind: ${kind}`);
     const rawDir = path.join(root, dirs[kind].raw);
@@ -246,6 +278,7 @@ async function main() {
       const name = path.basename(file, '.png');
       if (filterId && name !== filterId) continue;
       if (kind === 'lihui') await processPortrait(name);
+      else if (kind === 'avatar') await processAvatar(name);
       else await processFlat(kind, name);
     }
   }

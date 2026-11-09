@@ -7,6 +7,7 @@ window.HuaPi.StoryScene = class StoryScene extends Phaser.Scene {
     for (const [id, src] of Object.entries(art.bg || {})) if (src) this.load.image(`bg:${id}`, src);
     for (const [id, src] of Object.entries(art.cg || {})) if (src) this.load.image(`cg:${id}`, src);
     for (const [id, src] of Object.entries(art.lihui || {})) if (src) this.load.image(`lihui:${id}`, src);
+    for (const [id, src] of Object.entries(art.avatar || {})) if (src) this.load.image(`avatar:${id}`, src);
   }
 
   create() {

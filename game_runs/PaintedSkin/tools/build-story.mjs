@@ -102,6 +102,9 @@ function validateSource() {
       if (length > 80) error(`${id}.segments[${index}]: text exceeds hard limit (80): ${length}`);
       else if (length > 60) warn(`${id}.segments[${index}]: text exceeds preferred limit (60): ${length}`);
       if (segment.speaker && !cast[segment.speaker]) error(`${id}.segments[${index}]: unknown speaker ${segment.speaker}`);
+      // face：说话人不在台上（或在 CG 中）时，指定对话头像用哪个表情。
+      if (segment.face && !segment.speaker) error(`${id}.segments[${index}]: face requires a speaker`);
+      else if (segment.face && !cast[segment.speaker]?.states?.[segment.face]) error(`${id}.segments[${index}]: unknown face ${segment.speaker}:${segment.face}`);
       if (segment.fx && !FX.has(segment.fx)) error(`${id}.segments[${index}]: unknown fx ${segment.fx}`);
       if (segment.stage) {
         for (const [slot, value] of Object.entries(segment.stage)) {
