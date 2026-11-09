@@ -161,10 +161,36 @@ P3a 与 P3b 全部自检通过，采用淡彩水墨 a 风格。检查点：构�
 
 清点：头像 17/17、CG 11/11（含 `road_meet` 与重出 `aftermath`）原图均在 raw/。头像均为 1024×1024、四角为干净绿幕或品红幕（top 行标准差 ≤1）；CG 中 `road_meet` 为 1376×768，其余为 1672×941。11 张 CG 底部 26% 的细节量都只有上方 70% 的 1/4～1/2。通过的项：右衽（逐张放大胸口核对）、nv/gui 朱砂痣在画面右侧（含 mirror、jacket、give_heart 三张 CG 内的阿绢）、剧本 cast 已有全部 17 个头像状态。`aftermath` 重出达标：银簪从旧图约 92% 高度（被对话框遮住）移到约 60%，清楚可见。
 
-**未通过 / 待用户拍板：**
+**未通过 / 待用户拍板：**（第 1、2 项已由下文「重出选图」解决；rosary 的根因是背景 `shen_well` 本身带洋楼，已一并重出）
 
 1. **`rosary` 背景出现西式建筑**：左上雾中是带烟囱、上下推拉窗的西洋楼房，右侧围墙有球形柱头，与明清志怪的时代设定冲突。上一节自检漏判。建议重出，提示词加 `traditional Chinese courtyard architecture only, grey-tiled roofs, no Western buildings`。
 2. **头像两批画风不一致**：前 12 张（Gemini）是明显的轻 Q 版；后 5 张（内置 ImageGen）接近写实立绘脸。其中 **`chen_resolve` / `chen_remorse` 与前 4 张陈氏差异最大**，发色偏棕、脸型写实、锦纹袄、人像在画面里更大，同一角色在对话中会前后跳变。`dao_*`、`shen_terror` 角色内部一致，但比王生和阿绢写实得多。建议至少重出陈氏这 2 张，并附 `chen_calm.png` 作为画风锚。
 3. 轻微、可接受：`jacket` 中阿绢戴了多朵花饰和流苏，身份卡写的是「单支素银簪」；`mirror` 镜中倒影偏灰白，不是很明显的青绿；`skin_touch` 卷轴下沿贴着对话框上沿；`gui_rage` 披发顶满左右边缘，按包围盒缩进 256 后脸会偏小。
 
 接入状态：10 张新 CG 尚未登记进 `story/painted-skin.json` 的 `cgs`；头像与 CG 均未跑 `process-art`。
+
+
+
+## 美术补充包：重出选图（2026-11-10）
+
+按 plans/painted-skin-art2-redo.md 的顺序先完成背景与 rosary，再完成两张陈氏替换头像和三张 Q 版对比稿。7 张均为一次生成、首次采用，无额外重试。当前会话没有 Gemini 生图工具，头像改用内置 ImageGen，并附上计划指定画风锚。4 张替换素材的旧版已先分别归档到 raw/_v1/；三个对比稿放在 raw/_q/，现有 dao_stern、dao_angry、shen_terror 未移动或替换。
+
+- shen_well（assets/bg/raw/shen_well.png）：保留旧图的井、枯树、右上月亮位置与宽阔下方留白；左上改为雾中的灰瓦翘檐院落，后墙为白墙灰瓦，无洋楼、烟囱、推拉窗、石柱或球头。画面风格与 style_night 相符。
+- rosary（assets/cg/raw/rosary.png）：沿用新 shen_well 的中式院落建筑；念珠散落、井沿单珠、暗紫锦衣角仍清楚可见；无人、无脸、无手，底部维持低细节。
+- chen_resolve（assets/avatar/raw/chen_resolve.png）：发髻、银簪、近黑发与无锦纹赭红袄贴近 chen_calm；眉眼坚决、下颌略抬，右衽可辨。
+- chen_remorse（assets/avatar/raw/chen_remorse.png）：垂眼含泪，悔恨表情明确；发髻银簪、近黑发、赭红袄与 chen_calm 保持同套感。
+- dao_stern（assets/avatar/raw/_q/dao_stern.png）：止水的莲冠、木簪、胡须、黑灰袍黄边与约五十岁的面容保留；严厉中带疲惫。轻 Q 版仅作为对比稿。
+- dao_angry（assets/avatar/raw/_q/dao_angry.png）：同一角色标志物与年龄连续；深蹙眉表达愤怒，轻 Q 版与 dao_stern 配套。现有写实版未替换。
+- shen_terror（assets/avatar/raw/_q/shen_terror.png）：金饰、灰发、年长憔悴面容、惊恐表情与紫色立领盘扣袄、念珠齐全；轻 Q 版供比较，立领未改成交领。现有写实版未替换。
+
+5 张头像最终文件均为 1024×1024，保持方形头肩胸像；场景图为 16:9 近似尺寸（shen_well 1672×941，rosary 1671×941）。本轮未做抠图或透明化。头像生成底色视觉上为近纯绿；未做背景校色，因此并非逐像素精确 RGB #00FF00。未见文字、书法、印章、签名或水印；替换图与对比稿均保留在原始 raw 路径。
+
+
+## 美术补充包：Claude 复审重出（2026-11-10）
+
+7 张全部通过：
+- **`shen_well` / `rosary`**：放大复核，左上已换成灰瓦翘檐院落，后墙换成白墙灰瓦，无洋楼、烟囱、推拉窗或球形柱头。井、枯树、月亮位置与旧图一致，`well_bones` 和人物站位不受影响。rosary 的念珠、井沿珠和紫锦衣角都在原位。
+- **`chen_resolve` / `chen_remorse`**：与 `chen_calm`、`chen_cold`、`chen_worry`、`chen_fear` 并排看是同一套：近黑发、圆润脸型、素面赭红袄。取景包围盒与 `chen_calm` 一致（头顶 8.4%，横向 19–80%）。虽然仍由内置 ImageGen 生成，但附了画风锚后没有再漂。
+- **Q 版对比稿 `_q/dao_*`、`_q/shen_terror`**：比现行写实版明显更靠近王生、阿绢、陈氏这一套，但五官仍略锐利。年纪看得出来，身份标志齐全，沈夫人立领盘扣未改。现行版与 Q 版二选一，待用户决定。
+
+接入注意：`shen_well` 是已入库的背景，接入时要连同 bg 一起跑 `process-art`（`--only=bg,avatar,cg`），不能只跑头像和 CG。

@@ -230,3 +230,75 @@ Using the attached character reference sheet as the exact identity reference, dr
 头像各项的共同包装字段：Use case: illustration-story. Asset type: project-bound Q-version dialogue avatar, 1024x1024 square. Input image: Image 1 is the exact character identity reference sheet for the named character; preserve the listed face, markers and traditional right-over-left collar. Do not mirror. Primary request: 使用对应头像通用提示词正文，代入该条目的角色、表情与标志。Scene/backdrop: 使用该条目指定的纯绿幕。Constraints: no border, frame, or other objects. No text, calligraphy, seals, or watermark.
 
 CG 各项的共同包装字段：Use case: historical-scene. Asset type: project-bound 16:9 narrative game CG, keep 16:9 aspect ratio. Input images: 按对应附图清单顺序附加风格锚、场景锚和身份锚，并说明各图的参考用途。Primary request: 使用对应 CG 通用画风前缀与该条目的场景正文。Composition: 使用 CG 通用结尾中的上方 70% 避让要求和底部低细节要求。Constraints: 使用 CG 通用结尾中的身份一致、非镜像、无伤口/血腥和无文字要求；rosary 项另外明确 no people, faces, or hands。aftermath 另加银簪必须在画面上方、手边胸口处且沾井泥的避让要求。
+
+
+
+## 美术补充包：重出（2026-11-10）
+
+本节记录 7 张最终采用图的实际完整提示词和输入图顺序。会话内未提供 Gemini 生图接口，本轮统一使用内置 ImageGen，并按任务书附入画风锚。每张最终图均为一次生成、无二次重试。头像工具输出为 1254×1254；最终原图按任务规格等比缩至 1024×1024，不裁切、不抠图、不校色。两张场景图保持生成原尺寸。
+
+| 序号 | 文件 | 输入图（按附图顺序） | 最终位置 |
+|---|---|---|---|
+| 1 | shen_well.png | assets/bg/raw/_v1/shen_well.png（构图与待编辑底图）；art/refs/style_night.webp（风格） | assets/bg/raw/shen_well.png |
+| 2 | rosary.png | assets/cg/raw/_v1/rosary.png（构图与待编辑底图）；assets/bg/raw/shen_well.png（新背景建筑样式） | assets/cg/raw/rosary.png |
+| 3 | chen_resolve.png | art/refs/rs_chen.webp（身份）；assets/avatar/raw/chen_calm.png（同角色画风与构图） | assets/avatar/raw/chen_resolve.png |
+| 4 | chen_remorse.png | art/refs/rs_chen.webp（身份）；assets/avatar/raw/chen_calm.png（同角色画风与构图） | assets/avatar/raw/chen_remorse.png |
+| 5 | dao_stern.png | art/refs/rs_dao.webp（身份）；assets/avatar/raw/wang_calm.png（只作画风与构图锚） | assets/avatar/raw/_q/dao_stern.png |
+| 6 | dao_angry.png | art/refs/rs_dao.webp（身份）；assets/avatar/raw/wang_calm.png（只作画风与构图锚） | assets/avatar/raw/_q/dao_angry.png |
+| 7 | shen_terror.png | art/refs/rs_shen.webp（身份）；assets/avatar/raw/chen_calm.png（只作画风与构图锚） | assets/avatar/raw/_q/shen_terror.png |
+
+### 1. shen_well.png
+
+实际提示词：
+
+~~~text
+Edit the attached background (Image 1). Keep its exact 16:9 composition, watercolor brushwork, xuan paper texture, palette and mist. Keep the stone well centered slightly below mid-frame, the withered tree rising behind it, and the moon at upper right exactly in place and the same scale. Change only the architecture: replace the Western-style two-storey house in the upper left with the dim, mist-softened silhouette of traditional Chinese courtyard buildings — grey-tiled roofs with gently upturned eaves, wooden lattice windows, one faintly lamplit paper window; replace the rear stone wall and its ball-topped pillars with a traditional Chinese whitewashed garden wall capped with dark grey roof tiles, with no pillars and no finials. Traditional Chinese architecture only: no Western buildings, no chimneys, no sash windows, no stone balustrades. Image 2 is the style reference; match its brushwork, paper texture, and restrained palette. Empty of people. Preserve the existing low-contrast, calm lower quarter for dialogue UI and open left and right standing-character zones. No text, no calligraphy, no seals, no signature, no watermark.
+~~~
+
+### 2. rosary.png
+
+实际提示词：
+
+~~~text
+Edit attached image Image 1. Retain the exact 16:9 composition, watercolor brushwork, palette, xuan-paper texture, lighting and mist. Keep the stone well, the scattered prayer beads, the single bead on the well's rim, the dark purple brocade fabric corner, the tree and the moon exactly where they are and at the same scale. Change only the background architecture so it matches Image 2: replace the Western-style house in the upper left with the dim silhouette of traditional Chinese courtyard buildings with grey-tiled upturned eaves and lattice windows; replace the wall with ball-topped pillars on the right with a traditional Chinese whitewashed garden wall capped with dark grey roof tiles, with no pillars and no finials. Traditional Chinese architecture only: no Western buildings, no chimneys, no sash windows. Preserve all existing foreground details. No people, no faces, no hands. No text, no calligraphy, no seals, no signature, no watermark.
+~~~
+
+### 3. chen_resolve.png
+
+实际提示词：
+
+~~~text
+Image 1 is the character identity reference sheet for Lady Chen. Image 2 is an existing avatar of the same character from this exact avatar set — match Image 2's art style exactly: the same light semi-chibi proportions, rounded soft face, line weight, soft cel shading, near-black hair, plain ochre-red jacket without brocade pattern, and the same framing, with the head and shoulders filling the square to the same size and position as in Image 2. Draw a new avatar that differs from Image 2 only in expression: firm and determined, chin slightly raised. Preserve the neat married woman's bun with a silver hairpin. Facing the viewer with a slight three-quarter turn toward the viewer's right, unmirrored, traditional right-over-left collar. Square 1:1 framing, head and shoulders only, cut at mid-chest by the bottom edge, top of the head including the hairpin about 6 to 8 percent below the top edge, face centered. Restrained, sincere expression suited to a melancholic Chinese ghost story, not cute. Background: perfectly flat uniform solid pure RGB green #00FF00, no gradient, no shadow, no border, no frame, no other objects. No text, no calligraphy, no seals, no watermark.
+~~~
+
+### 4. chen_remorse.png
+
+实际提示词：
+
+~~~text
+Image 1 is the character identity reference sheet for Lady Chen. Image 2 is an existing avatar of the same character from this exact avatar set — match Image 2's art style exactly: the same light semi-chibi proportions, rounded soft face, line weight, soft cel shading, near-black hair, plain ochre-red jacket without brocade pattern, and the same framing, with the head and shoulders filling the square to the same size and position as in Image 2. Draw a new avatar that differs from Image 2 only in expression: grief and remorse, tears on the lashes, eyes lowered. Preserve the neat married woman's bun with a silver hairpin. Facing the viewer with a slight three-quarter turn toward the viewer's right, unmirrored, traditional right-over-left collar. Square 1:1 framing, head and shoulders only, cut at mid-chest by the bottom edge, top of the head including the hairpin about 6 to 8 percent below the top edge, face centered. Restrained, sincere expression suited to a melancholic Chinese ghost story, not cute. Background: perfectly flat uniform solid pure RGB green #00FF00, no gradient, no shadow, no border, no frame, no other objects. No text, no calligraphy, no seals, no watermark.
+~~~
+
+### 5. dao_stern.png（Q 版对比稿）
+
+实际提示词：
+
+~~~text
+Image 1 is the character identity reference sheet for a lean wandering Taoist about fifty. Image 2 is an avatar of a different character from the same avatar set; use Image 2 only as the art style reference, not for identity. Match Image 2's art style exactly: the same light semi-chibi proportions, soft simplified features, line weight, soft cel shading and muted guofeng palette, and the same framing, with the head and shoulders filling the square to the same size and position as in Image 2. Draw the Taoist from Image 1 in this style, keeping him recognizably about fifty: a long thin beard, a few soft lines on the face, lean cheeks. Expression: stern, sharp but weary eyes. Preserve the lotus crown with wooden pin and the black-grey robe with yellow trim. Facing the viewer with a slight three-quarter turn toward the viewer's right, unmirrored, traditional right-over-left collar. Square 1:1 framing, head and shoulders only, cut at mid-chest by the bottom edge, top of the lotus crown about 6 to 8 percent below the top edge, face centered. Restrained, sincere expression suited to a melancholic Chinese ghost story, not cute. Background: perfectly flat uniform solid pure RGB green #00FF00, no gradient, no shadow, no border, no frame, no other objects. No text, no calligraphy, no seals, no watermark.
+~~~
+
+### 6. dao_angry.png（Q 版对比稿）
+
+实际提示词：
+
+~~~text
+Image 1 is the character identity reference sheet for a lean wandering Taoist about fifty. Image 2 is an avatar of a different character from the same avatar set; use Image 2 only as the art style reference, not for identity. Match Image 2's art style exactly: the same light semi-chibi proportions with a noticeably enlarged head and simplified soft face, line weight, soft cel shading and muted guofeng palette. Use Image 2's same head-and-shoulders scale and placement. Draw the Taoist from Image 1 in this style, keeping him recognizably about fifty: long thin beard, lean cheeks and only a few soft age lines. Expression: angry, deep frown. Preserve the lotus crown with wooden pin and black-grey robe with yellow trim. Facing the viewer with a slight three-quarter turn toward the viewer's right, unmirrored, traditional right-over-left collar. Square 1:1 framing, head and shoulders only, cut at mid-chest by the bottom edge, top of lotus crown about 6 to 8 percent below the top edge, face centered. Restrained, sincere expression suited to a melancholic Chinese ghost story, not cute or exaggerated. Background: perfectly flat uniform solid pure RGB green #00FF00, no gradient, no shadow, no border, no frame, no other objects. No text, no calligraphy, no seals, no watermark.
+~~~
+
+### 7. shen_terror.png（Q 版对比稿）
+
+实际提示词：
+
+~~~text
+Image 1 is the character identity reference sheet for Madam Shen, a gaunt wealthy mistress about fifty-five. Image 2 is an avatar of a different character from the same avatar set; use Image 2 only as the art style reference, not for identity. Match Image 2's art style exactly: the same light semi-chibi proportions with a noticeably enlarged head and simplified soft face, line weight, soft cel shading and muted guofeng palette. Use Image 2's same head-and-shoulders scale and placement. Draw Madam Shen from Image 1 in this style, keeping her recognizably about fifty-five: grey-streaked hair, hollow cheeks, and a few soft age lines around the eyes. Expression: terrified, eyes wide, clutching the rosary. Preserve the heavy gold hairpins, the dark purple brocade jacket with its high standing collar and frog buttons exactly as in Image 1, and a rosary in her hand at the bottom edge. The jacket has a standing collar with frog buttons, not a cross-over collar. Facing the viewer with a slight three-quarter turn toward the viewer's right, unmirrored. Square 1:1 framing, head and shoulders only, cut at mid-chest by the bottom edge, top of the hair ornaments about 6 to 8 percent below the top edge, face centered. Restrained, sincere expression suited to a melancholic Chinese ghost story, not cute or exaggerated. Background: perfectly flat uniform solid pure RGB green #00FF00, no gradient, no shadow, no border, no frame, no other objects. No text, no calligraphy, no seals, no watermark.
+~~~
