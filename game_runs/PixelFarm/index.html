@@ -4,6 +4,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>像素农场：黄金种子的传承</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=ZCOOL+KuaiLe&display=swap" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -130,6 +133,90 @@
       flex: 0 0 auto;
       transform-origin: center center;
     }
+
+    /* ── 开场遮罩 · 像素田园黄昏（只作用于 #start-screen；胜负遮罩仍用上面的通用卡）── */
+    #start-screen {
+      flex-direction: column; overflow: hidden; backdrop-filter: none;
+      background:
+        radial-gradient(ellipse at 50% 42%, rgba(255,190,110,.10), rgba(30,14,4,.62) 78%),
+        linear-gradient(180deg, rgba(255,150,70,.18), rgba(40,18,6,.38)),
+        url('assets/tiles/grass_base.png') 0 0 / 160px 160px;
+      image-rendering: pixelated;
+      font-family: 'Microsoft YaHei', 'Segoe UI', sans-serif;
+    }
+    #start-screen .pf-sign {
+      position: relative; z-index: 1; margin-top: -96px; width: 540px;
+      padding: 24px 36px 22px; text-align: center; color: #fff4dc;
+      background:
+        repeating-linear-gradient(180deg, transparent 0 38px, rgba(70,34,10,.55) 38px 41px),
+        linear-gradient(180deg, #b98149, #8f5b2d);
+      box-shadow: 0 0 0 4px #5a3214, 0 0 0 8px #2b170a, 10px 12px 0 8px rgba(20,8,2,.38);
+    }
+    /* 四角铁钉 */
+    #start-screen .pf-sign::before, #start-screen .pf-sign::after {
+      content: ''; position: absolute; top: 10px; width: 6px; height: 6px; background: #3a2412;
+      box-shadow: 0 calc(100% + 0px) 0 #3a2412;
+    }
+    #start-screen .pf-sign::before { left: 10px; box-shadow: 0 0 0 1px #c99a62; }
+    #start-screen .pf-sign::after  { right: 10px; box-shadow: 0 0 0 1px #c99a62; }
+    #start-screen .pf-kicker {
+      font-family: 'Press Start 2P', monospace; font-size: 10px; letter-spacing: .28em;
+      color: #ffe08a; text-shadow: 2px 2px 0 #4a2a12;
+    }
+    #start-screen .pf-title {
+      margin: 10px 0 0; font-family: 'ZCOOL KuaiLe', 'Microsoft YaHei', sans-serif; font-weight: 400;
+      font-size: 60px; line-height: 1.05; letter-spacing: .08em; color: #ffeaa8;
+      text-shadow: 4px 4px 0 #4a2a12, -2px -2px 0 #4a2a12, 2px -2px 0 #4a2a12, -2px 2px 0 #4a2a12;
+    }
+    #start-screen .pf-sub {
+      margin-top: 6px; font-family: 'ZCOOL KuaiLe', sans-serif; font-size: 20px; letter-spacing: .2em;
+      color: #ffd25e; text-shadow: 2px 2px 0 #4a2a12;
+    }
+    #start-screen .pf-story {
+      margin-top: 14px; font-size: 14px; line-height: 1.85; color: #fff1d6;
+      text-shadow: 1px 1px 0 rgba(40,18,6,.6);
+    }
+    #start-screen .pf-btn {
+      margin-top: 18px; padding: 9px 34px 12px; border: none; cursor: pointer;
+      font-family: 'ZCOOL KuaiLe', sans-serif; font-size: 26px; letter-spacing: .18em; color: #3a2a06;
+      background: #ffd34d;
+      box-shadow: 0 0 0 4px #4a2a12, inset 0 -5px 0 #e0a52a, inset 0 4px 0 #fff2b0, 0 6px 0 4px #2b170a;
+      transition: transform .06s;
+    }
+    #start-screen .pf-btn:hover  { background: #ffe07a; }
+    #start-screen .pf-btn:active { transform: translateY(4px); box-shadow: 0 0 0 4px #4a2a12, inset 0 -3px 0 #e0a52a, 0 2px 0 4px #2b170a; }
+    #start-screen .pf-keys {
+      margin-top: 22px; display: flex; justify-content: center; gap: 18px; font-size: 13px; color: #ffeccc;
+    }
+    #start-screen kbd {
+      display: inline-block; margin-right: 5px; padding: 5px 6px 4px; background: #3a2412; color: #ffe08a;
+      font-family: 'Press Start 2P', monospace; font-size: 9px;
+      box-shadow: 0 0 0 2px #2b170a, inset 0 -2px 0 #1e1006;
+    }
+    /* 地面：翻过的土 + 农夫锄地 + 宝箱 + 篝火 */
+    #start-screen .pf-ground {
+      position: absolute; left: 0; right: 0; bottom: 0; height: 96px;
+      background: url('assets/tiles/dirt_tilled.png') 0 0 / 128px 128px;
+      box-shadow: inset 0 6px 0 rgba(40,18,6,.45);
+    }
+    #start-screen .pf-farmer {
+      position: absolute; left: 84px; bottom: 30px; width: 96px; height: 104px;
+      background: url('assets/sprites/Farmer.webp') 0 -312px / 864px 520px no-repeat;
+      animation: pf-hoe 1.15s steps(9) infinite;
+    }
+    #start-screen .pf-chest {
+      position: absolute; right: 190px; bottom: 36px; width: 64px; height: 64px;
+      background: url('assets/objects/chest.webp') 0 0 / 256px 64px no-repeat;
+    }
+    #start-screen .pf-fire {
+      position: absolute; right: 86px; bottom: 30px; width: 80px; height: 80px;
+      background: url('assets/objects/bonfire.webp') 0 0 / 480px 80px no-repeat;
+      animation: pf-fire .75s steps(6) infinite;
+      filter: drop-shadow(0 0 14px rgba(255,140,60,.75));
+    }
+    @keyframes pf-hoe  { to { background-position: -864px -312px; } }
+    @keyframes pf-fire { to { background-position: -480px 0; } }
+    @media (prefers-reduced-motion: reduce) { #start-screen, #start-screen * { animation: none !important; } }
   </style>
 </head>
 <body>
@@ -142,17 +229,22 @@
         <div id="hud-objective"><span id="hud-objective-text">打开祖父留下的左侧宝箱 📦</span></div>
     </div>
 
-    <!-- Start screen overlay -->
+    <!-- Start screen overlay：像素田园主题（无选择页的游戏保留这一次点击，样式见 style 末尾） -->
     <div id="start-screen" class="game-overlay">
-      <div class="overlay-card">
-        <h2>像素农场：黄金种子的传承</h2>
-        <p class="tagline">重燃篝火，唤醒沉睡在土地中的黄金种子</p>
-        <p class="story-setting">一块被遗忘的家族农场，位于宁静温暖的山谷中。这里曾经繁荣，但现在大门紧锁、篝火熄灭、土地荒芜。</p>
-        <button id="start-btn" class="game-btn" onclick="window.__hudStart()">▶ START GAME</button>
-        <p class="controls-hint">
-          WASD / Arrow Keys to move<br>
-          Z: Use Item &nbsp;|&nbsp; X: Sleep &nbsp;|&nbsp; E: Interact
-        </p>
+      <div class="pf-sign">
+        <div class="pf-kicker">GOLDEN SEED</div>
+        <h2 class="pf-title">像素农场</h2>
+        <div class="pf-sub">黄金种子的传承</div>
+        <p class="pf-story">山谷里那座被遗忘的家族农场：大门紧锁，土地荒芜。<br>祖父留下的宝箱里，藏着让它重新苏醒的东西。</p>
+        <button id="start-btn" class="pf-btn" onclick="window.__hudStart()">开始耕种</button>
+        <div class="pf-keys">
+          <span><kbd>WASD</kbd>移动</span><span><kbd>E</kbd>互动</span><span><kbd>Z</kbd>使用</span><span><kbd>X</kbd>睡觉</span>
+        </div>
+      </div>
+      <div class="pf-ground" aria-hidden="true">
+        <div class="pf-farmer"></div>
+        <div class="pf-chest"></div>
+        <div class="pf-fire"></div>
       </div>
     </div>
 

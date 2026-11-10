@@ -4,6 +4,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>百变少女冒险记 (ShapeshifterGirl)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=ZCOOL+KuaiLe&display=swap" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -137,6 +140,39 @@
       flex: 0 0 auto;
       transform-origin: center center;
     }
+    /* ── 开场遮罩 · 主题化 BEGIN（只作用于 #start-screen；胜负遮罩仍用通用卡）── */
+    #start-screen { flex-direction: column; overflow: hidden; backdrop-filter: none; }    #start-screen { color: #2f4a2c; font-family: 'Microsoft YaHei', 'Segoe UI', sans-serif;
+      background: linear-gradient(rgba(246,251,242,.5), rgba(246,251,242,.2)), url('assets/bg/l1_mid.png') center bottom / auto 100% repeat-x,
+        url('assets/bg/l1_far.png') center bottom / auto 100% repeat-x, linear-gradient(180deg, #f6fbf2 0%, #e3f0dd 60%, #cfe3c7 100%); }
+    #start-screen .sg-wrap { position: relative; display: flex; flex-direction: column; align-items: center; text-align: center; padding: 18px 40px 16px;
+      background: rgba(252,253,248,.86); border: 2px solid rgba(232,67,63,.35); border-radius: 22px; box-shadow: 0 10px 30px rgba(47,74,44,.25); }
+    #start-screen .sg-title { margin: 0; font-family: 'ZCOOL KuaiLe', sans-serif; font-weight: 400; font-size: 60px; line-height: 1.1; letter-spacing: .06em; color: #e8433f;
+      text-shadow: 0 3px 0 #fff, 0 5px 0 rgba(232,67,63,.25); }
+    #start-screen .sg-sub { margin-top: 4px; font-size: 15px; letter-spacing: .2em; color: #4d7a46; }
+    #start-screen .sg-forms { margin-top: 12px; display: flex; gap: 12px; }
+    #start-screen .sg-form { display: flex; flex-direction: column; align-items: center; font-size: 12px; color: #4d6b48; }
+    #start-screen .sg-form b { width: 74px; height: 74px; overflow: hidden; border-radius: 50%; background: #eef6e8; border: 2px solid #b9d6ae; }
+    #start-screen .sg-form i { display: block; width: 72px; height: 78px; margin: -3px 0 0; background-repeat: no-repeat; }
+    #start-screen .sg-form span { margin-top: 4px; }
+    #start-screen .sg-form em { font-style: normal; font-weight: 700; color: #e8433f; margin-right: 3px; }
+    #start-screen .sg-girl  { background: url('assets/sprites/girl.webp') 0 0 / 1512px 312px; animation: sg-21 2.6s steps(21) infinite; }
+    #start-screen .sg-cat   { background: url('assets/sprites/cat.webp') 0 0 / 1512px 234px; animation: sg-21 2.6s steps(21) infinite; }
+    #start-screen .sg-fish  { background: url('assets/sprites/fish.webp') 0 -78px / 1512px 156px; animation: sg-fish 2.6s steps(21) infinite; }
+    #start-screen .sg-eagle { background: url('assets/sprites/eagle.webp') 0 0 / 1440px 156px; animation: sg-20 1.4s steps(20) infinite; }
+    #start-screen .sg-bear  { background: url('assets/sprites/bear.webp') 0 0 / 1512px 234px; animation: sg-8 1.2s steps(8) infinite; }
+    #start-screen .sg-btn { margin-top: 14px; padding: 8px 46px; cursor: pointer; font-family: 'ZCOOL KuaiLe', sans-serif; font-size: 26px; letter-spacing: .2em; color: #fff;
+      background: #e8433f; border: none; border-radius: 999px; box-shadow: 0 5px 0 #b72d2a; transition: transform .08s, box-shadow .08s; }
+    #start-screen .sg-btn:hover { background: #f05a55; }
+    #start-screen .sg-btn:active { transform: translateY(3px); box-shadow: 0 2px 0 #b72d2a; }
+    #start-screen .sg-keys { margin-top: 12px; display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 14px; max-width: 580px; font-size: 12px; color: #4d6b48; }
+    #start-screen kbd { display: inline-block; margin-right: 3px; padding: 0 6px; font-family: 'Segoe UI', sans-serif; font-size: 11px; font-weight: 700; color: #fff;
+      background: #6c9a5f; border-radius: 4px; }
+    @keyframes sg-21   { to { background-position: -1512px 0; } }
+    @keyframes sg-fish { to { background-position: -1512px -78px; } }
+    @keyframes sg-20   { to { background-position: -1440px 0; } }
+    @keyframes sg-8    { to { background-position: -576px 0; } }
+    @media (prefers-reduced-motion: reduce) { #start-screen, #start-screen * { animation: none !important; } }
+    /* ── 开场遮罩 · 主题化 END ── */
   </style>
 </head>
 <body>
@@ -155,18 +191,23 @@
       </div>
     </div>
 
-    <!-- Start screen overlay -->
+    <!-- Start screen overlay：剪纸森林绘本主题（无选择页的游戏保留这一次点击，样式见 style 末尾） -->
     <div id="start-screen" class="game-overlay">
-      <div class="overlay-card">
-        <h2>百变少女冒险记</h2>
-        <p class="tagline">掌握自然之灵，拯救被魔雾掳走的弟弟</p>
-        <p class="story-setting">小小的村庄被突如其来的诡异魔雾袭击，弟弟被掳走。少女小满（Xiaoman）戴上神奇的变身项链，踏上救赎之旅。她需要在正确的时机转换形态以通过不同的险阻：猫攀高墙、鱼渡深水、鹰翔峡谷、熊破巨石。一路向东，魔雾之巅就在远方。</p>
-        <button id="start-btn" class="game-btn" onclick="window.__hudStart()">▶ 开始冒险</button>
-        <p class="controls-hint">
-          [ A / D ] 移动 · [ W / Space ] 跳跃 (猫可二段跳，鹰跳起后长按 W 键滑翔)<br>
-          [ 1–5 ] 变换形态 (1:少女 2:猫 3:鱼 4:鹰 5:熊 · 变身需读条)<br>
-          [ J ] 互动/熊形态重击攻击 · [ R ] 重开当前关卡 · [ M ] 静音音效
-        </p>
+      <div class="sg-wrap">
+        <h2 class="sg-title">百变少女冒险记</h2>
+        <div class="sg-sub">掌握自然之灵，拯救被魔雾掳走的弟弟</div>
+        <div class="sg-forms" aria-hidden="true">
+          <div class="sg-form"><b><i class="sg-girl"></i></b><span><em>1</em>少女</span></div>
+          <div class="sg-form"><b><i class="sg-cat"></i></b><span><em>2</em>猫·攀墙</span></div>
+          <div class="sg-form"><b><i class="sg-fish"></i></b><span><em>3</em>鱼·渡水</span></div>
+          <div class="sg-form"><b><i class="sg-eagle"></i></b><span><em>4</em>鹰·滑翔</span></div>
+          <div class="sg-form"><b><i class="sg-bear"></i></b><span><em>5</em>熊·破石</span></div>
+        </div>
+        <button id="start-btn" class="sg-btn" onclick="window.__hudStart()">开始冒险</button>
+        <div class="sg-keys">
+          <span><kbd>A</kbd><kbd>D</kbd>移动</span><span><kbd>W</kbd>/<kbd>空格</kbd>跳跃（猫二段跳，鹰长按 W 滑翔）</span>
+          <span><kbd>1–5</kbd>变身（需读条）</span><span><kbd>J</kbd>互动/熊重击</span><span><kbd>R</kbd>重开本关</span><span><kbd>M</kbd>静音</span>
+        </div>
       </div>
     </div>
 

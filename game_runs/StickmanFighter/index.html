@@ -4,6 +4,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>火柴人：终极决斗</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bangers&family=ZCOOL+QingKe+HuangYou&display=swap" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -129,6 +132,37 @@
       flex: 0 0 auto;
       transform-origin: center center;
     }
+    /* ── 开场遮罩 · 主题化 BEGIN（只作用于 #start-screen；胜负遮罩仍用通用卡）── */
+    #start-screen { flex-direction: column; overflow: hidden; backdrop-filter: none; }    #start-screen { color: #fff; background: radial-gradient(ellipse at 50% 45%, rgba(10,4,20,.2), rgba(6,2,12,.88) 75%), url('scene/stickman_panorama.png') center 60% / cover, #0a0614; }
+    #start-screen .sf-burst { position: absolute; left: 50%; top: 42%; width: 1400px; height: 1400px; margin: -700px 0 0 -700px; pointer-events: none;
+      background: repeating-conic-gradient(from 0deg, rgba(255,90,40,.11) 0 6deg, transparent 6deg 14deg); animation: sf-spin 40s linear infinite;
+      -webkit-mask-image: radial-gradient(circle, #000 10%, transparent 55%); mask-image: radial-gradient(circle, #000 10%, transparent 55%); }
+    #start-screen .sf-wrap { position: relative; display: flex; flex-direction: column; align-items: center; text-align: center; margin-top: -10px; }
+    #start-screen .sf-round { font-family: 'Bangers', cursive; font-size: 26px; letter-spacing: .3em; color: #ffd166; }
+    #start-screen .sf-title { margin: 0; font-family: 'ZCOOL QingKe HuangYou', sans-serif; font-weight: 400; font-size: 108px; line-height: 1.05; letter-spacing: .04em; transform: skewX(-10deg);
+      background: linear-gradient(180deg, #fff6c2 0%, #ffb02e 45%, #ff4d1a 70%, #b3120a 100%); -webkit-background-clip: text; background-clip: text; color: transparent;
+      filter: drop-shadow(4px 4px 0 #000) drop-shadow(0 0 16px rgba(255,80,30,.55)); }
+    #start-screen .sf-sub { margin-top: 4px; font-family: 'ZCOOL QingKe HuangYou', sans-serif; font-size: 30px; letter-spacing: .5em; color: #fff; transform: skewX(-10deg);
+      text-shadow: 3px 3px 0 #b3120a; }
+    #start-screen .sf-story { margin-top: 14px; max-width: 520px; font-size: 14px; line-height: 1.8; color: #e5dcff; text-shadow: 0 2px 6px #000; }
+    #start-screen .sf-btn { margin-top: 18px; padding: 8px 40px; cursor: pointer; color: #fff; background: linear-gradient(#ff3b2f, #b3120a); border: 3px solid #000;
+      transform: skewX(-12deg); box-shadow: 5px 5px 0 #000, 0 0 24px rgba(255,60,40,.5); transition: transform .1s; }
+    #start-screen .sf-btn > span { display: inline-block; transform: skewX(12deg); font-family: 'ZCOOL QingKe HuangYou', sans-serif; font-size: 26px; letter-spacing: .2em; }
+    #start-screen .sf-btn em { margin-left: 12px; font-style: normal; font-family: 'Bangers', cursive; font-size: 24px; letter-spacing: .1em; color: #ffd166; }
+    #start-screen .sf-btn:hover { transform: skewX(-12deg) scale(1.05); }
+    #start-screen .sf-keys { margin-top: 18px; display: flex; gap: 16px; font-size: 13px; color: #d6ccf5; }
+    #start-screen kbd { display: inline-block; margin-right: 4px; padding: 0 6px; font-family: 'Bangers', cursive; font-size: 15px; letter-spacing: .05em; color: #000;
+      background: #ffd166; border: 2px solid #000; }
+    #start-screen .sf-p1, #start-screen .sf-p2 { position: absolute; bottom: 70px; width: 192px; height: 192px; background-size: 960px 960px; background-repeat: no-repeat; }
+    #start-screen .sf-p1 { left: 60px; background-image: url('assets/sprites/PlayerStickman.webp'); animation: sf-punch 1.2s steps(5) infinite;
+      filter: drop-shadow(0 0 14px rgba(255,60,60,.6)); }
+    #start-screen .sf-p2 { right: 60px; background-image: url('assets/sprites/EnemyStickman.webp'); transform: scaleX(-1); animation: sf-kick 1.4s steps(5) infinite;
+      filter: drop-shadow(0 0 14px rgba(140,90,255,.6)); }
+    @keyframes sf-punch { from { background-position: 0 -384px; } to { background-position: -960px -384px; } }
+    @keyframes sf-kick  { from { background-position: 0 -576px; } to { background-position: -960px -576px; } }
+    @keyframes sf-spin  { to { transform: rotate(360deg); } }
+    @media (prefers-reduced-motion: reduce) { #start-screen, #start-screen * { animation: none !important; } }
+    /* ── 开场遮罩 · 主题化 END ── */
   </style>
 </head>
 <body>
@@ -142,16 +176,18 @@
         <div id="hud-objective"><span id="hud-objective-text">击败前来的暗影战士，证明你的格斗实力！</span></div>
     </div>
 
-    <!-- Start screen overlay -->
+    <!-- Start screen overlay：格斗游戏主题（无选择页的游戏保留这一次点击，样式见 style 末尾） -->
     <div id="start-screen" class="game-overlay">
-      <div class="overlay-card">
-        <h2>火柴人：终极决斗</h2>
-        <p class="tagline">经典火柴人街头对决，用指尖点燃热血！</p>
-        <p class="story-setting">在黑白线条与电子霓虹交织的几何次元，无数流浪的火柴人斗士汇聚在废弃的像素街头，为争夺‘终极战神’的称号展开死斗。</p>
-        <button id="start-btn" class="game-btn" style="background:#ef4444" onclick="window.__hudStart()">▶ 开始闯关 (START)</button>
-        <p class="controls-hint">
-          Controls: A/D or Arrow Keys to move left/right | W or UP: Jump | S or DOWN: Block<br>J: Punch &nbsp;|&nbsp; K: Kick
-        </p>
+      <div class="sf-burst" aria-hidden="true"></div>
+      <div class="sf-p1" aria-hidden="true"></div>
+      <div class="sf-p2" aria-hidden="true"></div>
+      <div class="sf-wrap">
+        <div class="sf-round">ROUND 1 · FIGHT!</div>
+        <h2 class="sf-title">火柴人</h2>
+        <div class="sf-sub">终极决斗</div>
+        <p class="sf-story">黑白线条与霓虹交织的几何次元，暗影克隆体占领了废弃的像素街头。<br>击败 3 名暗影战士与首领。</p>
+        <button id="start-btn" class="sf-btn" onclick="window.__hudStart()"><span>开始闯关<em>FIGHT!</em></span></button>
+        <div class="sf-keys"><span><kbd>A</kbd><kbd>D</kbd>移动</span><span><kbd>W</kbd>跳</span><span><kbd>S</kbd>格挡</span><span><kbd>J</kbd>拳</span><span><kbd>K</kbd>腿</span></div>
       </div>
     </div>
 

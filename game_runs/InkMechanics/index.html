@@ -4,6 +4,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>墨水力学：蓝图实验室</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=Noto+Sans+SC:wght@500;900&display=swap" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -129,6 +132,30 @@
       flex: 0 0 auto;
       transform-origin: center center;
     }
+    /* ── 开场遮罩 · 主题化 BEGIN（只作用于 #start-screen；胜负遮罩仍用通用卡）── */
+    #start-screen { flex-direction: column; overflow: hidden; backdrop-filter: none; }    #start-screen { color: #1e3a6e; font-family: 'Noto Sans SC', 'Microsoft YaHei', sans-serif;
+      background: linear-gradient(rgba(244,248,255,.5), rgba(244,248,255,.7)), url('scene/panorama.png') center / cover, #f4f8ff; }
+    #start-screen .im-sheet { position: relative; width: 610px; border: 2px solid #1e3a6e; background: rgba(250,252,255,.94); box-shadow: 7px 7px 0 rgba(30,58,110,.18); }
+    #start-screen .im-head { display: flex; border-bottom: 1.5px solid #1e3a6e; font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #3b5b93; }
+    #start-screen .im-head span { flex: 1; padding: 5px 10px; border-right: 1px solid rgba(30,58,110,.45); }
+    #start-screen .im-head span:last-child { border-right: none; }
+    #start-screen .im-head b { margin-left: 6px; color: #1e3a6e; font-weight: 600; }
+    #start-screen .im-body { padding: 18px 34px 20px; text-align: center; }
+    #start-screen .im-dim { position: relative; width: 300px; height: 14px; margin: 0 auto 8px; border-left: 1.5px solid #3b5b93; border-right: 1.5px solid #3b5b93;
+      font-family: 'IBM Plex Mono', monospace; font-size: 10px; line-height: 14px; color: #3b5b93; }
+    #start-screen .im-dim::before { content: ''; position: absolute; left: 0; right: 0; top: 7px; border-top: 1px solid #3b5b93; }
+    #start-screen .im-dim span { position: relative; padding: 0 8px; background: rgba(250,252,255,1); }
+    #start-screen .im-title { margin: 0; font-weight: 900; font-size: 60px; line-height: 1.1; letter-spacing: .16em; color: #1e3a6e; }
+    #start-screen .im-sub { margin-top: 2px; font-family: 'IBM Plex Mono', monospace; font-size: 13px; letter-spacing: .32em; color: #3b5b93; }
+    #start-screen .im-story { margin-top: 12px; font-size: 13.5px; line-height: 1.85; color: #2d4a7c; }
+    #start-screen .im-btn { margin-top: 16px; padding: 9px 38px; cursor: pointer; font-family: 'Noto Sans SC', sans-serif; font-weight: 900; font-size: 20px; letter-spacing: .3em;
+      color: #fff; background: #1e3a6e; border: none; box-shadow: 4px 4px 0 #fbbf24; transition: transform .1s, box-shadow .1s; }
+    #start-screen .im-btn:hover { transform: translate(-2px,-2px); box-shadow: 6px 6px 0 #fbbf24; }
+    #start-screen .im-keys { margin-top: 16px; display: flex; justify-content: center; flex-wrap: wrap; gap: 6px 16px; font-size: 12px; color: #3b5b93; }
+    #start-screen kbd { display: inline-block; margin-right: 4px; padding: 0 6px; font-family: 'IBM Plex Mono', 'Microsoft YaHei', monospace; font-size: 11px; font-weight: 600;
+      color: #1e3a6e; border: 1px solid #1e3a6e; background: #fff; }
+    @media (prefers-reduced-motion: reduce) { #start-screen, #start-screen * { animation: none !important; } }
+    /* ── 开场遮罩 · 主题化 END ── */
   </style>
 </head>
 <body>
@@ -142,16 +169,18 @@
       <div id="hud-objective"><span id="hud-objective-text">拖鼠标画墨线，把墨水引进墨井</span></div>
     </div>
 
-    <!-- Start screen overlay -->
+    <!-- Start screen overlay：工程蓝图标题栏主题（无选择页的游戏保留这一次点击，样式见 style 末尾） -->
     <div id="start-screen" class="game-overlay">
-      <div class="overlay-card">
-        <h2>墨水力学：蓝图实验室</h2>
-        <p class="tagline">在蓝图上画一条线，重力替你把墨水送进井里。</p>
-        <p class="story-setting">一间画在浅色蓝图纸上的几何引流实验室。纸面用单色墨线勾出龙头、墨井、屋檐、沟壑与尖刺，淡淡的网格像未完成的水路示意图。每一关都是一道画在纸上的小小引流谜题：你亲手补上的那条线，就是解法本身。</p>
-        <button id="start-btn" class="game-btn" onclick="window.__hudStart()">▶ START GAME</button>
-        <p class="controls-hint">
-          按住鼠标拖动 画墨线 ·　空格 / J 放水 ·　R 重置水滴 ·　C 清空墨线
-        </p>
+      <div class="im-sheet">
+        <div class="im-head"><span>图号<b>IM-01</b></span><span>比例<b>1 : 1</b></span><span>工况<b>重力引流</b></span><span>设计<b>你</b></span></div>
+        <div class="im-body">
+          <div class="im-dim"><span>一条线</span></div>
+          <h2 class="im-title">墨水力学</h2>
+          <div class="im-sub">BLUEPRINT LAB</div>
+          <p class="im-story">在蓝图上画一条线，重力替你把墨水送进井里。<br>每一关都是一道纸上的引流谜题：你亲手补上的那条线，就是解法本身。</p>
+          <button id="start-btn" class="im-btn" onclick="window.__hudStart()">开始实验</button>
+          <div class="im-keys"><span><kbd>鼠标拖动</kbd>画墨线</span><span><kbd>空格</kbd>/<kbd>J</kbd>放水</span><span><kbd>R</kbd>重置水滴</span><span><kbd>C</kbd>清空墨线</span></div>
+        </div>
       </div>
     </div>
 

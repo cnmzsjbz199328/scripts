@@ -4,6 +4,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>霓虹防御：终极战线</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@700;900&family=ZCOOL+QingKe+HuangYou&display=swap" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -129,6 +132,38 @@
       flex: 0 0 auto;
       transform-origin: center center;
     }
+    /* ── 开场遮罩 · 主题化 BEGIN（只作用于 #start-screen；胜负遮罩仍用通用卡）── */
+    #start-screen { flex-direction: column; overflow: hidden; backdrop-filter: none; }    #start-screen { flex-direction: row; gap: 30px; color: #bdf6ff; font-family: 'Share Tech Mono', 'Consolas', monospace;
+      background: radial-gradient(ellipse at 50% 50%, rgba(2,10,24,.5), rgba(1,4,12,.92) 72%), url('scene/neon_td_panorama.png') center / cover, #020814; }
+    #start-screen .td-core { position: relative; flex: 0 0 150px; height: 150px; display: flex; align-items: center; justify-content: center; }
+    #start-screen .td-core i { width: 96px; height: 96px; background: url('assets/objects/core_database.webp') 0 0 / 384px 96px no-repeat; animation: td-core .6s steps(4) infinite; }
+    #start-screen .td-core::before, #start-screen .td-core::after { content: ''; position: absolute; inset: 0; border-radius: 50%; border: 2px solid rgba(0,229,255,.75);
+      animation: td-ring 2s ease-out infinite; }
+    #start-screen .td-core::after { animation-delay: -1s; }
+    #start-screen .td-panel { position: relative; width: 560px; padding: 22px 28px 20px; background: rgba(2,14,28,.8); border: 1px solid rgba(0,229,255,.35);
+      box-shadow: inset 0 0 24px rgba(0,229,255,.15); }
+    #start-screen .td-panel::before, #start-screen .td-panel::after { content: ''; position: absolute; width: 22px; height: 22px; border: 3px solid #00e5ff; }
+    #start-screen .td-panel::before { left: -3px; top: -3px; border-right: none; border-bottom: none; }
+    #start-screen .td-panel::after { right: -3px; bottom: -3px; border-left: none; border-top: none; }
+    #start-screen .td-alert { font-size: 13px; letter-spacing: .25em; color: #ff4d6d; animation: td-blink 1s steps(2) infinite; }
+    #start-screen .td-title { margin: 8px 0 0; font-family: 'ZCOOL QingKe HuangYou', sans-serif; font-weight: 400; font-size: 66px; line-height: 1.05; color: #e8feff;
+      text-shadow: 0 0 14px rgba(0,229,255,.8); }
+    #start-screen .td-title small { margin-left: 14px; font-size: 28px; color: #00e5ff; }
+    #start-screen .td-log { margin-top: 12px; font-size: 13.5px; line-height: 1.75; color: #8fe9f5; }
+    #start-screen .td-log p::before { content: '> '; color: #fbbf24; }
+    #start-screen .td-btn { margin-top: 16px; padding: 9px 34px; cursor: pointer; font-family: 'Orbitron', sans-serif; font-weight: 900; font-size: 15px; letter-spacing: .25em;
+      color: #021018; background: #00e5ff; border: none; clip-path: polygon(10px 0, 100% 0, calc(100% - 10px) 100%, 0 100%); transition: background .15s; }
+    #start-screen .td-btn span { margin-right: 10px; font-family: 'ZCOOL QingKe HuangYou', sans-serif; font-weight: 400; font-size: 21px; letter-spacing: .2em; }
+    #start-screen .td-btn:hover { background: #fbbf24; }
+    #start-screen .td-keys { margin-top: 16px; display: grid; grid-template-columns: 1fr 1fr; gap: 6px 18px; font-size: 12.5px; color: #7fd2df; }
+    #start-screen .td-keys em { font-style: normal; color: #fbbf24; }
+    #start-screen kbd { display: inline-block; min-width: 20px; margin-right: 6px; padding: 0 5px; text-align: center; font-family: 'Share Tech Mono', monospace; font-size: 12px;
+      color: #021018; background: #8fe9f5; border-radius: 2px; }
+    @keyframes td-core { to { background-position: -384px 0; } }
+    @keyframes td-ring { from { transform: scale(.7); opacity: 1; } to { transform: scale(1.3); opacity: 0; } }
+    @keyframes td-blink { 50% { opacity: .25; } }
+    @media (prefers-reduced-motion: reduce) { #start-screen, #start-screen * { animation: none !important; } }
+    /* ── 开场遮罩 · 主题化 END ── */
   </style>
 </head>
 <body>
@@ -143,16 +178,21 @@
         <div id="hud-day">关卡 <span id="hud-day-value">1</span></div>
     </div>
 
-    <!-- Start screen overlay -->
+    <!-- Start screen overlay：入侵警报终端主题（无选择页的游戏保留这一次点击，样式见 style 末尾） -->
     <div id="start-screen" class="game-overlay">
-      <div class="overlay-card">
-        <h2>霓虹防御：终极战线</h2>
-        <p class="tagline">在赛博网络核心，抵御病毒程序的无休止入侵！</p>
-        <p class="story-setting">这是一个由霓虹光轨与电子脉冲构成的赛博数字空间，光流在蓝色的网格地板上交织，核心数据库正处于高负荷运转中。</p>
-        <button id="start-btn" class="game-btn" onclick="window.__hudStart()">▶ START GAME</button>
-        <p class="controls-hint">
-          Controls: WASD / Arrow Keys to move drone | J/K: Build Turrets (50/80 💎)<br>E: Upgrade closest Turret | Z: Chain Lightning (15 💎) | SPACE: System Overclock (50 💎)
-        </p>
+      <div class="td-core" aria-hidden="true"><i></i></div>
+      <div class="td-panel">
+        <div class="td-alert">⚠ SYSTEM BREACH DETECTED</div>
+        <h2 class="td-title">霓虹防御<small>终极战线</small></h2>
+        <div class="td-log"><p>赛博网络核心数据库高负荷运转中</p><p>病毒程序沿光轨无休止地入侵</p><p>驾驶无人机建造炮塔，守住核心</p></div>
+        <button id="start-btn" class="td-btn" onclick="window.__hudStart()"><span>部署防线</span>DEPLOY</button>
+        <div class="td-keys">
+          <span><kbd>WASD</kbd>移动无人机</span>
+          <span><kbd>J</kbd><kbd>K</kbd>建造炮塔 <em>50/80💎</em></span>
+          <span><kbd>E</kbd>升级最近的炮塔</span>
+          <span><kbd>Z</kbd>连锁闪电 <em>15💎</em></span>
+          <span><kbd>SPACE</kbd>系统超频 <em>50💎</em></span>
+        </div>
       </div>
     </div>
 

@@ -4,6 +4,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>荒尘亡命徒</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Rye&family=Noto+Serif+SC:wght@700;900&display=swap" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -130,6 +133,31 @@
       flex: 0 0 auto;
       transform-origin: center center;
     }
+    /* ── 开场遮罩 · 主题化 BEGIN（只作用于 #start-screen；胜负遮罩仍用通用卡）── */
+    #start-screen { flex-direction: column; overflow: hidden; backdrop-filter: none; }    #start-screen { background: radial-gradient(ellipse at 50% 45%, rgba(120,50,10,.2), rgba(25,8,2,.86) 75%),
+      linear-gradient(180deg, rgba(255,120,40,.28), rgba(40,12,2,.6)), url('scene/panorama.png') center / cover, #2a1206; }
+    #start-screen .do-poster { position: relative; width: 430px; padding: 22px 34px 20px; text-align: center; color: #3b1f0e;
+      font-family: 'Noto Serif SC', 'SimSun', serif; transform: rotate(-1.2deg);
+      background: radial-gradient(ellipse at 30% 20%, rgba(255,255,255,.28), transparent 60%), radial-gradient(ellipse at 80% 90%, rgba(120,70,20,.28), transparent 55%), linear-gradient(#f2ddb0, #e2c088);
+      box-shadow: inset 0 0 38px rgba(120,66,18,.55), 0 18px 40px rgba(0,0,0,.6); }
+    #start-screen .do-poster::before { content: ''; position: absolute; top: 9px; left: 50%; width: 10px; height: 10px; margin-left: -5px; border-radius: 50%;
+      background: radial-gradient(circle at 35% 35%, #d8d2c4, #5a544c); box-shadow: 0 1px 2px rgba(0,0,0,.6); }
+    #start-screen .do-wanted { margin-top: 8px; font-family: 'Rye', serif; font-size: 60px; line-height: 1; letter-spacing: .04em; color: #3b1f0e; }
+    #start-screen .do-rule { margin: 9px 0; border-top: 4px double #5a3418; }
+    #start-screen .do-title { margin: 0; font-weight: 900; font-size: 40px; letter-spacing: .14em; color: #6b1d0c; }
+    #start-screen .do-tag { margin-top: 4px; font-size: 14px; font-weight: 700; color: #5a3418; }
+    #start-screen .do-story { margin-top: 10px; font-size: 12.5px; line-height: 1.85; color: #4a2c14; }
+    #start-screen .do-btn { margin-top: 6px; padding: 5px 24px 7px; cursor: pointer; font-family: 'Rye', 'Noto Serif SC', serif; font-size: 22px; letter-spacing: .06em;
+      color: #9b1c1c; background: transparent; border: 4px double #9b1c1c; transform: rotate(-3deg); transition: background .15s, color .15s; }
+    #start-screen .do-btn:hover { background: #9b1c1c; color: #f2ddb0; }
+    #start-screen .do-keys { margin-top: 14px; display: flex; justify-content: center; gap: 16px; font-size: 12px; font-weight: 700; color: #5a3418; }
+    #start-screen kbd { display: inline-block; margin: 0 2px; padding: 1px 5px; font-family: 'Rye', serif; font-size: 11px; color: #f2ddb0; background: #4a2c14; border-radius: 2px; }
+    #start-screen .do-cowboy { position: absolute; left: 70px; bottom: 30px; width: 144px; height: 156px;
+      background: url('assets/sprites/DustCowboy.webp') 0 -312px / 1296px 468px no-repeat; animation: do-shoot 1.3s steps(9) infinite;
+      filter: drop-shadow(0 6px 4px rgba(0,0,0,.55)); }
+    @keyframes do-shoot { to { background-position: -1296px -312px; } }
+    @media (prefers-reduced-motion: reduce) { #start-screen, #start-screen * { animation: none !important; } }
+    /* ── 开场遮罩 · 主题化 END ── */
   </style>
 </head>
 <body>
@@ -143,16 +171,18 @@
         <div id="hud-objective"><span id="hud-objective-text">清空响尾蛇帮：击倒 20 名亡命徒</span></div>
     </div>
 
-    <!-- Start screen overlay -->
+    <!-- Start screen overlay：西部通缉令主题（无选择页的游戏保留这一次点击，样式见 style 末尾） -->
     <div id="start-screen" class="game-overlay">
-      <div class="overlay-card">
-        <h2>荒尘亡命徒</h2>
-        <p class="tagline">落日染红镇口的尘土，最后一颗子弹该给谁？</p>
-        <p class="story-setting">美国西部边境的死寂小镇「红石镇」。黄昏时分，烈日把木板房与水塔拉出长长的影子，风卷起焦橙色的尘土，秃鹫在残破的钟楼上空盘旋。镇上的人早已逃光，只剩枪声与铁轨的回响。</p>
-        <button id="start-btn" class="game-btn" onclick="window.__hudStart()">▶ START GAME</button>
-        <p class="controls-hint">
-          Controls: WASD / Arrow Keys to move
-        </p>
+      <div class="do-cowboy" aria-hidden="true"></div>
+      <div class="do-poster">
+        <div class="do-wanted">WANTED</div>
+        <div class="do-rule"></div>
+        <h2 class="do-title">荒尘亡命徒</h2>
+        <div class="do-tag">落日染红镇口的尘土，最后一颗子弹该给谁？</div>
+        <p class="do-story">红石镇的人早已逃光，只剩响尾蛇帮的枪声与铁轨的回响。<br>清空这群亡命徒，把小镇还给黄昏。</p>
+        <div class="do-rule"></div>
+        <button id="start-btn" class="do-btn" onclick="window.__hudStart()">DRAW · 拔枪</button>
+        <div class="do-keys"><span><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> 移动</span><span><kbd>SPACE</kbd>/<kbd>J</kbd> 开火</span></div>
       </div>
     </div>
 
