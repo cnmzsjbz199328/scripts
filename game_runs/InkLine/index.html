@@ -143,18 +143,6 @@
         <div id="hud-objective"><span id="hud-objective-text">收集 10 滴墨，抵达画纸尽头，画完世界</span></div>
     </div>
 
-    <!-- Start screen overlay -->
-    <div id="start-screen" class="game-overlay">
-      <div class="overlay-card">
-        <h2>一线：未完成的画</h2>
-        <p class="tagline">我只是一根线，却想亲手画完属于自己的世界。</p>
-        <p class="story-setting">一张巨大的米白色画纸构成的世界。淡淡的铅笔辅助线在远处延伸，半成品的几何房屋、桥梁与云朵以单色黑线勾勒，有些地方还是空白，等待被填满。整个世界安静得像一支笔悬停在纸上的瞬间。</p>
-        <button id="start-btn" class="game-btn" onclick="window.__hudStart()">▶ START GAME</button>
-        <p class="controls-hint">
-          Controls: WASD / Arrow Keys to move
-        </p>
-      </div>
-    </div>
 
     <!-- Game over overlay -->
     <div id="gameover-screen" class="game-overlay" style="display:none">
@@ -172,6 +160,8 @@
   </script>
   <!-- 共享引擎层 -->
   <script src="../_engine/hud.js"></script>
+  <!-- 无 START 遮罩：开页直接进入（游戏自带开场卡/选择页即唯一一次确认）；__hudStart 契约保留、外部再调为幂等 -->
+  <script>window.__hudStart();</script>
   <!-- 数据：config 先于 data(data.js 顶层引用 TILEMAP_DATA) -->
   <script src="game/config.js"></script>
   <script src="game/data.js"></script>

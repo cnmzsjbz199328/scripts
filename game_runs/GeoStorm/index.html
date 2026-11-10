@@ -143,18 +143,6 @@
         <div id="hud-objective"><span id="hud-objective-text">走位躲避几何弹幕，收集 15 枚光碎片</span></div>
     </div>
 
-    <!-- Start screen overlay -->
-    <div id="start-screen" class="game-overlay">
-      <div class="overlay-card">
-        <h2>几何风暴：最后的光点</h2>
-        <p class="tagline">当虚空抹去所有线条，我是这张蓝图上最后亮着的一点。</p>
-        <p class="story-setting">一张无边的浅蓝蓝图纸，宇宙以纯粹的几何线条被绘制于其上——圆、三角、方阵在网格间静静旋转。可一片名为「虚空」的黑暗正从四方蚕食，所到之处线条崩解、图形湮灭。</p>
-        <button id="start-btn" class="game-btn" onclick="window.__hudStart()">▶ START GAME</button>
-        <p class="controls-hint">
-          Controls: WASD / Arrow Keys to move
-        </p>
-      </div>
-    </div>
 
     <!-- Game over overlay -->
     <div id="gameover-screen" class="game-overlay" style="display:none">
@@ -172,6 +160,8 @@
   </script>
   <!-- 共享引擎层 -->
   <script src="../_engine/hud.js"></script>
+  <!-- 无 START 遮罩：开页直接进入（游戏自带开场卡/选择页即唯一一次确认）；__hudStart 契约保留、外部再调为幂等 -->
+  <script>window.__hudStart();</script>
   <!-- 数据：config 先于 data(data.js 顶层引用 TILEMAP_DATA 时序保险) -->
   <script src="game/config.js"></script>
   <script src="game/data.js"></script>

@@ -141,18 +141,6 @@
         <div id="hud-objective"><span id="hud-objective-text">在草丛中走动寻找野生怪兽，用精灵球捕获它们吧！</span></div>
     </div>
 
-    <!-- Start screen overlay -->
-    <div id="start-screen" class="game-overlay">
-      <div class="overlay-card">
-        <h2>怪兽收集：像素物语</h2>
-        <p class="tagline">探索神秘的像素世界，收集与培养你的最强怪兽队伍，挑战道馆馆主！</p>
-        <p class="story-setting">一个充满奇妙怪兽的像素世界。这片大陆分为宁静的草地、幽暗的洞窟和寒冷的雪山，而在世界的终点矗立着象征最高荣誉的怪兽道馆。</p>
-        <button id="start-btn" class="game-btn" onclick="window.__hudStart()">▶ START GAME</button>
-        <p class="controls-hint">
-          Controls: WASD / Arrow Keys to move
-        </p>
-      </div>
-    </div>
 
     <!-- Game over overlay -->
     <div id="gameover-screen" class="game-overlay" style="display:none">
@@ -170,6 +158,8 @@
   </script>
   <!-- 共享引擎层 -->
   <script src="../_engine/hud.js"></script>
+  <!-- 无 START 遮罩：开页直接进入（游戏自带开场卡/选择页即唯一一次确认）；__hudStart 契约保留、外部再调为幂等 -->
+  <script>window.__hudStart();</script>
   <!-- 数据(地图/瓦片/实体 + 怪物库/属性克制) -->
   <script src="game/config.js"></script>
   <script src="game/data.js"></script>

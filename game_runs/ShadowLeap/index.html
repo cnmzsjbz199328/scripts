@@ -143,18 +143,6 @@
         <div id="hud-objective"><span id="hud-objective-text">向右奔跑，收集 8 点微光，抵达森林深处的光源</span></div>
     </div>
 
-    <!-- Start screen overlay -->
-    <div id="start-screen" class="game-overlay">
-      <div class="overlay-card">
-        <h2>影跃：迷雾森林</h2>
-        <p class="tagline">在吞噬光的迷雾里，一个男孩纵身跃向最后的微光。</p>
-        <p class="story-setting">一座被永夜迷雾笼罩的剪影森林。枯枝、断桥与巨大的齿轮废墟在灰白的雾光中只剩漆黑的轮廓，远处偶有萤火般的光点忽明忽灭。世界静默无声，唯有风穿过枯枝的呼啸。</p>
-        <button id="start-btn" class="game-btn" onclick="window.__hudStart()">▶ START GAME</button>
-        <p class="controls-hint">
-          Controls: WASD / Arrow Keys to move
-        </p>
-      </div>
-    </div>
 
     <!-- Game over overlay -->
     <div id="gameover-screen" class="game-overlay" style="display:none">
@@ -170,6 +158,8 @@
     window.GAME_HUD_GLYPHS = { full: '♥', empty: '♡' };
   </script>
   <script src="../_engine/hud.js"></script>
+  <!-- 无 START 遮罩：开页直接进入（游戏自带开场卡/选择页即唯一一次确认）；__hudStart 契约保留、外部再调为幂等 -->
+  <script>window.__hudStart();</script>
   <script src="game/config.js"></script>
   <script src="game/data.js"></script>
   <script src="game/scenes/ShadowLeapScene.js"></script>
