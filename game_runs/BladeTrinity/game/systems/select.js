@@ -5,14 +5,12 @@ Object.assign(BladeTrinityScene.prototype, {
     this.selCursor = [0];
     this.selGroup = this.add.container(0, 0).setDepth(50);
 
-    this.selTitle = this.add.text(BT.GAME_W / 2, 52, '选择你的流派 —— 挑翻另两家，登顶擂台', {
-      fontFamily: 'Segoe UI, monospace', fontSize: '26px', color: '#f7ecd8', fontStyle: 'bold',
-    }).setOrigin(0.5);
+    // 选人屏只留：立绘 + 流派名 + 一行标语 + 难度徽章 + 底部操作提示（标题/长说明已删，要简洁）
     // 文案随输入设备切换（Joy-Con 在线时换成手柄键，见 input.js _selectTipText）
     const tip = this.selTip = this.add.text(BT.GAME_W / 2, BT.GAME_H - 22, this._selectTipText(), {
       fontFamily: 'Segoe UI, monospace', fontSize: '16px', color: '#c9b79a',
     }).setOrigin(0.5);
-    this.selGroup.add([this.selTitle, tip]);
+    this.selGroup.add(tip);
     this._buildTierPicker();
 
     this.selSprites = [];
@@ -30,12 +28,8 @@ Object.assign(BladeTrinityScene.prototype, {
       const blurb = this.add.text(x, 392, s.blurb, {
         fontFamily: 'Segoe UI, monospace', fontSize: '15px', color: '#e8dcc6',
       }).setOrigin(0.5);
-      const tipT = this.add.text(x, 424, s.tip, {
-        fontFamily: 'Segoe UI, monospace', fontSize: '12px', color: '#a9998a',
-        align: 'center', wordWrap: { width: gap - 48 },
-      }).setOrigin(0.5, 0);
       this.selSprites.push(portrait);
-      this.selGroup.add([portrait, name, blurb, tipT]);
+      this.selGroup.add([portrait, name, blurb]);
     });
 
     this.selBoxP1 = this.add.rectangle(0, 250, 196, 250).setStrokeStyle(5, 0x4a9fd8).setDepth(49);
