@@ -4,6 +4,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>暗影刺客 (Shadow Assassin)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Ma+Shan+Zheng&family=Noto+Serif+SC:wght@500;700&display=swap" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -129,6 +132,35 @@
       flex: 0 0 auto;
       transform-origin: center center;
     }
+    /* ── 开场遮罩 · 主题化 BEGIN（只作用于 #start-screen；胜负遮罩仍用通用卡）── */
+    #start-screen { flex-direction: column; overflow: hidden; backdrop-filter: none; }    #start-screen { color: #efe6d2; font-family: 'Noto Serif SC', 'SimSun', serif;
+      background: radial-gradient(circle at 78% 14%, rgba(255,240,200,.26), transparent 18%), radial-gradient(ellipse at 50% 50%, rgba(6,10,24,.3), rgba(3,5,12,.9) 75%),
+        url('scene/establishing_shot.jpg') center / cover, #05070f; }
+    #start-screen .ns-fog { position: absolute; left: -20%; right: -20%; bottom: 0; height: 45%; pointer-events: none;
+      background: radial-gradient(ellipse at 30% 80%, rgba(170,180,210,.16), transparent 60%), radial-gradient(ellipse at 75% 90%, rgba(170,180,210,.12), transparent 55%);
+      animation: ns-fog 14s ease-in-out infinite alternate; }
+    #start-screen .ns-wrap { position: relative; display: flex; flex-direction: column; align-items: center; text-align: center; }
+    #start-screen .ns-brief { display: flex; align-items: center; gap: 18px; font-size: 22px; letter-spacing: .5em; color: #b9ad94; }
+    #start-screen .ns-seal { display: inline-flex; align-items: center; justify-content: center; width: 58px; height: 58px; font-family: 'Ma Shan Zheng', serif; font-size: 40px;
+      letter-spacing: 0; color: #f6e8d8; background: #a3161a; border-radius: 6px; transform: rotate(-8deg); box-shadow: 0 0 0 3px rgba(163,22,26,.35); }
+    #start-screen .ns-title { margin: 16px 0 0; font-family: 'Ma Shan Zheng', 'KaiTi', serif; font-weight: 400; font-size: 176px; line-height: 1; color: #f3ecdc;
+      text-shadow: 0 0 30px rgba(0,0,0,.9), 0 6px 0 rgba(0,0,0,.45); }
+    #start-screen .ns-en { margin-top: 8px; font-size: 20px; letter-spacing: .8em; color: #8d93a8; }
+    #start-screen .ns-story { margin-top: 28px; max-width: 780px; font-size: 22px; line-height: 1.9; color: #d9cfbb; text-shadow: 0 2px 6px #000; }
+    #start-screen .ns-btn { margin-top: 34px; padding: 10px 70px 12px; cursor: pointer; font-family: 'Ma Shan Zheng', serif; font-size: 48px; letter-spacing: .4em; color: #f6e8d8;
+      background: linear-gradient(#9b1518, #6d0d10); border: 2px solid rgba(246,232,216,.35); border-radius: 4px; box-shadow: 0 0 30px rgba(155,21,24,.45);
+      transition: transform .15s, box-shadow .15s; }
+    #start-screen .ns-btn:hover { transform: translateY(-2px); box-shadow: 0 0 46px rgba(200,30,34,.7); }
+    #start-screen .ns-keys { margin-top: 30px; display: flex; gap: 36px; font-size: 19px; color: #b9ad94; }
+    #start-screen kbd { display: inline-block; margin: 0 3px; padding: 2px 10px; font-family: 'Noto Serif SC', serif; font-size: 16px; color: #f3ecdc;
+      border: 1px solid rgba(243,236,220,.5); background: rgba(0,0,0,.35); border-radius: 3px; }
+    #start-screen .ns-kage { position: absolute; left: 120px; bottom: 100px; width: 192px; height: 208px;
+      background: url('assets/sprites/NinjaKage.webp') 0 0 / 1728px 1248px no-repeat; animation: ns-idle 1.2s steps(9) infinite;
+      filter: brightness(.8) drop-shadow(0 0 14px rgba(0,0,0,.9)); }
+    @keyframes ns-idle { to { background-position: -1728px 0; } }
+    @keyframes ns-fog { from { transform: translateX(-4%); } to { transform: translateX(4%); } }
+    @media (prefers-reduced-motion: reduce) { #start-screen, #start-screen * { animation: none !important; } }
+    /* ── 开场遮罩 · 主题化 END ── */
   </style>
 </head>
 <body>
@@ -142,20 +174,17 @@
         <div id="hud-objective"><span id="hud-objective-text">第一关：城堡庭院 - 避开守卫，收集 3 个情报卷轴并到达石门出口！</span></div>
     </div>
 
-    <!-- Start screen overlay -->
+    <!-- Start screen overlay：夜色任务简报主题（无选择页的游戏保留这一次点击，样式见 style 末尾） -->
     <div id="start-screen" class="game-overlay">
-      <div class="overlay-card">
-        <h2>暗影刺客 (Shadow Assassin)</h2>
-        <p class="tagline">避开守卫，潜行暗杀，收集情报，在黑夜中执行正义！</p>
-        <p class="story-setting">古老的幕府时代，守卫森严的城堡与敌营被夜幕笼罩。在火把与阴影的交错中，潜藏着致命的危机。</p>
-        <button id="start-btn" class="game-btn" onclick="window.__hudStart()">▶ START GAME</button>
-        <p class="controls-hint">
-          操作说明：<br>
-          <b>移动</b>：WASD / 方向键<br>
-          <b>背后暗杀</b>：空格键 (SPACE) / J 键<br>
-          <b>投掷烟雾弹</b>：K 键 / X 键<br>
-          <span style="font-size:0.8em; color:#64748b;">(注：从守卫背后接近并按下暗杀键可将其消灭。若从正面被发现则会触发警报与战斗，扣减生命。)</span>
-        </p>
+      <div class="ns-fog" aria-hidden="true"></div>
+      <div class="ns-kage" aria-hidden="true"></div>
+      <div class="ns-wrap">
+        <div class="ns-brief"><span class="ns-seal">密</span>任务简报</div>
+        <h2 class="ns-title">暗影刺客</h2>
+        <div class="ns-en">SHADOW ASSASSIN</div>
+        <p class="ns-story">火把与阴影交错的幕府城堡。避开守卫，潜行暗杀，<br>在黑夜中取回被夺走的情报卷轴。从背后接近，正面被发现会触发警报。</p>
+        <button id="start-btn" class="ns-btn" onclick="window.__hudStart()">潜入</button>
+        <div class="ns-keys"><span><kbd>WASD</kbd> 移动</span><span><kbd>SPACE</kbd>/<kbd>J</kbd> 背后暗杀</span><span><kbd>K</kbd>/<kbd>X</kbd> 烟雾弹</span></div>
       </div>
     </div>
 

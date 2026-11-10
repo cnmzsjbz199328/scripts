@@ -143,18 +143,6 @@
         <div id="hud-objective"><span id="hud-objective-text">潜行向右，避开光锥，拾取 5 把门钥，抵达牢笼</span></div>
     </div>
 
-    <!-- Start screen overlay -->
-    <div id="start-screen" class="game-overlay">
-      <div class="overlay-card">
-        <h2>影忍：将军府之夜</h2>
-        <p class="tagline">月隐于云，影潜于墙——在被发现之前，把挚友带回家。</p>
-        <p class="story-setting">战国之夜，山巅的将军府。纸灯笼在回廊间投下摇曳的暖光，巡逻武士的灯笼来回游移，屋脊与立柱在月色下只剩漆黑的轮廓。庭院深深，唯有风铃与远处的更鼓。</p>
-        <button id="start-btn" class="game-btn" onclick="window.__hudStart()">▶ START GAME</button>
-        <p class="controls-hint">
-          Controls: WASD / Arrow Keys to move
-        </p>
-      </div>
-    </div>
 
     <!-- Game over overlay -->
     <div id="gameover-screen" class="game-overlay" style="display:none">
@@ -172,6 +160,8 @@
   </script>
   <!-- 共享引擎层 -->
   <script src="../_engine/hud.js"></script>
+  <!-- 无 START 遮罩：开页直接进入（游戏自带开场卡/选择页即唯一一次确认）；__hudStart 契约保留、外部再调为幂等 -->
+  <script>window.__hudStart();</script>
   <!-- 数据:config 先于 data(data.js 顶层引用 TILEMAP_DATA) -->
   <script src="game/config.js"></script>
   <script src="game/data.js"></script>

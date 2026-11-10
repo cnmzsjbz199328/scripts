@@ -40,7 +40,7 @@ npx tsx skills/game-verify/verify.ts <GameName> \
 |----|------|-----------|
 | **L0 静态** | node `--check` 语法 + JSON 合法性 + 资源引用存在性（`tileIndex`→贴图、`entities[].sprite`→图集） | 语法错误、坏 JSON、缺贴图/图集、404 前置 |
 | **L1 启动** | Playwright headless 加载 `index.html`，监听 `console.error` / `pageerror`(window.onerror) / 资源 404 / 请求失败，确认 `<canvas>` 真正渲染 | 加载即崩、未定义引用、资源 404、Phaser 起不来 |
-| **L2 烟雾** | 调 `window.__hudStart()`（或点 `#start-btn`）开始游戏 → 按 `--keys` 合成键盘输入 → 断言交互期间**零新运行时错误** + **画面前后有变化**（未冻结/崩溃） | 输入触发的崩溃、移动卡死、按键抢占、游戏循环冻结 |
+| **L2 烟雾** | 调 `window.__hudStart()`（或点 `#start-btn`）开始游戏 → 若 `__probe().cardActive` 则用 `__advanceCard()` 推进开场剧情卡 → 按 `--keys` 合成键盘输入 → 断言交互期间**零新运行时错误** + **画面前后有变化**（未冻结/崩溃）；暴露 `__gameState.player` 时**每个键后采样坐标**，途中动过即算响应（A/D 位移精确抵消不再误判） | 输入触发的崩溃、移动卡死、按键抢占、游戏循环冻结 |
 
 报告示例（也是 game-fix 的输入）：
 

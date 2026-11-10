@@ -4,6 +4,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>星际先锋：堡垒决战</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=ZCOOL+QingKe+HuangYou&display=swap" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -129,6 +132,32 @@
       flex: 0 0 auto;
       transform-origin: center center;
     }
+    /* ── 开场遮罩 · 主题化 BEGIN（只作用于 #start-screen；胜负遮罩仍用通用卡）── */
+    #start-screen { flex-direction: column; overflow: hidden; backdrop-filter: none; }    #start-screen { color: #dbeafe; background: radial-gradient(ellipse at 50% 40%, rgba(4,8,24,.3), rgba(2,4,14,.9) 75%), url('scene/establishing_shot.jpg') center 20% / cover, #02040e; }
+    #start-screen .sv-stars { position: absolute; inset: 0; pointer-events: none; opacity: .85;
+      background-image: radial-gradient(1.5px 1.5px at 20px 30px, #fff, transparent), radial-gradient(1px 1px at 90px 120px, #cde, transparent),
+        radial-gradient(1.5px 1.5px at 160px 60px, #fff, transparent), radial-gradient(1px 1px at 230px 170px, #9cf, transparent);
+      background-size: 260px 200px; animation: sv-near 2.5s linear infinite; }
+    #start-screen .sv-stars.far { opacity: .45; background-size: 180px 140px; animation: sv-far 6s linear infinite; }
+    #start-screen .sv-hud { position: absolute; top: 18px; left: 24px; right: 24px; display: flex; justify-content: space-between;
+      font-family: 'Press Start 2P', monospace; font-size: 11px; color: #ff4d4d; }
+    #start-screen .sv-hud b { margin-left: 10px; font-weight: 400; color: #fff; }
+    #start-screen .sv-wrap { position: relative; display: flex; flex-direction: column; align-items: center; text-align: center; }
+    #start-screen .sv-title { margin: 0; font-family: 'ZCOOL QingKe HuangYou', sans-serif; font-weight: 400; font-size: 96px; line-height: 1.1; letter-spacing: .06em;
+      background: linear-gradient(180deg, #ffffff 0%, #cfe8ff 38%, #4a8fe0 52%, #e8f4ff 70%, #8fc4ff 100%); -webkit-background-clip: text; background-clip: text; color: transparent;
+      filter: drop-shadow(3px 3px 0 #b91c1c) drop-shadow(0 0 18px rgba(80,150,255,.45)); }
+    #start-screen .sv-sub { margin-top: 6px; font-family: 'Press Start 2P', monospace; font-size: 12px; letter-spacing: .2em; color: #fbbf24; }
+    #start-screen .sv-story { margin-top: 18px; max-width: 540px; font-size: 14px; line-height: 1.85; color: #b8cbe8; }
+    #start-screen .sv-btn { margin-top: 22px; padding: 12px 30px; cursor: pointer; font-family: 'Press Start 2P', monospace; font-size: 13px; letter-spacing: .1em; color: #fff;
+      background: rgba(2,4,14,.4); border: 3px solid #fff; box-shadow: 4px 4px 0 #b91c1c; transition: background .1s, color .1s; }
+    #start-screen .sv-btn span { margin-right: 12px; font-family: 'ZCOOL QingKe HuangYou', sans-serif; font-size: 24px; letter-spacing: .25em; vertical-align: -3px; }
+    #start-screen .sv-btn:hover { background: #fff; color: #02040e; }
+    #start-screen .sv-keys { margin-top: 20px; display: flex; gap: 18px; font-size: 13px; color: #9fb4d6; }
+    #start-screen kbd { display: inline-block; margin: 0 2px; padding: 3px 5px 2px; font-family: 'Press Start 2P', monospace; font-size: 9px; color: #02040e; background: #dbeafe; }
+    @keyframes sv-near { to { background-position: 0 200px, 0 200px, 0 200px, 0 200px; } }
+    @keyframes sv-far  { to { background-position: 0 140px, 0 140px, 0 140px, 0 140px; } }
+    @media (prefers-reduced-motion: reduce) { #start-screen, #start-screen * { animation: none !important; } }
+    /* ── 开场遮罩 · 主题化 END ── */
   </style>
 </head>
 <body>
@@ -142,16 +171,17 @@
         <div id="hud-objective"><span id="hud-objective-text">第一关：冲出陨石风暴带！</span></div>
     </div>
 
-    <!-- Start screen overlay -->
+    <!-- Start screen overlay：街机星空主题（无选择页的游戏保留这一次点击，样式见 style 末尾） -->
     <div id="start-screen" class="game-overlay">
-      <div class="overlay-card">
-        <h2>星际先锋：堡垒决战</h2>
-        <p class="tagline">驾驶星际战机，冲破陨石带与敌军编队，消灭终极星际堡垒！</p>
-        <p class="story-setting">银河系边缘的小行星带，帝国最强大的终极防御工事「星际堡垒」正处于临界启动状态，威胁着整个自由星系的存亡。</p>
-        <button id="start-btn" class="game-btn" onclick="window.__hudStart()">▶ START GAME</button>
-        <p class="controls-hint">
-          Controls: WASD / Arrow Keys to move
-        </p>
+      <div class="sv-stars far" aria-hidden="true"></div>
+      <div class="sv-stars" aria-hidden="true"></div>
+      <div class="sv-hud" aria-hidden="true"><span>1UP<b>000000</b></span><span>STAGE<b>01</b></span></div>
+      <div class="sv-wrap">
+        <h2 class="sv-title">星际先锋</h2>
+        <div class="sv-sub">FORTRESS ASSAULT</div>
+        <p class="sv-story">银河系边缘，帝国的终极防御工事「星际堡垒」即将启动。<br>驾驶战机冲破陨石带与敌军编队，击毁它。</p>
+        <button id="start-btn" class="sv-btn" onclick="window.__hudStart()"><span>出击</span>LAUNCH</button>
+        <div class="sv-keys"><span><kbd>A</kbd><kbd>D</kbd> / <kbd>←</kbd><kbd>→</kbd> 移动</span><span>自动射击</span><span><kbd>X</kbd> 清屏炸弹</span></div>
       </div>
     </div>
 

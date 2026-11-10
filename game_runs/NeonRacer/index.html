@@ -4,6 +4,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>霓虹狂飙：赛博漂移</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=ZCOOL+QingKe+HuangYou&display=swap" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -130,6 +133,86 @@
       flex: 0 0 auto;
       transform-origin: center center;
     }
+
+    /* ── 开场遮罩 · 赛博霓虹（只作用于 #start-screen；胜负遮罩仍用上面的通用卡）── */
+    #start-screen {
+      flex-direction: column; overflow: hidden; backdrop-filter: none;
+      background:
+        radial-gradient(ellipse at 50% 38%, rgba(2,8,20,.15), rgba(2,6,16,.7) 72%),
+        linear-gradient(180deg, rgba(2,6,16,.3), rgba(2,6,16,.82)),
+        url('assets/scene/neon_city_bg.jpg') center 30% / cover;
+      font-family: 'Orbitron', 'Segoe UI', sans-serif;
+    }
+    #start-screen .nr-scan {
+      position: absolute; inset: 0; pointer-events: none;
+      background: repeating-linear-gradient(0deg, rgba(0,0,0,.22) 0 1px, transparent 1px 3px);
+    }
+    #start-screen .nr-grid {
+      position: absolute; left: -50%; right: -50%; bottom: -30px; height: 230px; pointer-events: none;
+      background-image:
+        linear-gradient(rgba(255,79,216,.85) 2px, transparent 2px),
+        linear-gradient(90deg, rgba(0,229,255,.75) 2px, transparent 2px);
+      background-size: 64px 40px;
+      transform: perspective(260px) rotateX(64deg); transform-origin: bottom center;
+      -webkit-mask-image: linear-gradient(transparent, #000 70%); mask-image: linear-gradient(transparent, #000 70%);
+      animation: nr-grid .55s linear infinite;
+    }
+    #start-screen .nr-wrap {
+      position: relative; z-index: 1; margin-top: -78px;
+      display: flex; flex-direction: column; align-items: center; text-align: center;
+    }
+    #start-screen .nr-kicker {
+      font-size: 12px; letter-spacing: .42em; color: #00e5ff;
+      text-shadow: 0 0 8px rgba(0,229,255,.75); margin-bottom: 12px;
+    }
+    #start-screen .nr-title {
+      margin: 0; font-family: 'ZCOOL QingKe HuangYou', 'Microsoft YaHei', sans-serif;
+      font-size: 88px; line-height: 1; font-weight: 400; letter-spacing: .06em; color: #f0feff;
+      text-shadow: 0 0 6px #fff, 0 0 18px #00e5ff, 0 0 44px #00e5ff,
+                   4px 0 0 rgba(255,46,196,.55), -4px 0 0 rgba(0,229,255,.4);
+      animation: nr-flicker 6s infinite;
+    }
+    #start-screen .nr-sub {
+      margin-top: 10px; font-family: 'ZCOOL QingKe HuangYou', sans-serif; font-size: 20px;
+      letter-spacing: .3em; color: #ff4fd8; text-shadow: 0 0 10px rgba(255,79,216,.85);
+    }
+    #start-screen .nr-sub b { font-family: 'Orbitron', sans-serif; font-style: italic; font-weight: 700; font-size: 15px; margin-right: .7em; }
+    #start-screen .nr-story {
+      margin-top: 16px; max-width: 540px; font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
+      font-size: 14px; line-height: 1.8; color: #a6dbe8;
+    }
+    #start-screen .nr-car {
+      width: 64px; height: 64px; margin: 14px 0 8px;
+      background: url('assets/sprites/PlayerCar.webp') -128px -192px / 320px 320px no-repeat;
+      image-rendering: pixelated; filter: drop-shadow(0 0 12px rgba(255,90,90,.65));
+      animation: nr-hover 1.1s ease-in-out infinite;
+    }
+    #start-screen .nr-btn {
+      padding: 12px 42px; border: 2px solid #00e5ff; background: rgba(0,229,255,.08);
+      color: #e6fdff; cursor: pointer; transform: skewX(-14deg);
+      box-shadow: 0 0 14px rgba(0,229,255,.55), inset 0 0 14px rgba(0,229,255,.22);
+      transition: background .15s, color .15s; animation: nr-pulse 1.8s ease-in-out infinite;
+    }
+    #start-screen .nr-btn > * { display: inline-block; transform: skewX(14deg); }
+    #start-screen .nr-btn span { font-family: 'ZCOOL QingKe HuangYou', sans-serif; font-size: 26px; letter-spacing: .22em; }
+    #start-screen .nr-btn em { font-style: normal; font-size: 12px; letter-spacing: .3em; margin-left: 14px; color: #ff4fd8; }
+    #start-screen .nr-btn:hover { background: #00e5ff; color: #021018; }
+    #start-screen .nr-btn:hover em { color: #021018; }
+    #start-screen .nr-keys {
+      margin-top: 22px; display: flex; gap: 26px;
+      font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif; font-size: 13px; color: #82bccb;
+    }
+    #start-screen kbd {
+      display: inline-block; min-width: 22px; padding: 2px 6px; margin: 0 2px;
+      border: 1px solid rgba(0,229,255,.55); border-radius: 4px; background: rgba(0,229,255,.08);
+      color: #cffaff; font-family: 'Orbitron', sans-serif; font-size: 11px; text-align: center;
+      box-shadow: 0 0 6px rgba(0,229,255,.3);
+    }
+    @keyframes nr-grid    { to { background-position: 0 40px, 0 0; } }
+    @keyframes nr-flicker { 0%,18%,20%,61%,63%,100% { opacity: 1; } 19%,62% { opacity: .55; } }
+    @keyframes nr-pulse   { 50% { box-shadow: 0 0 28px rgba(0,229,255,.9), inset 0 0 18px rgba(0,229,255,.4); } }
+    @keyframes nr-hover   { 50% { transform: translateY(-5px); } }
+    @media (prefers-reduced-motion: reduce) { #start-screen, #start-screen * { animation: none !important; } }
   </style>
 </head>
 <body>
@@ -143,16 +226,21 @@
         <div id="hud-objective"><span id="hud-objective-text">闪避障碍，安全越过 AI 防线！</span></div>
     </div>
 
-    <!-- Start screen overlay -->
+    <!-- Start screen overlay：赛博霓虹主题（无选择页的游戏保留这一次点击，样式见 style 末尾） -->
     <div id="start-screen" class="game-overlay">
-      <div class="overlay-card">
-        <h2>霓虹狂飙：赛博漂移</h2>
-        <p class="tagline">在这个霓虹闪烁的赛博都市中，挑战速度极限！</p>
-        <p class="story-setting">公元2099年的新东京市，霓虹霓彩把夜空染成了彩色。在耸入云端的高楼大厦之间，悬浮着错综复杂的电子光带赛道。</p>
-        <button id="start-btn" class="game-btn" onclick="window.__hudStart()">▶ START GAME</button>
-        <p class="controls-hint">
-          Controls: WASD / Arrow Keys to steer left/right/up/down<br>SPACE: Quantum Boost (Instant Velocity Multiplier)
-        </p>
+      <div class="nr-scan" aria-hidden="true"></div>
+      <div class="nr-grid" aria-hidden="true"></div>
+      <div class="nr-wrap">
+        <div class="nr-kicker">NEO-TOKYO 2099 · NIGHT CIRCUIT</div>
+        <h2 class="nr-title">霓虹狂飙</h2>
+        <div class="nr-sub"><b>CYBER DRIFT</b>赛博漂移</div>
+        <p class="nr-story">高楼之间悬着错综的电子光带赛道。<br>避开路障，在 45 秒内冲过终点线。</p>
+        <div class="nr-car" aria-hidden="true"></div>
+        <button id="start-btn" class="nr-btn" onclick="window.__hudStart()"><span>点火出发</span><em>IGNITION ▶</em></button>
+        <div class="nr-keys">
+          <span><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> / <kbd>←</kbd><kbd>→</kbd> 驾驶</span>
+          <span><kbd>SPACE</kbd> 量子加速</span>
+        </div>
       </div>
     </div>
 

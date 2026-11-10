@@ -88,7 +88,7 @@ Object.assign(BladeTrinityScene.prototype, {
     this.selTip = null;
     this.p1 = null; this.p2 = null; this.fighters = [];
     this._restartUI = null;
-    window.GameHUD?.setObjective('选择流派，登台对决！');
+    window.GameHUD?.setObjective('');
     this.scene.restart();
   },
 });

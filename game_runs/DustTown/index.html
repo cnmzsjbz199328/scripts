@@ -143,18 +143,6 @@
         <div id="hud-objective"><span id="hud-objective-text">走访镇民（按 E 倾听），收集 5 份证词</span></div>
     </div>
 
-    <!-- Start screen overlay -->
-    <div id="start-screen" class="game-overlay">
-      <div class="overlay-card">
-        <h2>尘镇：新警长</h2>
-        <p class="tagline">一枚警徽，一座烂到根的小镇——你敢不敢把真相钉上法庭的门？</p>
-        <p class="story-setting">西部腹地的「枯井镇」，一座被「卡特帮」用恐惧统治的小镇。黄昏的街道上人人噤声，杂货店、教堂、铁匠铺与法庭沿尘土主街排开，恶徒在巷口游荡。新任警长刚下马车，警徽在落日下泛着冷光。</p>
-        <button id="start-btn" class="game-btn" onclick="window.__hudStart()">▶ START GAME</button>
-        <p class="controls-hint">
-          Controls: WASD / Arrow Keys to move
-        </p>
-      </div>
-    </div>
 
     <!-- Game over overlay -->
     <div id="gameover-screen" class="game-overlay" style="display:none">
@@ -170,6 +158,8 @@
     window.GAME_HUD_GLYPHS = { full: '♥', empty: '♡' };
   </script>
   <script src="../_engine/hud.js"></script>
+  <!-- 无 START 遮罩：开页直接进入（游戏自带开场卡/选择页即唯一一次确认）；__hudStart 契约保留、外部再调为幂等 -->
+  <script>window.__hudStart();</script>
   <script src="game/config.js"></script>
   <script src="game/data.js"></script>
   <script src="game/scenes/DustTownScene.js"></script>

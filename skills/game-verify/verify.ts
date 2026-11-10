@@ -246,13 +246,33 @@ async function runBrowserLayers(): Promise<{ l1?: LayerResult; l2?: LayerResult 
       if (started === 'none') notes.push('未找到 START 入口（__hudStart / #start-btn）');
       await page.waitForTimeout(500);
 
+      // 开场剧情卡：去掉 START 遮罩的游戏以「开场卡」为唯一入口，卡在时移动键被吞——
+      // 探针报 cardActive 就用 __advanceCard 推进（最多几张），否则 L2 移动断言必假阴性
+      for (let i = 0; i < 4; i++) {
+        const card = await page.evaluate(() => {
+          const p = (window as any).__probe?.();
+          if (!p?.cardActive || typeof (window as any).__advanceCard !== 'function') return false;
+          (window as any).__advanceCard();
+          return true;
+        });
+        if (!card) break;
+        if (i === 0) notes.push('开场剧情卡已用 __advanceCard 推进');
+        await page.waitForTimeout(400);
+      }
+
       const shotBefore = await page.screenshot();
       const optStateBefore = await page.evaluate(() => {
         const g = (window as any).__gameState;
         return g?.player ? { x: g.player.x, y: g.player.y } : null;
       });
 
-      // 合成键盘输入
+      // 合成键盘输入。每个键按完都采一次玩家坐标：平台游戏里 A 左移、D 右移常常精确抵消，
+      // 只比首尾两点会把「确实动过」误判成没动（ShadowLeap / ShapeshifterGirl 都踩过，结果随时序抖）
+      const readPos = () => page.evaluate(() => {
+        const g = (window as any).__gameState;
+        return g?.player ? { x: g.player.x, y: g.player.y } : null;
+      });
+      let movedMidway = false;
       const perKey = Math.max(150, (seconds * 1000) / Math.max(keys.length, 1));
       for (const k of keys) {
         const pk = KEYMAP[k.toUpperCase()] ?? k;
@@ -262,6 +282,10 @@ async function runBrowserLayers(): Promise<{ l1?: LayerResult; l2?: LayerResult 
           await page.keyboard.up(pk);
           await page.waitForTimeout(perKey * 0.3);
         } catch { /* unknown key, skip */ }
+        if (optStateBefore && !movedMidway) {
+          const p = await readPos();
+          if (p && (p.x !== optStateBefore.x || p.y !== optStateBefore.y)) movedMidway = true;
+        }
       }
 
       const shotAfter = await page.screenshot();
@@ -286,7 +310,7 @@ async function runBrowserLayers(): Promise<{ l1?: LayerResult; l2?: LayerResult 
 
       // 可选精确断言：若游戏暴露 window.__gameState.player
       if (optStateBefore && optStateAfter) {
-        const moved = optStateBefore.x !== optStateAfter.x || optStateBefore.y !== optStateAfter.y;
+        const moved = movedMidway || optStateBefore.x !== optStateAfter.x || optStateBefore.y !== optStateAfter.y;
         notes.push(moved ? 'window.__gameState: 玩家坐标已响应输入' : 'window.__gameState: 玩家坐标未变化（移动可能失效）');
         if (!moved) { l2.pass = false; l2.reason = (l2.reason ? l2.reason + '；' : '') + '玩家坐标未响应移动键'; }
       } else {

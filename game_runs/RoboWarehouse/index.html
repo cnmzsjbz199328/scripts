@@ -4,6 +4,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>机器人仓库 (BoxBot Warehouse)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=ZCOOL+KuaiLe&family=Bungee&display=swap" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -129,6 +132,39 @@
       flex: 0 0 auto;
       transform-origin: center center;
     }
+    /* ── 开场遮罩 · 主题化 BEGIN（只作用于 #start-screen；胜负遮罩仍用通用卡）── */
+    #start-screen { flex-direction: column; overflow: hidden; backdrop-filter: none; }    #start-screen { background: radial-gradient(ellipse at 50% 40%, rgba(30,38,58,.2), rgba(14,18,30,.82) 78%), url('assets/tiles/floor_base.png') 0 0 / 104px 104px, #1e2638; }
+    #start-screen .rw-gear { position: absolute; width: 96px; height: 96px; pointer-events: none;
+      background: url('assets/objects/gear.webp') 0 0 / 576px 96px no-repeat; animation: rw-gear .8s steps(6) infinite; }
+    #start-screen .rw-plate { position: relative; width: 540px; margin-top: -80px; padding: 26px 36px 22px; text-align: center; color: #3a230c;
+      background: linear-gradient(160deg, #f4d58d 0%, #d9a94f 45%, #b8822f 100%); border-radius: 14px;
+      box-shadow: inset 0 2px 0 rgba(255,255,255,.6), inset 0 -4px 0 rgba(90,50,10,.35), 0 0 0 5px #6b4415, 0 14px 0 5px rgba(0,0,0,.35); }
+    #start-screen .rw-plate i { position: absolute; width: 12px; height: 12px; border-radius: 50%;
+      background: radial-gradient(circle at 35% 35%, #fff2c4, #8a5a1c 70%); box-shadow: 0 1px 1px rgba(0,0,0,.4); }
+    #start-screen .rw-en { font-family: 'Bungee', sans-serif; font-size: 16px; letter-spacing: .2em; color: #6b4415; }
+    #start-screen .rw-title { margin: 4px 0 0; font-family: 'ZCOOL KuaiLe', sans-serif; font-weight: 400; font-size: 66px; line-height: 1.1; letter-spacing: .08em; color: #4a2a0a;
+      text-shadow: 0 2px 0 rgba(255,240,200,.7), 0 -1px 0 rgba(80,40,0,.5); }
+    #start-screen .rw-story { margin-top: 10px; font-size: 14px; font-weight: 600; line-height: 1.85; color: #4a2e10; }
+    #start-screen .rw-btn { margin-top: 16px; padding: 9px 38px; cursor: pointer; font-family: 'ZCOOL KuaiLe', sans-serif; font-size: 26px; letter-spacing: .12em; color: #fff;
+      background: radial-gradient(ellipse at 50% 30%, #ff7a6b, #d62f2f 70%); border: 4px solid #5a5f6b; border-radius: 16px;
+      box-shadow: 0 0 0 3px #a9afbb, 0 6px 0 3px #3b3f48; transition: transform .08s, box-shadow .08s; }
+    #start-screen .rw-btn:hover { filter: brightness(1.08); }
+    #start-screen .rw-btn:active { transform: translateY(4px); box-shadow: 0 0 0 3px #a9afbb, 0 2px 0 3px #3b3f48; }
+    #start-screen .rw-keys { margin-top: 16px; display: flex; justify-content: center; gap: 16px; font-size: 13px; font-weight: 700; color: #4a2e10; }
+    #start-screen kbd { display: inline-block; margin-right: 4px; padding: 0 6px; font-family: 'Bungee', sans-serif; font-size: 11px; color: #f4d58d; background: #4a2a0a; border-radius: 4px; }
+    #start-screen .rw-belt { position: absolute; left: 0; right: 0; bottom: 40px; height: 64px;
+      background: url('assets/tiles/belt_right_base.png') 0 0 / 64px 64px repeat-x; animation: rw-belt .6s linear infinite; box-shadow: 0 -4px 0 rgba(0,0,0,.25); }
+    #start-screen .rw-bot { position: absolute; left: 70px; bottom: 104px; width: 96px; height: 104px;
+      background: url('assets/sprites/Botty.webp') 0 0 / 864px 312px no-repeat; animation: rw-walk .9s steps(9) infinite; }
+    #start-screen .rw-box { position: absolute; left: -64px; bottom: 44px; width: 56px; height: 56px; background-repeat: no-repeat; background-size: 224px 56px;
+      animation: rw-boxf .6s steps(4) infinite, rw-ride 9s linear infinite; }
+    @keyframes rw-belt { to { background-position: 64px 0; } }
+    @keyframes rw-walk { to { background-position: -864px 0; } }
+    @keyframes rw-gear { to { background-position: -576px 0; } }
+    @keyframes rw-boxf { to { background-position: -224px 0; } }
+    @keyframes rw-ride { to { transform: translateX(960px); } }
+    @media (prefers-reduced-motion: reduce) { #start-screen, #start-screen * { animation: none !important; } }
+    /* ── 开场遮罩 · 主题化 END ── */
   </style>
 </head>
 <body>
@@ -141,17 +177,23 @@
         <div id="hud-objective"><span id="hud-objective-text">关卡 1/5：单色方块练习</span></div>
     </div>
 
-    <!-- Start screen overlay -->
+    <!-- Start screen overlay：黄铜铭牌 · 传送带主题（无选择页的游戏保留这一次点击，样式见 style 末尾） -->
     <div id="start-screen" class="game-overlay">
-      <div class="overlay-card">
-        <h2>机器人仓库 (BoxBot Warehouse)</h2>
-        <p class="tagline">推动彩色方块，解开奇妙的工厂仓库谜题！</p>
-        <p class="story-setting">一个色彩斑斓、Q萌可爱的卡通蒸汽工厂，到处是旋转的齿轮、排放着彩虹蒸汽的管道。这里堆满了各种神奇的彩色能量方块。</p>
-        <button id="start-btn" class="game-btn" onclick="window.__hudStart()">▶ START GAME</button>
-        <p class="controls-hint">
-          Controls: WASD / Arrow Keys to move
-        </p>
+      <div class="rw-gear" style="left:28px;top:24px" aria-hidden="true"></div>
+      <div class="rw-gear" style="right:34px;top:70px;animation-direction:reverse" aria-hidden="true"></div>
+      <div class="rw-plate">
+        <i style="left:12px;top:12px"></i><i style="right:12px;top:12px"></i><i style="left:12px;bottom:12px"></i><i style="right:12px;bottom:12px"></i>
+        <div class="rw-en">BOXBOT WAREHOUSE</div>
+        <h2 class="rw-title">机器人仓库</h2>
+        <p class="rw-story">齿轮转个不停、管道喷着彩虹蒸汽的卡通工厂。<br>推动彩色能量方块，把它们送到同色的目标格。</p>
+        <button id="start-btn" class="rw-btn" onclick="window.__hudStart()">启动 Botty</button>
+        <div class="rw-keys"><span><kbd>WASD</kbd>移动/推箱</span><span><kbd>Z</kbd>撤销</span><span><kbd>R</kbd>重开本关</span></div>
       </div>
+      <div class="rw-belt" aria-hidden="true"></div>
+      <div class="rw-box" style="background-image:url('assets/objects/box_red.webp');animation-delay:0s,0s"></div>
+      <div class="rw-box" style="background-image:url('assets/objects/box_blue.webp');animation-delay:0s,-3s"></div>
+      <div class="rw-box" style="background-image:url('assets/objects/box_green.webp');animation-delay:0s,-6s"></div>
+      <div class="rw-bot" aria-hidden="true"></div>
     </div>
 
     <!-- Game over overlay -->

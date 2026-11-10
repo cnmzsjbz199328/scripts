@@ -50,74 +50,6 @@
     #hud-objective { color: #a5f3fc; flex: 1; text-align: center; }
     #hud-day    { color: #86efac; margin-left: auto; }
 
-    /* ── shared overlay styles ── */
-    .game-overlay {
-      position: absolute;
-      inset: 0;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      z-index: 20;
-      background: rgba(8, 12, 24, 0.88);
-      backdrop-filter: blur(3px);
-    }
-
-    .overlay-card {
-      text-align: center;
-      max-width: 520px;
-      padding: 36px 40px;
-      background: rgba(15, 23, 42, 0.95);
-      border: 1px solid #334155;
-      border-radius: 12px;
-      box-shadow: 0 20px 40px rgba(0,0,0,0.5);
-    }
-
-    .overlay-card h2 {
-      font-size: 2rem;
-      margin-bottom: 8px;
-      color: #f1f5f9;
-      letter-spacing: 0.08em;
-    }
-
-    .overlay-card .tagline {
-      font-size: 0.95rem;
-      color: #94a3b8;
-      margin-bottom: 16px;
-      font-style: italic;
-    }
-
-    .overlay-card .story-setting {
-      font-size: 0.88rem;
-      color: #64748b;
-      line-height: 1.6;
-      margin-bottom: 24px;
-    }
-
-    .overlay-card .controls-hint {
-      font-size: 0.78rem;
-      color: #475569;
-      line-height: 1.8;
-      margin-top: 14px;
-    }
-
-    /* ── buttons ── */
-    .game-btn {
-      display: inline-block;
-      padding: 12px 36px;
-      font-size: 1rem;
-      font-weight: 700;
-      letter-spacing: 0.1em;
-      border: none;
-      border-radius: 6px;
-      cursor: pointer;
-      transition: transform 0.1s, box-shadow 0.1s;
-    }
-
-    .game-btn:hover  { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(0,0,0,0.4); }
-    .game-btn:active { transform: translateY(0); }
-
-    #start-btn   { background: #2563eb; color: #fff; }
-
     /* ── responsive stage scaling (canvas + HUD scale together) ── */
     html, body { width: 100%; height: 100%; }
     #game-wrapper {
@@ -133,24 +65,10 @@
 
     <!-- HUD overlay -->
     <div id="hud">
-      <div id="hud-objective"><span id="hud-objective-text">选择流派，登台对决！</span></div>
+      <div id="hud-objective"><span id="hud-objective-text"></span></div>
     </div>
 
-    <!-- Start screen overlay -->
-    <div id="start-screen" class="game-overlay">
-      <div class="overlay-card">
-        <h2>三剑流</h2>
-        <p class="tagline">剑神的一击、水神的卸力、北神的诡诈——三种剑理，同一座台。</p>
-        <p class="story-setting">暮色压上山巅的斗技台。三条剑术的路径在此交汇</p>
-        <button id="start-btn" class="game-btn" onclick="window.__hudStart()">▶ START GAME</button>
-        <p class="controls-hint">
-          Controls: A/D 移动 · W 跳 · J 斩 · S 防御 · 长按 L 蓄力剑气 · SPACE 缩地（↑+SPACE 升空）<br>流派秘技 —— <b>出刀后按住 J 不放</b>：剑神「一の太刀·抜刀」蓄势横贯、不可防御（架式期间挨打即废） · 水神「剥夺剑界」六秒界内，对手出手即自伤 · 北神「幻剑」化影三体，只有本体伤人</p>
-        <p class="controls-hint">
-          Joy-Con 2（本机运行 Joycon adapter）：左摇杆/方向键 移动 · B 跳 · Y 斩（出刀后按住 Y = 秘技） · ZL 防御 · 长按 ZR 蓄力剑气 · A 缩地（↑+A 升空） · A / ＋ 确认 · ＋ 重开<br>
-          <span id="joycon-status"></span></p>
-      </div>
-    </div>
-
+    <!-- 无 START 遮罩：开页直接是选人屏（场景 create 里自调 __hudStart，契约保留） -->
   </div>
 
   <!-- 共享引擎层（格斗自绘血条，不用 ♥ HUD；仅用 onStart/setObjective） -->

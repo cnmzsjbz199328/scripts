@@ -4,6 +4,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>聚水成珠：墨水滴的远行</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Zhi+Mang+Xing&family=Caveat:wght@600&display=swap" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -123,6 +126,30 @@
       flex: 0 0 auto;
       transform-origin: center center;
     }
+    /* ── 开场遮罩 · 主题化 BEGIN（只作用于 #start-screen；胜负遮罩仍用通用卡）── */
+    #start-screen { flex-direction: column; overflow: hidden; backdrop-filter: none; }    #start-screen { color: #1d3f6e; font-family: 'Microsoft YaHei', 'Segoe UI', sans-serif;
+      background: linear-gradient(rgba(251,246,233,.6), rgba(251,246,233,.8)), url('scene/panorama.png') center 70% / cover, #fbf6e9; }
+    #start-screen .co-grid { position: absolute; inset: 0; pointer-events: none;
+      background-image: linear-gradient(rgba(47,111,176,.10) 1px, transparent 1px), linear-gradient(90deg, rgba(47,111,176,.10) 1px, transparent 1px);
+      background-size: 28px 28px; }
+    #start-screen .co-wrap { position: relative; display: flex; flex-direction: column; align-items: center; text-align: center; padding: 26px 90px; background: radial-gradient(ellipse at center, rgba(251,246,233,.94) 45%, rgba(251,246,233,0) 72%); }
+    #start-screen .co-kicker { font-family: 'Caveat', cursive; font-size: 24px; color: #5a7fae; transform: rotate(-2deg); }
+    #start-screen .co-title { margin: 0; font-family: 'Zhi Mang Xing', 'KaiTi', serif; font-weight: 400; font-size: 96px; line-height: 1.05;
+      color: #1d4f8f; text-shadow: 2px 3px 0 rgba(29,79,143,.16); }
+    #start-screen .co-sub { margin-top: 2px; font-size: 15px; letter-spacing: .35em; color: #2f6fb0; }
+    #start-screen .co-drop { width: 30px; height: 30px; margin: 20px 0 12px; border-radius: 0 50% 50% 50%; transform: rotate(45deg);
+      background: radial-gradient(circle at 62% 62%, #cfe8ff 0 10%, #4d8fd1 34%, #1d4f8f 88%); animation: co-drip 1.6s ease-in-out infinite; }
+    #start-screen .co-story { max-width: 540px; font-size: 14px; line-height: 1.9; color: #34557f; }
+    #start-screen .co-btn { margin-top: 18px; padding: 6px 40px 8px; cursor: pointer; font-family: 'Zhi Mang Xing', 'KaiTi', serif; font-size: 36px;
+      color: #1d4f8f; background: rgba(77,143,209,.10); border: 2.5px solid #1d4f8f;
+      border-radius: 255px 18px 225px 18px / 18px 225px 18px 255px; transition: background .15s, transform .15s; }
+    #start-screen .co-btn:hover { background: rgba(77,143,209,.22); transform: rotate(-1.5deg) scale(1.04); }
+    #start-screen .co-keys { margin-top: 16px; display: flex; gap: 18px; font-size: 13px; color: #4a6a93; }
+    #start-screen kbd { display: inline-block; margin: 0 2px; padding: 0 6px; font-family: 'Caveat', 'Microsoft YaHei', cursive; font-size: 17px; line-height: 1.2;
+      color: #1d4f8f; border: 1.5px solid #1d4f8f; border-radius: 6px 3px 7px 4px; background: rgba(255,255,255,.55); }
+    @keyframes co-drip { 0%,100% { transform: rotate(45deg) scale(1); } 45% { transform: rotate(45deg) translate(3px,3px) scale(1.1,.9); } 65% { transform: rotate(45deg) translate(-2px,-2px) scale(.93,1.07); } }
+    @media (prefers-reduced-motion: reduce) { #start-screen, #start-screen * { animation: none !important; } }
+    /* ── 开场遮罩 · 主题化 END ── */
   </style>
 </head>
 <body>
@@ -135,15 +162,17 @@
       <div id="hud-objective"><span id="hud-objective-text">聚水/挤身，撞开堤坝</span></div>
     </div>
 
+    <!-- Start screen overlay：速写本 · 墨滴主题（无选择页的游戏保留这一次点击，样式见 style 末尾） -->
     <div id="start-screen" class="game-overlay">
-      <div class="overlay-card">
-        <h2>聚水成珠：水量洞穴</h2>
-        <p class="tagline">水量就是力量——何时聚大、何时挤小，是穿过这座洞穴的唯一办法。</p>
-        <p class="story-setting">一团受重力下落的蓝墨水，要穿过向右延展的岩穴。吸墨滴会变大变重：跳得低、却能撞开裂纹堤坝；挤掉水会变小变轻：跳得高、能钻过窄缝。体型不是分数，而是贯穿全程的资源。聚够水量、足够大，一头撞开尽头的堤坝逸出。</p>
-        <button id="start-btn" class="game-btn" onclick="window.__hudStart()">▶ START GAME</button>
-        <p class="controls-hint">
-          A D / ← → 移动 ·　W / ↑ / 空格 跳(越小跳越高) ·　S / ↓ 挤水缩小钻缝
-        </p>
+      <div class="co-grid" aria-hidden="true"></div>
+      <div class="co-wrap">
+        <div class="co-kicker">sketchbook · the water cave</div>
+        <h2 class="co-title">聚水成珠</h2>
+        <div class="co-sub">水量洞穴 · 水量就是力量</div>
+        <div class="co-drop" aria-hidden="true"></div>
+        <p class="co-story">一团受重力下落的蓝墨水，要穿过向右延展的岩穴。<br>吸墨变大变重，撞开裂纹堤坝；挤水变小变轻，钻过窄缝。<br>体型不是分数，而是贯穿全程的资源。</p>
+        <button id="start-btn" class="co-btn" onclick="window.__hudStart()">落墨启程</button>
+        <div class="co-keys"><span><kbd>A</kbd><kbd>D</kbd> 移动</span><span><kbd>W</kbd>/<kbd>空格</kbd> 跳（越小越高）</span><span><kbd>S</kbd> 挤水缩小</span></div>
       </div>
     </div>
 
