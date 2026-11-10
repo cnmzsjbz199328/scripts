@@ -51,10 +51,21 @@ window.HuaPi.PanelSystem = class PanelSystem {
     return name;
   }
 
+  // 按字数折行，并守中文避头尾：句读与后引号不落行首（挂在上一行末，最多多出 2 字，
+  // 对话框右侧留有余量），前引号不留行尾（挪到下一行）。逐字打出时规则只看位置，不会跳行。
   wrap(text, width = this.lineWrap || 42) {
+    const NO_START = '，。、；：？！…—）」』》〉”’·';
+    const NO_END = '（「『《〈“‘';
     const chars = Array.from(String(text ?? ''));
     const lines = [];
-    for (let i = 0; i < chars.length; i += width) lines.push(chars.slice(i, i + width).join(''));
+    let i = 0;
+    while (i < chars.length) {
+      let end = Math.min(i + width, chars.length);
+      while (end < chars.length && end - i < width + 2 && NO_START.includes(chars[end])) end += 1;
+      while (end < chars.length && end - i > 1 && NO_END.includes(chars[end - 1])) end -= 1;
+      lines.push(chars.slice(i, end).join(''));
+      i = end;
+    }
     return lines.join('\n');
   }
 
