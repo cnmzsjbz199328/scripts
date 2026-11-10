@@ -269,7 +269,7 @@ window.HuaPi.PanelSystem = class PanelSystem {
     g.lineStyle(1, 0xc9ac8a, 0.45).lineBetween(280, 158, 1000, 158);
     g.lineBetween(280, 580, 1000, 580);
     const ending = node.ending;
-    const typeNames = { true: '圓滿', normal: '未竟', bad: '悲剧' };
+    const typeNames = { true: '圆满', normal: '未竟', bad: '悲剧' };
     const title = this.scene.add.text(640, 195, ending.title, { fontFamily: 'serif', fontSize: '44px', color: '#f0dec5' }).setOrigin(0.5);
     const type = this.scene.add.text(640, 246, typeNames[ending.type] || ending.type, { fontFamily: 'serif', fontSize: '18px', color: '#c96f7a' }).setOrigin(0.5);
     const closing = this.scene.add.text(640, 318, this.wrap(ending.closing, 38), {
