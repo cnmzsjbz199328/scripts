@@ -80,6 +80,10 @@ class BladeTrinityScene extends Phaser.Scene {
     // ?bt=0 关子弹时间 / ?bt=0.5 指定慢放倍率（bullettime.js）
     this._initBulletTime();
     this._buildSelect();
+    // ?school=sword|water|north —— playtest / 直链指定玩家流派：只挪选人光标，
+    // 探针 select 阶段自动确认的就是光标位（不传 = ROSTER[0] 剑神，行为不变）
+    const sp = new URLSearchParams(location.search).get('school');
+    if (sp && BT.ROSTER.includes(sp)) { this.selCursor[0] = BT.ROSTER.indexOf(sp); this._refreshSelect(); }
     if (this._refreshTier) this._refreshTier();
     this._buildInput();           // 键盘 + Joy-Con 动作层与连接状态（input.js）
     this._buildRestartBtn();      // 结束后鼠标悬停才浮出的半透明 ↻（restart.js）

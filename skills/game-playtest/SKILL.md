@@ -21,7 +21,10 @@ description: 自动试玩 + 录屏 + 白盒平衡指标（共享）。用 Playwr
 ```bash
 npx tsx skills/game-playtest/play.ts <GameName> [--seconds=90] [--tick=70] [--out=report.json]
 # BladeTrinity 专用：--tier=shang|sheng|wang|di|shen 起始难度档；--bt=0 关蓄力子弹时间、--bt=0.5 指定慢放倍率
-#（两者拼成同一个查询串 ?tier=…&bt=…，平衡 A/B 用）
+#   --school=sword|water|north 指定 bot 玩的流派（默认 ROSTER[0] 剑神；改非首位流派时用它验证）
+#（拼成同一个查询串 ?tier=…&bt=…&school=…，平衡 A/B 用）
+# --no-stuck：关闭卡死检测，只由 --seconds 兜底。录完整演示用——BladeTrinity 神级一回合常 >20s 不得分，
+#   默认会被判 stuck 截断。体检平衡时不要加（卡死检测本身就是体检项）
 ```
 
 产物写入 `game_runs/<Game>/playtest/`:`playthrough.webm`、`final.png`,及 stdout 的指标 JSON。

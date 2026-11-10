@@ -16,7 +16,8 @@
  *
  * 用法：
  *   npx tsx skills/game-playtest/play.ts <GameName>
- *     [--seconds=90] [--out=report.json] [--tick=70]
+ *     [--seconds=90] [--out=report.json] [--tick=70] [--no-stuck]
+ *   --no-stuck：关闭卡死检测，只由 --seconds 兜底——录完整演示用（如 BladeTrinity 高难度长回合）
  *
  * 退出码：0 = 通关，1 = 未通关(失败/超时/卡死)，2 = 用法/找不到游戏。
  */
@@ -89,9 +90,11 @@ interface Probe {
   const srv = await startServer();
   const isArena = gameName === 'ShadowForge';
   // BladeTrinity 支持 --tier=shang|sheng|wang|di|shen 指定起始难度档（默认游戏内王级），
-  // --bt=0 关蓄力子弹时间、--bt=0.5 指定慢放倍率（平衡 A/B 用），两者拼成同一个查询串
+  // --bt=0 关蓄力子弹时间、--bt=0.5 指定慢放倍率（平衡 A/B 用），
+  // --school=sword|water|north 指定 bot 玩的流派（默认 ROSTER[0] 剑神），都拼成同一个查询串
   const btq = gameName === 'BladeTrinity'
-    ? [flags.tier && `tier=${flags.tier}`, flags.bt !== undefined && `bt=${flags.bt}`].filter(Boolean).join('&') : '';
+    ? [flags.tier && `tier=${flags.tier}`, flags.bt !== undefined && `bt=${flags.bt}`,
+       flags.school && `school=${flags.school}`].filter(Boolean).join('&') : '';
   const q = isArena ? '?autoplay' : (btq ? `?${btq}` : '');
   const url = `http://127.0.0.1:${srv.port}/${gameName}/index.html` + q;
 
@@ -183,8 +186,8 @@ interface Probe {
 
       // 卡死检测：横版按 x 推进；俯视按 score 推进（走位不单调，x 无意义）；与单屏竞技场排除
       isTopdown = (P.moveX !== undefined); goalScore = p.goalScore || goalScore;
-      if (isArena) {
-        // 竞技场不使用位移卡死检测，只检测总时间超时
+      if (isArena || flags['no-stuck']) {
+        // 竞技场不使用位移卡死检测，只检测总时间超时；--no-stuck 录完整演示时同理（长回合不被误杀）
         stuckTicks = 0;
       } else if (isTopdown) {
         if (p.score > prevScore) { prevScore = p.score; stuckTicks = 0; } else stuckTicks++;
