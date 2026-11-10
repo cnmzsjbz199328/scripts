@@ -1,6 +1,6 @@
 # 剧本校验报告
 
-生成时间：2026-11-09T11:47:05.287Z
+生成时间：2026-11-10T02:55:42.366Z
 
 - 模式：strict
 - 节点：48
@@ -27,7 +27,7 @@
 
 ## 素材覆盖
 
-覆盖：44/44（100.0%）
+覆盖：54/54（100.0%）
 
 | 类型 | ID | 状态 |
 |---|---|---|
@@ -43,13 +43,23 @@
 | bg | shen_well | ✅ |
 | bg | grave_dawn | ✅ |
 | bg | courtyard_night | ✅ |
+| cg | road_meet | ✅ |
+| cg | mirror | ✅ |
+| cg | needle | ✅ |
+| cg | whisk | ✅ |
+| cg | jacket | ✅ |
 | cg | window_peek | ✅ |
 | cg | well_bones | ✅ |
+| cg | new_grave | ✅ |
+| cg | rosary | ✅ |
+| cg | lamp_walk | ✅ |
 | cg | portrait | ✅ |
+| cg | skin_touch | ✅ |
 | cg | burning | ✅ |
 | cg | shield_shadow | ✅ |
 | cg | aftermath | ✅ |
 | cg | heart_wang | ✅ |
+| cg | give_heart | ✅ |
 | cg | study_fire | ✅ |
 | lihui | wang:calm | ✅ |
 | lihui | chen:calm | ✅ |

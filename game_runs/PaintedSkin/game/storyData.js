@@ -235,6 +235,36 @@ window.HuaPi.STORY = {
     },
     "fade": {
       "name": "褪色的绢"
+    },
+    "road_meet": {
+      "name": "雾中初遇"
+    },
+    "mirror": {
+      "name": "镜中青影"
+    },
+    "needle": {
+      "name": "灯下停针"
+    },
+    "whisk": {
+      "name": "赠拂尘"
+    },
+    "jacket": {
+      "name": "拢衣"
+    },
+    "lamp_walk": {
+      "name": "提灯"
+    },
+    "skin_touch": {
+      "name": "触绢"
+    },
+    "new_grave": {
+      "name": "新坟"
+    },
+    "rosary": {
+      "name": "断念珠"
+    },
+    "give_heart": {
+      "name": "相予"
     }
   },
   "achievements": {
@@ -330,6 +360,7 @@ window.HuaPi.STORY = {
     },
     "a1_road": {
       "scene": "road_dawn",
+      "cg": "road_meet",
       "segments": [
         {
           "text": "太原城外，秋雾尚未散尽。一个女子抱着小小的包袱独行，步子被露水和疲惫拖得很慢。",
@@ -410,6 +441,7 @@ window.HuaPi.STORY = {
     },
     "a1_dress": {
       "scene": "study_in",
+      "cg": "mirror",
       "segments": [
         {
           "text": "次日清晨，你推门送水。她正对一面小镜梳妆，窗纸透进薄光，映得她鬓边的银簪像一线霜。",
@@ -494,6 +526,7 @@ window.HuaPi.STORY = {
     },
     "a1_home": {
       "scene": "home_night",
+      "cg": "needle",
       "segments": [
         {
           "text": "你回到家时，陈氏仍坐在堂中。她闻到你袖上的脂粉香，手指轻轻停在未做完的针线上。",
@@ -551,6 +584,7 @@ window.HuaPi.STORY = {
     },
     "a1_market": {
       "scene": "market",
+      "cg": "whisk",
       "segments": [
         {
           "text": "次日集市上，道士拦住你。他的拂塵垂在臂弯，像一截被风吹不动的白水。",
@@ -644,6 +678,7 @@ window.HuaPi.STORY = {
     },
     "h_meet": {
       "scene": "study_in",
+      "cg": "jacket",
       "segments": [
         {
           "text": "两个女人第一次相见。阿绢不肯抬眼，陈氏先看见她腕上几道旧痕，颜色已经被她照着记忆画进皮相。",
@@ -938,6 +973,7 @@ window.HuaPi.STORY = {
     },
     "h_justice": {
       "scene": "grave_dawn",
+      "cg": "new_grave",
       "segments": [
         {
           "text": "沈夫人当众认下旧罪。她没有为自己求情，只请人把井底遗骨收殓，葬在山坡向阳处。",
@@ -971,6 +1007,7 @@ window.HuaPi.STORY = {
     },
     "h_blood": {
       "scene": "shen_well",
+      "cg": "rosary",
       "segments": [
         {
           "text": "井边响起一声短促的呼喊，随即只剩风吹枯叶。梦盈亲手了结了沈夫人。",
@@ -1028,6 +1065,7 @@ window.HuaPi.STORY = {
     "f_chen": {
       "pov": "chen",
       "scene": "home_night",
+      "cg": "lamp_walk",
       "segments": [
         {
           "text": "又一夜，王生没有归家。脂粉香、晚归、含糊的解释，一样样压在你胸口。",
@@ -1096,6 +1134,7 @@ window.HuaPi.STORY = {
     },
     "f_confront": {
       "scene": "study_night",
+      "cg": "skin_touch",
       "segments": [
         {
           "text": "王生回来时，你把画卷摆在桌上。他摸到绢面，手一下缩回去：那柔软不像画布，更像温热的皮肤。",
@@ -1503,6 +1542,7 @@ window.HuaPi.STORY = {
     },
     "l_stay": {
       "scene": "study_night",
+      "cg": "give_heart",
       "segments": [
         {
           "speaker": "gui",

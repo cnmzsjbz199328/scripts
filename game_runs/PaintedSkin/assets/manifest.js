@@ -20,12 +20,22 @@ window.HuaPi.ART = {
     "burning": "assets/cg/burning.webp",
     "cover": "assets/cg/cover.webp",
     "fade": "assets/cg/fade.webp",
+    "give_heart": "assets/cg/give_heart.webp",
     "heart_chen": "assets/cg/heart_chen.webp",
     "heart_wang": "assets/cg/heart_wang.webp",
+    "jacket": "assets/cg/jacket.webp",
+    "lamp_walk": "assets/cg/lamp_walk.webp",
+    "mirror": "assets/cg/mirror.webp",
+    "needle": "assets/cg/needle.webp",
+    "new_grave": "assets/cg/new_grave.webp",
     "portrait": "assets/cg/portrait.webp",
+    "road_meet": "assets/cg/road_meet.webp",
+    "rosary": "assets/cg/rosary.webp",
     "shield_shadow": "assets/cg/shield_shadow.webp",
+    "skin_touch": "assets/cg/skin_touch.webp",
     "study_fire": "assets/cg/study_fire.webp",
     "well_bones": "assets/cg/well_bones.webp",
+    "whisk": "assets/cg/whisk.webp",
     "window_peek": "assets/cg/window_peek.webp"
   },
   "lihui": {
@@ -57,5 +67,23 @@ window.HuaPi.ART = {
     "wang:weak": "assets/lihui/wang_weak.webp",
     "wang:worry": "assets/lihui/wang_worry.webp"
   },
-  "avatar": {}
+  "avatar": {
+    "chen:calm": "assets/avatar/chen_calm.webp",
+    "chen:cold": "assets/avatar/chen_cold.webp",
+    "chen:fear": "assets/avatar/chen_fear.webp",
+    "chen:remorse": "assets/avatar/chen_remorse.webp",
+    "chen:resolve": "assets/avatar/chen_resolve.webp",
+    "chen:worry": "assets/avatar/chen_worry.webp",
+    "dao:angry": "assets/avatar/dao_angry.webp",
+    "dao:stern": "assets/avatar/dao_stern.webp",
+    "gui:rage": "assets/avatar/gui_rage.webp",
+    "gui:sorrow": "assets/avatar/gui_sorrow.webp",
+    "nv:love": "assets/avatar/nv_love.webp",
+    "nv:pitiful": "assets/avatar/nv_pitiful.webp",
+    "nv:smile": "assets/avatar/nv_smile.webp",
+    "shen:terror": "assets/avatar/shen_terror.webp",
+    "wang:calm": "assets/avatar/wang_calm.webp",
+    "wang:fear": "assets/avatar/wang_fear.webp",
+    "wang:weak": "assets/avatar/wang_weak.webp"
+  }
 };

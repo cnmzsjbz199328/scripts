@@ -21,11 +21,21 @@
 
 - `aftermath` — 银簪与月色
 - `burning` — 火盆中的画
+- `give_heart` — 相予
 - `heart_wang` — 渡命
+- `jacket` — 拢衣
+- `lamp_walk` — 提灯
+- `mirror` — 镜中青影
+- `needle` — 灯下停针
+- `new_grave` — 新坟
 - `portrait` — 榻上美人图
+- `road_meet` — 雾中初遇
+- `rosary` — 断念珠
 - `shield_shadow` — 墙上的三道影
+- `skin_touch` — 触绢
 - `study_fire` — 书斋火起
 - `well_bones` — 井底遗骨
+- `whisk` — 赠拂尘
 - `window_peek` — 窗纸之后
 
 ## 立绘
@@ -55,5 +65,5 @@
 - `wang:weak`
 - `wang:worry`
 
-覆盖合计：44/44
+覆盖合计：54/54
 
